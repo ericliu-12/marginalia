@@ -43,3 +43,7 @@ _Avoid_: Shelf, collection, folder
 **Enrichment**:
 LLM-generated summary and themes attached to a Book.
 _Avoid_: Metadata, annotation
+
+**Manual Book**:
+A Book the reader created by hand because search found no match. It is private to its creator and never treated as shared data.
+_Avoid_: Custom book, user-added book
