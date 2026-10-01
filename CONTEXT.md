@@ -41,7 +41,7 @@ The kind of relationship a Connection expresses: thematic, contrast, or context.
 _Avoid_: Link type, category
 
 **Cluster**:
-A group of related Books that emerges from Connections rather than being filed by hand.
+A group of at least three related Finished Books that emerges from Connections rather than being filed by hand. It has a generated name and keeps its identity as Books are added. Smaller groups and Books with no Connections are not Clusters.
 _Avoid_: Shelf, collection, folder
 
 **Enrichment**:
