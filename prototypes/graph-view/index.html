@@ -18,6 +18,7 @@ All data is SAMPLE: real, well-known Books with invented Connections and invente
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/graphology@0.25.4/dist/graphology.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sigma@2.4.0/build/sigma.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/graphology-library@0.8.0/dist/graphology-library.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/force-graph@1.43.5/dist/force-graph.min.js"></script>
 <style>
 :root{
@@ -70,6 +71,14 @@ q{quotes:none;font-style:italic;text-decoration:underline;text-decoration-color:
 .conn .go{display:block;font:italic 500 19px/1.25 var(--serif);margin:6px 0 4px;text-align:left}
 .conn .go:hover{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
 .conn p{margin:0;font-size:15.5px;color:#3a322a}
+.clabels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.clabel{position:absolute;left:0;top:0;pointer-events:auto;white-space:nowrap;font:italic 500 24px var(--serif);color:rgba(35,29,23,.4);padding:2px 6px;border-radius:6px}
+.clabel:hover,.clabel.on{color:var(--ink);background:rgba(250,245,234,.7)}
+.a-panel .trail{margin:0 0 18px;font-size:12.5px}
+.a-panel .cdesc{font-size:16.5px;margin:0 0 18px;color:#33291f}
+.a-panel .follow{font:500 13px var(--sans);color:var(--ink-2);border-bottom:1px solid var(--rule);margin-top:8px}
+.a-panel .follow:hover{color:var(--ink)}
+.clink:hover{text-decoration:underline;text-underline-offset:3px}
 .x{position:absolute;top:14px;right:16px;font:500 13px var(--sans);color:var(--ink-3)}
 
 /* ---------- B: margin pane ---------- */
@@ -211,7 +220,7 @@ const INK="#231d17",FADE="#d9cfbb",PAPER="#f3ecdd";
 const TOP_N=3; // prototype constant: each Book's strongest ~N Connections show; select a Book to reveal the rest
 
 /* =============== state =============== */
-const S={selected:null,selEdge:null,arrived:false,fresh:false,revealed:new Set(),trail:[],hover:null};
+const S={cluster:null,selected:null,selEdge:null,arrived:false,fresh:false,revealed:new Set(),trail:[],hover:null};
 let timers=[];
 const srank=e=>e.s==="strong"?0:1;
 const cmp=(x,y)=>srank(edges[x])-srank(edges[y])||x-y;
@@ -220,9 +229,9 @@ const live=i=>{const e=edges[i];if(!present(e.a)||!present(e.b))return false;ret
 function neighbors(id){return edges.map((_,i)=>i).filter(i=>live(i)&&(edges[i].a===id||edges[i].b===id)).sort(cmp).map(i=>({i,o:edges[i].a===id?edges[i].b:edges[i].a}))}
 let memo={k:"",set:null};
 function shown(){
-  const k=[S.arrived,S.revealed.size,S.selected].join("|");if(memo.k===k)return memo.set;
+  const k=[S.arrived,S.revealed.size,S.selected,S.cluster].join("|");if(memo.k===k)return memo.set;
   const set=new Set(),by={};
-  edges.forEach((e,i)=>{if(!live(i))return;(by[e.a]??=[]).push(i);(by[e.b]??=[]).push(i);if(e.a===S.selected||e.b===S.selected)set.add(i)});
+  edges.forEach((e,i)=>{if(!live(i))return;(by[e.a]??=[]).push(i);(by[e.b]??=[]).push(i);if(e.a===S.selected||e.b===S.selected)set.add(i);if(S.cluster!=null&&B[e.a].c===S.cluster&&B[e.b].c===S.cluster)set.add(i)});
   Object.values(by).forEach(l=>l.sort(cmp).slice(0,TOP_N).forEach(i=>set.add(i)));
   memo={k,set};return set;
 }
@@ -230,6 +239,20 @@ const deg=id=>edges.filter(e=>e.a===id||e.b===id).length;
 const nodeSize=id=>4.5+deg(id)*1.1;
 const fmt=t=>t.replace(/“([^”]+)”/g,"<q>$1</q>");
 const clusterMembers=c=>books.filter(b=>b.c===c&&present(b.id));
+function trailEdges(){const s=new Set();for(let k=1;k<S.trail.length;k++){const x=S.trail[k-1],y=S.trail[k];edges.forEach(e=>{if((e.a===x&&e.b===y)||(e.a===y&&e.b===x))s.add(e.i)})}return s}
+function focusSet(){
+  if(S.selected){const s=new Set([S.selected,...S.trail]);neighbors(S.selected).forEach(n=>s.add(n.o));return s}
+  if(S.cluster!=null)return new Set(books.filter(b=>b.c===S.cluster).map(b=>b.id));
+  return null;
+}
+function edgeStyle(i){
+  if(!live(i)||!shown().has(i))return"hidden";
+  if(S.selEdge===i)return"sel";
+  const e=edges[i];
+  if(S.selected){if(e.a===S.selected||e.b===S.selected)return"full";return trailEdges().has(i)?"trail":"dim"}
+  if(S.cluster!=null)return B[e.a].c===S.cluster&&B[e.b].c===S.cluster?"full":"dim";
+  return"full";
+}
 
 /* =============== layout (shared, seeded) =============== */
 const POS=(()=>{
@@ -246,7 +269,7 @@ const POS=(()=>{
 })();
 
 /* =============== shared markup =============== */
-const lineFor=e=>`<i style="height:${e.s==="strong"?3:1.5}px"></i>`;
+const lineFor=e=>`<i style="height:${e.s==="strong"?4:2}px"></i>`;
 const tagHTML=e=>`<span class="tag ${e.type}">${lineFor(e)}${TYPE[e.type].n}</span>`;
 
 /* =============== force-graph helper (B + C) =============== */
@@ -260,7 +283,7 @@ function makeFG(el,o){
   const fg=ForceGraph()(el).width(el.clientWidth).height(el.clientHeight).backgroundColor("rgba(0,0,0,0)")
     .graphData({nodes,links}).nodeId("id").nodeVisibility(n=>present(n.id)&&visN(n)).linkVisibility(l=>live(l.i)&&visL(l))
     .linkColor(l=>{const dim=S.selected&&!(l.e.a===S.selected||l.e.b===S.selected);return dim?"#e2d8c5":TYPE[l.e.type].c})
-    .linkWidth(l=>(l.e.s==="strong"?3:1.5)*(S.selEdge===l.i?1.8:1))
+    .linkWidth(l=>ew(l.e)*(S.selEdge===l.i?1.8:1))
     .nodeCanvasObject((n,ctx,k)=>{
       const nb=nbrSet(),dim=nb&&!nb.has(n.id)&&!(o.keepAll);
       const r=nodeSize(n.id)*.9;
@@ -297,50 +320,120 @@ function makeFG(el,o){
     destroy(){ro.disconnect();fg._destructor&&fg._destructor()}};
 }
 
-/* =============== A: Canvas (Sigma + graphology) =============== */
-function mountA(root){
-  root.innerHTML=`<div class="a-stage"><canvas class="wash"></canvas><div class="sg"></div></div>
+/* =============== A / D: Canvas (A = Sigma.js, D = force-graph seeded from ForceAtlas2) =============== */
+const CDESC=[
+ "Novels about people who give a life to duty, restraint or habit, and find out what it cost. Mostly quiet, mostly late.",
+ "Fiction and political thought on how institutions, ideology and planning shape the people inside them.",
+ "Stoics, existentialists and one survivor, all asking how to carry on when the world will not supply a meaning.",
+ "Books about how minds and sciences form beliefs, and why frames make us blind to what does not fit.",
+ "Wide-angle accounts of how humans, land and other living things came to be where they are."
+];
+const ew=e=>e.s==="strong"?4.5:2.5; // edge width (wider than first round)
+function fa2Layout(){
+  try{
+    const g=new graphology.Graph();
+    books.forEach((b,i)=>g.addNode(b.id,{x:Math.cos(i*2.4)*Math.sqrt(i+1)*20,y:Math.sin(i*2.4)*Math.sqrt(i+1)*20}));
+    edges.forEach(e=>g.addEdge(e.a,e.b,{weight:e.s==="strong"?2:1}));
+    const F=graphologyLibrary.layoutForceAtlas2;
+    F.assign(g,{iterations:600,settings:{...F.inferSettings(g),gravity:1.2,scalingRatio:14,edgeWeightInfluence:1}});
+    let m=0;g.forEachNode((n,a)=>{m=Math.max(m,Math.hypot(a.x,a.y))});
+    const o={};g.forEachNode((n,a)=>o[n]={x:a.x/m*130,y:a.y/m*130});return o;
+  }catch(err){console.warn("ForceAtlas2 unavailable, falling back to prototype layout",err);return POS}
+}
+const FA2=fa2Layout();
+
+function mountCanvas(root,kind){
+  root.innerHTML=`<div class="a-stage"><canvas class="wash"></canvas><div class="sg"></div><div class="clabels">${CLUSTERS.map((c,i)=>`<button class="clabel" data-cl="${i}">${c}</button>`).join("")}</div></div>
   <div class="brand a-brand">Marginalia</div>
   <aside class="a-panel" hidden></aside>
-  <div class="a-legend"><div class="row">${["thematic","contrast","context"].map(t=>`<span class="tag ${t}"><i style="height:3px"></i>${TYPE[t].n}</span>`).join("")}</div><div class="note">Thicker line = stronger Connection · select a Book to see all of its Connections</div></div>`;
-  const g=new graphology.Graph();
-  books.forEach(b=>g.addNode(b.id,{label:b.l,x:POS[b.id].x,y:POS[b.id].y,size:nodeSize(b.id),color:INK}));
-  edges.forEach(e=>g.addEdgeWithKey("e"+e.i,e.a,e.b,{size:e.s==="strong"?3:1.5,color:TYPE[e.type].c}));
-  const panel=root.querySelector(".a-panel"),wash=root.querySelector("canvas.wash"),sg=root.querySelector(".sg");
-  const nb=()=>{if(!S.selected)return null;const s=new Set([S.selected]);neighbors(S.selected).forEach(n=>s.add(n.o));return s};
-  const sigma=new Sigma(g,sg,{renderLabels:true,labelFont:"Newsreader, serif",labelSize:13,labelWeight:"500",labelColor:{color:INK},labelDensity:1.2,labelGridCellSize:80,labelRenderedSizeThreshold:3,defaultEdgeType:"line",enableEdgeEvents:true,zIndex:true,minCameraRatio:.25,maxCameraRatio:3,
-    nodeReducer:(n,d)=>{if(!present(n))return{...d,hidden:true};const s=nb();if(!s)return d;if(n===S.selected)return{...d,forceLabel:true,zIndex:2};if(s.has(n))return{...d,forceLabel:true,zIndex:1};return{...d,color:FADE,label:null}},
-    edgeReducer:(k,d)=>{const i=+k.slice(1);if(!live(i)||!shown().has(i))return{...d,hidden:true};if(S.selected){const e=edges[i];if(e.a!==S.selected&&e.b!==S.selected)return{...d,color:"#e2d8c5",size:1}}return S.selEdge===i?{...d,size:d.size+2.5,zIndex:2}:d}});
-  function drawWash(){
-    const r=wash.getBoundingClientRect(),dpr=devicePixelRatio||1;wash.width=r.width*dpr;wash.height=r.height*dpr;
+  <div class="a-legend"><div class="row">${["thematic","contrast","context"].map(t=>`<span class="tag ${t}"><i style="height:4px"></i>${TYPE[t].n}</span>`).join("")}</div><div class="note">Thicker line = stronger Connection · select a Book, follow its Connections · click a Cluster name</div></div>`;
+  const panel=root.querySelector(".a-panel"),wash=root.querySelector("canvas.wash"),sg=root.querySelector(".sg"),labels=[...root.querySelectorAll(".clabel")];
+  let E; // engine
+
+  /* ---- shared chrome: wash, Cluster labels, panel, trail ---- */
+  function draw(){
+    const r=wash.getBoundingClientRect(),dpr=devicePixelRatio||1;
+    if(wash.width!==Math.round(r.width*dpr)||wash.height!==Math.round(r.height*dpr)){wash.width=r.width*dpr;wash.height=r.height*dpr}
     const ctx=wash.getContext("2d");ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,r.width,r.height);
-    const o=sigma.graphToViewport({x:0,y:0}),u=sigma.graphToViewport({x:1,y:0}),k=Math.hypot(u.x-o.x,u.y-o.y),R=30*k;
-    const P=id=>sigma.graphToViewport(POS[id]);
+    const o=E.toViewport({x:0,y:0}),u=E.toViewport({x:1,y:0}),k=Math.hypot(u.x-o.x,u.y-o.y),R=30*k;
     ctx.globalCompositeOperation="multiply";
-    CLUSTERS.forEach((nm,c)=>{const m=clusterMembers(c);if(m.length<3)return;m.forEach(b=>{const p=P(b.id),gr=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,R);gr.addColorStop(0,WASH[c]+"88");gr.addColorStop(1,WASH[c]+"00");ctx.fillStyle=gr;ctx.beginPath();ctx.arc(p.x,p.y,R,0,Math.PI*2);ctx.fill()})});
-    ctx.globalCompositeOperation="source-over";
-    CLUSTERS.forEach((nm,c)=>{const m=clusterMembers(c);if(m.length<3)return;const ps=m.map(b=>P(b.id));const x=ps.reduce((a,p)=>a+p.x,0)/ps.length,y=Math.min(...ps.map(p=>p.y))-R*.62;
-      ctx.font=`italic 500 ${Math.max(14,Math.min(30,k*9))}px Newsreader, serif`;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillStyle="rgba(35,29,23,.34)";ctx.fillText(nm,x,y)});
+    CLUSTERS.forEach((nm,c)=>{const m=clusterMembers(c);if(m.length<3)return;m.forEach(b=>{const p=E.toViewport(E.pos(b.id)),gr=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,R);gr.addColorStop(0,WASH[c]+(S.cluster===c?"cc":"88"));gr.addColorStop(1,WASH[c]+"00");ctx.fillStyle=gr;ctx.beginPath();ctx.arc(p.x,p.y,R,0,Math.PI*2);ctx.fill()})});
+    CLUSTERS.forEach((nm,c)=>{const m=clusterMembers(c),el=labels[c];if(m.length<3){el.style.display="none";return}el.style.display="";
+      const ps=m.map(b=>E.toViewport(E.pos(b.id)));const x=ps.reduce((a,p)=>a+p.x,0)/ps.length,y=Math.min(...ps.map(p=>p.y))-R*.62;
+      el.style.fontSize=Math.max(14,Math.min(30,k*9))+"px";el.style.transform=`translate(${x}px,${y}px) translate(-50%,-50%)`;el.classList.toggle("on",S.cluster===c)});
   }
-  sigma.on("afterRender",drawWash);
   function renderPanel(){
+    if(S.cluster!=null){const c=S.cluster,m=clusterMembers(c);panel.hidden=false;
+      panel.innerHTML=`<button class="x" data-x>close</button><h2>${CLUSTERS[c]}</h2><p class="by">Cluster of ${m.length} Books</p><p class="cdesc">${CDESC[c]}</p>
+      <ol class="conns">${m.map(b=>`<li class="conn"><button class="go" data-go="${b.id}">${b.t}</button><p class="by" style="margin:0">${b.a}, ${b.y}</p></li>`).join("")}</ol>`;return}
     const id=S.selected;if(!id){panel.hidden=true;return}
     const b=B[id];panel.hidden=false;
-    panel.innerHTML=`<button class="x" data-x>close</button>${S.fresh&&id==="stoner"?`<p class="fresh">You just finished this. Where it sits among your earlier reading:</p>`:""}
-    <h2>${b.t}</h2><p class="by">${b.a}, ${b.y} · <em>${CLUSTERS[b.c]}</em></p>
-    <ol class="conns">${neighbors(id).map(({i,o})=>{const e=edges[i];return `<li class="conn rise ${S.selEdge===i?"on":""}" data-edge="${i}">${tagHTML(e)}<button class="go" data-go="${o}">${B[o].t}</button><p>${fmt(e.e)}</p></li>`}).join("")||`<li class="conn"><p>No Connections found yet.</p></li>`}</ol>`;
+    panel.innerHTML=`<button class="x" data-x>close</button>
+    ${S.trail.length>1?`<nav class="trail">${S.trail.map((t,k)=>`${k?"<span>›</span>":""}${k===S.trail.length-1?`<span class="cur">${B[t].l}</span>`:`<button data-trim="${k}">${B[t].l}</button>`}`).join("")}</nav>`:""}
+    ${S.fresh&&id==="stoner"?`<p class="fresh">You just finished this. Where it sits among your earlier reading:</p>`:""}
+    <h2>${b.t}</h2><p class="by">${b.a}, ${b.y} · <button class="clink" data-cl="${b.c}"><em>${CLUSTERS[b.c]}</em></button></p>
+    <ol class="conns">${neighbors(id).map(({i,o})=>{const e=edges[i];return `<li class="conn rise ${S.selEdge===i?"on":""}" data-edge="${i}">${tagHTML(e)}<button class="go" data-follow="${o}">${B[o].t}</button><p>${fmt(e.e)}</p><button class="follow" data-follow="${o}">Follow this Connection →</button></li>`}).join("")||`<li class="conn"><p>No Connections found yet.</p></li>`}</ol>`;
   }
-  const refresh=()=>{renderPanel();sigma.refresh()};
-  const focus=(id)=>{const d=sigma.getNodeDisplayData(id);if(d)sigma.getCamera().animate({x:d.x,y:d.y,ratio:Math.min(sigma.getCamera().ratio,.75)},{duration:600})};
-  const pick=id=>{S.fresh=S.fresh&&id==="stoner";S.selected=id;S.selEdge=null;refresh();focus(id)};
-  sigma.on("clickNode",({node})=>pick(node));
-  sigma.on("clickStage",()=>{S.selected=null;S.selEdge=null;S.fresh=false;refresh();sigma.getCamera().animatedReset({duration:500})});
-  sigma.on("clickEdge",({edge})=>{const i=+edge.slice(1);S.selected=edges[i].a;S.selEdge=i;refresh();setTimeout(()=>panel.querySelector(".conn.on")?.scrollIntoView({block:"nearest",behavior:"smooth"}),30)});
-  sigma.on("enterNode",()=>sg.style.cursor="pointer");sigma.on("leaveNode",()=>sg.style.cursor="");
-  panel.addEventListener("click",ev=>{const go=ev.target.closest("[data-go]");if(go)return pick(go.dataset.go);if(ev.target.closest("[data-x]")){S.selected=null;S.selEdge=null;S.fresh=false;refresh();return}const c=ev.target.closest("[data-edge]");if(c){S.selEdge=+c.dataset.edge;refresh()}});
+  const refresh=()=>{renderPanel();E.refresh()};
+  const pick=(id,follow)=>{S.cluster=null;S.fresh=S.fresh&&id==="stoner";S.selected=id;S.selEdge=null;
+    if(follow){if(S.trail[S.trail.length-1]!==id)S.trail.push(id)}else S.trail=[id];
+    refresh();E.focusMany([id]);panel.scrollTo({top:0})};
+  const pickCluster=c=>{S.cluster=c;S.selected=null;S.selEdge=null;S.trail=[];S.fresh=false;refresh();E.focusMany(clusterMembers(c).map(b=>b.id),true)};
+  const clear=()=>{S.selected=null;S.selEdge=null;S.cluster=null;S.trail=[];S.fresh=false;refresh();E.reset()};
+  const pickEdge=i=>{S.cluster=null;S.selected=edges[i].a;S.selEdge=i;if(!S.trail.length)S.trail=[S.selected];refresh();setTimeout(()=>panel.querySelector(".conn.on")?.scrollIntoView({block:"nearest",behavior:"smooth"}),30)};
+  const api={pick:id=>pick(id,false),bg:clear,link:pickEdge,draw};
+  panel.addEventListener("click",ev=>{
+    const f=ev.target.closest("[data-follow]");if(f)return pick(f.dataset.follow,true);
+    const go=ev.target.closest("[data-go]");if(go)return pick(go.dataset.go,false);
+    const tr=ev.target.closest("[data-trim]");if(tr){const k=+tr.dataset.trim;S.trail=S.trail.slice(0,k+1);return pick(S.trail[k],true)}
+    const cl=ev.target.closest("[data-cl]");if(cl)return pickCluster(+cl.dataset.cl);
+    if(ev.target.closest("[data-x]"))return clear();
+    const c=ev.target.closest("[data-edge]");if(c){S.selEdge=+c.dataset.edge;refresh()}});
+  root.querySelector(".clabels").addEventListener("click",ev=>{const cl=ev.target.closest("[data-cl]");if(cl)pickCluster(+cl.dataset.cl)});
+
+  /* ---- engines ---- */
+  if(kind==="sigma"){
+    const g=new graphology.Graph();
+    books.forEach(b=>g.addNode(b.id,{label:b.l,x:POS[b.id].x,y:POS[b.id].y,size:nodeSize(b.id),color:INK}));
+    edges.forEach(e=>g.addEdgeWithKey("e"+e.i,e.a,e.b,{size:ew(e),color:TYPE[e.type].c}));
+    const sigma=new Sigma(g,sg,{renderLabels:true,labelFont:"Newsreader, serif",labelSize:13,labelWeight:"500",labelColor:{color:INK},labelDensity:1.2,labelGridCellSize:80,labelRenderedSizeThreshold:3,defaultEdgeType:"line",enableEdgeEvents:true,zIndex:true,minCameraRatio:.25,maxCameraRatio:3,
+      nodeReducer:(n,d)=>{if(!present(n))return{...d,hidden:true};const s=focusSet();if(!s)return d;if(n===S.selected)return{...d,forceLabel:true,zIndex:2};if(s.has(n))return{...d,forceLabel:true,zIndex:1};return{...d,color:FADE,label:null}},
+      edgeReducer:(k,d)=>{const st=edgeStyle(+k.slice(1));if(st==="hidden")return{...d,hidden:true};if(st==="dim")return{...d,color:"#e2d8c5",size:1};if(st==="sel")return{...d,size:d.size+3,zIndex:2};if(st==="trail")return{...d,size:d.size+1.5,zIndex:1};return d}});
+    sigma.on("afterRender",draw);
+    sigma.on("clickNode",({node})=>api.pick(node));sigma.on("clickStage",api.bg);sigma.on("clickEdge",({edge})=>api.link(+edge.slice(1)));
+    sigma.on("enterNode",()=>sg.style.cursor="pointer");sigma.on("leaveNode",()=>sg.style.cursor="");
+    E={refresh:()=>sigma.refresh(),pos:id=>POS[id],toViewport:p=>sigma.graphToViewport(p),
+      focusMany(ids,wide){const d=ids.map(i=>sigma.getNodeDisplayData(i)).filter(Boolean);if(!d.length)return;const x=d.reduce((a,p)=>a+p.x,0)/d.length,y=d.reduce((a,p)=>a+p.y,0)/d.length;sigma.getCamera().animate({x,y,ratio:wide?.65:Math.min(sigma.getCamera().ratio,.75)},{duration:600})},
+      reset:()=>sigma.getCamera().animatedReset({duration:500}),destroy:()=>sigma.kill()};
+  }else{
+    const nodes=books.map(b=>({id:b.id,b,x:FA2[b.id].x,y:FA2[b.id].y,hx:FA2[b.id].x,hy:FA2[b.id].y}));
+    const links=edges.map(e=>({source:e.a,target:e.b,i:e.i,e,rest:Math.hypot(FA2[e.a].x-FA2[e.b].x,FA2[e.a].y-FA2[e.b].y)}));
+    let base=1;
+    const fg=ForceGraph()(sg).width(sg.clientWidth).height(sg.clientHeight).backgroundColor("rgba(0,0,0,0)").graphData({nodes,links}).nodeId("id")
+      .nodeVisibility(n=>present(n.id)).linkVisibility(l=>edgeStyle(l.i)!=="hidden")
+      .linkColor(l=>edgeStyle(l.i)==="dim"?"#e2d8c5":TYPE[l.e.type].c)
+      .linkWidth(l=>{const st=edgeStyle(l.i);return (st==="dim"?1:ew(l.e)+(st==="sel"?3:st==="trail"?1.5:0))/fg.zoom()})
+      .nodeCanvasObject((n,ctx,k)=>{const s=focusSet(),dim=s&&!s.has(n.id),r=nodeSize(n.id)/k;
+        ctx.beginPath();ctx.arc(n.x,n.y,r,0,Math.PI*2);ctx.fillStyle=dim?FADE:INK;ctx.fill();
+        if(dim)return;ctx.font=`500 ${13/k}px Newsreader, serif`;ctx.textAlign="left";ctx.textBaseline="middle";ctx.fillStyle=INK;ctx.fillText(n.b.l,n.x+r+3/k,n.y)})
+      .nodePointerAreaPaint((n,c,ctx,k)=>{ctx.fillStyle=c;ctx.beginPath();ctx.arc(n.x,n.y,(nodeSize(n.id)+5)/k,0,Math.PI*2);ctx.fill()})
+      .linkHoverPrecision(6).onNodeClick(n=>api.pick(n.id)).onBackgroundClick(api.bg).onLinkClick(l=>api.link(l.i))
+      .onRenderFramePre(()=>api.draw()).warmupTicks(0).cooldownTicks(0).d3AlphaDecay(.06).d3VelocityDecay(.5);
+    // seeded layout stays put; dragging a node wakes a gentle local simulation that settles back toward home
+    fg.d3Force("link").distance(l=>l.rest).strength(.2);
+    fg.d3Force("charge").strength(-14).distanceMax(45);
+    fg.d3Force("home",a=>nodes.forEach(n=>{n.vx+=(n.hx-n.x)*.08*a;n.vy+=(n.hy-n.y)*.08*a}));
+    setTimeout(()=>{fg.zoomToFit(0,90);base=fg.zoom();fg.cooldownTicks(100)},120);
+    const ro=new ResizeObserver(()=>fg.width(sg.clientWidth).height(sg.clientHeight));ro.observe(sg);
+    sg.style.cursor="grab";
+    E={refresh(){},pos:id=>nodes.find(n=>n.id===id),toViewport:p=>fg.graph2ScreenCoords(p.x,p.y),
+      focusMany(ids,wide){const m=nodes.filter(n=>ids.includes(n.id));if(!m.length)return;fg.centerAt(m.reduce((a,n)=>a+n.x,0)/m.length,m.reduce((a,n)=>a+n.y,0)/m.length,600);const z=base*(wide?1.5:1.7);if(fg.zoom()<z||wide)fg.zoom(z,600)},
+      reset:()=>fg.zoomToFit(500,90),destroy(){ro.disconnect();fg._destructor&&fg._destructor()}};
+  }
   renderPanel();
-  return{refresh,focus,destroy(){sigma.kill()}};
+  return{refresh,focus:id=>E.focusMany([id]),destroy:()=>E.destroy()};
 }
+const mountA=r=>mountCanvas(r,"sigma"),mountD=r=>mountCanvas(r,"fg");
 
 /* =============== B: Margin pane (force-graph + docked pane) =============== */
 function mountB(root){
@@ -397,7 +490,7 @@ function mountC(root){
 }
 
 /* =============== shell: variant switcher + arrival simulation =============== */
-const variants={A:["Canvas",mountA],B:["Margin pane",mountB],C:["Trail",mountC]},keys=Object.keys(variants);
+const variants={A:["Canvas · Sigma",mountA],D:["Canvas · force-graph + ForceAtlas2",mountD],B:["Margin pane",mountB],C:["Trail",mountC]},keys=["A","D","B","C"];
 const stage=document.getElementById("stage");let cur=null,curKey=null;
 function show(k){
   if(cur)cur.destroy();stage.innerHTML="";const el=document.createElement("div");el.className="variant";stage.appendChild(el);
@@ -415,8 +508,8 @@ finishBtn.onclick=()=>{
   show(curKey);cur.focus("stoner");
   edges.filter(e=>e.a==="stoner"||e.b==="stoner").sort((x,y)=>cmp(x.i,y.i)).forEach((e,k)=>timers.push(setTimeout(()=>{S.revealed.add(e.i);cur.refresh()},1100+k*1000)));
 };
-document.getElementById("reset").onclick=()=>{timers.forEach(clearTimeout);timers=[];Object.assign(S,{selected:null,selEdge:null,arrived:false,fresh:false,revealed:new Set(),trail:[]});finishBtn.disabled=false;show(curKey)};
-const start=()=>{const v=new URL(location.href).searchParams.get("variant");show(variants[v]?v:"A");if(new URL(location.href).searchParams.has("arrive"))finishBtn.click()};
+document.getElementById("reset").onclick=()=>{timers.forEach(clearTimeout);timers=[];Object.assign(S,{cluster:null,selected:null,selEdge:null,arrived:false,fresh:false,revealed:new Set(),trail:[]});finishBtn.disabled=false;show(curKey)};
+const start=()=>{const v=new URL(location.href).searchParams.get("variant");show(variants[v]?v:"A");if(new URL(location.href).searchParams.has("arrive"))finishBtn.click();const cl=new URL(location.href).searchParams.get("cl");if(cl)setTimeout(()=>document.querySelector(`.clabel[data-cl="${cl}"]`)?.click(),1200)};
 (document.fonts&&document.fonts.load?Promise.race([document.fonts.load("500 13px Newsreader"),new Promise(r=>setTimeout(r,1500))]):Promise.resolve()).then(start);
 </script>
 </body>
