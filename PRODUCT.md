@@ -14,7 +14,7 @@ User-specified:
 - Tailwind CSS + shadcn/ui primitives, restyled to the Marginalia design system
 - Postgres + pgvector (embeddings for connection candidates), Drizzle ORM; Docker locally, Neon later
 - Graph: Sigma.js (WebGL) with graphology for graph data and clustering (Louvain)
-- Book data: Open Library API (free, no key), Google Books as fallback for covers and descriptions
+- Book data: Open Library API (free, no key) for identity and covers; no Google Books in the MVP
 - AI: Claude API for book enrichment (summary, themes), connection judging, and explanations; embeddings for candidate retrieval
 - Auth: none for the MVP (single user). The data model carries `user_id` throughout so auth can be added later.
 
@@ -54,7 +54,7 @@ Versus neighbors: Obsidian makes you draw every link by hand; Goodreads only kno
 - Notes attached to books, captured mid-read.
 - Typed connections between books, each with a specific explanation that may quote the reader's notes.
 - Graph view with automatic clustering (Louvain).
-- Book enrichment (summary, themes) via Claude; metadata and covers via Open Library, Google Books fallback.
+- Book enrichment (summary, themes) via Claude; identity and covers via Open Library.
 - Single user for the MVP; multi-user is a later possibility, not a current requirement.
 - Undecided: the exact set of connection types beyond shared themes, contrasting answers to the same question, and shared context.
 
