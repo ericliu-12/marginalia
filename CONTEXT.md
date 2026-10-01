@@ -25,8 +25,12 @@ A piece of the reader's own writing attached to a Library Entry. It may optional
 _Avoid_: Annotation, highlight, comment, quote
 
 **Connection**:
-A typed, explained link between two Books, created when a Book is first marked read. A reader has at most one per pair of Books, with a single Connection Type (the strongest, if several apply). Its explanation may quote the reader's Notes.
+A typed, explained link between two Finished Books, created when a Book is first marked read. A reader has at most one per pair of Books, with a single Connection Type (the strongest, if several apply). Its explanation may quote the reader's Notes.
 _Avoid_: Link, edge, relation
+
+**Finished Book**:
+A Book with at least one completed Read-through in the reader's Library Entry, regardless of its current Status. Only Finished Books take part in Connections and appear in the graph; a Book being re-read, or moved back to want, stays Finished.
+_Avoid_: Read Book (Status `read` is only the current Status)
 
 **Connection Type**:
 The kind of relationship a Connection expresses: thematic, contrast, or context.
