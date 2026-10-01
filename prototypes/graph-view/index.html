@@ -334,8 +334,10 @@ function fa2Layout(){
     const g=new graphology.Graph();
     books.forEach((b,i)=>g.addNode(b.id,{x:Math.cos(i*2.4)*Math.sqrt(i+1)*20,y:Math.sin(i*2.4)*Math.sqrt(i+1)*20}));
     edges.forEach(e=>g.addEdge(e.a,e.b,{weight:e.s==="strong"?2:1}));
+    // layout-only: weak same-Cluster ties so Clusters pack together (not stored, not drawn)
+    books.forEach(a=>books.forEach(b=>{if(a.id<b.id&&a.c===b.c&&!g.hasEdge(a.id,b.id)&&!g.hasEdge(b.id,a.id))g.addEdge(a.id,b.id,{weight:.7})}));
     const F=graphologyLibrary.layoutForceAtlas2;
-    F.assign(g,{iterations:600,settings:{...F.inferSettings(g),gravity:1.2,scalingRatio:14,edgeWeightInfluence:1}});
+    F.assign(g,{iterations:600,settings:{...F.inferSettings(g),gravity:1.6,scalingRatio:22,edgeWeightInfluence:1}});
     let m=0;g.forEachNode((n,a)=>{m=Math.max(m,Math.hypot(a.x,a.y))});
     const o={};g.forEachNode((n,a)=>o[n]={x:a.x/m*130,y:a.y/m*130});return o;
   }catch(err){console.warn("ForceAtlas2 unavailable, falling back to prototype layout",err);return POS}
@@ -355,12 +357,17 @@ function mountCanvas(root,kind){
     const r=wash.getBoundingClientRect(),dpr=devicePixelRatio||1;
     if(wash.width!==Math.round(r.width*dpr)||wash.height!==Math.round(r.height*dpr)){wash.width=r.width*dpr;wash.height=r.height*dpr}
     const ctx=wash.getContext("2d");ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,r.width,r.height);
-    const o=E.toViewport({x:0,y:0}),u=E.toViewport({x:1,y:0}),k=Math.hypot(u.x-o.x,u.y-o.y),R=30*k;
+    const o=E.toViewport({x:0,y:0}),u=E.toViewport({x:1,y:0}),k=Math.hypot(u.x-o.x,u.y-o.y),R=(E.washR||30)*k;
     ctx.globalCompositeOperation="multiply";
-    CLUSTERS.forEach((nm,c)=>{const m=clusterMembers(c);if(m.length<3)return;m.forEach(b=>{const p=E.toViewport(E.pos(b.id)),gr=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,R);gr.addColorStop(0,WASH[c]+(S.cluster===c?"cc":"88"));gr.addColorStop(1,WASH[c]+"00");ctx.fillStyle=gr;ctx.beginPath();ctx.arc(p.x,p.y,R,0,Math.PI*2);ctx.fill()})});
+    CLUSTERS.forEach((nm,c)=>{const m=clusterMembers(c);if(m.length<3)return;m.forEach(b=>{const p=E.toViewport(E.pos(b.id)),gr=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,R);gr.addColorStop(0,WASH[c]+(S.cluster===c?"cc":"88"));gr.addColorStop(.55,WASH[c]+(E.washR?"55":"33"));gr.addColorStop(1,WASH[c]+"00");ctx.fillStyle=gr;ctx.beginPath();ctx.arc(p.x,p.y,R,0,Math.PI*2);ctx.fill()})});
     CLUSTERS.forEach((nm,c)=>{const m=clusterMembers(c),el=labels[c];if(m.length<3){el.style.display="none";return}el.style.display="";
-      const ps=m.map(b=>E.toViewport(E.pos(b.id)));const x=ps.reduce((a,p)=>a+p.x,0)/ps.length,y=Math.min(...ps.map(p=>p.y))-R*.62;
-      el.style.fontSize=Math.max(14,Math.min(30,k*9))+"px";el.style.transform=`translate(${x}px,${y}px) translate(-50%,-50%)`;el.classList.toggle("on",S.cluster===c)});
+      const ps=m.map(b=>E.toViewport(E.pos(b.id)));const x=ps.reduce((a,p)=>a+p.x,0)/ps.length,fs=Math.max(14,Math.min(30,k*9));
+      // put the name above or below its Cluster, whichever crosses fewer Book labels
+      const w=nm.length*fs*.46,all=books.filter(b=>present(b.id)).map(b=>E.toViewport(E.pos(b.id)));
+      const hit=yy=>all.filter(p=>Math.abs(p.y-yy)<fs*.9&&p.x>x-w/2-6&&p.x<x+w/2+150).length;
+      const up=Math.min(...ps.map(p=>p.y))-R*(E.washR?.8:.62),dn=Math.max(...ps.map(p=>p.y))+R*(E.washR?.8:.62);
+      const y=hit(up)<=hit(dn)?up:dn;
+      el.style.fontSize=fs+"px";el.style.transform=`translate(${x}px,${y}px) translate(-50%,-50%)`;el.classList.toggle("on",S.cluster===c)});
   }
   function renderPanel(){
     if(S.cluster!=null){const c=S.cluster,m=clusterMembers(c);panel.hidden=false;
@@ -426,7 +433,7 @@ function mountCanvas(root,kind){
     setTimeout(()=>{fg.zoomToFit(0,90);base=fg.zoom();fg.cooldownTicks(100)},120);
     const ro=new ResizeObserver(()=>fg.width(sg.clientWidth).height(sg.clientHeight));ro.observe(sg);
     sg.style.cursor="grab";
-    E={refresh(){},pos:id=>nodes.find(n=>n.id===id),toViewport:p=>fg.graph2ScreenCoords(p.x,p.y),
+    E={washR:36,refresh(){},pos:id=>nodes.find(n=>n.id===id),toViewport:p=>fg.graph2ScreenCoords(p.x,p.y),
       focusMany(ids,wide){const m=nodes.filter(n=>ids.includes(n.id));if(!m.length)return;fg.centerAt(m.reduce((a,n)=>a+n.x,0)/m.length,m.reduce((a,n)=>a+n.y,0)/m.length,600);const z=base*(wide?1.5:1.7);if(fg.zoom()<z||wide)fg.zoom(z,600)},
       reset:()=>fg.zoomToFit(500,90),destroy(){ro.disconnect();fg._destructor&&fg._destructor()}};
   }
