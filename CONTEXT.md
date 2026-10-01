@@ -9,19 +9,23 @@ A single work, independent of any reader. Editions (hardcover, paperback, transl
 _Avoid_: Edition, title, volume
 
 **Library Entry**:
-A reader's relationship to a Book: its Status, dates, and rating. Notes attach here, not to the Book.
+A reader's relationship to a Book: its Status and its Read-throughs. Notes attach here, not to the Book.
 _Avoid_: Shelf item, reading record
 
 **Status**:
 Where a Book stands in a reader's life: want to read, reading, or read.
 _Avoid_: Shelf, list, state
 
+**Read-through**:
+One pass through a Book by a reader, with an optional start date and finish date. A Library Entry has one per time the Book was read, and an open one while the Book is being read.
+_Avoid_: Reading, read, session, re-read
+
 **Note**:
 A piece of the reader's own writing attached to a Library Entry. It may optionally contain a quoted passage and a page number.
 _Avoid_: Annotation, highlight, comment, quote
 
 **Connection**:
-A typed, explained link between two Books, created when a Book is marked read. Its explanation may quote the reader's Notes.
+A typed, explained link between two Books, created when a Book is first marked read. A reader has at most one per pair of Books, with a single Connection Type (the strongest, if several apply). Its explanation may quote the reader's Notes.
 _Avoid_: Link, edge, relation
 
 **Connection Type**:
