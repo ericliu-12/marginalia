@@ -2,8 +2,16 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import type { LibraryItem } from "@/domain/library";
+import type { EnrichmentView } from "@/domain/enrichment";
 import type { Note } from "@/domain/notes";
-import { addNoteAction, deleteNoteAction, listNotesAction, updateNoteAction } from "./actions";
+import {
+  addNoteAction,
+  deleteNoteAction,
+  getEnrichmentAction,
+  listNotesAction,
+  tryAgainAction,
+  updateNoteAction,
+} from "./actions";
 import { Cover } from "./cover";
 
 type Draft = { body: string; quote: string; page: string };
@@ -82,6 +90,8 @@ export function BookPanel({
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-6 pt-5 pb-10">
+        <About key={`about-${item.bookId}`}bookId={item.bookId} noteCount={notes?.length ?? null} />
+
         <NoteForm
           key={item.bookId}
           bookId={item.bookId}
@@ -121,6 +131,91 @@ export function BookPanel({
         )}
       </div>
     </aside>
+  );
+}
+
+// While the worker is still reading up on a Book, check back now and then.
+const ENRICHMENT_POLL_MS = 4000;
+
+// What Marginalia knows about the Book: its summary and themes, or a quiet line when it does not
+// recognise the Book and the reader's Notes carry the weight instead.
+function About({ bookId, noteCount }: { bookId: string; noteCount: number | null }) {
+  const [enrichment, setEnrichment] = useState<EnrichmentView | null | undefined>(undefined);
+  const [retrying, setRetrying] = useState(false);
+  const [retryFailed, setRetryFailed] = useState(false);
+  const [pending, start] = useTransition();
+
+  const waiting = enrichment === undefined || enrichment === null || enrichment.status === "pending";
+  useEffect(() => {
+    let live = true;
+    const load = () =>
+      getEnrichmentAction(bookId).then((res) => {
+        if (live && res) setEnrichment(res.enrichment);
+      });
+    load();
+    if (!waiting) return () => void (live = false);
+    const timer = setInterval(load, ENRICHMENT_POLL_MS);
+    return () => {
+      live = false;
+      clearInterval(timer);
+    };
+  }, [bookId, waiting]);
+
+  function tryAgain() {
+    setRetryFailed(false);
+    start(async () => {
+      const res = await tryAgainAction(bookId);
+      if (!res.ok) return setRetryFailed(true);
+      setRetrying(true);
+      setEnrichment((e) => (e ? { ...e, status: "pending" } : e));
+    });
+  }
+  const again = (
+    <button type="button" onClick={tryAgain} disabled={pending} className={quietLink}>
+      Try again
+    </button>
+  );
+
+  let body;
+  if (enrichment === undefined) return null;
+  if (waiting) {
+    body = <p className="text-ink-2 italic">{retrying ? "Looking again…" : "Getting to know this book…"}</p>;
+  } else if (enrichment.status === "failed") {
+    body = (
+      <p className="text-ink-2">
+        <span className="italic">Couldn’t read up on this book just now.</span> {again}
+      </p>
+    );
+  } else if (!enrichment.recognised) {
+    body = (
+      <div>
+        <p className="text-ink-2 italic">Marginalia doesn’t know this book well.</p>
+        <p className="mt-1 max-w-[40ch] text-ink-2">
+          {noteCount ? "Your notes now shape its Connections." : "Add a few notes and they’ll shape its Connections."}
+        </p>
+        <div className="mt-1">{again}</div>
+      </div>
+    );
+  } else {
+    body = (
+      <>
+        <p>{enrichment.summary}</p>
+        {enrichment.themes && enrichment.themes.length > 0 && (
+          <p className="mt-2 font-sans text-[0.8rem] leading-relaxed text-ink-2">{enrichment.themes.join(" · ")}</p>
+        )}
+      </>
+    );
+  }
+
+  return (
+    <section aria-label="About this book" className="mb-8 border-b border-rule pb-6">
+      {body}
+      {retryFailed && (
+        <p role="alert" className="mt-1 font-sans text-sm text-contrast">
+          Couldn’t start that again. Try once more in a moment.
+        </p>
+      )}
+    </section>
   );
 }
 
