@@ -30,3 +30,9 @@
 
 # Prototypes live on their own prototype/* branches
 prototypes/
+
+# Next.js / Node
+node_modules/
+.next/
+next-env.d.ts
+*.tsbuildinfo
