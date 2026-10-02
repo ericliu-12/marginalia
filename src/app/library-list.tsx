@@ -9,12 +9,12 @@ import { Cover } from "./cover";
 // Quiet one-click moves per Status; the full Status control lives in the Book panel.
 const MOVES: Record<Status, { label: string; to: Status }[]> = {
   reading: [
-    { label: "Finished", to: "read" },
+    { label: "Mark finished", to: "read" },
     { label: "Want to read", to: "want" },
   ],
   want: [
     { label: "Start reading", to: "reading" },
-    { label: "Finished", to: "read" },
+    { label: "Mark finished", to: "read" },
   ],
   read: [{ label: "Read again", to: "reading" }],
 };
@@ -94,7 +94,7 @@ function Row({ item }: { item: LibraryItem }) {
   }
 
   return (
-    <li aria-busy={pending} className="flex items-start gap-4 py-3">
+    <li aria-busy={pending} className="group flex items-start gap-4 py-3">
       <Cover title={item.title} url={item.coverUrl} />
       <div className="min-w-0">
         <p className="text-[1.05rem] leading-snug font-medium">{item.title}</p>
@@ -108,7 +108,7 @@ function Row({ item }: { item: LibraryItem }) {
             )}
           </p>
         )}
-        <div className="mt-2 flex flex-wrap gap-2 lg:gap-1.5" role="group" aria-label={`Change status of ${item.title}`}>
+        <div className="mt-2 flex flex-wrap gap-2 [@media(hover:hover)]:gap-4 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:transition-opacity [@media(hover:hover)]:duration-150 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100" role="group" aria-label={`Change status of ${item.title}`}>
           {MOVES[item.status].map(({ label, to }) => (
             <button
               key={to}
@@ -116,8 +116,7 @@ function Row({ item }: { item: LibraryItem }) {
               disabled={pending}
               aria-label={`${label}: ${item.title}`}
               onClick={() => move(to)}
-              className="min-h-11 rounded-[3px] border border-ink/70 px-2.5 font-sans text-[0.8rem] font-medium text-ink transition-colors duration-150 hover:bg-ink hover:text-paper disabled:border-rule disabled:text-ink-3 disabled:hover:bg-transparent disabled:hover:text-ink-3 lg:min-h-0 lg:py-1"
-            >
+              className="min-h-11 rounded-[3px] border border-ink/70 px-2.5 font-sans text-[0.8rem] font-medium text-ink transition-colors duration-150 hover:bg-ink hover:text-paper disabled:border-rule disabled:text-ink-3 disabled:hover:bg-transparent disabled:hover:text-ink-3 [@media(hover:hover)]:min-h-0 [@media(hover:hover)]:border-transparent [@media(hover:hover)]:px-0 [@media(hover:hover)]:py-0 [@media(hover:hover)]:text-ink-3 [@media(hover:hover)]:underline [@media(hover:hover)]:decoration-rule [@media(hover:hover)]:underline-offset-4 [@media(hover:hover)]:hover:bg-transparent [@media(hover:hover)]:hover:text-ink [@media(hover:hover)]:hover:decoration-ink">
               {pending && moving === to ? "Moving…" : label}
             </button>
           ))}

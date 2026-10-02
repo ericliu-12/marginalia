@@ -103,7 +103,8 @@ Near-square: 2px for covers, 3px for buttons and inputs. No pills, no circles.
 ## Components
 
 - **Primary button:** ink fill, paper text. One per surface ("Add a book").
-- **Quiet button:** 1px ink outline, fills with ink on hover. Used for the one-click Want to read / Reading / Already read choices.
+- **Quiet button:** 1px ink outline, fills with ink on hover. Used for the one-click Want to read / Reading / Already read choices in the search pane.
+- **Row actions:** the per-row Status moves in the library (Start reading, Mark finished, Want to read, Read again). On touch devices they stay visible as quiet buttons with 44px targets. On pointer devices they rest as invisible, quiet text links in ink tertiary (underlined, hairline underline), revealed on row hover or keyboard focus within the row; hovering a link darkens it to ink. Rows stay titles-first: actions never compete with the title at rest.
 - **Cover:** the image, or a typeset placeholder on a paper-sunk tone (title in serif, author in small caps-style sans) when there is no cover or it fails to load.
 - **Section header:** serif heading with a hairline below and a quiet count; collapsible sections show a chevron.
 
