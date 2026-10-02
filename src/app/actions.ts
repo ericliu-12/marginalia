@@ -15,7 +15,7 @@ export type AddResult = { ok: true } | { ok: false; reason: "duplicate" | "faile
 export async function addBookAction(work: OpenLibraryWork, status: Status): Promise<AddResult> {
   try {
     const db = appDb();
-    await addBook(db, await getSeededUserId(db), work, status, descriptionGateway());
+    await addBook(db, await getSeededUserId(db), work, status, descriptionGateway({ maxAttempts: 1 }));
     revalidatePath("/");
     return { ok: true };
   } catch (err) {

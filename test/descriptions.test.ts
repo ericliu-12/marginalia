@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it, vi } from "vitest";
-import { addBook } from "../src/domain/add-book";
+import { addBook, DESCRIPTION_TIMEOUT_MS } from "../src/domain/add-book";
 import { book } from "../src/db/schema";
 import { createDescriptionGateway } from "../src/lib/google-books";
 import { fakeDescriptions, prose, volume, work } from "./fakes";
@@ -85,6 +85,14 @@ describe("add-time description", () => {
     expect(row.description).toBe(prose(450));
   });
 
+  it("drops the volume id when Open Library's description wins", async () => {
+    const row = await add(
+      fakeDescriptions({ volumes: [volume("thin", { description: prose(400) })], openLibrary: prose(450) }),
+    );
+    expect(row.description).toBe(prose(450));
+    expect(row.googleBooksVolumeId).toBeNull();
+  });
+
   it("keeps a thin Google description when Open Library's is not longer", async () => {
     const row = await add(
       fakeDescriptions({ volumes: [volume("thin", { description: prose(400) })], openLibrary: prose(300) }),
@@ -122,6 +130,27 @@ describe("add-time description", () => {
     expect(row.description).toBe(prose(400));
   });
 
+  it("adds the Book without a description when the lookup outlasts the timeout", async () => {
+    vi.useFakeTimers();
+    try {
+      const hung = fakeDescriptions({});
+      let started!: () => void;
+      const lookupStarted = new Promise<void>((r) => (started = r));
+      hung.googleBooksVolumes = () => {
+        started();
+        return new Promise(() => {});
+      };
+      const added = addBook(ctx.db, ctx.userId, stoner, "want", hung);
+      await lookupStarted;
+      await vi.advanceTimersByTimeAsync(DESCRIPTION_TIMEOUT_MS);
+      await added;
+    } finally {
+      vi.useRealTimers();
+    }
+    const [row] = await ctx.db.select().from(book).where(eq(book.openLibraryWorkKey, stoner.workKey));
+    expect(row.description).toBeNull();
+  });
+
   it("never refetches for a Book that already exists", async () => {
     await add(fakeDescriptions({ volumes: [volume("first", { description: prose(600) })] }));
     const second = fakeDescriptions({ volumes: [volume("second", { description: prose(900) })] });
@@ -147,6 +176,12 @@ describe("Google Books gateway", () => {
     expect(String(fetch.mock.calls[0][0])).toContain("startIndex=0");
     expect(String(fetch.mock.calls[1][0])).toContain("startIndex=20");
     expect(String(fetch.mock.calls[0][0])).toContain("key=k");
+  });
+
+  it("makes a single attempt when maxAttempts is 1", async () => {
+    const fetch = vi.fn().mockResolvedValue(new Response("", { status: 429 }));
+    await expect(createDescriptionGateway({ ...opts, maxAttempts: 1, fetch }).googleBooksVolumes("x")).rejects.toThrow();
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 
   it("stops after a short first page and retries on 429", async () => {

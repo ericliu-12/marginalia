@@ -22,18 +22,31 @@ function isUniqueViolation(err: unknown) {
   return e?.code === "23505" || e?.cause?.code === "23505";
 }
 
-// A Book's description is fetched once, when the shared Book is first created. A failed or
-// missing lookup never blocks adding.
+// The whole add-time lookup gets this long; a person is waiting on the add.
+export const DESCRIPTION_TIMEOUT_MS = 3000;
+
+// A Book's description is fetched once, when the shared Book is first created. A failed, slow or
+// missing lookup never blocks adding: the Book is added without one.
 async function describeNewBook(db: Db, work: OpenLibraryWork, gateway?: DescriptionGateway | null) {
   const none: BookDescription = { description: "", googleBooksVolumeId: null };
   if (!gateway) return none;
   const [existing] = await db.select({ id: book.id }).from(book).where(eq(book.openLibraryWorkKey, work.workKey));
   if (existing) return none;
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timedOut = new Promise<BookDescription>((resolve) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      resolve(none);
+    }, DESCRIPTION_TIMEOUT_MS);
+  });
   try {
-    return await findDescription(gateway, work);
+    return await Promise.race([findDescription(gateway, work, controller.signal), timedOut]);
   } catch (err) {
     console.error(err);
     return none;
+  } finally {
+    clearTimeout(timer);
   }
 }
 

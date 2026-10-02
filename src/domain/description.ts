@@ -16,9 +16,9 @@ export type GoogleBooksVolume = {
 // Seam to Google Books and Open Library descriptions; tests supply a fake.
 export interface DescriptionGateway {
   // Up to 40 results (two pages of 20) for a plain `title author` query.
-  googleBooksVolumes(query: string): Promise<GoogleBooksVolume[]>;
+  googleBooksVolumes(query: string, signal?: AbortSignal): Promise<GoogleBooksVolume[]>;
   // The Open Library work description, or "" when it has none.
-  openLibraryDescription(workKey: string): Promise<string>;
+  openLibraryDescription(workKey: string, signal?: AbortSignal): Promise<string>;
 }
 
 export type BookDescription = { description: string; googleBooksVolumeId: string | null };
@@ -70,16 +70,17 @@ export function pickGoogleBooksDescription(
 }
 
 // Google Books description, with the Open Library one when Google's is missing or thin and
-// Open Library's is longer. The Google Books volume id is kept only when its description was used
-// or, failing that, when a match was found at all (it backs the required link to the volume).
+// Open Library's is longer. The Google Books volume id is returned only when Google's description
+// is the one used: it backs the link Google requires wherever its description is shown.
 export async function findDescription(
   gateway: DescriptionGateway,
   book: { title: string; authors: string[]; workKey: string },
+  signal?: AbortSignal,
 ): Promise<BookDescription> {
   const author = book.authors[0] ?? "";
   // Each source failing independently must not lose what the other found.
   const picked = await gateway
-    .googleBooksVolumes(`${book.title} ${author}`.trim())
+    .googleBooksVolumes(`${book.title} ${author}`.trim(), signal)
     .then((volumes) => pickGoogleBooksDescription(volumes, book.title, author))
     .catch((err) => {
       console.error(err);
@@ -89,13 +90,13 @@ export async function findDescription(
   let description = picked?.description ?? "";
   if (description.length < THIN_DESCRIPTION_CHARS) {
     const ol = await gateway
-      .openLibraryDescription(book.workKey)
+      .openLibraryDescription(book.workKey, signal)
       .then((d) => d.trim())
       .catch((err) => {
         console.error(err);
         return "";
       });
-    if (ol.length > description.length) description = ol;
+    if (ol.length > description.length) return { description: ol, googleBooksVolumeId: null };
   }
-  return { description, googleBooksVolumeId: picked?.id ?? null };
+  return { description, googleBooksVolumeId: description ? (picked?.id ?? null) : null };
 }
