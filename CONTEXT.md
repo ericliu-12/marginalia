@@ -45,7 +45,7 @@ A group of at least three related Finished Books that emerges from Connections r
 _Avoid_: Shelf, collection, folder
 
 **Enrichment**:
-LLM-generated summary and themes attached to a Book.
+LLM-generated summary and themes attached to a Book. When the model does not recognise the Book, the Enrichment is empty (recognised or unrecognised); an unrecognised Book connects through its Notes only.
 _Avoid_: Metadata, annotation
 
 **Manual Book**:
