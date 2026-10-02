@@ -1,0 +1,547 @@
+<!doctype html>
+<!--
+PROTOTYPE (throwaway), ticket "Graph view interaction and visual direction".
+Question: how should the graph view look and behave in long exploration sessions?
+Three structurally different variants, switch with ← / → or the bar at the bottom:
+  A Canvas      Sigma.js + graphology, full-bleed graph, Clusters as washes, floating detail panel
+  B Margin pane force-graph, graph beside a docked reading pane (Cluster index when nothing is selected)
+  C Trail       Connection-first: typeset passages you follow Book to Book, graph demoted to a minimap
+All data is SAMPLE: real, well-known Books with invented Connections and invented reader Notes.
+"Finish Stoner" in the bar simulates the arrival from marking a Book read.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marginalia graph prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/graphology@0.25.4/dist/graphology.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sigma@2.4.0/build/sigma.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/graphology-library@0.8.0/dist/graphology-library.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/force-graph@1.43.5/dist/force-graph.min.js"></script>
+<style>
+:root{
+  --paper:#f3ecdd; --paper-2:#faf5ea; --paper-3:#e9e0cd;
+  --ink:#231d17; --ink-2:#5d5245; --ink-3:#6f6454; --rule:#d8cdb7;
+  --thematic:#3e5f8a; --contrast:#a8432f; --context:#6f7a3a;
+  --serif:'Newsreader',Georgia,serif; --sans:'Hanken Grotesk',system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--paper);color:var(--ink);font-family:var(--serif);font-size:17px;line-height:1.5}
+::selection{background:#e6c98a;color:var(--ink)}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+:focus-visible{outline:2px solid var(--thematic);outline-offset:2px}
+#stage,.variant{position:absolute;inset:0;overflow:hidden}
+.sample{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:50;font:500 11px var(--sans);letter-spacing:.04em;color:var(--ink-3);background:var(--paper-2);border:1px solid var(--rule);padding:3px 10px;border-radius:99px;white-space:nowrap}
+
+/* prototype bar */
+.bar{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:6px;background:var(--ink);color:var(--paper);border-radius:99px;padding:6px 8px;box-shadow:0 6px 20px rgba(35,29,23,.3);font:500 13px var(--sans)}
+.bar button{padding:6px 12px;border-radius:99px}
+.bar button:hover{background:rgba(255,255,255,.14)}
+.bar .sep{width:1px;height:18px;background:rgba(255,255,255,.25)}
+.bar .vl{min-width:150px;text-align:center}
+.bar button:disabled{opacity:.4;cursor:default}
+
+.brand{font:italic 500 22px var(--serif);letter-spacing:.01em}
+.tag{display:inline-flex;align-items:center;gap:8px;font:500 12px var(--sans);letter-spacing:.02em;text-transform:none}
+.tag i{display:inline-block;width:22px;border-radius:2px}
+.tag.thematic{color:var(--thematic)} .tag.contrast{color:var(--contrast)} .tag.context{color:var(--context)}
+.tag.thematic i{background:var(--thematic)} .tag.contrast i{background:var(--contrast)} .tag.context i{background:var(--context)}
+q{quotes:none;font-style:italic;text-decoration:underline;text-decoration-color:#c9a45a;text-decoration-thickness:1px;text-underline-offset:3px}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.rise{animation:rise .7s cubic-bezier(.16,1,.3,1) both}
+.fresh{font:500 13px var(--sans);color:var(--contrast);margin:0 0 10px}
+
+/* ---------- A: canvas ---------- */
+.a-stage{position:absolute;inset:0}
+.a-stage canvas.wash{position:absolute;inset:0;width:100%;height:100%}
+.a-stage .sg{position:absolute;inset:0}
+.a-brand{position:absolute;top:20px;left:28px}
+.a-legend{position:absolute;left:28px;bottom:26px;display:flex;flex-direction:column;gap:4px;font:400 12px var(--sans);color:var(--ink-2)}
+.a-legend .row{display:flex;gap:16px}
+.a-legend .note{color:var(--ink-3);margin-top:2px}
+.a-panel{position:absolute;top:24px;right:24px;bottom:84px;width:390px;background:var(--paper-2);border:1px solid var(--rule);border-radius:10px;box-shadow:0 10px 30px rgba(35,29,23,.12),0 2px 6px rgba(35,29,23,.06);padding:26px 26px 12px;overflow:auto}
+.a-panel[hidden]{display:none}
+.a-panel h2{font:500 30px/1.12 var(--serif);margin:0 0 6px;text-wrap:balance}
+.by{font:400 14px var(--sans);color:var(--ink-2);margin:0 0 20px}
+.conns{list-style:none;margin:0;padding:0}
+.conn{padding:14px 0;border-top:1px solid var(--rule)}
+.conn.on{background:linear-gradient(90deg,#f0e4c6,#f0e4c600);margin:0 -26px;padding:14px 26px}
+.conn .go{display:block;font:italic 500 19px/1.25 var(--serif);margin:6px 0 4px;text-align:left}
+.conn .go:hover{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
+.conn p{margin:0;font-size:15.5px;color:#3a322a}
+.clabels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.clabel{position:absolute;left:0;top:0;pointer-events:auto;white-space:nowrap;font:italic 500 24px var(--serif);color:rgba(35,29,23,.4);padding:2px 6px;border-radius:6px}
+.clabel:hover,.clabel.on{color:var(--ink);background:rgba(250,245,234,.7)}
+.a-panel .trail{margin:0 0 18px;font-size:12.5px}
+.a-panel .cdesc{font-size:16.5px;margin:0 0 18px;color:#33291f}
+.a-panel .follow{font:500 13px var(--sans);color:var(--ink-2);border-bottom:1px solid var(--rule);margin-top:8px}
+.a-panel .follow:hover{color:var(--ink)}
+.clink:hover{text-decoration:underline;text-underline-offset:3px}
+.x{position:absolute;top:14px;right:16px;font:500 13px var(--sans);color:var(--ink-3)}
+
+/* ---------- B: margin pane ---------- */
+.b-wrap{position:absolute;inset:0;display:grid;grid-template-columns:1fr 440px}
+.b-graph{position:relative;min-width:0}
+.b-graph .brand{position:absolute;top:20px;left:28px;z-index:2}
+.b-graph .hint{position:absolute;left:28px;bottom:26px;font:400 12px var(--sans);color:var(--ink-3);display:flex;gap:16px}
+.b-pane{background:var(--paper-2);border-left:1px solid var(--rule);overflow:auto;padding:56px 40px 100px 64px;position:relative}
+.b-pane:before{content:"";position:absolute;left:46px;top:0;bottom:0;width:1px;background:#e3b5a8}
+.b-pane h2{font:500 34px/1.1 var(--serif);margin:0 0 6px;text-wrap:balance}
+.b-pane h3{font:500 13px var(--sans);color:var(--ink-3);margin:36px 0 10px;letter-spacing:.02em}
+.b-pane .cl{display:block;text-align:left;padding:10px 0;border-top:1px solid var(--rule);width:100%}
+.b-pane .cl b{font:italic 500 19px var(--serif);display:block}
+.b-pane .cl span{font:400 13px var(--sans);color:var(--ink-2)}
+.b-pane .cl:hover b{text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px}
+.mn{position:relative;padding:14px 0 18px;border-top:1px solid var(--rule)}
+.mn.on{background:linear-gradient(90deg,#f0e4c6,#f0e4c600);margin-left:-18px;padding-left:18px}
+.mn .go{font:italic 500 20px/1.25 var(--serif);display:block;text-align:left;margin:6px 0 5px}
+.mn .go:hover{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
+.mn p{margin:0;font-size:16px;color:#3a322a}
+.b-pane .lead{font-size:16px;color:var(--ink-2);margin:0}
+
+/* ---------- C: trail ---------- */
+.c-wrap{position:absolute;inset:0;display:grid;grid-template-columns:1fr 360px}
+.c-main{overflow:auto;padding:28px 56px 120px}
+.c-main .inner{max-width:680px;margin:0 auto}
+.trail{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center;font:400 13px var(--sans);color:var(--ink-3);margin:18px 0 56px}
+.trail button{color:var(--ink-2);border-bottom:1px solid var(--rule)}
+.trail button:hover{color:var(--ink)}
+.trail .cur{color:var(--ink);font-weight:600}
+.c-main h1{font:500 clamp(38px,5vw,60px)/1.04 var(--serif);margin:0 0 10px;text-wrap:balance;letter-spacing:-.01em}
+.c-main .by{margin-bottom:46px}
+.pass{padding:26px 0 30px;border-top:1px solid var(--rule)}
+.pass .cross{font:italic 400 14px var(--serif);color:var(--ink-3);margin-left:10px}
+.pass .go{display:block;font:italic 500 28px/1.2 var(--serif);margin:10px 0 8px;text-align:left}
+.pass .go:hover{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:4px}
+.pass p{margin:0 0 12px;font-size:19px;line-height:1.55;color:#33291f}
+.pass .follow{font:500 13px var(--sans);color:var(--ink-2);border-bottom:1px solid var(--rule)}
+.pass .follow:hover{color:var(--ink)}
+.c-mini{border-left:1px solid var(--rule);background:var(--paper-2);position:relative}
+.c-mini .cap{position:absolute;left:20px;top:20px;font:400 12px var(--sans);color:var(--ink-3);z-index:2}
+.c-mini .fg{position:absolute;inset:0}
+.idx h3{font:italic 500 22px var(--serif);margin:30px 0 8px}
+.idx button{display:block;font:500 19px/1.7 var(--serif);text-align:left}
+.idx button:hover{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
+.idx .by2{font:400 13px var(--sans);color:var(--ink-3);margin-left:8px}
+
+@media (max-width:900px){
+  .a-panel{left:12px;right:12px;width:auto;top:auto;height:50%;bottom:76px}
+  .b-wrap,.c-wrap{grid-template-columns:1fr;grid-template-rows:45% 55%}
+  .c-main{order:2;padding:20px 22px 120px}.c-mini{order:1;border-left:0;border-bottom:1px solid var(--rule)}
+  .b-pane{padding:30px 22px 100px 34px}.b-pane:before{left:18px}
+  .sample{display:none}
+}
+</style>
+</head>
+<body>
+<div class="sample">PROTOTYPE · sample data: real Books, invented Connections and Notes</div>
+<div id="stage"></div>
+<div class="bar" id="bar">
+  <button id="prev" aria-label="Previous variant">‹</button>
+  <span class="vl" id="vl"></span>
+  <button id="next" aria-label="Next variant">›</button>
+  <span class="sep"></span>
+  <button id="finish">Finish “Stoner”</button>
+  <button id="reset">Reset</button>
+</div>
+
+<script>
+/* =============== sample data =============== */
+const CLUSTERS=["The cost of a quiet life","Systems that press on people","Living with absurdity","How we come to know","Human history, long view"];
+const books=[
+ ["rotd","The Remains of the Day","Kazuo Ishiguro","1989",0,"Remains of the Day"],
+ ["rr","Revolutionary Road","Richard Yates","1961",0],
+ ["dall","Mrs Dalloway","Virginia Woolf","1925",0],
+ ["stoner","Stoner","John Williams","1965",0],
+ ["nlmg","Never Let Me Go","Kazuo Ishiguro","2005",0],
+ ["bel","Beloved","Toni Morrison","1987",0],
+ ["n84","Nineteen Eighty-Four","George Orwell","1949",1],
+ ["bnw","Brave New World","Aldous Huxley","1932",1],
+ ["orig","The Origins of Totalitarianism","Hannah Arendt","1951",1,"Origins of Totalitarianism"],
+ ["eich","Eichmann in Jerusalem","Hannah Arendt","1963",1],
+ ["seeing","Seeing Like a State","James C. Scott","1998",1],
+ ["hod","Heart of Darkness","Joseph Conrad","1899",1],
+ ["trial","The Trial","Franz Kafka","1925",1],
+ ["med","Meditations","Marcus Aurelius","c. 180",2],
+ ["sen","Letters from a Stoic","Seneca","c. 65",2],
+ ["frankl","Man's Search for Meaning","Viktor Frankl","1946",2],
+ ["sis","The Myth of Sisyphus","Albert Camus","1942",2],
+ ["stranger","The Stranger","Albert Camus","1942",2],
+ ["kahn","Thinking, Fast and Slow","Daniel Kahneman","2011",3],
+ ["kuhn","The Structure of Scientific Revolutions","Thomas Kuhn","1962",3,"Scientific Revolutions"],
+ ["geb","Gödel, Escher, Bach","Douglas Hofstadter","1979",3],
+ ["gene","The Selfish Gene","Richard Dawkins","1976",3],
+ ["sap","Sapiens","Yuval Noah Harari","2011",4],
+ ["guns","Guns, Germs, and Steel","Jared Diamond","1997",4],
+ ["spring","Silent Spring","Rachel Carson","1962",4],
+ ["braid","Braiding Sweetgrass","Robin Wall Kimmerer","2013",4],
+].map(([id,t,a,y,c,l])=>({id,t,a,y,c,l:l||t}));
+const B=Object.fromEntries(books.map(b=>[b.id,b]));
+const edges=[
+ ["stoner","rotd","thematic","strong","Both follow a man who gives his life to duty and sees the cost too late. Your note on Stoner, “he never once says what he wanted,” sits beside your note on Stevens: “the dignity is the tragedy.”"],
+ ["stoner","rr","contrast","strong","Stoner accepts a small life without complaint; Frank and April Wheeler burn theirs down trying to escape one. Same suburbs of the soul, opposite answers."],
+ ["stoner","sis","thematic","moderate","Persisting at an unglamorous task: Stoner at his lectern, Sisyphus at his stone. Your note: “the work is the whole argument.”"],
+ ["rotd","dall","context","moderate","Both hold a single day's interior under social manners, one told through service, the other through hosting."],
+ ["rotd","nlmg","thematic","strong","Ishiguro's narrator trap again: a person who cannot see what was denied them. Your note: “Kathy never asks why.”"],
+ ["bel","nlmg","thematic","moderate","Both ask what a life is worth to the people who claim to own it."],
+ ["dall","rr","contrast","moderate","Clarissa makes peace with an ordinary life; April cannot. Two verdicts on the same domestic bargain."],
+ ["bel","dall","context","moderate","Sethe and Septimus: the aftermath of slavery and of war, living on in the present tense."],
+ ["n84","bnw","contrast","strong","Two answers to what control looks like: pain versus pleasure. Your note: “Huxley is the one that frightens me.”"],
+ ["n84","orig","context","strong","Arendt gives the historical machinery that Orwell compresses into fiction."],
+ ["orig","eich","thematic","strong","The same question seen twice, once as system and once as a single clerk: how ordinary people carry out the unthinkable."],
+ ["eich","trial","thematic","moderate","Guilt that never finds a face. Your note: “Josef K. and Eichmann both hide in procedure.”"],
+ ["trial","n84","thematic","moderate","A state whose power is that you cannot learn the rules that judge you."],
+ ["seeing","orig","contrast","moderate","Scott blames well-meaning planning; Arendt blames ideology and terror. Disaster without villains versus disaster with them."],
+ ["hod","orig","context","moderate","Arendt traces totalitarian method back to imperial administration; Conrad is that world in fiction."],
+ ["bnw","seeing","thematic","moderate","Both distrust order that makes people legible so they can be managed."],
+ ["med","sen","thematic","strong","Two Stoics, one emperor and one adviser, repeating the same discipline of attention."],
+ ["med","frankl","thematic","strong","Freedom lives in the response, not the event. Your note: “Frankl is Marcus with the stakes raised.”"],
+ ["frankl","sis","contrast","strong","Frankl finds meaning to endure; Camus refuses to supply it and insists on revolt anyway."],
+ ["sis","stranger","thematic","strong","The philosophy and the character: Meursault is the absurd man Camus describes."],
+ ["stranger","trial","thematic","moderate","Judged by a system for who they are rather than what they did."],
+ ["med","rotd","contrast","moderate","Stevens practises duty as a Stoic would; the novel asks what it costs to practise it for the wrong master."],
+ ["kahn","kuhn","thematic","moderate","Both are about frames that make you blind to what does not fit."],
+ ["kuhn","geb","context","moderate","Paradigms and formal systems: both ask what lies outside the rules you are playing by."],
+ ["geb","gene","thematic","moderate","Meaning emerging from simple replicating rules, in mind and in life."],
+ ["kahn","gene","contrast","moderate","Rational agent versus evolved heuristic: two stories about why people choose badly."],
+ ["kahn","seeing","thematic","moderate","Confident experts and the planning fallacy: why the schemes Scott describes felt so convincing."],
+ ["sap","guns","contrast","strong","Harari says shared stories drove history; Diamond says geography did. Your note: “read them as an argument.”"],
+ ["guns","spring","context","moderate","Diamond's ecological stage and Carson's warning about what we do to it."],
+ ["sap","gene","context","moderate","Dawkins supplies the biology Harari builds the story on."],
+ ["spring","braid","contrast","strong","Carson warns in the language of science; Kimmerer answers in the language of reciprocity."],
+ ["braid","seeing","thematic","moderate","Local, embodied knowledge against the view from above that Scott calls legibility."],
+ ["guns","seeing","context","moderate","Both explain why some societies end up with states that can reshape the land."],
+].map(([a,b,type,s,e],i)=>({a,b,type,s,e,i}));
+const TYPE={thematic:{c:"#3e5f8a",n:"Thematic"},contrast:{c:"#a8432f",n:"Contrast"},context:{c:"#6f7a3a",n:"Context"}};
+const WASH=["#c9a08f","#a9b6c9","#b9c19a","#dcc08a","#c3a6bb"];
+const INK="#231d17",FADE="#d9cfbb",PAPER="#f3ecdd";
+const TOP_N=+new URL(location.href).searchParams.get("top")||3;
+const FX=new Set((new URL(location.href).searchParams.get("fix")||"").split(","));
+/* ---- BENCH: synthetic library (?n=N) ---- */
+(()=>{const q=new URL(location.href).searchParams,N=+q.get("n");if(!N)return;
+  let s=11;const rnd=()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
+  const C=Math.max(5,Math.round(N/20));
+  CLUSTERS.length=0;for(let c=0;c<C;c++)CLUSTERS.push("Cluster number "+(c+1)+" and its theme");
+  const W=["#c9a08f","#a9b6c9","#b9c19a","#dcc08a","#c3a6bb"];WASH.length=0;for(let c=0;c<C;c++)WASH.push(W[c%5]);
+  books.length=0;for(const k in B)delete B[k];
+  const words=["Quiet","Empire","Winter","Ledger","Garden","Orbit","Silence","Machine","Memory","River","Archive","Theory","Letters","Origins","Hour"];
+  const byC=Array.from({length:C},()=>[]);
+  for(let i=0;i<N;i++){const c=Math.floor(Math.pow(rnd(),1.3)*C);const t=words[i%15]+" of the "+words[(i*7+3)%15]+" "+i;const b={id:"b"+i,t,a:"Author "+i,y:"2000",c,l:t};books.push(b);B[b.id]=b;byC[c].push(b)}
+  edges.length=0;const deg={},seen=new Set();books.forEach(b=>deg[b.id]=1);
+  const types=["thematic","contrast","context"];
+  for(let i=1;i<N;i++){const b=books[i],k=3+Math.floor(rnd()*3);
+    for(let j=0;j<k;j++){const pool=rnd()<.8?byC[b.c].filter(x=>+x.id.slice(1)<i):books.slice(0,i);if(!pool.length)continue;
+      let tot=0;pool.forEach(p=>tot+=deg[p.id]);let r=rnd()*tot,pick=pool[0];for(const p of pool){r-=deg[p.id];if(r<=0){pick=p;break}}
+      const key=pick.id+"|"+b.id;if(seen.has(key)||pick===b)continue;seen.add(key);deg[pick.id]++;deg[b.id]++;
+      edges.push({a:b.id,b:pick.id,type:types[Math.floor(rnd()*3)],s:rnd()<.4?"strong":"moderate",e:"Synthetic connection between two books with some explanatory prose.",i:edges.length})}}
+  window.__BENCH={N,C,E:edges.length,maxDeg:Math.max(...Object.values(deg))};
+})();
+ // prototype constant: each Book's strongest ~N Connections show; select a Book to reveal the rest
+
+/* =============== state =============== */
+const S={cluster:null,selected:null,selEdge:null,arrived:false,fresh:false,revealed:new Set(),trail:[],hover:null};
+let timers=[];
+const srank=e=>e.s==="strong"?0:1;
+const cmp=(x,y)=>srank(edges[x])-srank(edges[y])||x-y;
+const present=id=>id!=="stoner"||S.arrived;
+const live=i=>{const e=edges[i];if(!present(e.a)||!present(e.b))return false;return (e.a==="stoner"||e.b==="stoner")?S.revealed.has(i):true};
+function neighbors(id){return edges.map((_,i)=>i).filter(i=>live(i)&&(edges[i].a===id||edges[i].b===id)).sort(cmp).map(i=>({i,o:edges[i].a===id?edges[i].b:edges[i].a}))}
+let memo={k:"",set:null};
+function shown(){
+  const k=[S.arrived,S.revealed.size,S.selected,S.cluster].join("|");if(memo.k===k)return memo.set;
+  const set=new Set(),by={};
+  edges.forEach((e,i)=>{if(!live(i))return;(by[e.a]??=[]).push(i);(by[e.b]??=[]).push(i);if(e.a===S.selected||e.b===S.selected)set.add(i);if(S.cluster!=null&&B[e.a].c===S.cluster&&B[e.b].c===S.cluster)set.add(i)});
+  Object.values(by).forEach(l=>l.sort(cmp).slice(0,TOP_N).forEach(i=>set.add(i)));
+  memo={k,set};return set;
+}
+const DEGC={};const deg=FX.has("deg")?(id=>DEGC[id]??=edges.filter(e=>e.a===id||e.b===id).length):(id=>edges.filter(e=>e.a===id||e.b===id).length);
+const nodeSize=id=>4.5+deg(id)*1.1;
+const fmt=t=>t.replace(/“([^”]+)”/g,"<q>$1</q>");
+const clusterMembers=c=>books.filter(b=>b.c===c&&present(b.id));
+function trailEdges(){if(FX.has("focus")){const k=skey();if(tem.k!==k)tem={k,v:trailEdges0()};return tem.v}return trailEdges0()}
+function trailEdges0(){const s=new Set();for(let k=1;k<S.trail.length;k++){const x=S.trail[k-1],y=S.trail[k];edges.forEach(e=>{if((e.a===x&&e.b===y)||(e.a===y&&e.b===x))s.add(e.i)})}return s}
+function focusSet0(){
+  if(S.selected){const s=new Set([S.selected,...S.trail]);neighbors(S.selected).forEach(n=>s.add(n.o));return s}
+  if(S.cluster!=null)return new Set(books.filter(b=>b.c===S.cluster).map(b=>b.id));
+  return null;
+}
+let fsm={k:"",v:null},tem={k:"",v:null};const skey=()=>[S.selected,S.cluster,S.trail.join(),S.arrived,S.revealed.size].join("|");
+function focusSet(){if(!FX.has("focus"))return focusSet0();const k=skey();if(fsm.k!==k)fsm={k,v:focusSet0()};return fsm.v}
+function edgeStyle(i){
+  if(!live(i)||!shown().has(i))return"hidden";
+  if(S.selEdge===i)return"sel";
+  const e=edges[i];
+  if(S.selected){if(e.a===S.selected||e.b===S.selected)return"full";return trailEdges().has(i)?"trail":"dim"}
+  if(S.cluster!=null)return B[e.a].c===S.cluster&&B[e.b].c===S.cluster?"full":"dim";
+  return"full";
+}
+
+/* =============== layout (shared, seeded) =============== */
+const POS=(()=>{
+  let s=7;const rnd=()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
+  const cen=CLUSTERS.map((_,i)=>({x:Math.cos(i/5*Math.PI*2-1.2)*95,y:Math.sin(i/5*Math.PI*2-1.2)*80}));
+  const p={};books.forEach(b=>p[b.id]={x:cen[b.c].x+(rnd()-.5)*40,y:cen[b.c].y+(rnd()-.5)*40,vx:0,vy:0});
+  for(let it=0;it<500;it++){
+    const cool=1-it/500;
+    books.forEach(a=>books.forEach(b=>{if(a.id>=b.id)return;const A=p[a.id],Bp=p[b.id];let dx=A.x-Bp.x,dy=A.y-Bp.y,d2=dx*dx+dy*dy+.01,d=Math.sqrt(d2);const f=Math.min(900/d2,6);A.vx+=dx/d*f;A.vy+=dy/d*f;Bp.vx-=dx/d*f;Bp.vy-=dy/d*f}));
+    edges.forEach(e=>{const A=p[e.a],Bp=p[e.b];let dx=Bp.x-A.x,dy=Bp.y-A.y,d=Math.sqrt(dx*dx+dy*dy)+.01;const L=e.s==="strong"?26:40,f=(d-L)*.03;A.vx+=dx/d*f;A.vy+=dy/d*f;Bp.vx-=dx/d*f;Bp.vy-=dy/d*f});
+    books.forEach(b=>{const P=p[b.id],c=cen[b.c];P.vx+=(c.x-P.x)*.012;P.vy+=(c.y-P.y)*.012;P.x+=P.vx*.5*cool;P.y+=P.vy*.5*cool;P.vx*=.6;P.vy*=.6});
+  }
+  const o={};books.forEach(b=>o[b.id]={x:p[b.id].x,y:p[b.id].y});return o;
+})();
+
+/* =============== shared markup =============== */
+const lineFor=e=>`<i style="height:${e.s==="strong"?4:2}px"></i>`;
+const tagHTML=e=>`<span class="tag ${e.type}">${lineFor(e)}${TYPE[e.type].n}</span>`;
+
+/* =============== force-graph helper (B + C) =============== */
+function makeFG(el,o){
+  const SC=3.4;
+  const nodes=books.map(b=>({id:b.id,b,x:POS[b.id].x*SC,y:POS[b.id].y*SC}));
+  const links=edges.map(e=>({source:e.a,target:e.b,i:e.i,e}));
+  const nbrSet=()=>{if(!S.selected)return null;const s=new Set([S.selected]);neighbors(S.selected).forEach(n=>s.add(n.o));return s};
+  const visN=o.nodeFilter||(n=>present(n.id));
+  const visL=o.linkFilter||(l=>shown().has(l.i));
+  const fg=ForceGraph()(el).width(el.clientWidth).height(el.clientHeight).backgroundColor("rgba(0,0,0,0)")
+    .graphData({nodes,links}).nodeId("id").nodeVisibility(n=>present(n.id)&&visN(n)).linkVisibility(l=>live(l.i)&&visL(l))
+    .linkColor(l=>{const dim=S.selected&&!(l.e.a===S.selected||l.e.b===S.selected);return dim?"#e2d8c5":TYPE[l.e.type].c})
+    .linkWidth(l=>ew(l.e)*(S.selEdge===l.i?1.8:1))
+    .nodeCanvasObject((n,ctx,k)=>{
+      const nb=nbrSet(),dim=nb&&!nb.has(n.id)&&!(o.keepAll);
+      const r=nodeSize(n.id)*.9;
+      ctx.beginPath();ctx.arc(n.x,n.y,r,0,Math.PI*2);ctx.fillStyle=dim?FADE:INK;ctx.fill();
+      if(S.selected===n.id){ctx.lineWidth=2/k;ctx.strokeStyle="#a8432f";ctx.beginPath();ctx.arc(n.x,n.y,r+4/k,0,Math.PI*2);ctx.stroke()}
+      const show=o.labels==="all"||!dim||k>1.6; if(!show)return;
+      const fs=(o.mini?12:13)/Math.max(k,.6)*(k<.6?k/.6:1)+0; ctx.font=`500 ${Math.max(fs,3)}px Newsreader, serif`;
+      ctx.textAlign="center";ctx.textBaseline="top";
+      ctx.lineWidth=3/Math.max(k,.6);ctx.strokeStyle=PAPER;ctx.strokeText(n.b.l,n.x,n.y+r+2);
+      ctx.fillStyle=dim?"#a89c88":INK;ctx.fillText(n.b.l,n.x,n.y+r+2);
+    })
+    .nodePointerAreaPaint((n,c,ctx)=>{ctx.fillStyle=c;ctx.beginPath();ctx.arc(n.x,n.y,nodeSize(n.id)+5,0,Math.PI*2);ctx.fill()})
+    .linkHoverPrecision(7).onNodeClick(n=>o.onNode&&o.onNode(n.id)).onBackgroundClick(()=>o.onBg&&o.onBg()).onLinkClick(l=>o.onLink&&o.onLink(l.i))
+    .cooldownTime(3500).d3AlphaDecay(.05).d3VelocityDecay(.45);
+  fg.d3Force("link").distance(l=>l.e.s==="strong"?SC*26:SC*40).strength(.35);
+  fg.d3Force("charge").strength(-90);
+  const cen={};CLUSTERS.forEach((_,c)=>{const m=books.filter(b=>b.c===c);cen[c]={x:m.reduce((a,b)=>a+POS[b.id].x,0)/m.length*SC,y:m.reduce((a,b)=>a+POS[b.id].y,0)/m.length*SC}});
+  fg.d3Force("cluster",a=>nodes.forEach(n=>{const c=cen[n.b.c];n.vx+=(c.x-n.x)*.08*a;n.vy+=(c.y-n.y)*.08*a}));
+  if(o.wash)fg.onRenderFramePre((ctx,k)=>{
+    ctx.save();ctx.globalCompositeOperation="multiply";
+    CLUSTERS.forEach((nm,c)=>{const m=nodes.filter(n=>n.b.c===c&&present(n.id));if(m.length<3)return;
+      m.forEach(n=>{const R=SC*30,g=ctx.createRadialGradient(n.x,n.y,0,n.x,n.y,R);g.addColorStop(0,WASH[c]+"88");g.addColorStop(1,WASH[c]+"00");ctx.fillStyle=g;ctx.beginPath();ctx.arc(n.x,n.y,R,0,Math.PI*2);ctx.fill()})});
+    ctx.restore();
+    CLUSTERS.forEach((nm,c)=>{const m=nodes.filter(n=>n.b.c===c&&present(n.id));if(m.length<3)return;
+      const x=m.reduce((a,n)=>a+n.x,0)/m.length,y=Math.min(...m.map(n=>n.y))-SC*17;
+      ctx.font=`italic 500 ${SC*7}px Newsreader, serif`;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillStyle="rgba(35,29,23,.34)";ctx.fillText(nm,x,y)});
+  });
+  const ro=new ResizeObserver(()=>fg.width(el.clientWidth).height(el.clientHeight));ro.observe(el);
+  setTimeout(()=>fg.zoomToFit(0,o.pad??60),60);
+  const nodeById=id=>nodes.find(n=>n.id===id);
+  return{fg,nodes,nodeById,cen,
+    center(id,z){const n=nodeById(id);if(!n)return;fg.centerAt(n.x,n.y,600);if(z&&fg.zoom()<z)fg.zoom(z,600)},
+    fit(ms=500){fg.zoomToFit(ms,o.pad??60)},
+    destroy(){ro.disconnect();fg._destructor&&fg._destructor()}};
+}
+
+/* =============== A / D: Canvas (A = Sigma.js, D = force-graph seeded from ForceAtlas2) =============== */
+const CDESC=[
+ "Novels about people who give a life to duty, restraint or habit, and find out what it cost. Mostly quiet, mostly late.",
+ "Fiction and political thought on how institutions, ideology and planning shape the people inside them.",
+ "Stoics, existentialists and one survivor, all asking how to carry on when the world will not supply a meaning.",
+ "Books about how minds and sciences form beliefs, and why frames make us blind to what does not fit.",
+ "Wide-angle accounts of how humans, land and other living things came to be where they are."
+];
+const ew=e=>e.s==="strong"?4.5:2.5; // edge width (wider than first round)
+function fa2Layout(){
+  try{
+    const g=new graphology.Graph();
+    books.forEach((b,i)=>g.addNode(b.id,{x:Math.cos(i*2.4)*Math.sqrt(i+1)*20,y:Math.sin(i*2.4)*Math.sqrt(i+1)*20}));
+    edges.forEach(e=>g.addEdge(e.a,e.b,{weight:e.s==="strong"?2:1}));
+    // layout-only: weak same-Cluster ties so Clusters pack together (not stored, not drawn)
+    books.forEach(a=>books.forEach(b=>{if(a.id<b.id&&a.c===b.c&&!g.hasEdge(a.id,b.id)&&!g.hasEdge(b.id,a.id))g.addEdge(a.id,b.id,{weight:.7})}));
+    const F=graphologyLibrary.layoutForceAtlas2;
+    F.assign(g,{iterations:600,settings:{...F.inferSettings(g),gravity:1.6,scalingRatio:22,edgeWeightInfluence:1}});
+    let m=0;g.forEachNode((n,a)=>{m=Math.max(m,Math.hypot(a.x,a.y))});
+    const o={};g.forEachNode((n,a)=>o[n]={x:a.x/m*130,y:a.y/m*130});return o;
+  }catch(err){console.warn("ForceAtlas2 unavailable, falling back to prototype layout",err);return POS}
+}
+const FA2=fa2Layout();
+
+function mountCanvas(root,kind){
+  root.innerHTML=`<div class="a-stage"><canvas class="wash"></canvas><div class="sg"></div><div class="clabels">${CLUSTERS.map((c,i)=>`<button class="clabel" data-cl="${i}">${c}</button>`).join("")}</div></div>
+  <div class="brand a-brand">Marginalia</div>
+  <aside class="a-panel" hidden></aside>
+  <div class="a-legend"><div class="row">${["thematic","contrast","context"].map(t=>`<span class="tag ${t}"><i style="height:4px"></i>${TYPE[t].n}</span>`).join("")}</div><div class="note">Thicker line = stronger Connection · select a Book, follow its Connections · click a Cluster name</div></div>`;
+  const panel=root.querySelector(".a-panel"),wash=root.querySelector("canvas.wash"),sg=root.querySelector(".sg"),labels=[...root.querySelectorAll(".clabel")];
+  let E; // engine
+
+  /* ---- shared chrome: wash, Cluster labels, panel, trail ---- */
+  function draw(){
+    const r=wash.getBoundingClientRect(),dpr=devicePixelRatio||1;
+    if(wash.width!==Math.round(r.width*dpr)||wash.height!==Math.round(r.height*dpr)){wash.width=r.width*dpr;wash.height=r.height*dpr}
+    const ctx=wash.getContext("2d");ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,r.width,r.height);
+    const o=E.toViewport({x:0,y:0}),u=E.toViewport({x:1,y:0}),k=Math.hypot(u.x-o.x,u.y-o.y),R=(E.washR||30)*k;
+    ctx.globalCompositeOperation="multiply";
+    CLUSTERS.forEach((nm,c)=>{const m=clusterMembers(c);if(m.length<3||FX.has("nowash"))return;m.forEach(b=>{const p=E.toViewport(E.pos(b.id)),gr=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,R);gr.addColorStop(0,WASH[c]+(S.cluster===c?"cc":"88"));gr.addColorStop(.55,WASH[c]+(E.washR?"55":"33"));gr.addColorStop(1,WASH[c]+"00");ctx.fillStyle=gr;ctx.beginPath();ctx.arc(p.x,p.y,R,0,Math.PI*2);ctx.fill()})});
+    CLUSTERS.forEach((nm,c)=>{const m=clusterMembers(c),el=labels[c];if(m.length<3){el.style.display="none";return}el.style.display="";
+      const ps=m.map(b=>E.toViewport(E.pos(b.id)));const x=ps.reduce((a,p)=>a+p.x,0)/ps.length,fs=Math.max(14,Math.min(30,k*9));
+      // put the name above or below its Cluster, whichever crosses fewer Book labels
+      const w=nm.length*fs*.46,all=books.filter(b=>present(b.id)).map(b=>E.toViewport(E.pos(b.id)));
+      const hit=yy=>all.filter(p=>Math.abs(p.y-yy)<fs*.9&&p.x>x-w/2-6&&p.x<x+w/2+150).length;
+      const up=Math.min(...ps.map(p=>p.y))-R*(E.washR?.8:.62),dn=Math.max(...ps.map(p=>p.y))+R*(E.washR?.8:.62);
+      const y=hit(up)<=hit(dn)?up:dn;
+      el.style.fontSize=fs+"px";el.style.transform=`translate(${x}px,${y}px) translate(-50%,-50%)`;el.classList.toggle("on",S.cluster===c)});
+  }
+  function renderPanel(){
+    if(S.cluster!=null){const c=S.cluster,m=clusterMembers(c);panel.hidden=false;
+      panel.innerHTML=`<button class="x" data-x>close</button><h2>${CLUSTERS[c]}</h2><p class="by">Cluster of ${m.length} Books</p><p class="cdesc">${CDESC[c]}</p>
+      <ol class="conns">${m.map(b=>`<li class="conn"><button class="go" data-go="${b.id}">${b.t}</button><p class="by" style="margin:0">${b.a}, ${b.y}</p></li>`).join("")}</ol>`;return}
+    const id=S.selected;if(!id){panel.hidden=true;return}
+    const b=B[id];panel.hidden=false;
+    panel.innerHTML=`<button class="x" data-x>close</button>
+    ${S.trail.length>1?`<nav class="trail">${S.trail.map((t,k)=>`${k?"<span>›</span>":""}${k===S.trail.length-1?`<span class="cur">${B[t].l}</span>`:`<button data-trim="${k}">${B[t].l}</button>`}`).join("")}</nav>`:""}
+    ${S.fresh&&id==="stoner"?`<p class="fresh">You just finished this. Where it sits among your earlier reading:</p>`:""}
+    <h2>${b.t}</h2><p class="by">${b.a}, ${b.y} · <button class="clink" data-cl="${b.c}"><em>${CLUSTERS[b.c]}</em></button></p>
+    <ol class="conns">${neighbors(id).map(({i,o})=>{const e=edges[i];return `<li class="conn rise ${S.selEdge===i?"on":""}" data-edge="${i}">${tagHTML(e)}<button class="go" data-follow="${o}">${B[o].t}</button><p>${fmt(e.e)}</p><button class="follow" data-follow="${o}">Follow this Connection →</button></li>`}).join("")||`<li class="conn"><p>No Connections found yet.</p></li>`}</ol>`;
+  }
+  const refresh=()=>{renderPanel();E.refresh()};
+  const pick=(id,follow)=>{S.cluster=null;S.fresh=S.fresh&&id==="stoner";S.selected=id;S.selEdge=null;
+    if(follow){if(S.trail[S.trail.length-1]!==id)S.trail.push(id)}else S.trail=[id];
+    refresh();E.focusMany([id]);panel.scrollTo({top:0})};
+  const pickCluster=c=>{S.cluster=c;S.selected=null;S.selEdge=null;S.trail=[];S.fresh=false;refresh();E.focusMany(clusterMembers(c).map(b=>b.id),true)};
+  const clear=()=>{S.selected=null;S.selEdge=null;S.cluster=null;S.trail=[];S.fresh=false;refresh();E.reset()};
+  const pickEdge=i=>{S.cluster=null;S.selected=edges[i].a;S.selEdge=i;if(!S.trail.length)S.trail=[S.selected];refresh();setTimeout(()=>panel.querySelector(".conn.on")?.scrollIntoView({block:"nearest",behavior:"smooth"}),30)};
+  const api={pick:id=>pick(id,false),bg:clear,link:pickEdge,draw};
+  panel.addEventListener("click",ev=>{
+    const f=ev.target.closest("[data-follow]");if(f)return pick(f.dataset.follow,true);
+    const go=ev.target.closest("[data-go]");if(go)return pick(go.dataset.go,false);
+    const tr=ev.target.closest("[data-trim]");if(tr){const k=+tr.dataset.trim;S.trail=S.trail.slice(0,k+1);return pick(S.trail[k],true)}
+    const cl=ev.target.closest("[data-cl]");if(cl)return pickCluster(+cl.dataset.cl);
+    if(ev.target.closest("[data-x]"))return clear();
+    const c=ev.target.closest("[data-edge]");if(c){S.selEdge=+c.dataset.edge;refresh()}});
+  root.querySelector(".clabels").addEventListener("click",ev=>{const cl=ev.target.closest("[data-cl]");if(cl)pickCluster(+cl.dataset.cl)});
+
+  /* ---- engines ---- */
+  if(kind==="sigma"){
+    const g=new graphology.Graph();
+    books.forEach(b=>g.addNode(b.id,{label:b.l,x:FA2[b.id].x,y:FA2[b.id].y,size:nodeSize(b.id),color:INK}));
+    edges.forEach(e=>g.addEdgeWithKey("e"+e.i,e.a,e.b,{size:ew(e),color:TYPE[e.type].c}));
+    const sigma=new Sigma(g,sg,{renderLabels:true,labelFont:"Newsreader, serif",labelSize:13,labelWeight:"500",labelColor:{color:INK},labelDensity:1.2,labelGridCellSize:80,labelRenderedSizeThreshold:3,defaultEdgeType:"line",enableEdgeEvents:true,zIndex:true,minCameraRatio:.25,maxCameraRatio:3,
+      nodeReducer:(n,d)=>{if(!present(n))return{...d,hidden:true};const s=focusSet();if(!s)return d;if(n===S.selected)return{...d,forceLabel:true,zIndex:2};if(s.has(n))return{...d,forceLabel:true,zIndex:1};return{...d,color:FADE,label:null}},
+      edgeReducer:(k,d)=>{const st=edgeStyle(+k.slice(1));if(st==="hidden")return{...d,hidden:true};if(st==="dim")return{...d,color:"#e2d8c5",size:1};if(st==="sel")return{...d,size:d.size+3,zIndex:2};if(st==="trail")return{...d,size:d.size+1.5,zIndex:1};return d}});
+    sigma.on("afterRender",draw);
+    sigma.on("clickNode",({node})=>api.pick(node));sigma.on("clickStage",api.bg);sigma.on("clickEdge",({edge})=>api.link(+edge.slice(1)));
+    sigma.on("enterNode",()=>sg.style.cursor="pointer");sigma.on("leaveNode",()=>sg.style.cursor="");
+    E=window.__E={sigma,refresh:()=>sigma.refresh(),pos:id=>FA2[id],toViewport:p=>sigma.graphToViewport(p),
+      focusMany(ids,wide){const d=ids.map(i=>sigma.getNodeDisplayData(i)).filter(Boolean);if(!d.length)return;const x=d.reduce((a,p)=>a+p.x,0)/d.length,y=d.reduce((a,p)=>a+p.y,0)/d.length;sigma.getCamera().animate({x,y,ratio:wide?.65:Math.min(sigma.getCamera().ratio,.75)},{duration:600})},
+      reset:()=>sigma.getCamera().animatedReset({duration:500}),destroy:()=>sigma.kill()};
+  }else{
+    const nodes=books.map(b=>({id:b.id,b,x:FA2[b.id].x,y:FA2[b.id].y,hx:FA2[b.id].x,hy:FA2[b.id].y}));
+    const links=edges.map(e=>({source:e.a,target:e.b,i:e.i,e,rest:Math.hypot(FA2[e.a].x-FA2[e.b].x,FA2[e.a].y-FA2[e.b].y)}));
+    let base=1;
+    const fg=ForceGraph()(sg).width(sg.clientWidth).height(sg.clientHeight).backgroundColor("rgba(0,0,0,0)").graphData({nodes,links}).nodeId("id")
+      .nodeVisibility(n=>present(n.id)).linkVisibility(l=>edgeStyle(l.i)!=="hidden")
+      .linkColor(l=>edgeStyle(l.i)==="dim"?"#e2d8c5":TYPE[l.e.type].c)
+      .linkWidth(l=>{const st=edgeStyle(l.i);return (st==="dim"?1:ew(l.e)+(st==="sel"?3:st==="trail"?1.5:0))/fg.zoom()})
+      .nodeCanvasObject((n,ctx,k)=>{const s=focusSet(),dim=s&&!s.has(n.id),r=nodeSize(n.id)/k;
+        ctx.beginPath();ctx.arc(n.x,n.y,r,0,Math.PI*2);ctx.fillStyle=dim?FADE:INK;ctx.fill();
+        if(dim)return;if(FX.has("lod")&&k<1.5&&deg(n.id)<(k<.8?8:4))return;ctx.font=`500 ${13/k}px Newsreader, serif`;ctx.textAlign="left";ctx.textBaseline="middle";ctx.fillStyle=INK;ctx.fillText(n.b.l,n.x+r+3/k,n.y)})
+      .nodePointerAreaPaint((n,c,ctx,k)=>{ctx.fillStyle=c;ctx.beginPath();ctx.arc(n.x,n.y,(nodeSize(n.id)+5)/k,0,Math.PI*2);ctx.fill()})
+      .linkHoverPrecision(6).onNodeClick(n=>api.pick(n.id)).onBackgroundClick(api.bg).onLinkClick(l=>api.link(l.i))
+      .onRenderFramePre(()=>api.draw()).warmupTicks(0).cooldownTicks(0).d3AlphaDecay(.06).d3VelocityDecay(.5);
+    // seeded layout stays put; dragging a node wakes a gentle local simulation that settles back toward home
+    fg.d3Force("link").distance(l=>l.rest).strength(.2);
+    fg.d3Force("charge").strength(-14).distanceMax(45);
+    fg.d3Force("home",a=>nodes.forEach(n=>{n.vx+=(n.hx-n.x)*.08*a;n.vy+=(n.hy-n.y)*.08*a}));
+    setTimeout(()=>{fg.zoomToFit(0,90);base=fg.zoom();fg.cooldownTicks(100)},120);
+    const ro=new ResizeObserver(()=>fg.width(sg.clientWidth).height(sg.clientHeight));ro.observe(sg);
+    sg.style.cursor="grab";
+    E=window.__E={fg,nodes,washR:36,refresh(){},pos:FX.has("pos")?(NM=>id=>NM.get(id))(new Map(nodes.map(n=>[n.id,n]))):(id=>nodes.find(n=>n.id===id)),toViewport:p=>fg.graph2ScreenCoords(p.x,p.y),
+      focusMany(ids,wide){const m=nodes.filter(n=>ids.includes(n.id));if(!m.length)return;fg.centerAt(m.reduce((a,n)=>a+n.x,0)/m.length,m.reduce((a,n)=>a+n.y,0)/m.length,600);const z=base*(wide?1.5:1.7);if(fg.zoom()<z||wide)fg.zoom(z,600)},
+      reset:()=>fg.zoomToFit(500,90),destroy(){ro.disconnect();fg._destructor&&fg._destructor()}};
+  }
+  renderPanel();
+  return{refresh,focus:id=>E.focusMany([id]),destroy:()=>E.destroy()};
+}
+const mountA=r=>mountCanvas(r,"sigma"),mountD=r=>mountCanvas(r,"fg");
+
+/* =============== B: Margin pane (force-graph + docked pane) =============== */
+function mountB(root){
+  root.innerHTML=`<div class="b-wrap"><div class="b-graph"><div class="brand">Marginalia</div><div class="fgw" style="position:absolute;inset:0"></div>
+   <div class="hint">${["thematic","contrast","context"].map(t=>`<span class="tag ${t}"><i style="height:3px"></i>${TYPE[t].n}</span>`).join("")}</div></div><aside class="b-pane"></aside></div>`;
+  const pane=root.querySelector(".b-pane");
+  const G=makeFG(root.querySelector(".fgw"),{wash:true,labels:"focus",
+    onNode:id=>pick(id),onBg:()=>{S.selected=null;S.selEdge=null;S.fresh=false;refresh();G.fit()},
+    onLink:i=>{S.selected=edges[i].a;S.selEdge=i;refresh()}});
+  function render(){
+    const id=S.selected;
+    if(!id){pane.innerHTML=`<p class="brand" style="margin:0 0 4px">Your reading</p><p class="lead">Select a Book to read how it connects to the others. Clusters form on their own as Connections accumulate.</p>
+      <h3>Clusters</h3>${CLUSTERS.map((c,i)=>{const m=clusterMembers(i);return `<button class="cl" data-cl="${i}"><b>${c}</b><span>${m.map(b=>b.l).join(" · ")}</span></button>`}).join("")}`;return}
+    const b=B[id];
+    pane.innerHTML=`${S.fresh&&id==="stoner"?`<p class="fresh">You just finished this. Where it sits among your earlier reading:</p>`:""}<h2>${b.t}</h2><p class="by">${b.a}, ${b.y} · <em>${CLUSTERS[b.c]}</em></p>
+      ${neighbors(id).map(({i,o})=>{const e=edges[i];return `<div class="mn rise ${S.selEdge===i?"on":""}" data-edge="${i}">${tagHTML(e)}<button class="go" data-go="${o}">${B[o].t}</button><p>${fmt(e.e)}</p></div>`}).join("")||`<p class="lead">No Connections found yet.</p>`}`;
+  }
+  const refresh=()=>render();
+  const pick=id=>{S.fresh=S.fresh&&id==="stoner";S.selected=id;S.selEdge=null;render();G.center(id,1.5)};
+  pane.addEventListener("click",ev=>{const go=ev.target.closest("[data-go]");if(go)return pick(go.dataset.go);const cl=ev.target.closest("[data-cl]");if(cl){const c=G.cen[+cl.dataset.cl];G.fg.centerAt(c.x,c.y,600);G.fg.zoom(1.4,600);return}const m=ev.target.closest("[data-edge]");if(m){S.selEdge=+m.dataset.edge;render()}});
+  render();
+  return{refresh,focus:id=>G.center(id,1.5),destroy(){G.destroy()}};
+}
+
+/* =============== C: Trail (connection-first) =============== */
+function mountC(root){
+  root.innerHTML=`<div class="c-wrap"><main class="c-main"><div class="inner"></div></main><aside class="c-mini"><div class="cap">Where you are, and where you have been</div><div class="fg"></div></aside></div>`;
+  const main=root.querySelector(".inner"),mainScroll=root.querySelector(".c-main");
+  const near=()=>{const s=new Set(S.trail);if(S.selected){s.add(S.selected);neighbors(S.selected).forEach(n=>s.add(n.o))}return s};
+  const trailPairs=()=>{const s=new Set();for(let k=1;k<S.trail.length;k++){const x=S.trail[k-1],y=S.trail[k];edges.forEach(e=>{if((e.a===x&&e.b===y)||(e.a===y&&e.b===x))s.add(e.i)})}return s};
+  const G=makeFG(root.querySelector(".fg"),{labels:"all",mini:true,wash:false,pad:40,keepAll:true,
+    nodeFilter:n=>!S.selected||near().has(n.id),
+    linkFilter:l=>S.selected&&(l.e.a===S.selected||l.e.b===S.selected||trailPairs().has(l.i)),
+    onNode:id=>pick(id,true),onBg:()=>{}});
+  function render(){
+    const id=S.selected;
+    if(!id){main.innerHTML=`<div class="brand" style="margin:18px 0 40px">Marginalia</div><h1 class="rise">Begin from any Book</h1><p class="by">Follow its Connections from one Book to the next.</p><div class="idx">${CLUSTERS.map((c,i)=>`<h3>${c}</h3>${clusterMembers(i).map(b=>`<button data-go="${b.id}">${b.t}<span class="by2">${b.a}</span></button>`).join("")}`).join("")}</div>`;return}
+    const b=B[id];
+    main.innerHTML=`<nav class="trail"><button data-home>Marginalia</button>${S.trail.map((t,k)=>`<span>›</span>${t===id&&k===S.trail.length-1?`<span class="cur">${B[t].l}</span>`:`<button data-go="${t}" data-trim="${k}">${B[t].l}</button>`}`).join("")}</nav>
+      ${S.fresh&&id==="stoner"?`<p class="fresh">You just finished this. Where it sits among your earlier reading:</p>`:""}
+      <h1>${b.t}</h1><p class="by">${b.a}, ${b.y} · <em>${CLUSTERS[b.c]}</em></p>
+      ${neighbors(id).map(({i,o},k)=>{const e=edges[i],ob=B[o];return `<section class="pass rise" style="animation-delay:${k*.06}s" data-hov="${o}">${tagHTML(e)}${ob.c!==b.c?`<span class="cross">crosses into ${CLUSTERS[ob.c]}</span>`:""}
+        <button class="go" data-go="${o}">${ob.t}</button><p>${fmt(e.e)}</p><button class="follow" data-go="${o}">Follow this Connection →</button></section>`}).join("")||`<p class="lead">No Connections found yet.</p>`}`;
+  }
+  const pick=(id,push=true)=>{if(push&&S.trail[S.trail.length-1]!==id)S.trail.push(id);S.fresh=S.fresh&&id==="stoner";S.selected=id;S.selEdge=null;render();mainScroll.scrollTo({top:0,behavior:"smooth"});G.center(id,.7)};
+  main.addEventListener("click",ev=>{
+    if(ev.target.closest("[data-home]")){S.selected=null;S.trail=[];S.fresh=false;render();G.fit();return}
+    const go=ev.target.closest("[data-go]");if(!go)return;
+    const tr=go.dataset.trim;if(tr!==undefined){S.trail=S.trail.slice(0,+tr+1);return pick(go.dataset.go,false)}
+    pick(go.dataset.go,true)});
+  main.addEventListener("mouseover",ev=>{const h=ev.target.closest("[data-hov]");S.hover=h?h.dataset.hov:null});
+  render();
+  return{refresh:render,focus:id=>{if(S.trail[S.trail.length-1]!==id)S.trail.push(id);G.center(id,.7)},destroy(){G.destroy()}};
+}
+
+/* =============== shell: variant switcher + arrival simulation =============== */
+const variants={A:["Canvas · Sigma",mountA],D:["Canvas · force-graph + ForceAtlas2",mountD],B:["Margin pane",mountB],C:["Trail",mountC]},keys=["A","D","B","C"];
+const stage=document.getElementById("stage");let cur=null,curKey=null;
+function show(k){
+  if(cur)cur.destroy();stage.innerHTML="";const el=document.createElement("div");el.className="variant";stage.appendChild(el);
+  curKey=k;cur=variants[k][1](el);
+  document.getElementById("vl").textContent=`${k} · ${variants[k][0]}`;
+  const u=new URL(location.href);u.searchParams.set("variant",k);history.replaceState(null,"",u);
+}
+const step=d=>show(keys[(keys.indexOf(curKey)+d+keys.length)%keys.length]);
+document.getElementById("prev").onclick=()=>step(-1);document.getElementById("next").onclick=()=>step(1);
+addEventListener("keydown",e=>{if(/INPUT|TEXTAREA/.test(document.activeElement.tagName)||document.activeElement.isContentEditable)return;if(e.key==="ArrowLeft")step(-1);if(e.key==="ArrowRight")step(1)});
+const finishBtn=document.getElementById("finish");
+finishBtn.onclick=()=>{
+  if(S.arrived)return;
+  S.arrived=true;S.revealed=new Set();S.selected="stoner";S.selEdge=null;S.fresh=true;S.trail=["stoner"];finishBtn.disabled=true;
+  show(curKey);cur.focus("stoner");
+  edges.filter(e=>e.a==="stoner"||e.b==="stoner").sort((x,y)=>cmp(x.i,y.i)).forEach((e,k)=>timers.push(setTimeout(()=>{S.revealed.add(e.i);cur.refresh()},1100+k*1000)));
+};
+document.getElementById("reset").onclick=()=>{timers.forEach(clearTimeout);timers=[];Object.assign(S,{cluster:null,selected:null,selEdge:null,arrived:false,fresh:false,revealed:new Set(),trail:[]});finishBtn.disabled=false;show(curKey)};
+const start=()=>{const v=new URL(location.href).searchParams.get("variant");show(variants[v]?v:"A");if(new URL(location.href).searchParams.has("arrive"))finishBtn.click();const cl=new URL(location.href).searchParams.get("cl");if(cl)setTimeout(()=>document.querySelector(`.clabel[data-cl="${cl}"]`)?.click(),1200)};
+(document.fonts&&document.fonts.load?Promise.race([document.fonts.load("500 13px Newsreader"),new Promise(r=>setTimeout(r,1500))]):Promise.resolve()).then(start);
+</script>
+</body>
+</html>
