@@ -60,7 +60,7 @@ export async function addBook(
       const [row] = await tx.select({ id: book.id }).from(book).where(eq(book.openLibraryWorkKey, work.workKey));
 
       const { entry, firstCompletion } = await enterLibrary(tx, userId, row.id, status);
-      return { ...entry, firstCompletion, bookId: row.id };
+      return { ...entry, firstCompletion };
     });
   } catch (err) {
     if (isUniqueViolation(err)) throw new DuplicateBookError(work.workKey);
