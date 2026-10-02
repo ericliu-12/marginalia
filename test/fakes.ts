@@ -64,7 +64,7 @@ export type EnrichInput = { title: string; authors: string[]; description: strin
 
 // Fake Claude for Enrichment: answers with `reply` (author/year default to the Book's own), records inputs.
 export function fakeEnricher(
-  reply: Partial<EnrichmentResult> | ((input: EnrichInput) => Partial<EnrichmentResult> | Promise<never>) = {},
+  reply: Partial<EnrichmentResult> | ((input: EnrichInput) => Partial<EnrichmentResult> | Promise<Partial<EnrichmentResult>>) = {},
 ): EnrichmentModel & { inputs: EnrichInput[] } {
   const inputs: EnrichInput[] = [];
   return {
