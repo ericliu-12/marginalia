@@ -1,0 +1,1042 @@
+[
+ {
+  "slug": "normal-people",
+  "title": "Normal People",
+  "author": "Sally Rooney",
+  "theme": "love",
+  "ol": {
+   "found": true,
+   "ol_key": "/works/OL20150260W",
+   "ol_title": "Normal People",
+   "year": 2018,
+   "description": "At school Connell and Marianne pretend not to know each other. He’s popular and well-adjusted, star of the school soccer team while she is lonely, proud, and intensely private. But when Connell comes to pick his mother up from her housekeeping job at Marianne’s house, a strange and indelible connection grows between the two teenagers - one they are determined to conceal.\r\n\r\nA year later, they’re both studying at Trinity College in Dublin. Marianne has found her feet in a new social world while Connell hangs at the sidelines, shy and uncertain. Throughout their years in college, Marianne and Connell circle one another, straying toward other people and possibilities but always magnetically, irresistibly drawn back together. Then, as she veers into self-destruction and he begins to search for meaning elsewhere, each must confront how far they are willing to go to save the other.\r\n\r\nSally Rooney brings her brilliant psychological acuity and perfectly spare prose to a story that explores the subtleties of class, the electricity of first love, and the complex entanglements of family and friendship.",
+   "subjects": [
+    "sex",
+    "romance",
+    "contemporary",
+    "Dublin (ireland)",
+    "fiction",
+    "Man-woman relationships",
+    "literary fiction",
+    "nyt:combined-print-and-e-book-fiction=2019-05-05",
+    "New York Times bestseller",
+    "New York Times reviewed",
+    "Fiction, romance, contemporary",
+    "Dublin (ireland), fiction",
+    "Man-woman relationships, fiction",
+    "English literature",
+    "First loves"
+   ]
+  },
+  "lowConf": false,
+  "descChars": 1109,
+  "enrichment": {
+   "summary": "Connell and Marianne, two teenagers from different social classes in Dublin, form a secret connection that persists through their years at Trinity College, repeatedly drawing them back together despite their attempts to separate and pursue other relationships. The novel traces their intimate bond across time, examining how class differences, shame, and self-doubt shape their ability to be honest with each other and themselves. Rooney's spare, dialogue-driven prose focuses on the psychological interior of their relationship rather than dramatic plot events.",
+   "themes": [
+    "class and social shame",
+    "first love and attachment",
+    "self-deception and vulnerability",
+    "the gap between public and private selves",
+    "desire and power dynamics",
+    "searching for meaning and connection"
+   ]
+  },
+  "enrichmentSonnet": {
+   "summary": "Normal People follows Connell and Marianne, who meet as teenagers in a small town in the west of Ireland, where he is popular and she is an isolated outsider, and keep their relationship secret. The story tracks them through their years at Trinity College in Dublin, where their social positions shift, and through repeated separations and reunions. Written in spare, restrained prose without quotation marks, it focuses closely on the characters' inner lives and miscommunications.",
+   "themes": [
+    "First love and on-off intimacy",
+    "Class and social status",
+    "Miscommunication and emotional reticence",
+    "Shifting power in relationships",
+    "Mental health and self-worth",
+    "Growing up in contemporary Ireland"
+   ]
+  },
+  "enrichmentNormal": null,
+  "cost": {
+   "haiku": 0.0014,
+   "sonnet": 0.003998
+  }
+ },
+ {
+  "slug": "beautiful-world",
+  "title": "Beautiful World, Where Are You",
+  "author": "Sally Rooney",
+  "theme": "love",
+  "notes": [
+   "alice and felix's relationship 10/10, emails were a highlight"
+  ],
+  "ol": {
+   "found": true,
+   "ol_key": "/works/OL24151602W",
+   "ol_title": "Beautiful World, Where Are You",
+   "year": 2021,
+   "description": "Three friends and a hanger-on gradually coalesce into two couples.",
+   "subjects": [
+    "English literature",
+    "nyt:combined-print-and-e-book-fiction=2021-09-26",
+    "New York Times bestseller",
+    "Interpersonal relations",
+    "Fiction",
+    "Fiction, women",
+    "Fiction, coming of age",
+    "Friendship, fiction",
+    "Man-woman relationships, fiction",
+    "Dublin (ireland), fiction"
+   ]
+  },
+  "lowConf": true,
+  "descChars": 66,
+  "enrichment": {
+   "summary": "Sally Rooney's third novel follows four young people in Dublin whose relationships shift and reconfigure over the course of the book. The narrative moves between their emails, conversations, and inner lives, examining how intimacy and connection form between friends and romantic partners.",
+   "themes": [
+    "friendship and loyalty",
+    "romantic relationships",
+    "class and privilege",
+    "desire and attachment",
+    "communication and misunderstanding",
+    "contemporary Irish life"
+   ]
+  },
+  "enrichmentSonnet": {
+   "summary": "Sally Rooney's 2021 novel follows four people in their late twenties and early thirties in Ireland: Alice, a novelist who has recently left the spotlight, and her friend Eileen, along with Felix and Simon, whom they become involved with. Alongside the third-person chapters about their love lives and work, Alice and Eileen exchange long emails about friendship, belief, politics and the state of the world. The prose is spare and intimate, alternating between everyday scenes and essayistic correspondence.",
+   "themes": [
+    "Friendship and romantic relationships",
+    "Intimacy and miscommunication",
+    "Fame, art and the role of the novelist",
+    "Capitalism, politics and the state of the world",
+    "Meaning, faith and beauty in an uncertain age",
+    "Millennial adulthood and mental health"
+   ]
+  },
+  "enrichmentNormal": {
+   "summary": "A novel following three Dublin-based friends—Eileen, Alice, and Danielle—as their relationships shift and deepen over the course of a year, with new romantic entanglements complicating their long-standing friendship. The narrative unfolds through conversations, emails, and interior observations as the characters navigate work, love, and what it means to maintain intimacy across different life circumstances. Rooney's prose is sparse and colloquial, focusing on the emotional undercurrents of everyday interaction rather than dramatic events.",
+   "themes": [
+    "friendship and loyalty",
+    "romantic love and desire",
+    "intellectual ambition versus personal fulfillment",
+    "connection in the digital age",
+    "class and social anxiety",
+    "the gap between internal life and external presentation"
+   ]
+  },
+  "cost": {
+   "haiku": 0.000915,
+   "sonnet": 0.003828
+  }
+ },
+ {
+  "slug": "intermezzo",
+  "title": "Intermezzo",
+  "author": "Sally Rooney",
+  "theme": "love",
+  "notes": [
+   "a meditation on grief, pursue living through the dark times. gets better every reread, immersed in peter's stream of consciousness"
+  ],
+  "ol": {
+   "found": true,
+   "ol_key": "/works/OL37949460W",
+   "ol_title": "Intermezzo",
+   "year": 2024,
+   "description": "Aside from the fact that they are brothers, Peter and Ivan Koubek seem to have little in common.\r\n\r\nPeter is a Dublin lawyer in his thirties—successful, competent, and apparently unassailable. But in the wake of their father’s death, he’s medicating himself to sleep and struggling to manage his relationships with two very different women—his enduring first love, Sylvia, and Naomi, a college student for whom life is one long joke.\r\n\r\nIvan is a twenty-two-year-old competitive chess player. He has always seen himself as socially awkward, a loner, the antithesis of his glib elder brother. Now, in the early weeks of his bereavement, Ivan meets Margaret, an older woman emerging from her own turbulent past, and their lives become rapidly and intensely intertwined.\r\n\r\nFor two grieving brothers and the people they love, this is a new interlude—a period of desire, despair, and possibility; a chance to find out how much one life might hold inside itself without breaking.",
+   "subjects": [
+    "Fiction",
+    "Literary Fiction",
+    "Grief",
+    "Brotherhood"
+   ]
+  },
+  "lowConf": false,
+  "descChars": 974,
+  "enrichment": {
+   "summary": "Intermezzo follows two Dublin brothers—Peter, a lawyer in his thirties navigating relationships with two women while grieving their father, and Ivan, a twenty-two-year-old chess player who becomes involved with an older woman named Margaret. The novel traces how each brother and the people in their lives move through grief, desire, and possibility in the weeks following their loss.",
+   "themes": [
+    "grief and bereavement",
+    "brotherhood and family bonds",
+    "desire and romantic entanglement",
+    "emotional vulnerability in men",
+    "class and age difference in relationships",
+    "finding meaning after loss"
+   ]
+  },
+  "enrichmentSonnet": {
+   "summary": "Intermezzo follows two Irish brothers, Peter, a Dublin lawyer in his thirties, and Ivan, a 22-year-old competitive chess player, in the weeks and months after their father's death. Peter is caught between two women, his long-time love Sylvia and the young student Naomi, while Ivan becomes closely involved with Margaret, an older woman. Sally Rooney alternates between the brothers' perspectives, tracing how grief shapes their relationships with each other and with the people they love.",
+   "themes": [
+    "Grief and bereavement",
+    "Brotherhood and sibling tension",
+    "Love across age differences",
+    "Competing romantic attachments",
+    "Social awkwardness versus outward confidence",
+    "Moral and emotional uncertainty after loss"
+   ]
+  },
+  "enrichmentNormal": null,
+  "cost": {
+   "haiku": 0.001188,
+   "sonnet": 0.004006
+  }
+ },
+ {
+  "slug": "brilliant-friend",
+  "title": "My Brilliant Friend",
+  "author": "Elena Ferrante",
+  "theme": "love",
+  "ol": {
+   "found": true,
+   "ol_key": "/works/OL34947113W",
+   "ol_title": "My Brilliant Friend",
+   "year": 2023,
+   "description": "",
+   "subjects": [
+    "Comics & graphic novels, adaptations",
+    "Comics & graphic novels, historical fiction",
+    "Comics & graphic novels, literary"
+   ]
+  },
+  "lowConf": true,
+  "descChars": 0,
+  "enrichment": {
+   "summary": "This is a graphic novel adaptation of Elena Ferrante's novel about two girls growing up in postwar Naples. The metadata provided identifies it as a comics adaptation of a literary work, but I cannot confidently describe the specific plot or narrative approach of this graphic version without direct knowledge of it.",
+   "themes": [
+    "female friendship",
+    "coming of age",
+    "class and poverty",
+    "Naples and Italian life",
+    "literary adaptation"
+   ]
+  },
+  "enrichmentSonnet": {
+   "summary": "My Brilliant Friend is Elena Ferrante's novel, the first in her Neapolitan Quartet, following the lifelong friendship of two girls, Elena and Lila, who grow up in a poor neighborhood of Naples in the 1950s. The subjects listed here point to a comics or graphic novel adaptation, and I can't confirm details of that specific edition, so I'm describing the source novel. The original is narrated in a confiding first-person voice and mixes personal story with social history.",
+   "themes": [
+    "female friendship and rivalry",
+    "growing up in postwar Naples",
+    "class and education",
+    "ambition and self-definition",
+    "the limits placed on women"
+   ]
+  },
+  "enrichmentNormal": {
+   "summary": "This is the graphic novel adaptation of Elena Ferrante's first novel in the Neapolitan series, following the intense friendship between Elena and Lila from childhood in 1950s Naples through their teenage years. The story captures their fierce rivalry and deep bond as they navigate education, family, violence, and ambition in a poor neighborhood, with the graphic format rendering the narrative's emotional intensity through visual storytelling.",
+   "themes": [
+    "female friendship and rivalry",
+    "coming of age in poverty",
+    "Naples and Italian identity",
+    "education as escape",
+    "violence and power dynamics",
+    "memory and nostalgia"
+   ]
+  },
+  "cost": {
+   "haiku": 0.000836,
+   "sonnet": 0.003202
+  }
+ },
+ {
+  "slug": "everything-love",
+  "title": "Everything I Know About Love",
+  "author": "Dolly Alderton",
+  "theme": "love",
+  "notes": [
+   "love isn't just romance, cherish friendships"
+  ],
+  "ol": {
+   "found": true,
+   "ol_key": "/works/OL20654212W",
+   "ol_title": "Everything I Know About Love",
+   "year": 2018,
+   "description": "The wildly funny, occasionally heartbreaking internationally bestselling memoir about growing up, growing older, and learning to navigate friendships, jobs, loss, and love along the ride\r\n\r\nWhen it comes to the trials and triumphs of becoming an adult, journalist and former Sunday Times columnist Dolly Alderton has seen and tried it all. In her memoir, she vividly recounts falling in love, finding a job, getting drunk, getting dumped, realizing that Ivan from the corner shop might just be the only reliable man in her life, and that absolutely no one can ever compare to her best girlfriends. Everything I Know About Love is about bad dates, good friends and—above all else— realizing that you are enough.\r\n\r\nGlittering with wit and insight, heart and humor, Dolly Alderton’s unforgettable debut weaves together personal stories, satirical observations, a series of lists, recipes, and other vignettes that will strike a chord of recognition with women of every age—making you want to pick up the phone and tell your best friends all about it. Like Bridget Jones’ Diary but all true, Everything I Know About Love is about the struggles of early adulthood in all its terrifying and hopeful uncertainty.",
+   "subjects": [
+    "Love",
+    "Friendship",
+    "Man-woman relationships",
+    "nyt:paperback-nonfiction=2023-04-09",
+    "New York Times bestseller"
+   ]
+  },
+  "lowConf": false,
+  "descChars": 1206,
+  "enrichment": {
+   "summary": "Dolly Alderton's memoir chronicles her experiences navigating love, friendship, work, and heartbreak through her twenties and thirties in London. Written with sharp humor and emotional honesty, it combines personal anecdotes, observations, and lists to explore what adulthood actually feels like rather than what it's supposed to look like.",
+   "themes": [
+    "friendship as primary relationship",
+    "self-worth and being enough",
+    "navigating romantic disappointment",
+    "the messy reality of adulthood",
+    "women's experiences and solidarity",
+    "humor as coping mechanism"
+   ]
+  },
+  "enrichmentSonnet": {
+   "summary": "Dolly Alderton's memoir traces her path from adolescence in Essex through her twenties in London, covering dating, heavy drinking, early career work as a journalist, and the shifting dynamics of close female friendships. It mixes personal essays with lists, recipes, and short vignettes, in a humorous, confessional voice that also turns to loss and heartbreak. The book argues that friendships and self-worth matter as much as romantic relationships.",
+   "themes": [
+    "Female friendship",
+    "Dating and romantic disappointment",
+    "Growing up and early adulthood",
+    "Loss and heartbreak",
+    "Self-worth and independence",
+    "Drinking and party culture"
+   ]
+  },
+  "enrichmentNormal": null,
+  "cost": {
+   "haiku": 0.001236,
+   "sonnet": 0.00387
+  }
+ },
+ {
+  "slug": "plague",
+  "title": "The Plague",
+  "author": "Albert Camus",
+  "theme": "absurd",
+  "ol": {
+   "found": true,
+   "ol_key": "/works/OL1230720W",
+   "ol_title": "The Plague, The Fall, Exile and the Kingdom, and Selected Essays",
+   "year": 2004,
+   "description": "From the Publisher: From one of the most brilliant and influential thinkers of the twentieth century-two novels, six short stories, and a pair of essays in a single volume. In both his essays and his fiction, Albert Camus (1913-1960) deployed his lyric eloquence in defense against despair, providing an affirmation of the brave assertion of humanity in the face of a universe devoid of order or meaning. The Plague-written in 1947 and still profoundly relevant-is a riveting tale of horror, survival, and resilience in the face of a devastating epidemic. The Fall (1956), which takes the form of an astonishing confession by a French lawyer in a seedy Amsterdam bar, is a haunting parable of modern conscience in the face of evil. The six stories of Exile and the Kingdom (1957) represent Camus at the height of his narrative powers, masterfully depicting his characters-from a renegade missionary to an adulterous wife-at decisive moments of revelation. Set beside their fictional counterparts, Camus's famous essays \"The Myth of Sisyphus\" and \"Reflections on the Guillotine\" are all the more powerful and philosophically daring, confirming his towering place in twentieth-century thought.",
+   "subjects": [
+    "Fiction, general",
+    "Africa, fiction",
+    "French fiction",
+    "Translations into English",
+    "French literature",
+    "Literature"
+   ]
+  },
+  "lowConf": false,
+  "descChars": 1191,
+  "enrichment": {
+   "summary": "During a plague outbreak in an Algerian city, ordinary people confront sudden mortality and the breakdown of normal life, finding meaning through solidarity and small acts of resistance. The novel presents the epidemic as both literal catastrophe and metaphor for the human condition, told through a restrained, documentary-like narrative that builds inexorable tension across hundreds of pages.",
+   "themes": [
+    "absurdity and meaninglessness",
+    "collective human response to crisis",
+    "individual versus systemic suffering",
+    "solidarity in isolation",
+    "defiance without hope",
+    "mortality and contingency"
+   ]
+  },
+  "enrichmentSonnet": {
+   "summary": "Set in the Algerian port city of Oran, The Plague follows a bubonic epidemic that forces the town into quarantine, seen mainly through Dr. Bernard Rieux and a circle of residents who respond in different ways. It is a restrained, chronicle-style novel that uses the outbreak to examine how people face suffering and death in a world without clear meaning. The Open Library record describes a collected volume that also includes The Fall, Exile and the Kingdom, and two essays, but the central work is The Plague (1947).",
+   "themes": [
+    "Absurdity and the search for meaning",
+    "Solidarity and collective resistance to suffering",
+    "Duty and ordinary heroism",
+    "Isolation, exile, and separation",
+    "Death and human mortality",
+    "Moral responsibility in the face of evil"
+   ]
+  },
+  "enrichmentNormal": null,
+  "cost": {
+   "haiku": 0.001216,
+   "sonnet": 0.004282
+  }
+ },
+ {
+  "slug": "stranger",
+  "title": "The Stranger",
+  "author": "Albert Camus",
+  "theme": "absurd",
+  "ol": {
+   "found": true,
+   "ol_key": "/works/OL31270346W",
+   "ol_title": "The Stranger, The Plague (Coles Notes)",
+   "year": 1980,
+   "description": "",
+   "subjects": []
+  },
+  "lowConf": true,
+  "descChars": 0,
+  "enrichment": {
+   "summary": "Camus's existential novel follows Meursault, an emotionally detached man in Algeria who commits a murder and faces trial. The narrative is sparse and matter-of-fact, presenting events without psychological explanation or moral judgment, forcing readers to confront questions about meaning and indifference in an absurd world.",
+   "themes": [
+    "absurdism",
+    "alienation and detachment",
+    "meaning and meaninglessness",
+    "death and mortality",
+    "justice and judgment"
+   ]
+  },
+  "enrichmentSonnet": {
+   "summary": "The Stranger (L'Étranger, 1942) is Albert Camus's short novel narrated by Meursault, a detached French Algerian whose emotional indifference sets him apart from the people around him. The story begins with the death of his mother and follows him to a killing and its legal aftermath. It reads in spare, flat first-person prose and is closely associated with Camus's philosophy of the absurd.",
+   "themes": [
+    "The absurd",
+    "Alienation from society",
+    "Emotional detachment and indifference",
+    "Death and mortality",
+    "Judgment, justice, and social conventions",
+    "Honesty versus social expectation"
+   ]
+  },
+  "enrichmentNormal": {
+   "summary": "A man named Meursault commits a meaningless murder on an Algerian beach and faces trial, during which his emotional detachment and refusal to conform to social expectations become more damning than the crime itself. The novel presents an absurdist exploration of existence, told in a sparse, direct style that mirrors the protagonist's emotional numbness.",
+   "themes": [
+    "absurdism and meaninglessness",
+    "emotional detachment and alienation",
+    "the individual versus society",
+    "indifference to conventional morality",
+    "the contingency of human existence",
+    "the trial as judgment of character rather than crime"
+   ]
+  },
+  "cost": {
+   "haiku": 0.000881,
+   "sonnet": 0.00293
+  }
+ },
+ {
+  "slug": "candide",
+  "title": "Candide",
+  "author": "Voltaire",
+  "theme": "absurd",
+  "ol": {
+   "found": true,
+   "ol_key": "/works/OL100672W",
+   "ol_title": "Candide",
+   "year": 1746,
+   "description": "Brought up in the household of a powerful Baron, Candide is an open-minded young man, whose tutor, Pangloss, has instilled in him the belief that 'all is for the best'. But when his love for the Baron's rosy-cheeked daughter is discovered, Candide is cast out to make his own way in the world. \r\n\r\nAnd so he and his various companions begin a breathless tour of Europe, South America and Asia, as an outrageous series of disasters befall them - earthquakes, syphilis, a brush with the Inquisition, murder - sorely testing the young hero's optimism.",
+   "subjects": [
+    "Conduct of life",
+    "Readers",
+    "Literatura francesa",
+    "Satire",
+    "Fiction",
+    "Civilization",
+    "Moral conditions",
+    "Enlightenment",
+    "Politics and government",
+    "Life",
+    "French language",
+    "Philosophy",
+    "French fiction",
+    "Ethics",
+    "Classic Literature"
+   ]
+  },
+  "lowConf": false,
+  "descChars": 548,
+  "enrichment": {
+   "summary": "Candide follows a naive young man expelled from his sheltered upbringing who travels the world with his tutor Pangloss, encountering a relentless series of catastrophes—earthquakes, disease, war, and murder—that challenge his ingrained belief that everything happens for the best. Voltaire's sharp satirical novella uses Candide's misadventures across continents to mock optimistic philosophy and blind acceptance of the status quo, delivering its critique through dark humor and absurdist incidents rather than direct argument.",
+   "themes": [
+    "Critique of optimism and philosophical naivety",
+    "The problem of evil and suffering",
+    "Satire of Enlightenment thinking",
+    "The cost of blind obedience and acceptance",
+    "Travel and displacement as education",
+    "Finding meaning through action rather than philosophy"
+   ]
+  },
+  "enrichmentSonnet": {
+   "summary": "Voltaire's 1759 satirical novella follows Candide, a naive young man raised in a Westphalian baron's castle on the teaching that this is the best of all possible worlds. Expelled after being caught with the baron's daughter Cunégonde, he travels through Europe, South America and the Ottoman world, meeting war, earthquakes, the Inquisition, slavery and betrayal. It reads as a fast, darkly comic picture-tale that mocks philosophical optimism and ends on a modest, practical note about tending one's garden.",
+   "themes": [
+    "Critique of philosophical optimism",
+    "Suffering and the problem of evil",
+    "Satire of religious and political institutions",
+    "Innocence tested by experience",
+    "Practical work over abstract speculation",
+    "Enlightenment skepticism"
+   ]
+  },
+  "enrichmentNormal": null,
+  "cost": {
+   "haiku": 0.001419,
+   "sonnet": 0.003948
+  }
+ },
+ {
+  "slug": "blindness",
+  "title": "Blindness",
+  "author": "José Saramago",
+  "theme": "absurd",
+  "notes": [
+   "interesting use of visibility as a deterrent. the dog who wipes away the tears"
+  ],
+  "ol": {
+   "found": true,
+   "ol_key": "/works/OL16212507W",
+   "ol_title": "Blindness",
+   "year": 1999,
+   "description": "",
+   "subjects": [
+    "Blind",
+    "Blindness",
+    "Fiction",
+    "Fiction, general"
+   ]
+  },
+  "lowConf": true,
+  "descChars": 0,
+  "enrichment": {
+   "summary": "A city is struck by an epidemic of blindness that spreads rapidly through the population. Saramago follows a group of blind people—including a doctor, his wife, and others—as they navigate a collapsing society, confinement in an asylum, and the moral chaos that ensues when sight is lost. The novel is written in Saramago's distinctive style with minimal punctuation and long, flowing passages that mirror the disorientation of blindness.",
+   "themes": [
+    "blindness as metaphor for moral blindness",
+    "collapse of social order",
+    "human vulnerability and survival",
+    "isolation and community",
+    "sight and perception"
+   ]
+  },
+  "enrichmentSonnet": {
+   "summary": "Blindness is José Saramago's novel in which an unexplained epidemic of sudden blindness spreads through an unnamed city, and the government's attempt to contain it leads to the breakdown of social order. It follows a small group of characters through the crisis and is known for its unnamed characters and its dense, unconventional style, with long paragraphs and dialogue run together without quotation marks. The tone is bleak but humane, working as an allegory about society under stress.",
+   "themes": [
+    "Social collapse under crisis",
+    "Human cruelty and compassion",
+    "Institutional failure and authoritarian control",
+    "Literal and moral blindness",
+    "Solidarity and survival"
+   ]
+  },
+  "enrichmentNormal": {
+   "summary": "An unexplained epidemic of blindness strikes a city, and the narrative follows a group of afflicted people confined in a mental asylum as society collapses around them. The book is told in Saramago's distinctive style of long, unpunctuated passages that create an immersive, disorienting experience mirroring the characters' loss of sight.",
+   "themes": [
+    "Loss of vision as metaphor for moral blindness",
+    "Survival and degradation under extreme conditions",
+    "Breakdown of social order and civilization",
+    "Interdependence and human solidarity",
+    "The unreliability of perception and knowledge"
+   ]
+  },
+  "cost": {
+   "haiku": 0.001066,
+   "sonnet": 0.00312
+  }
+ },
+ {
+  "slug": "unbearable",
+  "title": "The Unbearable Lightness of Being",
+  "author": "Milan Kundera",
+  "theme": "love",
+  "notes": [
+   "loved the writing and really liked the thoughts on lightness vs weight, especially when it comes to coincidence"
+  ],
+  "ol": {
+   "found": true,
+   "ol_key": "/works/OL28766571W",
+   "ol_title": "Nesnesitelná lehkost bytí = The Unbearable Lightness of Being = Sonzai no taerarenai karusa [Japanese Edition]",
+   "year": 1998,
+   "description": "",
+   "subjects": []
+  },
+  "lowConf": true,
+  "descChars": 0,
+  "enrichment": {
+   "summary": "Kundera's philosophical novel explores the tension between eternal return and the fleeting nature of human existence, following multiple characters whose lives intersect in 1960s Prague against the backdrop of the Soviet invasion of Czechoslovakia. The book weaves together narrative, philosophical meditation, and metaphorical exploration in a fragmented, essayistic style rather than conventional plot.",
+   "themes": [
+    "eternal return and contingency",
+    "the weight and weightlessness of existence",
+    "love and commitment",
+    "body and soul",
+    "historical inevitability",
+    "the paradox of freedom"
+   ]
+  },
+  "enrichmentSonnet": {
+   "summary": "Milan Kundera's 1984 novel follows a small circle of people, including the surgeon Tomas, his wife Tereza, and the painter Sabina, in Czechoslovakia around the time of the 1968 Soviet invasion. It weaves their love lives and political circumstances together with the narrator's philosophical digressions, notably on lightness versus weight and on Nietzsche's eternal return. The tone is reflective and essayistic, with the narrator often commenting directly on the characters.",
+   "themes": [
+    "Lightness versus weight in human life",
+    "Love and fidelity",
+    "Eternal return and the singularity of life",
+    "Politics and personal freedom under totalitarianism",
+    "Exile and identity",
+    "Body, desire, and the soul"
+   ]
+  },
+  "enrichmentNormal": {
+   "summary": "Kundera explores the philosophical tension between eternal recurrence and the transience of human life through interconnected narratives of four characters—Tomas, Tereza, Sabina, and Franz—whose relationships unfold against the backdrop of the 1968 Soviet invasion of Czechoslovakia. The novel weaves together philosophical meditation with intimate personal drama, examining how individuals navigate meaning, love, and commitment in a world without inherent purpose.",
+   "themes": [
+    "eternal recurrence and its existential weight",
+    "the paradox of lightness and heaviness in existence",
+    "kitsch and the human need for meaning",
+    "erotic desire versus emotional commitment",
+    "political power and personal freedom",
+    "the impossibility of certain knowledge about others"
+   ]
+  },
+  "cost": {
+   "haiku": 0.000978,
+   "sonnet": 0.003388
+  }
+ },
+ {
+  "slug": "sirens",
+  "title": "The Sirens of Titan",
+  "author": "Kurt Vonnegut",
+  "theme": "absurd",
+  "notes": [
+   "things are outside of your control, make the most of it"
+  ],
+  "ol": {
+   "found": true,
+   "ol_key": "/works/OL98485W",
+   "ol_title": "The Sirens of Titan",
+   "year": 1959,
+   "description": "\"His best book,\" Esquire wrote of Kurt Vonnegut's 1959 novel The Sirens of Titan, adding, \"he dares not only to ask the ultimate question about the meaning of life, but to answer it.\"  This novel fits into that aspect of the Vonnegut canon that might be classified as science fiction, a quality that once led Time to describe Vonnegut as \"George Orwell, Dr. Caligari and Flash Gordon compounded into one writer ... a zany but moral mad scientist.\"\r\n\r\nThe Sirens of Titan was perhaps the novel that began the Vonnegut phenomenon with readers. The story is a fabulous trip, spinning madly through space and time in pursuit of nothing less than a fundamental understanding of the meaning of life. It takes place at a time in the future, when \"only the human soul remained terra incognita ... the Nightmare Ages, falling roughly, give or take a few years, between the Second World War and the Third Great Depression.\"\r\n\r\nThe villainous and super rich Malachi Constant is offered a chance to journey into the far reaches of outer space, to eventually live on the planet Titan surrounded by three beautiful sirens. There is the proverbial \"small print\" with this incredible offer, which Constant turns down, setting in motion a fantastic chain of events that only Vonnegut could imagine. The result is an uproarious, freewheeling inquiry into the very reason we exist and about how we participate and matter in the scheme of the universe.\r\n\r\nThe Sirens of Titan is essential, fundamental Vonnegut, as entertaining as it is questing in search of answers to the mysteries of life.  As a work of fiction, it is a sure leap, in terms of craft, over his first novel, Player Piano. His writing here is pared down, more concentrated and graceful, richly in the service of his remarkable ideas. Vonnegut summons greatness for the first time in The Sirens of Titan, where the search for the meaning of existence looks and sounds like a kaleidoscopic dream but leaves the reader with a clear and challenging answer.",
+   "subjects": [
+    "Ciencia-ficción",
+    "Classic Literature",
+    "Fiction",
+    "Mystery",
+    "Science Fiction & Fantasy",
+    "Science fiction",
+    "American fiction (fictional works by one author)",
+    "Fiction, science fiction, general",
+    "Mental illness",
+    "Kilgore Trout (Fictitious character)",
+    "Interplanetary voyages"
+   ]
+  },
+  "lowConf": false,
+  "descChars": 1999,
+  "enrichment": {
+   "summary": "A wealthy man named Malachi Constant is manipulated into a cosmic journey across space and time that takes him to the planet Titan, where he encounters existential mysteries and beautiful sirens. Through its freewheeling narrative, the novel pursues fundamental questions about the meaning of life and humanity's place in the universe, offering Vonnegut's distinctive blend of science fiction adventure and philosophical inquiry.",
+   "themes": [
+    "meaning of life and existence",
+    "free will and manipulation",
+    "human insignificance in the cosmos",
+    "loneliness and connection",
+    "the nature of consciousness",
+    "absurdism and dark humor"
+   ]
+  },
+  "enrichmentSonnet": {
+   "summary": "Kurt Vonnegut's 1959 science fiction novel follows Malachi Constant, an immensely rich and dissolute man whose refusal of an offer to travel through space sets off a chain of events across the solar system, ending on Saturn's moon Titan. It is a satirical, fast-moving story that skips through space and time while asking why humans exist and whether their lives matter. Its tone is darkly comic, and its prose is leaner and more controlled than in his first novel, Player Piano.",
+   "themes": [
+    "The meaning and purpose of human existence",
+    "Free will versus manipulation by larger forces",
+    "Wealth, privilege, and the loss of identity",
+    "Space travel as satire and allegory",
+    "Cosmic indifference and dark comedy",
+    "Fate and the role of chance"
+   ]
+  },
+  "enrichmentNormal": null,
+  "cost": {
+   "haiku": 0.001524,
+   "sonnet": 0.004948
+  }
+ },
+ {
+  "slug": "wind-up-bird",
+  "title": "The Wind-Up Bird Chronicle",
+  "author": "Haruki Murakami",
+  "theme": "dream",
+  "notes": [
+   "questions whether or not we are truly free. Okada drifts from story to story, place to place. the letters were the best part"
+  ],
+  "ol": {
+   "found": false
+  },
+  "lowConf": true,
+  "descChars": 0,
+  "enrichment": {
+   "summary": "Haruki Murakami's novel follows Toru Okada, a man who withdraws from ordinary life after losing his job, as he navigates a series of strange occurrences—including the disappearance of his wife and encounters with mysterious characters. The narrative is deliberately disorienting, moving between realistic domestic scenes and surreal, dreamlike episodes without clear resolution or explanation.",
+   "themes": [
+    "isolation and disconnection from society",
+    "the surreal and inexplicable",
+    "marriage and domestic life",
+    "loss of meaning and purpose",
+    "mysterious forces beyond explanation"
+   ]
+  },
+  "enrichmentSonnet": {
+   "summary": "A novel by Haruki Murakami in which Toru Okada, an unemployed man in Tokyo, searches for his missing wife and meets a series of strange people along the way. It blends ordinary domestic life with surreal episodes and with accounts of Japan's wartime history in Manchuria. The tone is quiet and dreamlike, with a slow, digressive structure.",
+   "themes": [
+    "Disappearance and the search for a missing person",
+    "Memory and wartime history",
+    "The blurring of the mundane and the surreal",
+    "Alienation and isolation in modern life",
+    "Violence and its lasting aftereffects"
+   ]
+  },
+  "enrichmentNormal": {
+   "summary": "A Tokyo man named Toru Okada searches for his missing wife while encountering a series of strange and surreal events—including a talking cat, a mysterious woman in a well, and a violent historical tangent about a Japanese soldier in Manchuria. The narrative drifts between mundane domestic life and dreamlike episodes, creating an unsettling atmosphere where the ordinary and supernatural are blended without clear explanation.",
+   "themes": [
+    "isolation and disconnection",
+    "surrealism and the uncanny",
+    "memory and trauma",
+    "domestic unhappiness",
+    "the search for meaning in absurdity",
+    "parallel realities and alternate narratives"
+   ]
+  },
+  "cost": {
+   "haiku": 0.000997,
+   "sonnet": 0.002964
+  }
+ },
+ {
+  "slug": "kafka-shore",
+  "title": "Kafka on the Shore",
+  "author": "Haruki Murakami",
+  "theme": "dream",
+  "notes": [
+   "the boy named crow represents the id to kafka's ego. murakami weaves smoothly between reality and dream, using rivers and transitions as metaphor"
+  ],
+  "ol": {
+   "found": false
+  },
+  "lowConf": true,
+  "descChars": 0,
+  "enrichment": {
+   "summary": "Kafka on the Shore follows two parallel narratives: a teenage boy named Kafka who runs away from home, and an elderly man named Nakata who travels across Japan following mysterious instructions. The novel weaves together magical realism, memory, and longing as the two stories intersect in unexpected ways. Murakami's prose is contemplative and strange, blending the mundane with the surreal.",
+   "themes": [
+    "displacement and running away",
+    "parallel lives and interconnection",
+    "magical realism",
+    "memory and the past",
+    "loneliness and isolation",
+    "the search for meaning"
+   ]
+  },
+  "enrichmentSonnet": {
+   "summary": "Kafka on the Shore is a 2002 novel by Haruki Murakami that follows two alternating storylines: a teenage boy who runs away from home, and an older man named Nakata who has the unusual ability to speak with cats. The two threads move toward each other through dreamlike, surreal events. It reads as a blend of everyday realism and magical, mythic strangeness, with a quiet, meandering pace.",
+   "themes": [
+    "Identity and coming of age",
+    "Fate and destiny",
+    "Dreams versus reality",
+    "Loneliness and isolation",
+    "Memory and loss",
+    "The surreal in everyday life"
+   ]
+  },
+  "enrichmentNormal": {
+   "summary": "Kafka on the Shore follows two interconnected narratives: a fifteen-year-old boy named Kafka who runs away from home to escape a mysterious family curse, and an aging man named Nakata who travels across Japan in search of a mystical entrance. The novel weaves together magical realism with mundane details of modern Japan, blending surreal events like fish falling from the sky with quiet moments of introspection and loss.",
+   "themes": [
+    "Escape and isolation",
+    "Magical realism",
+    "Memory and the past",
+    "Loneliness and connection",
+    "Destiny and free will",
+    "Coming of age"
+   ]
+  },
+  "cost": {
+   "haiku": 0.001011,
+   "sonnet": 0.002962
+  }
+ },
+ {
+  "slug": "norwegian-wood",
+  "title": "Norwegian Wood",
+  "author": "Haruki Murakami",
+  "theme": "love",
+  "notes": [
+   "growth through love. irony pervades the novel, especially the student revolution (performative?). Reiko was the most well written, liked her thoughts on music for yourself"
+  ],
+  "ol": {
+   "found": true,
+   "ol_key": "/works/OL2625457W",
+   "ol_title": "Norwegian Wood",
+   "year": 1987,
+   "description": "As his plane lands at a European airport, thirty-seven-year-old Toru Watanabe casually hears an old Beatles song. Suddenly, the music transports him back to his youth, to the turbulent Tokyo of the late sixties. He then remembers, with melancholy and unease, the unstable and mysterious Naoko, the girlfriend of his best—and only—friend from adolescence, Kizuki, and how Kizuki's suicide distanced them for a year until they reunited at university. There, they began an intimate relationship, which was soon cut short by Naoko’s fragile mental health, leading to her admission to a rest center. Shortly afterward, Watanabe fell in love with Midori, a lively and determined young woman. Indecisive and plagued by fears, Watanabe experienced only bewilderment and disillusionment in the very areas where everything was supposed to make sense: sex, love, and death. The unbearable situation led him to seek a delicate balance between his hopes and the need to find his place in the world.\r\n\r\nMientras su avión aterriza en un aeropuerto europeo, Toru Watanabe, de treinta y siete años, escucha casualmente una vieja canción de los Beatles: de pronto, la música le hace retroceder a su juventud, al turbulento Tokio de finales de los sesenta. Recuerda entonces, con melancolía y desasosiego, a la inestable y misteriosa Naoko, la novia de su mejor -y único- amigo de la adolescencia, Kizuki, y cómo el suicidio de éste les distanció durante un año, hasta que se reencontraron en la universidad. Iniciaron allí una relación íntima, truncada, sin embargo, por la frágil salud mental de Naoko, a quien hubo que internar en un centro de reposo. Al poco, Watanabe se enamoró de Midori, una joven activa y resuelta. Indeciso, acosado por los temores, Watanabe sólo experimentaba el deslumbramiento y el desengaño allá donde todo debía cobrar sentido: el sexo, el amor y la muerte. La insostenible situación le llevó entonces a intentar alcanzar el delicado equilibrio entre sus esperanzas y la necesidad de encontrar su lugar en el mundo.",
+   "subjects": [
+    "Student",
+    "Theaterwissenschaft",
+    "Liebesbeziehung",
+    "Belletristische Darstellung",
+    "Fiction, romance, general",
+    "College students",
+    "Fiction",
+    "Man-woman relationships",
+    "Young men",
+    "Fiction, romance, contemporary",
+    "Japan, fiction",
+    "Near and far eastern fiction (fictional works by one author)",
+    "Chinese fiction",
+    "Chang pian xiao shuo",
+    "Japanese fiction"
+   ]
+  },
+  "lowConf": false,
+  "descChars": 2027,
+  "enrichment": {
+   "summary": "A thirty-seven-year-old man hears a Beatles song and is transported back to late-1960s Tokyo, remembering his relationships with two women: Naoko, his unstable ex-girlfriend whose mental health deteriorated, and Midori, a vibrant young woman he fell in love with afterward. The novel explores Watanabe's struggle to find meaning and balance as he navigates grief, desire, and the disconnection between his emotional needs and the demands of adult life.",
+   "themes": [
+    "loss and grief",
+    "love and emotional connection",
+    "mental illness and fragility",
+    "coming of age in turbulent times",
+    "isolation and melancholy",
+    "searching for meaning and belonging"
+   ]
+  },
+  "enrichmentSonnet": {
+   "summary": "Norwegian Wood is a coming-of-age novel narrated by Toru Watanabe, who at thirty-seven hears a Beatles song and recalls his university years in late-1960s Tokyo. He is caught between Naoko, the fragile girlfriend of his late friend Kizuki, and Midori, a vivacious fellow student. It reads as a quiet, melancholic, realist love story, more restrained and personal than much of Murakami's other work.",
+   "themes": [
+    "Grief and the aftermath of suicide",
+    "Memory and nostalgia",
+    "First love and sexual awakening",
+    "Mental illness and fragility",
+    "Loneliness and finding one's place in the world",
+    "Youth in 1960s Tokyo"
+   ]
+  },
+  "enrichmentNormal": null,
+  "cost": {
+   "haiku": 0.001734,
+   "sonnet": 0.004976
+  }
+ },
+ {
+  "slug": "convenience-store",
+  "title": "Convenience Store Woman",
+  "author": "Sayaka Murata",
+  "theme": "dream",
+  "notes": [
+   "pretty funny but didn't fully get the point"
+  ],
+  "ol": {
+   "found": true,
+   "ol_key": "/works/OL19744024W",
+   "ol_title": "Convenience store woman",
+   "year": 2018,
+   "description": "Keiko Furukura had always been considered a strange child, and her parents always worried how she would get on in the real world, so when she takes on a job in a convenience store while at university, they are delighted for her. For her part, in the convenience store she finds a predictable world mandated by the store manual, which dictates how the workers should act and what they should say, and she copies her coworkers' style of dress and speech patterns so that she can play the part of a normal person. However, eighteen years later, at age 36, she is still in the same job, has never had a boyfriend, and has only few friends. She feels comfortable in her life, but is aware that she is not living up to society's expectations and causing her family to worry about her. When a similarly alienated but cynical and bitter young man comes to work in the store, he will upset Keiko's contented stasis--but will it be for the better?",
+   "subjects": [
+    "Man-woman relationships",
+    "Social life and customers",
+    "Clerks (Retail trade)",
+    "Fiction",
+    "Man-woman relationships, fiction",
+    "Japan, fiction",
+    "Fiction, general",
+    "Social life and customs",
+    "FICTION / Contemporary Women",
+    "Manners and customs",
+    "FICTION / Literary",
+    "Convenience stores",
+    "Conformity",
+    "Relations entre hommes et femmes",
+    "Romans, nouvelles"
+   ]
+  },
+  "lowConf": false,
+  "descChars": 937,
+  "enrichment": {
+   "summary": "Keiko Furukura, considered strange as a child, finds stability working at a convenience store where the manual's rules provide a clear script for how to behave and speak. At 36, she has spent eighteen years in the same job, content with her predictable existence but aware she doesn't meet society's expectations of what a woman should be. When a cynical young coworker arrives, his presence threatens the equilibrium she has carefully constructed.",
+   "themes": [
+    "social alienation and conformity",
+    "finding identity through performance and role-play",
+    "expectations placed on women in society",
+    "comfort in routine and predictability",
+    "belonging versus authenticity",
+    "the cost of living an \"ordinary\" life"
+   ]
+  },
+  "enrichmentSonnet": {
+   "summary": "Keiko Furukura, a 36-year-old woman who has worked at the same convenience store for eighteen years, finds order and belonging in the store's manual and routines, which let her pass as a normal person. Pressure from family and friends to marry or find a \"proper\" career grows, and the arrival of Shiraha, a bitter, alienated young coworker, disrupts her stable life. The novel is short, deadpan, and darkly comic, told in Keiko's flat first-person voice.",
+   "themes": [
+    "Social conformity and pressure to be normal",
+    "Work as identity and belonging",
+    "Gender expectations around marriage and career",
+    "Alienation and neurodivergent-seeming perspective",
+    "Contemporary Japanese society and its norms",
+    "Imitation and performance of social roles"
+   ]
+  },
+  "enrichmentNormal": null,
+  "cost": {
+   "haiku": 0.001373,
+   "sonnet": 0.00417
+  }
+ },
+ {
+  "slug": "rest-relaxation",
+  "title": "My Year of Rest and Relaxation",
+  "author": "Ottessa Moshfegh",
+  "theme": "dream",
+  "notes": [
+   "the protagonist is somehow a terrible person but understandable. snippets felt like a dream"
+  ],
+  "ol": {
+   "found": true,
+   "ol_key": "/works/OL17889978W",
+   "ol_title": "My Year of Rest and Relaxation",
+   "year": 2018,
+   "description": "It's early 2000 on New York City's Upper East Side, and the alienation of Moshfegh's unnamed young protagonist from others is nearly complete when she initiates her yearlong siesta, during which time she experiences limited personal interactions. Her parents have died; her relationships with her bulimic best friend Reva, an ex-boyfriend, and her drug-pushing psychiatrist are unwholesome. As her pill-popping intensifies, so does her isolation and determination to leave behind the world's travails. She is also beset by dangerous blackouts induced by a powerful medication.",
+   "subjects": [
+    "Fiction",
+    "Solitude",
+    "American Psychological fiction",
+    "Medication abuse",
+    "Quacks and quackery",
+    "Young women",
+    "New york (n.y.), fiction",
+    "Fiction, women",
+    "nyt:hardcover-fiction=2018-07-29",
+    "New York Times bestseller",
+    "New York Times reviewed",
+    "Psychological fiction",
+    "Literary",
+    "Contemporary Women",
+    "FICTION / Literary"
+   ]
+  },
+  "lowConf": false,
+  "descChars": 576,
+  "enrichment": {
+   "summary": "A wealthy young woman in early 2000s New York City deliberately checks out from life, using sleeping pills and medication to enter an extended hibernation-like state. The novel traces her year of self-imposed isolation and pharmaceutical escape as she withdraws from her dysfunctional relationships and the world around her.",
+   "themes": [
+    "escapism and withdrawal from society",
+    "medication and chemical dependency",
+    "alienation and disconnection",
+    "self-destruction disguised as rest",
+    "the unreliability of perception",
+    "wealth and ennui"
+   ]
+  },
+  "enrichmentSonnet": {
+   "summary": "Set in New York City in 2000, the novel follows an unnamed young woman, recently orphaned and working in an art gallery, who decides to spend a year sleeping, aided by a haphazard regimen of prescriptions from an incompetent psychiatrist. Her narration is deadpan, darkly comic, and unsentimental, tracing her strained friendship with Reva and her withdrawal from the world as the medications cause blackouts. It reads as a bleak, satirical character study of numbness, grief, and the hope that total withdrawal might reset a life.",
+   "themes": [
+    "Isolation and withdrawal from society",
+    "Grief and the loss of parents",
+    "Medication abuse and bad psychiatric care",
+    "Toxic friendship and female rivalry",
+    "Numbness and the desire to escape consciousness",
+    "Satire of New York art-world privilege"
+   ]
+  },
+  "enrichmentNormal": null,
+  "cost": {
+   "haiku": 0.001111,
+   "sonnet": 0.004254
+  }
+ },
+ {
+  "slug": "set-my-heart",
+  "title": "Set My Heart on Fire",
+  "author": "Izumi Suzuki",
+  "theme": "dream",
+  "ol": {
+   "found": true,
+   "ol_key": "/works/OL37926977W",
+   "ol_title": "Set My Heart on Fire",
+   "year": 2024,
+   "description": "",
+   "subjects": []
+  },
+  "lowConf": true,
+  "descChars": 0,
+  "enrichment": {
+   "summary": "I don't have reliable information about this specific book's content and plot. Izumi Suzuki is a Japanese author, but without verified details about this particular title, I cannot confidently describe its narrative or reading experience.",
+   "themes": [
+    "Japanese fiction",
+    "contemporary literature"
+   ]
+  },
+  "enrichmentSonnet": {
+   "summary": "I don't clearly recognise a book called \"Set My Heart on Fire\" by Izumi Suzuki. Suzuki was a Japanese writer and actress known for countercultural, feminist-leaning science fiction and short stories (such as those in \"Terminal Boredom\"), but I can't confirm what this title contains, so I won't describe its content.",
+   "themes": [
+    "Japanese literature",
+    "Countercultural writing",
+    "Gender and society"
+   ]
+  },
+  "enrichmentNormal": {
+   "summary": "I don't have reliable information about this specific book by Izumi Suzuki to provide an accurate summary and themes. While Izumi Suzuki was a notable Japanese science fiction writer, I cannot confidently confirm the details of a book with this exact title without access to the text or verified sources.",
+   "themes": [
+    "Unable to verify"
+   ]
+  },
+  "cost": {
+   "haiku": 0.000695,
+   "sonnet": 0.002476
+  }
+ },
+ {
+  "slug": "the-course",
+  "title": "The Course",
+  "author": "Ed Miller",
+  "theme": "isolated",
+  "ol": {
+   "found": true,
+   "ol_key": "/works/OL28594392W",
+   "ol_title": "The Course",
+   "year": 2015,
+   "description": "\"This book is different from other poiker books you may have read. It's written for players who are smart and who know that to succeed, you have to be different. Because in poker, if you play and think like everyone else, you'll get results like everyone else\"--Back cover.",
+   "subjects": [
+    "Poker",
+    "Gambling systems"
+   ]
+  },
+  "lowConf": false,
+  "descChars": 273,
+  "enrichment": {
+   "summary": "The Course presents poker strategy for players seeking to develop unconventional approaches rather than following standard advice. Miller focuses on thinking differently about the game as a path to outperforming typical players.",
+   "themes": [
+    "unconventional poker strategy",
+    "thinking independently at the table",
+    "differentiation from standard play",
+    "poker psychology",
+    "winning through unique approaches",
+    "game theory and player adaptation"
+   ]
+  },
+  "enrichmentSonnet": {
+   "summary": "A poker strategy book by Ed Miller, aimed at smart players who want to improve by thinking differently from the typical player rather than following common conventional advice. Its back-cover pitch stresses that playing and thinking like everyone else produces the same results as everyone else. Beyond that, I can't say with confidence how it is structured or which games it covers.",
+   "themes": [
+    "Poker strategy",
+    "Thinking differently from other players",
+    "Gambling systems",
+    "Winning through original thinking",
+    "Advice for serious, analytical players"
+   ]
+  },
+  "enrichmentNormal": null,
+  "cost": {
+   "haiku": 0.0008,
+   "sonnet": 0.002696
+  }
+ },
+ {
+  "slug": "inverting-pyramid",
+  "title": "Inverting the Pyramid",
+  "author": "Jonathan Wilson",
+  "theme": "isolated",
+  "ol": {
+   "found": true,
+   "ol_key": "/works/OL19953961W",
+   "ol_title": "Inverting the pyramid",
+   "year": 2009,
+   "description": "Inverting the pyramid is a pioneering soccer book that chronicles the evolution of the game's tactics and the lives of the itinerant coaching geniuses who have spread their distinctive styles across the globe.\r\n\r\nThrough Jonathan Wilson's brilliant historical detective work we learn how the South Americans shrugged off the British colonial order to add their own finesse to the game; how the Europeans harnessed individual technique and built it into a team structure; how the game once featured five forwards up front, while now a lone striker is not uncommon.\r\n\r\nInverting the Pyramid provides a definitive understanding of the tactical genius of modern-day Barcelona, for the first time showing how their style of play developed from Dutch \"Total Football,\" which itself was an evolution of the Scottish passing game invested by Queen's Park in the 1870s and taken on by Tottenham Hotspur in the 1930s. Inverting the Pyramid has ben called the \"Big Daddy\" (Zonal Marking) of soccer tactics books; it is essential for any coach, fan, player, or manager, of the beautiful game.",
+   "subjects": [
+    "Offense",
+    "Coaching",
+    "Soccer",
+    "Defense",
+    "History",
+    "Soccer, coaching",
+    "Soccer, history"
+   ]
+  },
+  "lowConf": false,
+  "descChars": 1080,
+  "enrichment": {
+   "summary": "Inverting the Pyramid traces how soccer tactics evolved from the 1870s through the modern era, following influential coaches who spread their innovations across continents. Wilson uses historical research to show how British passing styles transformed through South American flair and European systematization, ultimately leading to contemporary formations like Barcelona's tiki-taka football.",
+   "themes": [
+    "tactical evolution in soccer",
+    "coaching innovation and influence",
+    "geographical spread of playing styles",
+    "team structure versus individual technique",
+    "defensive and offensive formations",
+    "lineage of modern football systems"
+   ]
+  },
+  "enrichmentSonnet": {
+   "summary": "Jonathan Wilson traces the history of football tactics from the game's nineteenth-century British origins to the modern era, following how formations shifted from the five-forward 2-3-5 \"pyramid\" toward systems with fewer attackers. The narrative is organized around influential coaches and national traditions, including the South American, Central European, Dutch and Italian schools, and shows how ideas passed between them. It reads as a detailed, research-driven history aimed at fans and coaches who want to understand why teams play the way they do.",
+   "themes": [
+    "Evolution of football formations",
+    "Influential coaches and their ideas",
+    "Regional and national styles of play",
+    "Attack versus defense in tactical thinking",
+    "Spread of tactical ideas across countries",
+    "Origins of Total Football and modern passing styles"
+   ]
+  },
+  "enrichmentNormal": null,
+  "cost": {
+   "haiku": 0.001151,
+   "sonnet": 0.004206
+  }
+ }
+]
