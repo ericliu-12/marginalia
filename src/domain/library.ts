@@ -9,6 +9,10 @@ export type LibraryItem = {
   authors: string[];
   coverUrl: string | null;
   status: Status;
+  // Has a completed Read-through, whatever the current Status.
+  finished: boolean;
+  // Finished and currently being read again.
+  reReading: boolean;
 };
 
 const STATUS_ORDER: Status[] = ["reading", "want", "read"];
@@ -46,5 +50,7 @@ export async function readLibrary(db: Db, userId: string): Promise<LibraryItem[]
       authors: entry.authorOverride ? [entry.authorOverride] : b.authors,
       coverUrl: b.coverUrl,
       status: entry.status,
+      finished: lastFinished.has(entry.id),
+      reReading: entry.status === "reading" && lastFinished.has(entry.id),
     }));
 }

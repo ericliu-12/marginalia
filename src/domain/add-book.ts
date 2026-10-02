@@ -42,7 +42,7 @@ export async function addBook(db: Db, userId: string, work: OpenLibraryWork, sta
       if (status === "read") {
         await tx.insert(readThrough).values({ libraryEntryId: entry.id, userId, completedAt: new Date() });
       } else if (status === "reading") {
-        await tx.insert(readThrough).values({ libraryEntryId: entry.id, userId });
+        await tx.insert(readThrough).values({ libraryEntryId: entry.id, userId, startedAt: new Date() });
       }
       return entry;
     });
