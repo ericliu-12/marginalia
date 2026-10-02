@@ -11,8 +11,11 @@ export async function seedUser(db: Db) {
   return row;
 }
 
+// Read-only: the seeded user is created by `pnpm db:seed`, never on a read path.
 export async function getSeededUserId(db: Db) {
-  return (await seedUser(db)).id;
+  const [row] = await db.select({ id: user.id }).from(user).where(eq(user.email, SEEDED_USER_EMAIL));
+  if (!row) throw new Error("Seeded user not found. Run `pnpm db:migrate && pnpm db:seed` first.");
+  return row.id;
 }
 
 if (process.argv[1]?.endsWith("seed.ts")) {
