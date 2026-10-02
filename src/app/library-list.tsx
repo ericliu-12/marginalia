@@ -35,7 +35,7 @@ export function LibraryList({ items }: { items: LibraryItem[] }) {
                   type="button"
                   aria-expanded={open}
                   onClick={() => setCollapsed((c) => ({ ...c, [status]: open }))}
-                  className="flex w-full items-center gap-2 text-left"
+                  className="flex min-h-11 w-full items-center gap-2 text-left lg:min-h-0"
                 >
                   <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden className={`text-ink-3 transition-transform duration-200 ease-out-expo ${open ? "rotate-90" : ""}`}>
                     <path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
