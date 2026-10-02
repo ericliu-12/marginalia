@@ -82,9 +82,11 @@ export function LibraryList({ items }: { items: LibraryItem[] }) {
 function Row({ item }: { item: LibraryItem }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState(false);
+  const [moving, setMoving] = useState<Status | null>(null);
 
   function move(to: Status) {
     setError(false);
+    setMoving(to);
     start(async () => {
       const res = await changeStatusAction(item.bookId, to);
       if (!res.ok) setError(true);
@@ -92,7 +94,7 @@ function Row({ item }: { item: LibraryItem }) {
   }
 
   return (
-    <li className="flex items-start gap-4 py-3">
+    <li aria-busy={pending} className="flex items-start gap-4 py-3">
       <Cover title={item.title} url={item.coverUrl} />
       <div className="min-w-0">
         <p className="text-[1.05rem] leading-snug font-medium">{item.title}</p>
@@ -106,20 +108,21 @@ function Row({ item }: { item: LibraryItem }) {
             )}
           </p>
         )}
-        <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label={`Move ${item.title}`}>
+        <div className="mt-2 flex flex-wrap gap-2 lg:gap-1.5" role="group" aria-label={`Change status of ${item.title}`}>
           {MOVES[item.status].map(({ label, to }) => (
             <button
               key={to}
               type="button"
               disabled={pending}
+              aria-label={`${label}: ${item.title}`}
               onClick={() => move(to)}
               className="min-h-11 rounded-[3px] border border-ink/70 px-2.5 font-sans text-[0.8rem] font-medium text-ink transition-colors duration-150 hover:bg-ink hover:text-paper disabled:border-rule disabled:text-ink-3 disabled:hover:bg-transparent disabled:hover:text-ink-3 lg:min-h-0 lg:py-1"
             >
-              {label}
+              {pending && moving === to ? "Moving…" : label}
             </button>
           ))}
         </div>
-        {error && <p role="alert" className="mt-1.5 font-sans text-sm text-contrast">Couldn’t change this. Try again.</p>}
+        {error && <p role="alert" className="mt-1.5 font-sans text-sm text-contrast">Couldn’t move this book. Try again.</p>}
       </div>
     </li>
   );

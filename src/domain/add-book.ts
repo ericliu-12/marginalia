@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { Db } from "@/db/client";
-import { book, libraryEntry, readThrough } from "@/db/schema";
+import { book, libraryEntry } from "@/db/schema";
+import { applyStatus } from "./status";
 import { coverUrlFor, type OpenLibraryWork, type Status } from "./search";
 
 export class DuplicateBookError extends Error {
@@ -38,13 +39,10 @@ export async function addBook(db: Db, userId: string, work: OpenLibraryWork, sta
         .onConflictDoNothing({ target: book.openLibraryWorkKey });
       const [row] = await tx.select({ id: book.id }).from(book).where(eq(book.openLibraryWorkKey, work.workKey));
 
-      const [entry] = await tx.insert(libraryEntry).values({ userId, bookId: row.id, status }).returning();
-      if (status === "read") {
-        await tx.insert(readThrough).values({ libraryEntryId: entry.id, userId, completedAt: new Date() });
-      } else if (status === "reading") {
-        await tx.insert(readThrough).values({ libraryEntryId: entry.id, userId, startedAt: new Date() });
-      }
-      return entry;
+      // Enter as "want" (no Read-throughs), then apply the real Status through the shared transition.
+      const [entry] = await tx.insert(libraryEntry).values({ userId, bookId: row.id, status: "want" }).returning();
+      await applyStatus(tx, entry, status);
+      return { ...entry, status };
     });
   } catch (err) {
     if (isUniqueViolation(err)) throw new DuplicateBookError(work.workKey);

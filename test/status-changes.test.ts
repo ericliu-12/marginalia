@@ -95,6 +95,29 @@ describe("status changes and read-throughs", () => {
     expect(res.firstCompletion).toBe(false);
   });
 
+  it("moving to the same status repairs a Reading entry with no open Read-through", async () => {
+    const id = await start("reading");
+    await ctx.db.delete(readThrough);
+    await change(id, "reading");
+    const all = await passes();
+    expect(all).toHaveLength(1);
+    expect(all[0].completedAt).toBeNull();
+  });
+
+  it("read to read records no second pass", async () => {
+    const id = await start("read");
+    await change(id, "read");
+    expect(await passes()).toHaveLength(1);
+  });
+
+  it("sorts Read Books with unknown finish dates after dated ones", async () => {
+    const dated = await start("reading");
+    await change(dated, "read");
+    await addBook(ctx.db, ctx.userId, work({ workKey: "/works/undated", title: "Undated" }), "read");
+    const titles = (await readLibrary(ctx.db, ctx.userId)).map((i) => i.title);
+    expect(titles).toEqual(["Stoner", "Undated"]);
+  });
+
   it("closes a missing open Read-through when reading goes to read", async () => {
     const id = await start("reading");
     await ctx.db.delete(readThrough);

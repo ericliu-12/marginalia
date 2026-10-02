@@ -30,10 +30,13 @@ export async function readLibrary(db: Db, userId: string): Promise<LibraryItem[]
     .select({ entryId: readThrough.libraryEntryId, finishedAt: readThrough.finishedAt, completedAt: readThrough.completedAt })
     .from(readThrough)
     .where(and(eq(readThrough.userId, userId), isNotNull(readThrough.completedAt)));
+  // Finish dates may be unknown; those Books sort after dated ones, newest completion first.
   const lastFinished = new Map<string, number>();
+  const lastCompleted = new Map<string, number>();
   for (const p of passes) {
-    const at = (p.finishedAt ?? p.completedAt!).getTime();
-    lastFinished.set(p.entryId, Math.max(at, lastFinished.get(p.entryId) ?? 0));
+    const entryId = p.entryId;
+    lastCompleted.set(entryId, Math.max(p.completedAt!.getTime(), lastCompleted.get(entryId) ?? 0));
+    if (p.finishedAt) lastFinished.set(entryId, Math.max(p.finishedAt.getTime(), lastFinished.get(entryId) ?? 0));
   }
   const recency = (e: typeof libraryEntry.$inferSelect) =>
     e.status === "read" ? (lastFinished.get(e.id) ?? 0) : e.createdAt.getTime();
@@ -42,15 +45,19 @@ export async function readLibrary(db: Db, userId: string): Promise<LibraryItem[]
     .sort(
       (a, b) =>
         STATUS_ORDER.indexOf(a.entry.status) - STATUS_ORDER.indexOf(b.entry.status) ||
-        recency(b.entry) - recency(a.entry),
+        recency(b.entry) - recency(a.entry) ||
+        (lastCompleted.get(b.entry.id) ?? 0) - (lastCompleted.get(a.entry.id) ?? 0),
     )
-    .map(({ entry, book: b }) => ({
-      bookId: b.id,
-      title: entry.titleOverride ?? b.title,
-      authors: entry.authorOverride ? [entry.authorOverride] : b.authors,
-      coverUrl: b.coverUrl,
-      status: entry.status,
-      finished: lastFinished.has(entry.id),
-      reReading: entry.status === "reading" && lastFinished.has(entry.id),
-    }));
+    .map(({ entry, book: b }) => {
+      const finished = lastCompleted.has(entry.id);
+      return {
+        bookId: b.id,
+        title: entry.titleOverride ?? b.title,
+        authors: entry.authorOverride ? [entry.authorOverride] : b.authors,
+        coverUrl: b.coverUrl,
+        status: entry.status,
+        finished,
+        reReading: entry.status === "reading" && finished,
+      };
+    });
 }
