@@ -62,7 +62,7 @@ export function BookPanel({
   }, [item.bookId, retry]);
 
   return (
-    <aside aria-label={`Notes on ${item.title}`} className="flex h-full min-h-0 flex-col bg-paper-2">
+    <aside aria-label={`Notes on ${item.title}`} onKeyDown={(e) => e.key === "Escape" && onBack()} className="flex h-full min-h-0 flex-col bg-paper-2">
       <div className="px-6 pt-5 pb-3">
         <button type="button" onClick={onBack} className={`${quietLink} -ml-0.5 flex items-center gap-1.5 no-underline`}>
           <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
@@ -88,7 +88,7 @@ export function BookPanel({
           onSaved={(note) => setNotes((ns) => [note, ...(ns ?? [])])}
         />
 
-        <h3 className="mt-9 border-b border-rule pb-2 text-[1.15rem] leading-tight font-medium">Notes</h3>
+        <h3 className="mt-9 border-b border-rule pb-2 text-[1.35rem] leading-tight font-medium">Notes</h3>
         {loadFailed && (
           <p role="alert" className="pt-4 text-contrast">
             Couldn’t load your notes.{" "}
