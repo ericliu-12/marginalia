@@ -48,7 +48,7 @@ describe("search ranking", () => {
       fakeGateway([work({ workKey: "/works/a", coverId: 123 }), work({ workKey: "/works/b", editionCount: 0 })]),
       "x",
     );
-    expect(results[0].coverUrl).toBe("https://covers.openlibrary.org/b/id/123-M.jpg");
+    expect(results[0].coverUrl).toBe("https://covers.openlibrary.org/b/id/123-M.jpg?default=false");
     expect(results[1].coverUrl).toBeNull();
   });
 
@@ -90,7 +90,7 @@ describe("add a Book", () => {
     expect(row).toMatchObject({
       openLibraryWorkKey: "/works/OL3511459W",
       firstPublishedYear: 1965,
-      coverUrl: "https://covers.openlibrary.org/b/id/7-M.jpg",
+      coverUrl: "https://covers.openlibrary.org/b/id/7-M.jpg?default=false",
       snapshot: { subjects: ["College teachers"] },
     });
   });

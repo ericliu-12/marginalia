@@ -1,1 +1,53 @@
 @import "tailwindcss";
+
+/* Warm paper and ink: the cream palette is deliberate. See DESIGN.md. */
+@theme {
+  --color-paper: #f3ecdd;
+  --color-paper-2: #faf5ea;
+  --color-paper-3: #e9e0cd;
+  --color-ink: #231d17;
+  --color-ink-2: #5d5245;
+  --color-ink-3: #6f6454;
+  --color-rule: #d8cdb7;
+  --color-thematic: #3e5f8a;
+  --color-contrast: #a8432f;
+  --color-context: #6f7a3a;
+  --font-serif: var(--nf-serif), Georgia, serif;
+  --font-sans: var(--nf-sans), system-ui, sans-serif;
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-serif);
+  font-size: 17px;
+  line-height: 1.5;
+  caret-color: var(--color-contrast);
+  scrollbar-color: var(--color-rule) transparent;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-thematic) 25%, var(--color-paper));
+  color: var(--color-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-thematic);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+button {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: default;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

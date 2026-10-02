@@ -27,7 +27,7 @@ export type SearchResult = OpenLibraryWork & {
 };
 
 export function coverUrlFor(coverId: number | null) {
-  return coverId ? `https://covers.openlibrary.org/b/id/${coverId}-M.jpg` : null;
+  return coverId ? `https://covers.openlibrary.org/b/id/${coverId}-M.jpg?default=false` : null;
 }
 
 const DEMOTED_TITLE =
