@@ -1,0 +1,1060 @@
+{
+ "tier": "haiku",
+ "k": 12,
+ "budget": 600,
+ "promptVersion": "p1",
+ "results": [
+  {
+   "slug": "normal-people",
+   "position": 0,
+   "candidates": [],
+   "connections": [],
+   "skipped": "no candidates"
+  },
+  {
+   "slug": "plague",
+   "position": 1,
+   "candidates": [
+    "normal-people"
+   ],
+   "connections": [],
+   "malformed": 0,
+   "usage": {
+    "in": 1082,
+    "out": 8
+   },
+   "usd": 0.001122,
+   "cached": false
+  },
+  {
+   "slug": "wind-up-bird",
+   "position": 2,
+   "candidates": [
+    "plague",
+    "normal-people"
+   ],
+   "connections": [
+    {
+     "other": "plague",
+     "type": "thematic",
+     "strength": "strong",
+     "explanation": "Both novels explore meaninglessness and the human response to circumstances beyond individual control. Like Okada's drifting through inexplicable events, Camus's characters confront absurdity and loss of meaning, and your note that Okada's story raises the question of whether \"we are truly free\" resonates with The Plague's investigation of how individuals respond when external forces remove ordinary agency and purpose.",
+     "quoted": [
+      {
+       "slug": "wind-up-bird",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 1,
+      "invalid": [],
+      "badIds": 0
+     }
+    }
+   ],
+   "malformed": 0,
+   "usage": {
+    "in": 1262,
+    "out": 132
+   },
+   "usd": 0.001922,
+   "cached": false
+  },
+  {
+   "slug": "everything-love",
+   "position": 3,
+   "candidates": [
+    "normal-people",
+    "plague",
+    "wind-up-bird"
+   ],
+   "connections": [
+    {
+     "other": "normal-people",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Both memoirs and novels explore the complexity of intimate human connection beyond surface-level romance. Like Alderton's assertion that \"love isn't just romance, cherish friendships,\" Normal People examines the depth and persistence of emotional bonds that transcend romantic categorization, showing how Connell and Marianne's connection endures across years despite their attempts to separate.",
+     "quoted": [
+      {
+       "slug": "everything-love",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 1,
+      "invalid": [],
+      "badIds": 0
+     }
+    }
+   ],
+   "malformed": 0,
+   "usage": {
+    "in": 1417,
+    "out": 123
+   },
+   "usd": 0.002032,
+   "cached": false
+  },
+  {
+   "slug": "stranger",
+   "position": 4,
+   "candidates": [
+    "plague",
+    "wind-up-bird",
+    "normal-people",
+    "everything-love"
+   ],
+   "connections": [
+    {
+     "other": "plague",
+     "type": "context",
+     "strength": "strong",
+     "explanation": "Both novels are by Camus and set in Algeria, sharing his distinctive spare, documentary-like narrative style and exploring how individuals confront meaninglessness and mortality in an absurd world.",
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "wind-up-bird",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Both protagonists experience profound alienation and detachment from ordinary life, drifting through events without clear meaning or resolution, forcing readers to sit with existential uncertainty rather than seek answers.",
+     "quoted": [
+      {
+       "slug": "wind-up-bird",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    }
+   ],
+   "malformed": 0,
+   "usage": {
+    "in": 1539,
+    "out": 157
+   },
+   "usd": 0.002324,
+   "cached": false
+  },
+  {
+   "slug": "the-course",
+   "position": 5,
+   "candidates": [
+    "stranger",
+    "everything-love",
+    "normal-people",
+    "wind-up-bird",
+    "plague"
+   ],
+   "connections": [
+    {
+     "other": "everything-love",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Both books value unconventional thinking—The Course advocates differentiation through unique poker approaches, while Everything I Know About Love explores \"what adulthood actually feels like rather than what it's supposed to look like.\" Each asks readers to question standard assumptions about their respective domains.",
+     "quoted": [
+      {
+       "slug": "everything-love",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 1,
+      "invalid": [
+       "what adulthood actually feels like rather than what it's supposed to look like."
+      ],
+      "badIds": 0
+     }
+    }
+   ],
+   "malformed": 0,
+   "usage": {
+    "in": 1638,
+    "out": 102
+   },
+   "usd": 0.002148,
+   "cached": false
+  },
+  {
+   "slug": "beautiful-world",
+   "position": 6,
+   "candidates": [
+    "normal-people",
+    "everything-love",
+    "wind-up-bird",
+    "plague",
+    "stranger",
+    "the-course"
+   ],
+   "connections": [
+    {
+     "other": "normal-people",
+     "type": "context",
+     "strength": "strong",
+     "explanation": "Both are Sally Rooney novels set in Dublin that examine intimate relationships through spare, dialogue-driven prose. Like your experience with Alice and Felix's emails in Beautiful World, Where Are You, Normal People similarly traces a persistent connection between two people across time, exploring how they communicate and misunderstand each other.",
+     "quoted": [
+      {
+       "slug": "beautiful-world",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "everything-love",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Both books examine friendship and romantic connection as central to understanding intimacy and adulthood. Your note that \"love isn't just romance, cherish friendships\" resonates with how Beautiful World, Where Are You treats the four characters' friendships as equally significant to their romantic entanglements.",
+     "quoted": [
+      {
+       "slug": "everything-love",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 1,
+      "invalid": [],
+      "badIds": 0
+     }
+    }
+   ],
+   "malformed": 0,
+   "usage": {
+    "in": 1763,
+    "out": 207
+   },
+   "usd": 0.002798,
+   "cached": false
+  },
+  {
+   "slug": "kafka-shore",
+   "position": 7,
+   "candidates": [
+    "wind-up-bird",
+    "normal-people",
+    "stranger",
+    "beautiful-world",
+    "plague",
+    "everything-love",
+    "the-course"
+   ],
+   "connections": [
+    {
+     "other": "wind-up-bird",
+     "type": "context",
+     "strength": "strong",
+     "explanation": "Both are Murakami novels that blend reality and dream in similar ways. You noted how Kafka on the Shore uses \"rivers and transitions as metaphor\" between these realms, and The Wind-Up Bird Chronicle employs the same technique of moving \"between realistic domestic scenes and surreal, dreamlike episodes.\"",
+     "quoted": [
+      {
+       "slug": "kafka-shore",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 2,
+      "invalid": [
+       "between realistic domestic scenes and surreal, dreamlike episodes."
+      ],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "plague",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Both novels explore isolation and disconnection from ordinary life as a path toward confronting deeper meaning. Kafka on the Shore deals with \"displacement and running away\" and \"the search for meaning,\" while The Plague presents how people find meaning through solidarity when normal life breaks down.",
+     "quoted": [],
+     "quotes": {
+      "total": 2,
+      "invalid": [
+       "displacement and running away",
+       "the search for meaning,"
+      ],
+      "badIds": 0
+     }
+    }
+   ],
+   "malformed": 0,
+   "usage": {
+    "in": 1946,
+    "out": 204
+   },
+   "usd": 0.002966,
+   "cached": false
+  },
+  {
+   "slug": "blindness",
+   "position": 8,
+   "candidates": [
+    "plague",
+    "wind-up-bird",
+    "stranger",
+    "kafka-shore",
+    "beautiful-world",
+    "normal-people",
+    "everything-love",
+    "the-course"
+   ],
+   "connections": [
+    {
+     "other": "plague",
+     "type": "thematic",
+     "strength": "strong",
+     "explanation": "Both novels use an epidemic—blindness and plague—as the central catastrophe that strips away social order and forces characters to confront fundamental questions about human meaning and survival. Each explores how people respond to sudden, inexplicable crisis and the moral chaos that follows.",
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "stranger",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Both Saramago and Camus explore moral indifference and the impossibility of rational meaning-making in the face of absurd circumstances. Blindness, like Meursault's detachment, presents a protagonist whose disconnect from normal moral perception becomes the lens through which the reader confronts the arbitrary nature of meaning itself.",
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    }
+   ],
+   "malformed": 0,
+   "usage": {
+    "in": 2121,
+    "out": 201
+   },
+   "usd": 0.003126,
+   "cached": false
+  },
+  {
+   "slug": "intermezzo",
+   "position": 9,
+   "candidates": [
+    "beautiful-world",
+    "normal-people",
+    "wind-up-bird",
+    "kafka-shore",
+    "plague",
+    "everything-love",
+    "stranger",
+    "blindness",
+    "the-course"
+   ],
+   "connections": [
+    {
+     "other": "beautiful-world",
+     "type": "context",
+     "strength": "strong",
+     "explanation": "Both are Sally Rooney novels set in Dublin that explore intimacy, desire, and emotional vulnerability through carefully observed internal lives. Your note that Intermezzo \"gets better every reread, immersed in peter's stream of consciousness\" reflects the same kind of psychological depth Rooney brings to her other characters, and the examination of romantic entanglement across both novels creates a natural pairing in her body of work.",
+     "quoted": [
+      {
+       "slug": "intermezzo",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 1,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "normal-people",
+     "type": "thematic",
+     "strength": "strong",
+     "explanation": "Both novels trace how class differences and emotional vulnerability shape romantic relationships over time, with characters repeatedly drawn together despite their attempts to separate. Like Peter in Intermezzo navigating desire and loss, Connell and Marianne's bond persists through shame and self-doubt, examining the gap between what characters feel and what they can express.",
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "kafka-shore",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Both novels meditate on meaning-making after displacement and loss. Your observation that Murakami \"weaves smoothly between reality and dream, using rivers and transitions as metaphor\" parallels how Intermezzo uses the brothers' grief as a threshold between states of being, with both works finding significance in the passage through darkness rather than resolution.",
+     "quoted": [
+      {
+       "slug": "kafka-shore",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 1,
+      "invalid": [],
+      "badIds": 0
+     }
+    }
+   ],
+   "malformed": 0,
+   "usage": {
+    "in": 2294,
+    "out": 348
+   },
+   "usd": 0.004034,
+   "cached": false
+  },
+  {
+   "slug": "candide",
+   "position": 10,
+   "candidates": [
+    "stranger",
+    "blindness",
+    "plague",
+    "kafka-shore",
+    "wind-up-bird",
+    "normal-people",
+    "everything-love",
+    "beautiful-world",
+    "intermezzo",
+    "the-course"
+   ],
+   "connections": [
+    {
+     "other": "plague",
+     "type": "thematic",
+     "strength": "strong",
+     "explanation": "Both works use catastrophic events—plague and natural disasters—as vehicles to explore how humans confront suffering, meaninglessness, and the inadequacy of inherited philosophies. The Plague directly mirrors Candide's preoccupation with whether meaning can be found when disaster is relentless and indifferent.",
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "stranger",
+     "type": "thematic",
+     "strength": "strong",
+     "explanation": "Candide and The Stranger both grapple with absurdism and the problem of meaning in an indifferent world. Voltaire's satirical demolition of optimistic philosophy finds its philosophical complement in Camus's exploration of how Meursault must confront a universe where his emotions and actions carry no inherent significance.",
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "blindness",
+     "type": "contrast",
+     "strength": "moderate",
+     "explanation": "Blindness and Candide both depict societies collapsing under calamity, but where Voltaire uses satire to mock philosophical blindness to reality, Saramago treats literal blindness as a metaphor for moral and social breakdown, offering a more somber meditation on human vulnerability rather than Voltaire's cutting irony.",
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    }
+   ],
+   "malformed": 0,
+   "usage": {
+    "in": 2489,
+    "out": 320
+   },
+   "usd": 0.004089,
+   "cached": false
+  },
+  {
+   "slug": "convenience-store",
+   "position": 11,
+   "candidates": [
+    "blindness",
+    "everything-love",
+    "beautiful-world",
+    "wind-up-bird",
+    "intermezzo",
+    "kafka-shore",
+    "normal-people",
+    "plague",
+    "stranger",
+    "the-course",
+    "candide"
+   ],
+   "connections": [
+    {
+     "other": "everything-love",
+     "type": "thematic",
+     "strength": "strong",
+     "explanation": "Both books examine what it means to live authentically as an adult rather than conforming to external expectations. Alderton explores how women navigate this tension through memoir, while Murata dramatizes it through Keiko's performance of normalcy at the convenience store—both writers asking whether meeting society's standards is worth the cost of self-erasure.",
+     "quoted": [
+      {
+       "slug": "everything-love",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "intermezzo",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Both novels focus on characters finding stability and meaning through routines and roles, though Rooney explores grief as the catalyst for Peter's examination of how to live, while Murata shows Keiko already settled into her role. Both use close attention to interior consciousness to reveal how structure can provide comfort.",
+     "quoted": [
+      {
+       "slug": "intermezzo",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "stranger",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Both Keiko and Meursault are emotionally detached figures whose alienation from conventional society forms the core of their respective narratives. The convenience store manual functions for Keiko much as Meursault's emotional indifference does for him—as a script that distances them from normal social performance.",
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    }
+   ],
+   "malformed": 0,
+   "usage": {
+    "in": 2672,
+    "out": 318
+   },
+   "usd": 0.004262,
+   "cached": false
+  },
+  {
+   "slug": "brilliant-friend",
+   "position": 12,
+   "candidates": [
+    "beautiful-world",
+    "normal-people",
+    "everything-love",
+    "intermezzo",
+    "kafka-shore",
+    "plague",
+    "blindness",
+    "stranger",
+    "wind-up-bird",
+    "convenience-store",
+    "candide",
+    "the-course"
+   ],
+   "connections": [
+    {
+     "other": "normal-people",
+     "type": "thematic",
+     "strength": "strong",
+     "explanation": "Both My Brilliant Friend and Normal People center on young people navigating class differences and social shame within intimate relationships, tracing how these forces shape their connections and self-understanding over time.",
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "everything-love",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Both works emphasize female friendship as a primary relationship and explore the messy reality of growing up, particularly how women support each other through life's challenges.",
+     "quoted": [
+      {
+       "slug": "everything-love",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "intermezzo",
+     "type": "context",
+     "strength": "moderate",
+     "explanation": "Like My Brilliant Friend, Intermezzo is a contemporary literary work centered on young people in a specific place (Dublin for Rooney, Naples for Ferrante) examining how they navigate relationships and loss.",
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    }
+   ],
+   "malformed": 0,
+   "usage": {
+    "in": 2782,
+    "out": 228
+   },
+   "usd": 0.003922,
+   "cached": false
+  },
+  {
+   "slug": "unbearable",
+   "position": 13,
+   "candidates": [
+    "kafka-shore",
+    "wind-up-bird",
+    "blindness",
+    "plague",
+    "stranger",
+    "intermezzo",
+    "beautiful-world",
+    "normal-people",
+    "candide",
+    "convenience-store",
+    "everything-love",
+    "brilliant-friend"
+   ],
+   "connections": [
+    {
+     "other": "plague",
+     "type": "thematic",
+     "strength": "strong",
+     "explanation": "Both The Plague and The Unbearable Lightness of Being grapple with contingency and the tension between meaning-making and meaninglessness in human existence. Camus's epidemic forces characters to confront sudden mortality and absurdity much as Kundera's exploration of eternal return forces readers to reckon with how contingency shapes whether existence feels weighted or weightless.",
+     "quoted": [
+      {
+       "slug": "unbearable",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "stranger",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Both novels present protagonists whose emotional detachment or alienation forces confrontation with questions of meaning and authenticity in an indifferent world. Like Kundera's meditation on lightness and weight, Camus's sparse style and Meursault's distance raise fundamental questions about what gives existence significance.",
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "kafka-shore",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Both use metaphor and a fragmented, essayistic approach to explore interconnection and meaning. Your note that you loved Kundera's writing on \"lightness vs weight, especially when it comes to coincidence\" resonates with Murakami's weaving of parallel lives and mysterious connections—two narratives that intersect in unexpected ways rather than through conventional causality.",
+     "quoted": [
+      {
+       "slug": "unbearable",
+       "idx": 0
+      },
+      {
+       "slug": "kafka-shore",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 1,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "blindness",
+     "type": "contrast",
+     "strength": "moderate",
+     "explanation": "Where Kundera emphasizes the philosophical weight of individual choice and the tension between lightness and heaviness, Saramago's blindness strips away the distinctions between self and collective, between visible and invisible meaning. Both use distinctive prose styles to disorient and estrange, but toward opposing inquiries: Kundera into the burden of consciousness, Saramago into the dissolution of it.",
+     "quoted": [
+      {
+       "slug": "unbearable",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    }
+   ],
+   "malformed": 0,
+   "usage": {
+    "in": 2851,
+    "out": 464
+   },
+   "usd": 0.005171,
+   "cached": false
+  },
+  {
+   "slug": "rest-relaxation",
+   "position": 14,
+   "candidates": [
+    "wind-up-bird",
+    "intermezzo",
+    "unbearable",
+    "beautiful-world",
+    "convenience-store",
+    "normal-people",
+    "kafka-shore",
+    "everything-love",
+    "blindness",
+    "plague",
+    "stranger",
+    "brilliant-friend"
+   ],
+   "connections": [
+    {
+     "other": "wind-up-bird",
+     "type": "thematic",
+     "strength": "strong",
+     "explanation": "Both novels center on protagonists who withdraw from ordinary life into states of disconnection and dreamlike disorientation. You noted that My Year of Rest and Relaxation \"snippets felt like a dream,\" and similarly The Wind-Up Bird Chronicle moves \"between realistic domestic scenes and surreal, dreamlike episodes\" as Okada drifts through isolation.",
+     "quoted": [
+      {
+       "slug": "rest-relaxation",
+       "idx": 0
+      },
+      {
+       "slug": "wind-up-bird",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 2,
+      "invalid": [
+       "between realistic domestic scenes and surreal, dreamlike episodes"
+      ],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "unbearable",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Both works explore the tension between withdrawal and engagement with life, and use fragmented, essayistic styles to examine existence. Your appreciation for Kundera's \"thoughts on lightness vs weight\" resonates with the novel's meditation on how the protagonist's pharmaceutical escape represents an attempt to shed the weight of meaningful engagement.",
+     "quoted": [
+      {
+       "slug": "unbearable",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 1,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "convenience-store",
+     "type": "contrast",
+     "strength": "moderate",
+     "explanation": "Both novels feature protagonists who are socially alienated and perform versions of themselves to function in society, but respond oppositely: Keiko finds comfort in her convenience store routine despite not fitting expectations, while Moshfegh's protagonist actively rejects engagement. Your note that you \"didn't fully get the point\" of Convenience Store Woman makes this a useful counterpoint to your experience of My Year of Rest and Relaxation.",
+     "quoted": [
+      {
+       "slug": "convenience-store",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 1,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "kafka-shore",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Like My Year of Rest and Relaxation, Kafka on the Shore blends the mundane with the surreal and explores isolation and longing. Your observation that Murakami \"weaves smoothly between reality and dream\" applies equally to Moshfegh's dream-like narrative, and both authors use altered consciousness and disconnection as central experiences.",
+     "quoted": [
+      {
+       "slug": "kafka-shore",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 1,
+      "invalid": [],
+      "badIds": 0
+     }
+    }
+   ],
+   "malformed": 0,
+   "usage": {
+    "in": 2817,
+    "out": 468
+   },
+   "usd": 0.005157,
+   "cached": false
+  },
+  {
+   "slug": "sirens",
+   "position": 15,
+   "candidates": [
+    "unbearable",
+    "wind-up-bird",
+    "candide",
+    "everything-love",
+    "stranger",
+    "kafka-shore",
+    "blindness",
+    "rest-relaxation",
+    "convenience-store",
+    "beautiful-world",
+    "plague",
+    "intermezzo"
+   ],
+   "connections": [
+    {
+     "other": "unbearable",
+     "type": "thematic",
+     "strength": "strong",
+     "explanation": "Both novels grapple with fundamental questions about meaning and human agency in an indifferent universe. Your note that you should \"make the most of it\" when things are outside your control directly echoes Kundera's exploration of how we find weight and significance in a contingent existence, much like Vonnegut's characters must navigate their cosmic insignificance.",
+     "quoted": [
+      {
+       "slug": "sirens",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 1,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "candide",
+     "type": "thematic",
+     "strength": "strong",
+     "explanation": "Like The Sirens of Titan, Candide uses dark humor and absurdist catastrophes to interrogate philosophical naivety about meaning and control. Both novels follow protagonists through disorienting journeys that strip away illusions and force them to confront an indifferent world—Voltaire through relentless satire, Vonnegut through science fiction.",
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "stranger",
+     "type": "thematic",
+     "strength": "strong",
+     "explanation": "Both novels confront absurdism and the search for meaning in a world where human significance is minimal and systems of control are beyond individual influence. Camus's sparse, detached narrative style parallels Vonnegut's darkly comic treatment of human insignificance and the impossibility of true free will.",
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "kafka-shore",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Both novels use fantastical journeys and dreamlike narratives to explore isolation and the search for meaning, blending the surreal with philosophical inquiry. Your observation that Murakami \"weaves smoothly between reality and dream\" describes a technique Vonnegut also employs through his freewheeling, nonlinear storytelling.",
+     "quoted": [
+      {
+       "slug": "kafka-shore",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 1,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "plague",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Both novels use catastrophic scenarios to explore how humans find meaning and connection in the face of cosmic indifference and forces beyond individual control. The Plague presents collective human response to absurdity in ways that echo Vonnegut's treatment of existential helplessness, though Camus offers more emphasis on solidarity.",
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    }
+   ],
+   "malformed": 0,
+   "usage": {
+    "in": 2903,
+    "out": 549
+   },
+   "usd": 0.005648,
+   "cached": false
+  },
+  {
+   "slug": "norwegian-wood",
+   "position": 16,
+   "candidates": [
+    "wind-up-bird",
+    "kafka-shore",
+    "intermezzo",
+    "unbearable",
+    "beautiful-world",
+    "rest-relaxation",
+    "normal-people",
+    "everything-love",
+    "sirens",
+    "brilliant-friend",
+    "plague",
+    "convenience-store"
+   ],
+   "connections": [
+    {
+     "other": "wind-up-bird",
+     "type": "context",
+     "strength": "strong",
+     "explanation": "Both are Murakami novels exploring isolation and disconnection; you noted that Okada in Wind-Up Bird Chronicle \"drifts from story to story,\" which parallels Watanabe's disorientation navigating grief and emotional disconnection in Norwegian Wood.",
+     "quoted": [
+      {
+       "slug": "wind-up-bird",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 1,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "kafka-shore",
+     "type": "context",
+     "strength": "strong",
+     "explanation": "Another Murakami work that shares his signature blending of reality and dream; you observed how Murakami \"weaves smoothly between reality and dream, using rivers and transitions as metaphor,\" a technique central to Norwegian Wood's nostalgic structure.",
+     "quoted": [
+      {
+       "slug": "kafka-shore",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 1,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "intermezzo",
+     "type": "thematic",
+     "strength": "strong",
+     "explanation": "Both novels are meditations on grief and how to \"pursue living through the dark times,\" as you noted about Intermezzo; they share an exploration of loss, desire, and emotional vulnerability as paths toward meaning and connection.",
+     "quoted": [
+      {
+       "slug": "intermezzo",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 1,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "unbearable",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Both examine how contingency and chance shape human connection and meaning; your appreciation for Kundera's \"thoughts on lightness vs weight, especially when it comes to coincidence\" resonates with Norwegian Wood's exploration of how random encounters determine emotional trajectories.",
+     "quoted": [
+      {
+       "slug": "unbearable",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 1,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "normal-people",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Like Norwegian Wood, Normal People traces how class, shame, and self-doubt complicate the search for emotional connection and meaning; both novels examine the gap between desire and the possibility of genuine intimacy across time and circumstance.",
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    }
+   ],
+   "malformed": 0,
+   "usage": {
+    "in": 2898,
+    "out": 452
+   },
+   "usd": 0.005158,
+   "cached": false
+  },
+  {
+   "slug": "inverting-pyramid",
+   "position": 17,
+   "candidates": [
+    "the-course",
+    "unbearable",
+    "beautiful-world",
+    "intermezzo",
+    "kafka-shore",
+    "normal-people",
+    "wind-up-bird",
+    "sirens",
+    "brilliant-friend",
+    "stranger",
+    "everything-love",
+    "plague"
+   ],
+   "connections": [
+    {
+     "other": "the-course",
+     "type": "thematic",
+     "strength": "strong",
+     "explanation": "Both Inverting the Pyramid and The Course explore how innovation and unconventional thinking drive success in competitive domains. Wilson traces how coaches who broke from established norms—like Chapman's W-M formation or Michels's Total Football—transformed soccer, paralleling Miller's focus on developing unique approaches rather than following standard strategy.",
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    }
+   ],
+   "malformed": 0,
+   "usage": {
+    "in": 2702,
+    "out": 111
+   },
+   "usd": 0.003257,
+   "cached": false
+  },
+  {
+   "slug": "set-my-heart",
+   "position": 18,
+   "candidates": [],
+   "connections": [],
+   "skipped": "no candidates"
+  }
+ ]
+}

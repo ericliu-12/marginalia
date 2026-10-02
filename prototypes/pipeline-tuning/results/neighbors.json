@@ -1,0 +1,2528 @@
+{
+ "voyage-4": {
+  "normal-people": [
+   {
+    "slug": "beautiful-world",
+    "sim": 0.8326572875584803
+   },
+   {
+    "slug": "intermezzo",
+    "sim": 0.6618120468742887
+   },
+   {
+    "slug": "everything-love",
+    "sim": 0.6154788915955692
+   },
+   {
+    "slug": "norwegian-wood",
+    "sim": 0.6099517810402221
+   },
+   {
+    "slug": "kafka-shore",
+    "sim": 0.5831095576286316
+   },
+   {
+    "slug": "rest-relaxation",
+    "sim": 0.582315777678239
+   },
+   {
+    "slug": "unbearable",
+    "sim": 0.5773165742143929
+   },
+   {
+    "slug": "brilliant-friend",
+    "sim": 0.5719532625703069
+   },
+   {
+    "slug": "wind-up-bird",
+    "sim": 0.5260021686553955
+   },
+   {
+    "slug": "stranger",
+    "sim": 0.5234314203262329
+   },
+   {
+    "slug": "sirens",
+    "sim": 0.49471394701939686
+   },
+   {
+    "slug": "blindness",
+    "sim": 0.4929551788621962
+   },
+   {
+    "slug": "plague",
+    "sim": 0.4844612786494933
+   },
+   {
+    "slug": "candide",
+    "sim": 0.4420822560787201
+   },
+   {
+    "slug": "convenience-store",
+    "sim": 0.43282028632284997
+   },
+   {
+    "slug": "the-course",
+    "sim": 0.34381749295100583
+   },
+   {
+    "slug": "inverting-pyramid",
+    "sim": 0.3125260956600967
+   }
+  ],
+  "beautiful-world": [
+   {
+    "slug": "normal-people",
+    "sim": 0.8326572875584803
+   },
+   {
+    "slug": "everything-love",
+    "sim": 0.7049333839138362
+   },
+   {
+    "slug": "intermezzo",
+    "sim": 0.6995333433151295
+   },
+   {
+    "slug": "norwegian-wood",
+    "sim": 0.6392687608119092
+   },
+   {
+    "slug": "rest-relaxation",
+    "sim": 0.6075565218925519
+   },
+   {
+    "slug": "unbearable",
+    "sim": 0.5988292276510433
+   },
+   {
+    "slug": "brilliant-friend",
+    "sim": 0.584124435886808
+   },
+   {
+    "slug": "kafka-shore",
+    "sim": 0.5642648598989938
+   },
+   {
+    "slug": "wind-up-bird",
+    "sim": 0.5594841504404465
+   },
+   {
+    "slug": "convenience-store",
+    "sim": 0.5393189834736605
+   },
+   {
+    "slug": "sirens",
+    "sim": 0.5241327129562902
+   },
+   {
+    "slug": "plague",
+    "sim": 0.5176561453752344
+   },
+   {
+    "slug": "stranger",
+    "sim": 0.5169906308060518
+   },
+   {
+    "slug": "blindness",
+    "sim": 0.5107956211336345
+   },
+   {
+    "slug": "candide",
+    "sim": 0.4333746174946663
+   },
+   {
+    "slug": "the-course",
+    "sim": 0.3715179562568691
+   },
+   {
+    "slug": "inverting-pyramid",
+    "sim": 0.36569118499756126
+   }
+  ],
+  "intermezzo": [
+   {
+    "slug": "beautiful-world",
+    "sim": 0.6995333433151295
+   },
+   {
+    "slug": "norwegian-wood",
+    "sim": 0.6671331127206722
+   },
+   {
+    "slug": "normal-people",
+    "sim": 0.6618120468742887
+   },
+   {
+    "slug": "rest-relaxation",
+    "sim": 0.6359234045721118
+   },
+   {
+    "slug": "unbearable",
+    "sim": 0.6267211027956341
+   },
+   {
+    "slug": "wind-up-bird",
+    "sim": 0.5978432058002475
+   },
+   {
+    "slug": "kafka-shore",
+    "sim": 0.5537329050143315
+   },
+   {
+    "slug": "plague",
+    "sim": 0.547649724851559
+   },
+   {
+    "slug": "everything-love",
+    "sim": 0.5459888469566866
+   },
+   {
+    "slug": "stranger",
+    "sim": 0.5104465636744073
+   },
+   {
+    "slug": "blindness",
+    "sim": 0.5068197989326951
+   },
+   {
+    "slug": "sirens",
+    "sim": 0.5038360657594243
+   },
+   {
+    "slug": "brilliant-friend",
+    "sim": 0.49936887621879933
+   },
+   {
+    "slug": "convenience-store",
+    "sim": 0.48216883785035747
+   },
+   {
+    "slug": "candide",
+    "sim": 0.4299059638352981
+   },
+   {
+    "slug": "the-course",
+    "sim": 0.3730376100275765
+   },
+   {
+    "slug": "inverting-pyramid",
+    "sim": 0.3416159858245833
+   }
+  ],
+  "brilliant-friend": [
+   {
+    "slug": "beautiful-world",
+    "sim": 0.584124435886808
+   },
+   {
+    "slug": "normal-people",
+    "sim": 0.5719532625703069
+   },
+   {
+    "slug": "everything-love",
+    "sim": 0.5510966017515502
+   },
+   {
+    "slug": "norwegian-wood",
+    "sim": 0.510440496723564
+   },
+   {
+    "slug": "intermezzo",
+    "sim": 0.49936887621879933
+   },
+   {
+    "slug": "kafka-shore",
+    "sim": 0.49247989103318
+   },
+   {
+    "slug": "plague",
+    "sim": 0.4850187021471617
+   },
+   {
+    "slug": "unbearable",
+    "sim": 0.4806426310730818
+   },
+   {
+    "slug": "rest-relaxation",
+    "sim": 0.4790725708007846
+   },
+   {
+    "slug": "blindness",
+    "sim": 0.4555497248977922
+   },
+   {
+    "slug": "stranger",
+    "sim": 0.4481343955913555
+   },
+   {
+    "slug": "wind-up-bird",
+    "sim": 0.4213127838782804
+   },
+   {
+    "slug": "convenience-store",
+    "sim": 0.4159026741981535
+   },
+   {
+    "slug": "candide",
+    "sim": 0.3870166309465992
+   },
+   {
+    "slug": "sirens",
+    "sim": 0.38563056630997317
+   },
+   {
+    "slug": "inverting-pyramid",
+    "sim": 0.3070747256279014
+   },
+   {
+    "slug": "the-course",
+    "sim": 0.30463367700577004
+   }
+  ],
+  "everything-love": [
+   {
+    "slug": "beautiful-world",
+    "sim": 0.7049333839138362
+   },
+   {
+    "slug": "sirens",
+    "sim": 0.6199769932011087
+   },
+   {
+    "slug": "normal-people",
+    "sim": 0.6154788915955692
+   },
+   {
+    "slug": "norwegian-wood",
+    "sim": 0.5899182030631783
+   },
+   {
+    "slug": "rest-relaxation",
+    "sim": 0.5605744624651491
+   },
+   {
+    "slug": "convenience-store",
+    "sim": 0.5522481203079224
+   },
+   {
+    "slug": "brilliant-friend",
+    "sim": 0.5510966017515502
+   },
+   {
+    "slug": "intermezzo",
+    "sim": 0.5459888469566866
+   },
+   {
+    "slug": "unbearable",
+    "sim": 0.5030857924325227
+   },
+   {
+    "slug": "kafka-shore",
+    "sim": 0.4730989775985177
+   },
+   {
+    "slug": "stranger",
+    "sim": 0.47135068390818513
+   },
+   {
+    "slug": "plague",
+    "sim": 0.46582310003569605
+   },
+   {
+    "slug": "wind-up-bird",
+    "sim": 0.4627079505535352
+   },
+   {
+    "slug": "blindness",
+    "sim": 0.45813480518641736
+   },
+   {
+    "slug": "candide",
+    "sim": 0.43957890390094856
+   },
+   {
+    "slug": "the-course",
+    "sim": 0.3597058975433618
+   },
+   {
+    "slug": "inverting-pyramid",
+    "sim": 0.30172112301478904
+   }
+  ],
+  "plague": [
+   {
+    "slug": "blindness",
+    "sim": 0.7304040079586505
+   },
+   {
+    "slug": "stranger",
+    "sim": 0.6979499043256114
+   },
+   {
+    "slug": "unbearable",
+    "sim": 0.6298685857614523
+   },
+   {
+    "slug": "wind-up-bird",
+    "sim": 0.5667686124581935
+   },
+   {
+    "slug": "candide",
+    "sim": 0.548441973421457
+   },
+   {
+    "slug": "intermezzo",
+    "sim": 0.547649724851559
+   },
+   {
+    "slug": "kafka-shore",
+    "sim": 0.5324539224830922
+   },
+   {
+    "slug": "rest-relaxation",
+    "sim": 0.5260100364685096
+   },
+   {
+    "slug": "sirens",
+    "sim": 0.5197070682136119
+   },
+   {
+    "slug": "beautiful-world",
+    "sim": 0.5176561453752344
+   },
+   {
+    "slug": "norwegian-wood",
+    "sim": 0.5057009746370966
+   },
+   {
+    "slug": "brilliant-friend",
+    "sim": 0.4850187021471617
+   },
+   {
+    "slug": "normal-people",
+    "sim": 0.4844612786494933
+   },
+   {
+    "slug": "everything-love",
+    "sim": 0.46582310003569605
+   },
+   {
+    "slug": "convenience-store",
+    "sim": 0.42069923877716364
+   },
+   {
+    "slug": "inverting-pyramid",
+    "sim": 0.29972317814827176
+   },
+   {
+    "slug": "the-course",
+    "sim": 0.29422110319137784
+   }
+  ],
+  "stranger": [
+   {
+    "slug": "plague",
+    "sim": 0.6979499043256114
+   },
+   {
+    "slug": "wind-up-bird",
+    "sim": 0.6377755403518677
+   },
+   {
+    "slug": "unbearable",
+    "sim": 0.6278556550612167
+   },
+   {
+    "slug": "blindness",
+    "sim": 0.6163564185671351
+   },
+   {
+    "slug": "sirens",
+    "sim": 0.6073569240378419
+   },
+   {
+    "slug": "candide",
+    "sim": 0.6069822311401367
+   },
+   {
+    "slug": "kafka-shore",
+    "sim": 0.5826722383499146
+   },
+   {
+    "slug": "normal-people",
+    "sim": 0.5234314203262329
+   },
+   {
+    "slug": "rest-relaxation",
+    "sim": 0.5225062085691824
+   },
+   {
+    "slug": "beautiful-world",
+    "sim": 0.5169906308060518
+   },
+   {
+    "slug": "intermezzo",
+    "sim": 0.5104465636744073
+   },
+   {
+    "slug": "norwegian-wood",
+    "sim": 0.5051790469671468
+   },
+   {
+    "slug": "everything-love",
+    "sim": 0.47135068390818513
+   },
+   {
+    "slug": "brilliant-friend",
+    "sim": 0.4481343955913555
+   },
+   {
+    "slug": "convenience-store",
+    "sim": 0.4111261612848147
+   },
+   {
+    "slug": "the-course",
+    "sim": 0.3770747111484243
+   },
+   {
+    "slug": "inverting-pyramid",
+    "sim": 0.302735763951288
+   }
+  ],
+  "candide": [
+   {
+    "slug": "sirens",
+    "sim": 0.6203463858469246
+   },
+   {
+    "slug": "stranger",
+    "sim": 0.6069822311401367
+   },
+   {
+    "slug": "blindness",
+    "sim": 0.579640677018089
+   },
+   {
+    "slug": "unbearable",
+    "sim": 0.5626515653119913
+   },
+   {
+    "slug": "plague",
+    "sim": 0.548441973421457
+   },
+   {
+    "slug": "kafka-shore",
+    "sim": 0.49881672859191895
+   },
+   {
+    "slug": "wind-up-bird",
+    "sim": 0.4529980421066284
+   },
+   {
+    "slug": "normal-people",
+    "sim": 0.4420822560787201
+   },
+   {
+    "slug": "everything-love",
+    "sim": 0.43957890390094856
+   },
+   {
+    "slug": "beautiful-world",
+    "sim": 0.4333746174946663
+   },
+   {
+    "slug": "intermezzo",
+    "sim": 0.4299059638352981
+   },
+   {
+    "slug": "rest-relaxation",
+    "sim": 0.4260672882835448
+   },
+   {
+    "slug": "brilliant-friend",
+    "sim": 0.3870166309465992
+   },
+   {
+    "slug": "norwegian-wood",
+    "sim": 0.3846922058233997
+   },
+   {
+    "slug": "the-course",
+    "sim": 0.3541282626466914
+   },
+   {
+    "slug": "convenience-store",
+    "sim": 0.2979319095611572
+   },
+   {
+    "slug": "inverting-pyramid",
+    "sim": 0.28468595651900563
+   }
+  ],
+  "blindness": [
+   {
+    "slug": "plague",
+    "sim": 0.7304040079586505
+   },
+   {
+    "slug": "unbearable",
+    "sim": 0.6336350252141189
+   },
+   {
+    "slug": "wind-up-bird",
+    "sim": 0.6299279177274847
+   },
+   {
+    "slug": "stranger",
+    "sim": 0.6163564185671351
+   },
+   {
+    "slug": "candide",
+    "sim": 0.579640677018089
+   },
+   {
+    "slug": "kafka-shore",
+    "sim": 0.5754924922594478
+   },
+   {
+    "slug": "sirens",
+    "sim": 0.5704363074508694
+   },
+   {
+    "slug": "convenience-store",
+    "sim": 0.5674539128000881
+   },
+   {
+    "slug": "rest-relaxation",
+    "sim": 0.5564564134802661
+   },
+   {
+    "slug": "beautiful-world",
+    "sim": 0.5107956211336345
+   },
+   {
+    "slug": "intermezzo",
+    "sim": 0.5068197989326951
+   },
+   {
+    "slug": "norwegian-wood",
+    "sim": 0.49709513852712184
+   },
+   {
+    "slug": "normal-people",
+    "sim": 0.4929551788621962
+   },
+   {
+    "slug": "everything-love",
+    "sim": 0.45813480518641736
+   },
+   {
+    "slug": "brilliant-friend",
+    "sim": 0.4555497248977922
+   },
+   {
+    "slug": "the-course",
+    "sim": 0.2926007334827987
+   },
+   {
+    "slug": "inverting-pyramid",
+    "sim": 0.2562599029386142
+   }
+  ],
+  "unbearable": [
+   {
+    "slug": "sirens",
+    "sim": 0.6668500503122878
+   },
+   {
+    "slug": "kafka-shore",
+    "sim": 0.6603287452753283
+   },
+   {
+    "slug": "wind-up-bird",
+    "sim": 0.6585615270043811
+   },
+   {
+    "slug": "norwegian-wood",
+    "sim": 0.6537295981130266
+   },
+   {
+    "slug": "blindness",
+    "sim": 0.6336350252141189
+   },
+   {
+    "slug": "plague",
+    "sim": 0.6298685857614523
+   },
+   {
+    "slug": "rest-relaxation",
+    "sim": 0.6281306743621826
+   },
+   {
+    "slug": "stranger",
+    "sim": 0.6278556550612167
+   },
+   {
+    "slug": "intermezzo",
+    "sim": 0.6267211027956341
+   },
+   {
+    "slug": "beautiful-world",
+    "sim": 0.5988292276510433
+   },
+   {
+    "slug": "normal-people",
+    "sim": 0.5773165742143929
+   },
+   {
+    "slug": "candide",
+    "sim": 0.5626515653119913
+   },
+   {
+    "slug": "convenience-store",
+    "sim": 0.5570237040519714
+   },
+   {
+    "slug": "everything-love",
+    "sim": 0.5030857924325227
+   },
+   {
+    "slug": "brilliant-friend",
+    "sim": 0.4806426310730818
+   },
+   {
+    "slug": "inverting-pyramid",
+    "sim": 0.37052404441297737
+   },
+   {
+    "slug": "the-course",
+    "sim": 0.3355871342997454
+   }
+  ],
+  "sirens": [
+   {
+    "slug": "unbearable",
+    "sim": 0.6668500503122878
+   },
+   {
+    "slug": "wind-up-bird",
+    "sim": 0.6277849861319362
+   },
+   {
+    "slug": "candide",
+    "sim": 0.6203463858469246
+   },
+   {
+    "slug": "everything-love",
+    "sim": 0.6199769932011087
+   },
+   {
+    "slug": "stranger",
+    "sim": 0.6073569240378419
+   },
+   {
+    "slug": "kafka-shore",
+    "sim": 0.6025720418266073
+   },
+   {
+    "slug": "blindness",
+    "sim": 0.5704363074508694
+   },
+   {
+    "slug": "norwegian-wood",
+    "sim": 0.5631919595725635
+   },
+   {
+    "slug": "rest-relaxation",
+    "sim": 0.5517176882968269
+   },
+   {
+    "slug": "convenience-store",
+    "sim": 0.5434257277928966
+   },
+   {
+    "slug": "beautiful-world",
+    "sim": 0.5241327129562902
+   },
+   {
+    "slug": "plague",
+    "sim": 0.5197070682136119
+   },
+   {
+    "slug": "intermezzo",
+    "sim": 0.5038360657594243
+   },
+   {
+    "slug": "normal-people",
+    "sim": 0.49471394701939686
+   },
+   {
+    "slug": "the-course",
+    "sim": 0.41055867766368503
+   },
+   {
+    "slug": "brilliant-friend",
+    "sim": 0.38563056630997317
+   },
+   {
+    "slug": "inverting-pyramid",
+    "sim": 0.30883022923739833
+   }
+  ],
+  "wind-up-bird": [
+   {
+    "slug": "kafka-shore",
+    "sim": 0.8147483468055725
+   },
+   {
+    "slug": "norwegian-wood",
+    "sim": 0.7287602747964583
+   },
+   {
+    "slug": "rest-relaxation",
+    "sim": 0.6619743503316862
+   },
+   {
+    "slug": "unbearable",
+    "sim": 0.6585615270043811
+   },
+   {
+    "slug": "stranger",
+    "sim": 0.6377755403518677
+   },
+   {
+    "slug": "blindness",
+    "sim": 0.6299279177274847
+   },
+   {
+    "slug": "sirens",
+    "sim": 0.6277849861319362
+   },
+   {
+    "slug": "intermezzo",
+    "sim": 0.5978432058002475
+   },
+   {
+    "slug": "plague",
+    "sim": 0.5667686124581935
+   },
+   {
+    "slug": "beautiful-world",
+    "sim": 0.5594841504404465
+   },
+   {
+    "slug": "convenience-store",
+    "sim": 0.5325632412769352
+   },
+   {
+    "slug": "normal-people",
+    "sim": 0.5260021686553955
+   },
+   {
+    "slug": "everything-love",
+    "sim": 0.4627079505535352
+   },
+   {
+    "slug": "candide",
+    "sim": 0.4529980421066284
+   },
+   {
+    "slug": "brilliant-friend",
+    "sim": 0.4213127838782804
+   },
+   {
+    "slug": "the-course",
+    "sim": 0.32772009537935887
+   },
+   {
+    "slug": "inverting-pyramid",
+    "sim": 0.3092711752218714
+   }
+  ],
+  "kafka-shore": [
+   {
+    "slug": "wind-up-bird",
+    "sim": 0.8147483468055725
+   },
+   {
+    "slug": "norwegian-wood",
+    "sim": 0.7147397739005409
+   },
+   {
+    "slug": "unbearable",
+    "sim": 0.6603287452753283
+   },
+   {
+    "slug": "sirens",
+    "sim": 0.6025720418266073
+   },
+   {
+    "slug": "normal-people",
+    "sim": 0.5831095576286316
+   },
+   {
+    "slug": "stranger",
+    "sim": 0.5826722383499146
+   },
+   {
+    "slug": "blindness",
+    "sim": 0.5754924922594478
+   },
+   {
+    "slug": "rest-relaxation",
+    "sim": 0.5677870850436152
+   },
+   {
+    "slug": "beautiful-world",
+    "sim": 0.5642648598989938
+   },
+   {
+    "slug": "intermezzo",
+    "sim": 0.5537329050143315
+   },
+   {
+    "slug": "plague",
+    "sim": 0.5324539224830922
+   },
+   {
+    "slug": "candide",
+    "sim": 0.49881672859191895
+   },
+   {
+    "slug": "brilliant-friend",
+    "sim": 0.49247989103318
+   },
+   {
+    "slug": "everything-love",
+    "sim": 0.4730989775985177
+   },
+   {
+    "slug": "convenience-store",
+    "sim": 0.43315839369049114
+   },
+   {
+    "slug": "the-course",
+    "sim": 0.32364877007298354
+   },
+   {
+    "slug": "inverting-pyramid",
+    "sim": 0.3197042834582504
+   }
+  ],
+  "norwegian-wood": [
+   {
+    "slug": "wind-up-bird",
+    "sim": 0.7287602747964583
+   },
+   {
+    "slug": "kafka-shore",
+    "sim": 0.7147397739005409
+   },
+   {
+    "slug": "intermezzo",
+    "sim": 0.6671331127206722
+   },
+   {
+    "slug": "unbearable",
+    "sim": 0.6537295981130266
+   },
+   {
+    "slug": "beautiful-world",
+    "sim": 0.6392687608119092
+   },
+   {
+    "slug": "rest-relaxation",
+    "sim": 0.6219497548371798
+   },
+   {
+    "slug": "normal-people",
+    "sim": 0.6099517810402221
+   },
+   {
+    "slug": "everything-love",
+    "sim": 0.5899182030631783
+   },
+   {
+    "slug": "sirens",
+    "sim": 0.5631919595725635
+   },
+   {
+    "slug": "brilliant-friend",
+    "sim": 0.510440496723564
+   },
+   {
+    "slug": "plague",
+    "sim": 0.5057009746370966
+   },
+   {
+    "slug": "convenience-store",
+    "sim": 0.5055311020892282
+   },
+   {
+    "slug": "stranger",
+    "sim": 0.5051790469671468
+   },
+   {
+    "slug": "blindness",
+    "sim": 0.49709513852712184
+   },
+   {
+    "slug": "candide",
+    "sim": 0.3846922058233997
+   },
+   {
+    "slug": "inverting-pyramid",
+    "sim": 0.2854753562524748
+   },
+   {
+    "slug": "the-course",
+    "sim": 0.2734949020737293
+   }
+  ],
+  "convenience-store": [
+   {
+    "slug": "rest-relaxation",
+    "sim": 0.6052387356758118
+   },
+   {
+    "slug": "blindness",
+    "sim": 0.5674539128000881
+   },
+   {
+    "slug": "unbearable",
+    "sim": 0.5570237040519714
+   },
+   {
+    "slug": "everything-love",
+    "sim": 0.5522481203079224
+   },
+   {
+    "slug": "sirens",
+    "sim": 0.5434257277928966
+   },
+   {
+    "slug": "beautiful-world",
+    "sim": 0.5393189834736605
+   },
+   {
+    "slug": "wind-up-bird",
+    "sim": 0.5325632412769352
+   },
+   {
+    "slug": "norwegian-wood",
+    "sim": 0.5055311020892282
+   },
+   {
+    "slug": "intermezzo",
+    "sim": 0.48216883785035747
+   },
+   {
+    "slug": "kafka-shore",
+    "sim": 0.43315839369049114
+   },
+   {
+    "slug": "normal-people",
+    "sim": 0.43282028632284997
+   },
+   {
+    "slug": "plague",
+    "sim": 0.42069923877716364
+   },
+   {
+    "slug": "brilliant-friend",
+    "sim": 0.4159026741981535
+   },
+   {
+    "slug": "stranger",
+    "sim": 0.4111261612848147
+   },
+   {
+    "slug": "the-course",
+    "sim": 0.34350674411694726
+   },
+   {
+    "slug": "candide",
+    "sim": 0.2979319095611572
+   },
+   {
+    "slug": "inverting-pyramid",
+    "sim": 0.2674730738965361
+   }
+  ],
+  "rest-relaxation": [
+   {
+    "slug": "wind-up-bird",
+    "sim": 0.6619743503316862
+   },
+   {
+    "slug": "intermezzo",
+    "sim": 0.6359234045721118
+   },
+   {
+    "slug": "unbearable",
+    "sim": 0.6281306743621826
+   },
+   {
+    "slug": "norwegian-wood",
+    "sim": 0.6219497548371798
+   },
+   {
+    "slug": "beautiful-world",
+    "sim": 0.6075565218925519
+   },
+   {
+    "slug": "convenience-store",
+    "sim": 0.6052387356758118
+   },
+   {
+    "slug": "normal-people",
+    "sim": 0.582315777678239
+   },
+   {
+    "slug": "kafka-shore",
+    "sim": 0.5677870850436152
+   },
+   {
+    "slug": "everything-love",
+    "sim": 0.5605744624651491
+   },
+   {
+    "slug": "blindness",
+    "sim": 0.5564564134802661
+   },
+   {
+    "slug": "sirens",
+    "sim": 0.5517176882968269
+   },
+   {
+    "slug": "plague",
+    "sim": 0.5260100364685096
+   },
+   {
+    "slug": "stranger",
+    "sim": 0.5225062085691824
+   },
+   {
+    "slug": "brilliant-friend",
+    "sim": 0.4790725708007846
+   },
+   {
+    "slug": "candide",
+    "sim": 0.4260672882835448
+   },
+   {
+    "slug": "the-course",
+    "sim": 0.3553822848428664
+   },
+   {
+    "slug": "inverting-pyramid",
+    "sim": 0.18271481188712269
+   }
+  ],
+  "set-my-heart": [],
+  "the-course": [
+   {
+    "slug": "inverting-pyramid",
+    "sim": 0.5077762016983273
+   },
+   {
+    "slug": "sirens",
+    "sim": 0.41055867766368503
+   },
+   {
+    "slug": "stranger",
+    "sim": 0.3770747111484243
+   },
+   {
+    "slug": "intermezzo",
+    "sim": 0.3730376100275765
+   },
+   {
+    "slug": "beautiful-world",
+    "sim": 0.3715179562568691
+   },
+   {
+    "slug": "everything-love",
+    "sim": 0.3597058975433618
+   },
+   {
+    "slug": "rest-relaxation",
+    "sim": 0.3553822848428664
+   },
+   {
+    "slug": "candide",
+    "sim": 0.3541282626466914
+   },
+   {
+    "slug": "normal-people",
+    "sim": 0.34381749295100583
+   },
+   {
+    "slug": "convenience-store",
+    "sim": 0.34350674411694726
+   },
+   {
+    "slug": "unbearable",
+    "sim": 0.3355871342997454
+   },
+   {
+    "slug": "wind-up-bird",
+    "sim": 0.32772009537935887
+   },
+   {
+    "slug": "kafka-shore",
+    "sim": 0.32364877007298354
+   },
+   {
+    "slug": "brilliant-friend",
+    "sim": 0.30463367700577004
+   },
+   {
+    "slug": "plague",
+    "sim": 0.29422110319137784
+   },
+   {
+    "slug": "blindness",
+    "sim": 0.2926007334827987
+   },
+   {
+    "slug": "norwegian-wood",
+    "sim": 0.2734949020737293
+   }
+  ],
+  "inverting-pyramid": [
+   {
+    "slug": "the-course",
+    "sim": 0.5077762016983273
+   },
+   {
+    "slug": "unbearable",
+    "sim": 0.37052404441297737
+   },
+   {
+    "slug": "beautiful-world",
+    "sim": 0.36569118499756126
+   },
+   {
+    "slug": "intermezzo",
+    "sim": 0.3416159858245833
+   },
+   {
+    "slug": "kafka-shore",
+    "sim": 0.3197042834582504
+   },
+   {
+    "slug": "normal-people",
+    "sim": 0.3125260956600967
+   },
+   {
+    "slug": "wind-up-bird",
+    "sim": 0.3092711752218714
+   },
+   {
+    "slug": "sirens",
+    "sim": 0.30883022923739833
+   },
+   {
+    "slug": "brilliant-friend",
+    "sim": 0.3070747256279014
+   },
+   {
+    "slug": "stranger",
+    "sim": 0.302735763951288
+   },
+   {
+    "slug": "everything-love",
+    "sim": 0.30172112301478904
+   },
+   {
+    "slug": "plague",
+    "sim": 0.29972317814827176
+   },
+   {
+    "slug": "norwegian-wood",
+    "sim": 0.2854753562524748
+   },
+   {
+    "slug": "candide",
+    "sim": 0.28468595651900563
+   },
+   {
+    "slug": "convenience-store",
+    "sim": 0.2674730738965361
+   },
+   {
+    "slug": "blindness",
+    "sim": 0.2562599029386142
+   },
+   {
+    "slug": "rest-relaxation",
+    "sim": 0.18271481188712269
+   }
+  ]
+ },
+ "voyage-4-lite": {
+  "normal-people": [
+   {
+    "slug": "beautiful-world",
+    "sim": 0.8197599160814466
+   },
+   {
+    "slug": "intermezzo",
+    "sim": 0.6121651432809501
+   },
+   {
+    "slug": "everything-love",
+    "sim": 0.5817822738095173
+   },
+   {
+    "slug": "norwegian-wood",
+    "sim": 0.5523809523809534
+   },
+   {
+    "slug": "unbearable",
+    "sim": 0.5415874334555022
+   },
+   {
+    "slug": "kafka-shore",
+    "sim": 0.537343327682415
+   },
+   {
+    "slug": "brilliant-friend",
+    "sim": 0.5360208749771156
+   },
+   {
+    "slug": "rest-relaxation",
+    "sim": 0.5354406120277001
+   },
+   {
+    "slug": "wind-up-bird",
+    "sim": 0.4690673649311099
+   },
+   {
+    "slug": "stranger",
+    "sim": 0.46011517585353656
+   },
+   {
+    "slug": "plague",
+    "sim": 0.454348715880597
+   },
+   {
+    "slug": "blindness",
+    "sim": 0.454280698809707
+   },
+   {
+    "slug": "sirens",
+    "sim": 0.43930706020039756
+   },
+   {
+    "slug": "candide",
+    "sim": 0.39125502109527865
+   },
+   {
+    "slug": "convenience-store",
+    "sim": 0.3878870655197264
+   },
+   {
+    "slug": "the-course",
+    "sim": 0.3140660489915703
+   },
+   {
+    "slug": "inverting-pyramid",
+    "sim": 0.273403604043175
+   }
+  ],
+  "beautiful-world": [
+   {
+    "slug": "normal-people",
+    "sim": 0.8197599160814466
+   },
+   {
+    "slug": "everything-love",
+    "sim": 0.6808562862107573
+   },
+   {
+    "slug": "intermezzo",
+    "sim": 0.6732405424118233
+   },
+   {
+    "slug": "norwegian-wood",
+    "sim": 0.6197073912969405
+   },
+   {
+    "slug": "rest-relaxation",
+    "sim": 0.6006975828977666
+   },
+   {
+    "slug": "unbearable",
+    "sim": 0.5865170780862377
+   },
+   {
+    "slug": "brilliant-friend",
+    "sim": 0.5844919828488868
+   },
+   {
+    "slug": "kafka-shore",
+    "sim": 0.5352556386437717
+   },
+   {
+    "slug": "wind-up-bird",
+    "sim": 0.5312586072816965
+   },
+   {
+    "slug": "blindness",
+    "sim": 0.510456472012023
+   },
+   {
+    "slug": "plague",
+    "sim": 0.5084228495543361
+   },
+   {
+    "slug": "convenience-store",
+    "sim": 0.49386088531794825
+   },
+   {
+    "slug": "sirens",
+    "sim": 0.47553363734083076
+   },
+   {
+    "slug": "stranger",
+    "sim": 0.4602126663733176
+   },
+   {
+    "slug": "candide",
+    "sim": 0.37547814092431
+   },
+   {
+    "slug": "the-course",
+    "sim": 0.32915454047241055
+   },
+   {
+    "slug": "inverting-pyramid",
+    "sim": 0.32009193301201777
+   }
+  ],
+  "intermezzo": [
+   {
+    "slug": "beautiful-world",
+    "sim": 0.6732405424118233
+   },
+   {
+    "slug": "norwegian-wood",
+    "sim": 0.6389836834649708
+   },
+   {
+    "slug": "rest-relaxation",
+    "sim": 0.6167012497751856
+   },
+   {
+    "slug": "normal-people",
+    "sim": 0.6121651432809501
+   },
+   {
+    "slug": "wind-up-bird",
+    "sim": 0.5849158690794591
+   },
+   {
+    "slug": "unbearable",
+    "sim": 0.5664699067261623
+   },
+   {
+    "slug": "everything-love",
+    "sim": 0.5423338736494704
+   },
+   {
+    "slug": "plague",
+    "sim": 0.5359351155815975
+   },
+   {
+    "slug": "blindness",
+    "sim": 0.5343063196126413
+   },
+   {
+    "slug": "sirens",
+    "sim": 0.5338219482674302
+   },
+   {
+    "slug": "kafka-shore",
+    "sim": 0.5204961038522915
+   },
+   {
+    "slug": "stranger",
+    "sim": 0.5122893161946127
+   },
+   {
+    "slug": "brilliant-friend",
+    "sim": 0.4831740548118463
+   },
+   {
+    "slug": "convenience-store",
+    "sim": 0.48034276009627486
+   },
+   {
+    "slug": "candide",
+    "sim": 0.42853139553870745
+   },
+   {
+    "slug": "the-course",
+    "sim": 0.4005395770876985
+   },
+   {
+    "slug": "inverting-pyramid",
+    "sim": 0.3168324391442392
+   }
+  ],
+  "brilliant-friend": [
+   {
+    "slug": "beautiful-world",
+    "sim": 0.5844919828488868
+   },
+   {
+    "slug": "everything-love",
+    "sim": 0.5494221285157783
+   },
+   {
+    "slug": "normal-people",
+    "sim": 0.5360208749771156
+   },
+   {
+    "slug": "kafka-shore",
+    "sim": 0.4986031651496923
+   },
+   {
+    "slug": "norwegian-wood",
+    "sim": 0.4912511115520539
+   },
+   {
+    "slug": "plague",
+    "sim": 0.48912441924969885
+   },
+   {
+    "slug": "intermezzo",
+    "sim": 0.4831740548118463
+   },
+   {
+    "slug": "rest-relaxation",
+    "sim": 0.4741914727034745
+   },
+   {
+    "slug": "unbearable",
+    "sim": 0.4599045056076252
+   },
+   {
+    "slug": "blindness",
+    "sim": 0.4388291835784943
+   },
+   {
+    "slug": "wind-up-bird",
+    "sim": 0.40904174339273647
+   },
+   {
+    "slug": "stranger",
+    "sim": 0.4057454047875002
+   },
+   {
+    "slug": "convenience-store",
+    "sim": 0.39666281948498594
+   },
+   {
+    "slug": "sirens",
+    "sim": 0.3610248648509471
+   },
+   {
+    "slug": "candide",
+    "sim": 0.36004822134396774
+   },
+   {
+    "slug": "inverting-pyramid",
+    "sim": 0.29539223285867644
+   },
+   {
+    "slug": "the-course",
+    "sim": 0.2808591294800762
+   }
+  ],
+  "everything-love": [
+   {
+    "slug": "beautiful-world",
+    "sim": 0.6808562862107573
+   },
+   {
+    "slug": "sirens",
+    "sim": 0.6504359274323405
+   },
+   {
+    "slug": "normal-people",
+    "sim": 0.5817822738095173
+   },
+   {
+    "slug": "norwegian-wood",
+    "sim": 0.565782563858705
+   },
+   {
+    "slug": "brilliant-friend",
+    "sim": 0.5494221285157783
+   },
+   {
+    "slug": "intermezzo",
+    "sim": 0.5423338736494704
+   },
+   {
+    "slug": "rest-relaxation",
+    "sim": 0.53865257135943
+   },
+   {
+    "slug": "convenience-store",
+    "sim": 0.5296138840683638
+   },
+   {
+    "slug": "blindness",
+    "sim": 0.5046643469927623
+   },
+   {
+    "slug": "unbearable",
+    "sim": 0.4782787691007946
+   },
+   {
+    "slug": "wind-up-bird",
+    "sim": 0.45243095784556364
+   },
+   {
+    "slug": "plague",
+    "sim": 0.45162465110797334
+   },
+   {
+    "slug": "kafka-shore",
+    "sim": 0.43625299062606626
+   },
+   {
+    "slug": "stranger",
+    "sim": 0.429018940271076
+   },
+   {
+    "slug": "candide",
+    "sim": 0.40300886622045007
+   },
+   {
+    "slug": "the-course",
+    "sim": 0.3559256236420203
+   },
+   {
+    "slug": "inverting-pyramid",
+    "sim": 0.26681802672416477
+   }
+  ],
+  "plague": [
+   {
+    "slug": "blindness",
+    "sim": 0.7386579669321913
+   },
+   {
+    "slug": "stranger",
+    "sim": 0.6978510590328897
+   },
+   {
+    "slug": "unbearable",
+    "sim": 0.6547171874428777
+   },
+   {
+    "slug": "wind-up-bird",
+    "sim": 0.5712387136390136
+   },
+   {
+    "slug": "kafka-shore",
+    "sim": 0.5475946338418431
+   },
+   {
+    "slug": "candide",
+    "sim": 0.5441733817744178
+   },
+   {
+    "slug": "intermezzo",
+    "sim": 0.5359351155815975
+   },
+   {
+    "slug": "rest-relaxation",
+    "sim": 0.533470046508016
+   },
+   {
+    "slug": "sirens",
+    "sim": 0.5248302191698327
+   },
+   {
+    "slug": "norwegian-wood",
+    "sim": 0.5156260114161991
+   },
+   {
+    "slug": "beautiful-world",
+    "sim": 0.5084228495543361
+   },
+   {
+    "slug": "brilliant-friend",
+    "sim": 0.48912441924969885
+   },
+   {
+    "slug": "normal-people",
+    "sim": 0.454348715880597
+   },
+   {
+    "slug": "everything-love",
+    "sim": 0.45162465110797334
+   },
+   {
+    "slug": "convenience-store",
+    "sim": 0.4207160692766889
+   },
+   {
+    "slug": "the-course",
+    "sim": 0.29201906919480203
+   },
+   {
+    "slug": "inverting-pyramid",
+    "sim": 0.2837401330471119
+   }
+  ],
+  "stranger": [
+   {
+    "slug": "plague",
+    "sim": 0.6978510590328897
+   },
+   {
+    "slug": "unbearable",
+    "sim": 0.6403418350627237
+   },
+   {
+    "slug": "wind-up-bird",
+    "sim": 0.6145919974269892
+   },
+   {
+    "slug": "candide",
+    "sim": 0.6133456643418794
+   },
+   {
+    "slug": "blindness",
+    "sim": 0.5906288555826716
+   },
+   {
+    "slug": "sirens",
+    "sim": 0.5844399507176864
+   },
+   {
+    "slug": "kafka-shore",
+    "sim": 0.5637427476414517
+   },
+   {
+    "slug": "intermezzo",
+    "sim": 0.5122893161946127
+   },
+   {
+    "slug": "rest-relaxation",
+    "sim": 0.49642953255352573
+   },
+   {
+    "slug": "norwegian-wood",
+    "sim": 0.471808387989056
+   },
+   {
+    "slug": "beautiful-world",
+    "sim": 0.4602126663733176
+   },
+   {
+    "slug": "normal-people",
+    "sim": 0.46011517585353656
+   },
+   {
+    "slug": "everything-love",
+    "sim": 0.429018940271076
+   },
+   {
+    "slug": "brilliant-friend",
+    "sim": 0.4057454047875002
+   },
+   {
+    "slug": "convenience-store",
+    "sim": 0.3828018237830295
+   },
+   {
+    "slug": "the-course",
+    "sim": 0.363996261953752
+   },
+   {
+    "slug": "inverting-pyramid",
+    "sim": 0.26586810735883026
+   }
+  ],
+  "candide": [
+   {
+    "slug": "stranger",
+    "sim": 0.6133456643418794
+   },
+   {
+    "slug": "sirens",
+    "sim": 0.5939663890620249
+   },
+   {
+    "slug": "unbearable",
+    "sim": 0.5472415848744449
+   },
+   {
+    "slug": "plague",
+    "sim": 0.5441733817744178
+   },
+   {
+    "slug": "blindness",
+    "sim": 0.5406558513641396
+   },
+   {
+    "slug": "kafka-shore",
+    "sim": 0.4638741016387973
+   },
+   {
+    "slug": "wind-up-bird",
+    "sim": 0.4435096748459727
+   },
+   {
+    "slug": "intermezzo",
+    "sim": 0.42853139553870745
+   },
+   {
+    "slug": "rest-relaxation",
+    "sim": 0.4196193093174918
+   },
+   {
+    "slug": "everything-love",
+    "sim": 0.40300886622045007
+   },
+   {
+    "slug": "normal-people",
+    "sim": 0.39125502109527865
+   },
+   {
+    "slug": "beautiful-world",
+    "sim": 0.37547814092431
+   },
+   {
+    "slug": "brilliant-friend",
+    "sim": 0.36004822134396774
+   },
+   {
+    "slug": "norwegian-wood",
+    "sim": 0.35054312047105374
+   },
+   {
+    "slug": "the-course",
+    "sim": 0.3346303900856066
+   },
+   {
+    "slug": "convenience-store",
+    "sim": 0.2907725399272125
+   },
+   {
+    "slug": "inverting-pyramid",
+    "sim": 0.2644136705645168
+   }
+  ],
+  "blindness": [
+   {
+    "slug": "plague",
+    "sim": 0.7386579669321913
+   },
+   {
+    "slug": "unbearable",
+    "sim": 0.6372762675995036
+   },
+   {
+    "slug": "wind-up-bird",
+    "sim": 0.6002705097198529
+   },
+   {
+    "slug": "stranger",
+    "sim": 0.5906288555826716
+   },
+   {
+    "slug": "convenience-store",
+    "sim": 0.5882259782620068
+   },
+   {
+    "slug": "rest-relaxation",
+    "sim": 0.5529264706009454
+   },
+   {
+    "slug": "kafka-shore",
+    "sim": 0.5446418577005694
+   },
+   {
+    "slug": "candide",
+    "sim": 0.5406558513641396
+   },
+   {
+    "slug": "sirens",
+    "sim": 0.5382985197483621
+   },
+   {
+    "slug": "intermezzo",
+    "sim": 0.5343063196126413
+   },
+   {
+    "slug": "beautiful-world",
+    "sim": 0.510456472012023
+   },
+   {
+    "slug": "everything-love",
+    "sim": 0.5046643469927623
+   },
+   {
+    "slug": "norwegian-wood",
+    "sim": 0.47889307015496996
+   },
+   {
+    "slug": "normal-people",
+    "sim": 0.454280698809707
+   },
+   {
+    "slug": "brilliant-friend",
+    "sim": 0.4388291835784943
+   },
+   {
+    "slug": "the-course",
+    "sim": 0.3506256268360668
+   },
+   {
+    "slug": "inverting-pyramid",
+    "sim": 0.24554224990937956
+   }
+  ],
+  "unbearable": [
+   {
+    "slug": "kafka-shore",
+    "sim": 0.6598589211492126
+   },
+   {
+    "slug": "norwegian-wood",
+    "sim": 0.6560618867929503
+   },
+   {
+    "slug": "plague",
+    "sim": 0.6547171874428777
+   },
+   {
+    "slug": "wind-up-bird",
+    "sim": 0.651157994602866
+   },
+   {
+    "slug": "sirens",
+    "sim": 0.6488866790133752
+   },
+   {
+    "slug": "stranger",
+    "sim": 0.6403418350627237
+   },
+   {
+    "slug": "blindness",
+    "sim": 0.6372762675995036
+   },
+   {
+    "slug": "beautiful-world",
+    "sim": 0.5865170780862377
+   },
+   {
+    "slug": "intermezzo",
+    "sim": 0.5664699067261623
+   },
+   {
+    "slug": "candide",
+    "sim": 0.5472415848744449
+   },
+   {
+    "slug": "rest-relaxation",
+    "sim": 0.5452773028942718
+   },
+   {
+    "slug": "normal-people",
+    "sim": 0.5415874334555022
+   },
+   {
+    "slug": "convenience-store",
+    "sim": 0.5346654812891927
+   },
+   {
+    "slug": "everything-love",
+    "sim": 0.4782787691007946
+   },
+   {
+    "slug": "brilliant-friend",
+    "sim": 0.4599045056076252
+   },
+   {
+    "slug": "inverting-pyramid",
+    "sim": 0.33092183817782617
+   },
+   {
+    "slug": "the-course",
+    "sim": 0.2981596437334495
+   }
+  ],
+  "sirens": [
+   {
+    "slug": "everything-love",
+    "sim": 0.6504359274323405
+   },
+   {
+    "slug": "unbearable",
+    "sim": 0.6488866790133752
+   },
+   {
+    "slug": "wind-up-bird",
+    "sim": 0.6049387690461426
+   },
+   {
+    "slug": "candide",
+    "sim": 0.5939663890620249
+   },
+   {
+    "slug": "stranger",
+    "sim": 0.5844399507176864
+   },
+   {
+    "slug": "kafka-shore",
+    "sim": 0.5500992268383051
+   },
+   {
+    "slug": "blindness",
+    "sim": 0.5382985197483621
+   },
+   {
+    "slug": "convenience-store",
+    "sim": 0.5348992860557503
+   },
+   {
+    "slug": "intermezzo",
+    "sim": 0.5338219482674302
+   },
+   {
+    "slug": "rest-relaxation",
+    "sim": 0.5332360426555887
+   },
+   {
+    "slug": "norwegian-wood",
+    "sim": 0.5275048613548279
+   },
+   {
+    "slug": "plague",
+    "sim": 0.5248302191698327
+   },
+   {
+    "slug": "beautiful-world",
+    "sim": 0.47553363734083076
+   },
+   {
+    "slug": "the-course",
+    "sim": 0.4458586340119368
+   },
+   {
+    "slug": "normal-people",
+    "sim": 0.43930706020039756
+   },
+   {
+    "slug": "brilliant-friend",
+    "sim": 0.3610248648509471
+   },
+   {
+    "slug": "inverting-pyramid",
+    "sim": 0.27970585581134233
+   }
+  ],
+  "wind-up-bird": [
+   {
+    "slug": "kafka-shore",
+    "sim": 0.7808135151863154
+   },
+   {
+    "slug": "norwegian-wood",
+    "sim": 0.7058436449859367
+   },
+   {
+    "slug": "rest-relaxation",
+    "sim": 0.6551917596104243
+   },
+   {
+    "slug": "unbearable",
+    "sim": 0.651157994602866
+   },
+   {
+    "slug": "stranger",
+    "sim": 0.6145919974269892
+   },
+   {
+    "slug": "sirens",
+    "sim": 0.6049387690461426
+   },
+   {
+    "slug": "blindness",
+    "sim": 0.6002705097198529
+   },
+   {
+    "slug": "intermezzo",
+    "sim": 0.5849158690794591
+   },
+   {
+    "slug": "plague",
+    "sim": 0.5712387136390136
+   },
+   {
+    "slug": "convenience-store",
+    "sim": 0.5591863227133081
+   },
+   {
+    "slug": "beautiful-world",
+    "sim": 0.5312586072816965
+   },
+   {
+    "slug": "normal-people",
+    "sim": 0.4690673649311099
+   },
+   {
+    "slug": "everything-love",
+    "sim": 0.45243095784556364
+   },
+   {
+    "slug": "candide",
+    "sim": 0.4435096748459727
+   },
+   {
+    "slug": "brilliant-friend",
+    "sim": 0.40904174339273647
+   },
+   {
+    "slug": "the-course",
+    "sim": 0.3151784131037294
+   },
+   {
+    "slug": "inverting-pyramid",
+    "sim": 0.27292354541561714
+   }
+  ],
+  "kafka-shore": [
+   {
+    "slug": "wind-up-bird",
+    "sim": 0.7808135151863154
+   },
+   {
+    "slug": "norwegian-wood",
+    "sim": 0.689829152216266
+   },
+   {
+    "slug": "unbearable",
+    "sim": 0.6598589211492126
+   },
+   {
+    "slug": "stranger",
+    "sim": 0.5637427476414517
+   },
+   {
+    "slug": "rest-relaxation",
+    "sim": 0.5526948469306394
+   },
+   {
+    "slug": "sirens",
+    "sim": 0.5500992268383051
+   },
+   {
+    "slug": "plague",
+    "sim": 0.5475946338418431
+   },
+   {
+    "slug": "blindness",
+    "sim": 0.5446418577005694
+   },
+   {
+    "slug": "normal-people",
+    "sim": 0.537343327682415
+   },
+   {
+    "slug": "beautiful-world",
+    "sim": 0.5352556386437717
+   },
+   {
+    "slug": "intermezzo",
+    "sim": 0.5204961038522915
+   },
+   {
+    "slug": "brilliant-friend",
+    "sim": 0.4986031651496923
+   },
+   {
+    "slug": "candide",
+    "sim": 0.4638741016387973
+   },
+   {
+    "slug": "everything-love",
+    "sim": 0.43625299062606626
+   },
+   {
+    "slug": "convenience-store",
+    "sim": 0.4355664642661631
+   },
+   {
+    "slug": "the-course",
+    "sim": 0.29176463933550867
+   },
+   {
+    "slug": "inverting-pyramid",
+    "sim": 0.27593513296874805
+   }
+  ],
+  "norwegian-wood": [
+   {
+    "slug": "wind-up-bird",
+    "sim": 0.7058436449859367
+   },
+   {
+    "slug": "kafka-shore",
+    "sim": 0.689829152216266
+   },
+   {
+    "slug": "unbearable",
+    "sim": 0.6560618867929503
+   },
+   {
+    "slug": "intermezzo",
+    "sim": 0.6389836834649708
+   },
+   {
+    "slug": "beautiful-world",
+    "sim": 0.6197073912969405
+   },
+   {
+    "slug": "rest-relaxation",
+    "sim": 0.5877760823898343
+   },
+   {
+    "slug": "everything-love",
+    "sim": 0.565782563858705
+   },
+   {
+    "slug": "normal-people",
+    "sim": 0.5523809523809534
+   },
+   {
+    "slug": "sirens",
+    "sim": 0.5275048613548279
+   },
+   {
+    "slug": "plague",
+    "sim": 0.5156260114161991
+   },
+   {
+    "slug": "convenience-store",
+    "sim": 0.5000810772204722
+   },
+   {
+    "slug": "brilliant-friend",
+    "sim": 0.4912511115520539
+   },
+   {
+    "slug": "blindness",
+    "sim": 0.47889307015496996
+   },
+   {
+    "slug": "stranger",
+    "sim": 0.471808387989056
+   },
+   {
+    "slug": "candide",
+    "sim": 0.35054312047105374
+   },
+   {
+    "slug": "the-course",
+    "sim": 0.29152226943043313
+   },
+   {
+    "slug": "inverting-pyramid",
+    "sim": 0.2571307727254377
+   }
+  ],
+  "convenience-store": [
+   {
+    "slug": "blindness",
+    "sim": 0.5882259782620068
+   },
+   {
+    "slug": "rest-relaxation",
+    "sim": 0.5872948661691152
+   },
+   {
+    "slug": "wind-up-bird",
+    "sim": 0.5591863227133081
+   },
+   {
+    "slug": "sirens",
+    "sim": 0.5348992860557503
+   },
+   {
+    "slug": "unbearable",
+    "sim": 0.5346654812891927
+   },
+   {
+    "slug": "everything-love",
+    "sim": 0.5296138840683638
+   },
+   {
+    "slug": "norwegian-wood",
+    "sim": 0.5000810772204722
+   },
+   {
+    "slug": "beautiful-world",
+    "sim": 0.49386088531794825
+   },
+   {
+    "slug": "intermezzo",
+    "sim": 0.48034276009627486
+   },
+   {
+    "slug": "kafka-shore",
+    "sim": 0.4355664642661631
+   },
+   {
+    "slug": "plague",
+    "sim": 0.4207160692766889
+   },
+   {
+    "slug": "brilliant-friend",
+    "sim": 0.39666281948498594
+   },
+   {
+    "slug": "normal-people",
+    "sim": 0.3878870655197264
+   },
+   {
+    "slug": "stranger",
+    "sim": 0.3828018237830295
+   },
+   {
+    "slug": "the-course",
+    "sim": 0.3344548147266906
+   },
+   {
+    "slug": "candide",
+    "sim": 0.2907725399272125
+   },
+   {
+    "slug": "inverting-pyramid",
+    "sim": 0.22600546866736926
+   }
+  ],
+  "rest-relaxation": [
+   {
+    "slug": "wind-up-bird",
+    "sim": 0.6551917596104243
+   },
+   {
+    "slug": "intermezzo",
+    "sim": 0.6167012497751856
+   },
+   {
+    "slug": "beautiful-world",
+    "sim": 0.6006975828977666
+   },
+   {
+    "slug": "norwegian-wood",
+    "sim": 0.5877760823898343
+   },
+   {
+    "slug": "convenience-store",
+    "sim": 0.5872948661691152
+   },
+   {
+    "slug": "blindness",
+    "sim": 0.5529264706009454
+   },
+   {
+    "slug": "kafka-shore",
+    "sim": 0.5526948469306394
+   },
+   {
+    "slug": "unbearable",
+    "sim": 0.5452773028942718
+   },
+   {
+    "slug": "everything-love",
+    "sim": 0.53865257135943
+   },
+   {
+    "slug": "normal-people",
+    "sim": 0.5354406120277001
+   },
+   {
+    "slug": "plague",
+    "sim": 0.533470046508016
+   },
+   {
+    "slug": "sirens",
+    "sim": 0.5332360426555887
+   },
+   {
+    "slug": "stranger",
+    "sim": 0.49642953255352573
+   },
+   {
+    "slug": "brilliant-friend",
+    "sim": 0.4741914727034745
+   },
+   {
+    "slug": "candide",
+    "sim": 0.4196193093174918
+   },
+   {
+    "slug": "the-course",
+    "sim": 0.36504447460175604
+   },
+   {
+    "slug": "inverting-pyramid",
+    "sim": 0.174933772524264
+   }
+  ],
+  "set-my-heart": [],
+  "the-course": [
+   {
+    "slug": "inverting-pyramid",
+    "sim": 0.4811041608105089
+   },
+   {
+    "slug": "sirens",
+    "sim": 0.4458586340119368
+   },
+   {
+    "slug": "intermezzo",
+    "sim": 0.4005395770876985
+   },
+   {
+    "slug": "rest-relaxation",
+    "sim": 0.36504447460175604
+   },
+   {
+    "slug": "stranger",
+    "sim": 0.363996261953752
+   },
+   {
+    "slug": "everything-love",
+    "sim": 0.3559256236420203
+   },
+   {
+    "slug": "blindness",
+    "sim": 0.3506256268360668
+   },
+   {
+    "slug": "candide",
+    "sim": 0.3346303900856066
+   },
+   {
+    "slug": "convenience-store",
+    "sim": 0.3344548147266906
+   },
+   {
+    "slug": "beautiful-world",
+    "sim": 0.32915454047241055
+   },
+   {
+    "slug": "wind-up-bird",
+    "sim": 0.3151784131037294
+   },
+   {
+    "slug": "normal-people",
+    "sim": 0.3140660489915703
+   },
+   {
+    "slug": "unbearable",
+    "sim": 0.2981596437334495
+   },
+   {
+    "slug": "plague",
+    "sim": 0.29201906919480203
+   },
+   {
+    "slug": "kafka-shore",
+    "sim": 0.29176463933550867
+   },
+   {
+    "slug": "norwegian-wood",
+    "sim": 0.29152226943043313
+   },
+   {
+    "slug": "brilliant-friend",
+    "sim": 0.2808591294800762
+   }
+  ],
+  "inverting-pyramid": [
+   {
+    "slug": "the-course",
+    "sim": 0.4811041608105089
+   },
+   {
+    "slug": "unbearable",
+    "sim": 0.33092183817782617
+   },
+   {
+    "slug": "beautiful-world",
+    "sim": 0.32009193301201777
+   },
+   {
+    "slug": "intermezzo",
+    "sim": 0.3168324391442392
+   },
+   {
+    "slug": "brilliant-friend",
+    "sim": 0.29539223285867644
+   },
+   {
+    "slug": "plague",
+    "sim": 0.2837401330471119
+   },
+   {
+    "slug": "sirens",
+    "sim": 0.27970585581134233
+   },
+   {
+    "slug": "kafka-shore",
+    "sim": 0.27593513296874805
+   },
+   {
+    "slug": "normal-people",
+    "sim": 0.273403604043175
+   },
+   {
+    "slug": "wind-up-bird",
+    "sim": 0.27292354541561714
+   },
+   {
+    "slug": "everything-love",
+    "sim": 0.26681802672416477
+   },
+   {
+    "slug": "stranger",
+    "sim": 0.26586810735883026
+   },
+   {
+    "slug": "candide",
+    "sim": 0.2644136705645168
+   },
+   {
+    "slug": "norwegian-wood",
+    "sim": 0.2571307727254377
+   },
+   {
+    "slug": "blindness",
+    "sim": 0.24554224990937956
+   },
+   {
+    "slug": "convenience-store",
+    "sim": 0.22600546866736926
+   },
+   {
+    "slug": "rest-relaxation",
+    "sim": 0.174933772524264
+   }
+  ]
+ }
+}

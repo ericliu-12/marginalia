@@ -1,0 +1,1197 @@
+{
+ "floorCapSweep": {
+  "sonnet12 floor=strong cap=3": {
+   "edges": 16,
+   "meanDegree": 1.68,
+   "maxDegree": 4,
+   "noConnections": [
+    "the-course",
+    "inverting-pyramid",
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.75,
+   "themedBooksWithSameThemeEdge": "14/17"
+  },
+  "sonnet12 floor=strong cap=5": {
+   "edges": 16,
+   "meanDegree": 1.68,
+   "maxDegree": 4,
+   "noConnections": [
+    "the-course",
+    "inverting-pyramid",
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.75,
+   "themedBooksWithSameThemeEdge": "14/17"
+  },
+  "sonnet12 floor=strong cap=8": {
+   "edges": 16,
+   "meanDegree": 1.68,
+   "maxDegree": 4,
+   "noConnections": [
+    "the-course",
+    "inverting-pyramid",
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.75,
+   "themedBooksWithSameThemeEdge": "14/17"
+  },
+  "sonnet12 floor=moderate cap=3": {
+   "edges": 33,
+   "meanDegree": 3.47,
+   "maxDegree": 8,
+   "noConnections": [
+    "the-course",
+    "inverting-pyramid",
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.61,
+   "themedBooksWithSameThemeEdge": "15/17"
+  },
+  "sonnet12 floor=moderate cap=5": {
+   "edges": 37,
+   "meanDegree": 3.89,
+   "maxDegree": 8,
+   "noConnections": [
+    "the-course",
+    "inverting-pyramid",
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.59,
+   "themedBooksWithSameThemeEdge": "15/17"
+  },
+  "sonnet12 floor=moderate cap=8": {
+   "edges": 37,
+   "meanDegree": 3.89,
+   "maxDegree": 8,
+   "noConnections": [
+    "the-course",
+    "inverting-pyramid",
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.59,
+   "themedBooksWithSameThemeEdge": "15/17"
+  },
+  "sonnet12 floor=weak cap=3": {
+   "edges": 37,
+   "meanDegree": 3.89,
+   "maxDegree": 9,
+   "noConnections": [
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.57,
+   "themedBooksWithSameThemeEdge": "15/17"
+  },
+  "sonnet12 floor=weak cap=5": {
+   "edges": 50,
+   "meanDegree": 5.26,
+   "maxDegree": 11,
+   "noConnections": [
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.5,
+   "themedBooksWithSameThemeEdge": "15/17"
+  },
+  "sonnet12 floor=weak cap=8": {
+   "edges": 52,
+   "meanDegree": 5.47,
+   "maxDegree": 11,
+   "noConnections": [
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.5,
+   "themedBooksWithSameThemeEdge": "16/17"
+  },
+  "sonnet6 floor=strong cap=3": {
+   "edges": 12,
+   "meanDegree": 1.26,
+   "maxDegree": 3,
+   "noConnections": [
+    "the-course",
+    "convenience-store",
+    "inverting-pyramid",
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.92,
+   "themedBooksWithSameThemeEdge": "14/17"
+  },
+  "sonnet6 floor=strong cap=5": {
+   "edges": 12,
+   "meanDegree": 1.26,
+   "maxDegree": 3,
+   "noConnections": [
+    "the-course",
+    "convenience-store",
+    "inverting-pyramid",
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.92,
+   "themedBooksWithSameThemeEdge": "14/17"
+  },
+  "sonnet6 floor=strong cap=8": {
+   "edges": 12,
+   "meanDegree": 1.26,
+   "maxDegree": 3,
+   "noConnections": [
+    "the-course",
+    "convenience-store",
+    "inverting-pyramid",
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.92,
+   "themedBooksWithSameThemeEdge": "14/17"
+  },
+  "sonnet6 floor=moderate cap=3": {
+   "edges": 29,
+   "meanDegree": 3.05,
+   "maxDegree": 8,
+   "noConnections": [
+    "the-course",
+    "inverting-pyramid",
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.66,
+   "themedBooksWithSameThemeEdge": "15/17"
+  },
+  "sonnet6 floor=moderate cap=5": {
+   "edges": 30,
+   "meanDegree": 3.16,
+   "maxDegree": 8,
+   "noConnections": [
+    "the-course",
+    "inverting-pyramid",
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.67,
+   "themedBooksWithSameThemeEdge": "15/17"
+  },
+  "sonnet6 floor=moderate cap=8": {
+   "edges": 30,
+   "meanDegree": 3.16,
+   "maxDegree": 8,
+   "noConnections": [
+    "the-course",
+    "inverting-pyramid",
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.67,
+   "themedBooksWithSameThemeEdge": "15/17"
+  },
+  "sonnet6 floor=weak cap=3": {
+   "edges": 36,
+   "meanDegree": 3.79,
+   "maxDegree": 11,
+   "noConnections": [
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.58,
+   "themedBooksWithSameThemeEdge": "15/17"
+  },
+  "sonnet6 floor=weak cap=5": {
+   "edges": 41,
+   "meanDegree": 4.32,
+   "maxDegree": 12,
+   "noConnections": [
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.54,
+   "themedBooksWithSameThemeEdge": "15/17"
+  },
+  "sonnet6 floor=weak cap=8": {
+   "edges": 41,
+   "meanDegree": 4.32,
+   "maxDegree": 12,
+   "noConnections": [
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.54,
+   "themedBooksWithSameThemeEdge": "15/17"
+  },
+  "sonnet3 floor=strong cap=3": {
+   "edges": 10,
+   "meanDegree": 1.05,
+   "maxDegree": 3,
+   "noConnections": [
+    "the-course",
+    "convenience-store",
+    "unbearable",
+    "inverting-pyramid",
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 1,
+   "themedBooksWithSameThemeEdge": "14/17"
+  },
+  "sonnet3 floor=strong cap=5": {
+   "edges": 10,
+   "meanDegree": 1.05,
+   "maxDegree": 3,
+   "noConnections": [
+    "the-course",
+    "convenience-store",
+    "unbearable",
+    "inverting-pyramid",
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 1,
+   "themedBooksWithSameThemeEdge": "14/17"
+  },
+  "sonnet3 floor=strong cap=8": {
+   "edges": 10,
+   "meanDegree": 1.05,
+   "maxDegree": 3,
+   "noConnections": [
+    "the-course",
+    "convenience-store",
+    "unbearable",
+    "inverting-pyramid",
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 1,
+   "themedBooksWithSameThemeEdge": "14/17"
+  },
+  "sonnet3 floor=moderate cap=3": {
+   "edges": 22,
+   "meanDegree": 2.32,
+   "maxDegree": 7,
+   "noConnections": [
+    "the-course",
+    "inverting-pyramid",
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.68,
+   "themedBooksWithSameThemeEdge": "14/17"
+  },
+  "sonnet3 floor=moderate cap=5": {
+   "edges": 22,
+   "meanDegree": 2.32,
+   "maxDegree": 7,
+   "noConnections": [
+    "the-course",
+    "inverting-pyramid",
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.68,
+   "themedBooksWithSameThemeEdge": "14/17"
+  },
+  "sonnet3 floor=moderate cap=8": {
+   "edges": 22,
+   "meanDegree": 2.32,
+   "maxDegree": 7,
+   "noConnections": [
+    "the-course",
+    "inverting-pyramid",
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.68,
+   "themedBooksWithSameThemeEdge": "14/17"
+  },
+  "sonnet3 floor=weak cap=3": {
+   "edges": 32,
+   "meanDegree": 3.37,
+   "maxDegree": 10,
+   "noConnections": [
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.56,
+   "themedBooksWithSameThemeEdge": "14/17"
+  },
+  "sonnet3 floor=weak cap=5": {
+   "edges": 32,
+   "meanDegree": 3.37,
+   "maxDegree": 10,
+   "noConnections": [
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.56,
+   "themedBooksWithSameThemeEdge": "14/17"
+  },
+  "sonnet3 floor=weak cap=8": {
+   "edges": 32,
+   "meanDegree": 3.37,
+   "maxDegree": 10,
+   "noConnections": [
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.56,
+   "themedBooksWithSameThemeEdge": "14/17"
+  },
+  "haiku12 floor=strong cap=3": {
+   "edges": 20,
+   "meanDegree": 2.11,
+   "maxDegree": 5,
+   "noConnections": [
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.65,
+   "themedBooksWithSameThemeEdge": "13/17"
+  },
+  "haiku12 floor=strong cap=5": {
+   "edges": 20,
+   "meanDegree": 2.11,
+   "maxDegree": 5,
+   "noConnections": [
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.65,
+   "themedBooksWithSameThemeEdge": "13/17"
+  },
+  "haiku12 floor=strong cap=8": {
+   "edges": 20,
+   "meanDegree": 2.11,
+   "maxDegree": 5,
+   "noConnections": [
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.65,
+   "themedBooksWithSameThemeEdge": "13/17"
+  },
+  "haiku12 floor=moderate cap=3": {
+   "edges": 36,
+   "meanDegree": 3.79,
+   "maxDegree": 6,
+   "noConnections": [
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.56,
+   "themedBooksWithSameThemeEdge": "15/17"
+  },
+  "haiku12 floor=moderate cap=5": {
+   "edges": 42,
+   "meanDegree": 4.42,
+   "maxDegree": 7,
+   "noConnections": [
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.57,
+   "themedBooksWithSameThemeEdge": "16/17"
+  },
+  "haiku12 floor=moderate cap=8": {
+   "edges": 42,
+   "meanDegree": 4.42,
+   "maxDegree": 7,
+   "noConnections": [
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.57,
+   "themedBooksWithSameThemeEdge": "16/17"
+  },
+  "haiku12 floor=weak cap=3": {
+   "edges": 36,
+   "meanDegree": 3.79,
+   "maxDegree": 6,
+   "noConnections": [
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.56,
+   "themedBooksWithSameThemeEdge": "15/17"
+  },
+  "haiku12 floor=weak cap=5": {
+   "edges": 42,
+   "meanDegree": 4.42,
+   "maxDegree": 7,
+   "noConnections": [
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.57,
+   "themedBooksWithSameThemeEdge": "16/17"
+  },
+  "haiku12 floor=weak cap=8": {
+   "edges": 42,
+   "meanDegree": 4.42,
+   "maxDegree": 7,
+   "noConnections": [
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.57,
+   "themedBooksWithSameThemeEdge": "16/17"
+  }
+ },
+ "resolutionSweep": {
+  "1": [
+   {
+    "size": 6,
+    "members": [
+     "beautiful-world",
+     "brilliant-friend",
+     "everything-love",
+     "intermezzo",
+     "normal-people",
+     "norwegian-wood"
+    ],
+    "themes": "love:6"
+   },
+   {
+    "size": 5,
+    "members": [
+     "blindness",
+     "candide",
+     "plague",
+     "sirens",
+     "unbearable"
+    ],
+    "themes": "absurd:4 love:1"
+   },
+   {
+    "size": 5,
+    "members": [
+     "convenience-store",
+     "kafka-shore",
+     "rest-relaxation",
+     "stranger",
+     "wind-up-bird"
+    ],
+    "themes": "dream:4 absurd:1"
+   }
+  ],
+  "2": [
+   {
+    "size": 5,
+    "members": [
+     "beautiful-world",
+     "brilliant-friend",
+     "everything-love",
+     "intermezzo",
+     "normal-people"
+    ],
+    "themes": "love:5"
+   },
+   {
+    "size": 5,
+    "members": [
+     "blindness",
+     "candide",
+     "plague",
+     "sirens",
+     "unbearable"
+    ],
+    "themes": "absurd:4 love:1"
+   },
+   {
+    "size": 3,
+    "members": [
+     "kafka-shore",
+     "norwegian-wood",
+     "wind-up-bird"
+    ],
+    "themes": "dream:2 love:1"
+   },
+   {
+    "size": 3,
+    "members": [
+     "convenience-store",
+     "rest-relaxation",
+     "stranger"
+    ],
+    "themes": "dream:2 absurd:1"
+   }
+  ],
+  "0.5": [
+   {
+    "size": 5,
+    "members": [
+     "beautiful-world",
+     "brilliant-friend",
+     "everything-love",
+     "intermezzo",
+     "normal-people"
+    ],
+    "themes": "love:5"
+   },
+   {
+    "size": 11,
+    "members": [
+     "blindness",
+     "candide",
+     "convenience-store",
+     "kafka-shore",
+     "norwegian-wood",
+     "plague",
+     "rest-relaxation",
+     "sirens",
+     "stranger",
+     "unbearable",
+     "wind-up-bird"
+    ],
+    "themes": "absurd:5 dream:4 love:2"
+   }
+  ],
+  "0.75": [
+   {
+    "size": 5,
+    "members": [
+     "beautiful-world",
+     "brilliant-friend",
+     "everything-love",
+     "intermezzo",
+     "normal-people"
+    ],
+    "themes": "love:5"
+   },
+   {
+    "size": 5,
+    "members": [
+     "blindness",
+     "candide",
+     "plague",
+     "sirens",
+     "unbearable"
+    ],
+    "themes": "absurd:4 love:1"
+   },
+   {
+    "size": 6,
+    "members": [
+     "convenience-store",
+     "kafka-shore",
+     "norwegian-wood",
+     "rest-relaxation",
+     "stranger",
+     "wind-up-bird"
+    ],
+    "themes": "dream:4 love:1 absurd:1"
+   }
+  ],
+  "1.5": [
+   {
+    "size": 5,
+    "members": [
+     "beautiful-world",
+     "brilliant-friend",
+     "everything-love",
+     "intermezzo",
+     "normal-people"
+    ],
+    "themes": "love:5"
+   },
+   {
+    "size": 5,
+    "members": [
+     "blindness",
+     "candide",
+     "plague",
+     "sirens",
+     "unbearable"
+    ],
+    "themes": "absurd:4 love:1"
+   },
+   {
+    "size": 3,
+    "members": [
+     "kafka-shore",
+     "norwegian-wood",
+     "wind-up-bird"
+    ],
+    "themes": "dream:2 love:1"
+   },
+   {
+    "size": 3,
+    "members": [
+     "convenience-store",
+     "rest-relaxation",
+     "stranger"
+    ],
+    "themes": "dream:2 absurd:1"
+   }
+  ]
+ },
+ "incremental": [
+  {
+   "n": 4,
+   "added": "everything-love",
+   "edges": 2,
+   "clusters": [],
+   "events": []
+  },
+  {
+   "n": 5,
+   "added": "stranger",
+   "edges": 4,
+   "clusters": [
+    {
+     "id": 1,
+     "name": "Meaning in an Indifferent World",
+     "description": "Protagonists confront a universe that offers no explanation, drifting through alienation, inexplicable events, and mortality. Each must decide how to act, connect, or endure without any guarantee of purpose.",
+     "members": [
+      "plague",
+      "stranger",
+      "wind-up-bird"
+     ],
+     "themes": "absurd:2 dream:1"
+    }
+   ],
+   "events": [
+    "NEW #1 \"Meaning in an Indifferent World\" (3 Books)"
+   ]
+  },
+  {
+   "n": 6,
+   "added": "the-course",
+   "edges": 4,
+   "clusters": [
+    {
+     "id": 1,
+     "name": "Meaning in an Indifferent World",
+     "description": "Protagonists confront a universe that offers no explanation, drifting through alienation, inexplicable events, and mortality. Each must decide how to act, connect, or endure without any guarantee of purpose.",
+     "members": [
+      "plague",
+      "stranger",
+      "wind-up-bird"
+     ],
+     "themes": "absurd:2 dream:1"
+    }
+   ],
+   "events": []
+  },
+  {
+   "n": 7,
+   "added": "beautiful-world",
+   "edges": 6,
+   "clusters": [
+    {
+     "id": 1,
+     "name": "Meaning in an Indifferent World",
+     "description": "Protagonists confront a universe that offers no explanation, drifting through alienation, inexplicable events, and mortality. Each must decide how to act, connect, or endure without any guarantee of purpose.",
+     "members": [
+      "plague",
+      "stranger",
+      "wind-up-bird"
+     ],
+     "themes": "absurd:2 dream:1"
+    },
+    {
+     "id": 2,
+     "name": "Tender Misunderstandings",
+     "description": "Young adults fumble toward intimacy, in friendships and romances alike, held back by what they can't say aloud. Each book shows how attachment, insecurity, and the distance between private and public selves shape the search for connection.",
+     "members": [
+      "beautiful-world",
+      "everything-love",
+      "normal-people"
+     ],
+     "themes": "love:3"
+    }
+   ],
+   "events": [
+    "NEW #2 \"Tender Misunderstandings\" (3 Books)"
+   ]
+  },
+  {
+   "n": 8,
+   "added": "kafka-shore",
+   "edges": 8,
+   "clusters": [
+    {
+     "id": 2,
+     "name": "Tender Misunderstandings",
+     "description": "Young adults fumble toward intimacy, in friendships and romances alike, held back by what they can't say aloud. Each book shows how attachment, insecurity, and the distance between private and public selves shape the search for connection.",
+     "members": [
+      "beautiful-world",
+      "everything-love",
+      "normal-people"
+     ],
+     "themes": "love:3"
+    },
+    {
+     "id": 1,
+     "name": "Meaning in an Indifferent World",
+     "description": "Protagonists confront a universe that offers no explanation, drifting through alienation, inexplicable events, and mortality. Each must decide how to act, connect, or endure without any guarantee of purpose.",
+     "members": [
+      "kafka-shore",
+      "plague",
+      "stranger",
+      "wind-up-bird"
+     ],
+     "themes": "dream:2 absurd:2"
+    }
+   ],
+   "events": [
+    "kept #1 \"Meaning in an Indifferent World\" (change 25%, J=0.75)"
+   ]
+  },
+  {
+   "n": 9,
+   "added": "blindness",
+   "edges": 9,
+   "clusters": [
+    {
+     "id": 2,
+     "name": "Tender Misunderstandings",
+     "description": "Young adults fumble toward intimacy, in friendships and romances alike, held back by what they can't say aloud. Each book shows how attachment, insecurity, and the distance between private and public selves shape the search for connection.",
+     "members": [
+      "beautiful-world",
+      "everything-love",
+      "normal-people"
+     ],
+     "themes": "love:3"
+    },
+    {
+     "id": 1,
+     "name": "Meaning in an Indifferent World",
+     "description": "Protagonists confront a universe that offers no explanation, drifting through alienation, inexplicable events, and mortality. Each must decide how to act, connect, or endure without any guarantee of purpose.",
+     "members": [
+      "blindness",
+      "kafka-shore",
+      "plague",
+      "stranger",
+      "wind-up-bird"
+     ],
+     "themes": "absurd:3 dream:2"
+    }
+   ],
+   "events": [
+    "kept #1 \"Meaning in an Indifferent World\" (change 20%, J=0.80)"
+   ]
+  },
+  {
+   "n": 10,
+   "added": "intermezzo",
+   "edges": 12,
+   "clusters": [
+    {
+     "id": 1,
+     "name": "Meaning in an Indifferent World",
+     "description": "Protagonists confront a universe that offers no explanation, drifting through alienation, inexplicable events, and mortality. Each must decide how to act, connect, or endure without any guarantee of purpose.",
+     "members": [
+      "blindness",
+      "kafka-shore",
+      "plague",
+      "stranger",
+      "wind-up-bird"
+     ],
+     "themes": "absurd:3 dream:2"
+    },
+    {
+     "id": 2,
+     "name": "Tender Misunderstandings",
+     "description": "Young adults fumble toward intimacy, in friendships and romances alike, held back by what they can't say aloud. Each book shows how attachment, insecurity, and the distance between private and public selves shape the search for connection.",
+     "members": [
+      "beautiful-world",
+      "everything-love",
+      "intermezzo",
+      "normal-people"
+     ],
+     "themes": "love:4"
+    }
+   ],
+   "events": [
+    "kept #2 \"Tender Misunderstandings\" (change 25%, J=0.75)"
+   ]
+  },
+  {
+   "n": 11,
+   "added": "candide",
+   "edges": 15,
+   "clusters": [
+    {
+     "id": 2,
+     "name": "Tender Misunderstandings",
+     "description": "Young adults fumble toward intimacy, in friendships and romances alike, held back by what they can't say aloud. Each book shows how attachment, insecurity, and the distance between private and public selves shape the search for connection.",
+     "members": [
+      "beautiful-world",
+      "everything-love",
+      "intermezzo",
+      "normal-people"
+     ],
+     "themes": "love:4"
+    },
+    {
+     "id": 1,
+     "name": "Absurd Catastrophe, Human Response",
+     "description": "Works that confront suffering and a meaningless or indifferent world, questioning comforting beliefs and social systems. They find what dignity there is in solidarity, action, and lucid defiance rather than in faith or optimism.",
+     "members": [
+      "blindness",
+      "candide",
+      "plague",
+      "stranger"
+     ],
+     "themes": "absurd:4"
+    }
+   ],
+   "events": [
+    "RENAME #1 \"Meaning in an Indifferent World\" -> \"Absurd Catastrophe, Human Response\" (change 50%, J=0.50)"
+   ]
+  },
+  {
+   "n": 12,
+   "added": "convenience-store",
+   "edges": 18,
+   "clusters": [
+    {
+     "id": 2,
+     "name": "Tender Misunderstandings",
+     "description": "Young adults fumble toward intimacy, in friendships and romances alike, held back by what they can't say aloud. Each book shows how attachment, insecurity, and the distance between private and public selves shape the search for connection.",
+     "members": [
+      "beautiful-world",
+      "everything-love",
+      "intermezzo",
+      "normal-people"
+     ],
+     "themes": "love:4"
+    },
+    {
+     "id": 1,
+     "name": "Absurd Catastrophe, Human Response",
+     "description": "Works that confront suffering and a meaningless or indifferent world, questioning comforting beliefs and social systems. They find what dignity there is in solidarity, action, and lucid defiance rather than in faith or optimism.",
+     "members": [
+      "blindness",
+      "candide",
+      "plague"
+     ],
+     "themes": "absurd:3"
+    },
+    {
+     "id": 3,
+     "name": "Strangers Among the Ordinary",
+     "description": "Detached protagonists drift at the edges of society, unsure of their place or purpose in a world that expects conformity. Through routine, surrealism, or indifference, each confronts the gap between living a normal life and finding any real meaning in it.",
+     "members": [
+      "convenience-store",
+      "kafka-shore",
+      "stranger",
+      "wind-up-bird"
+     ],
+     "themes": "dream:3 absurd:1"
+    }
+   ],
+   "events": [
+    "kept #1 \"Absurd Catastrophe, Human Response\" (change 25%, J=0.75)",
+    "NEW #3 \"Strangers Among the Ordinary\" (4 Books)"
+   ]
+  },
+  {
+   "n": 13,
+   "added": "brilliant-friend",
+   "edges": 21,
+   "clusters": [
+    {
+     "id": 1,
+     "name": "Absurd Catastrophe, Human Response",
+     "description": "Works that confront suffering and a meaningless or indifferent world, questioning comforting beliefs and social systems. They find what dignity there is in solidarity, action, and lucid defiance rather than in faith or optimism.",
+     "members": [
+      "blindness",
+      "candide",
+      "plague"
+     ],
+     "themes": "absurd:3"
+    },
+    {
+     "id": 3,
+     "name": "Strangers Among the Ordinary",
+     "description": "Detached protagonists drift at the edges of society, unsure of their place or purpose in a world that expects conformity. Through routine, surrealism, or indifference, each confronts the gap between living a normal life and finding any real meaning in it.",
+     "members": [
+      "convenience-store",
+      "kafka-shore",
+      "stranger",
+      "wind-up-bird"
+     ],
+     "themes": "dream:3 absurd:1"
+    },
+    {
+     "id": 2,
+     "name": "Tender Misunderstandings",
+     "description": "Young adults fumble toward intimacy, in friendships and romances alike, held back by what they can't say aloud. Each book shows how attachment, insecurity, and the distance between private and public selves shape the search for connection.",
+     "members": [
+      "beautiful-world",
+      "brilliant-friend",
+      "everything-love",
+      "intermezzo",
+      "normal-people"
+     ],
+     "themes": "love:5"
+    }
+   ],
+   "events": [
+    "kept #2 \"Tender Misunderstandings\" (change 20%, J=0.80)"
+   ]
+  },
+  {
+   "n": 14,
+   "added": "unbearable",
+   "edges": 24,
+   "clusters": [
+    {
+     "id": 2,
+     "name": "Tender Misunderstandings",
+     "description": "Young adults fumble toward intimacy, in friendships and romances alike, held back by what they can't say aloud. Each book shows how attachment, insecurity, and the distance between private and public selves shape the search for connection.",
+     "members": [
+      "beautiful-world",
+      "brilliant-friend",
+      "everything-love",
+      "intermezzo",
+      "normal-people"
+     ],
+     "themes": "love:5"
+    },
+    {
+     "id": 3,
+     "name": "Strangers Among the Ordinary",
+     "description": "Detached protagonists drift at the edges of society, unsure of their place or purpose in a world that expects conformity. Through routine, surrealism, or indifference, each confronts the gap between living a normal life and finding any real meaning in it.",
+     "members": [
+      "convenience-store",
+      "kafka-shore",
+      "stranger",
+      "wind-up-bird"
+     ],
+     "themes": "dream:3 absurd:1"
+    },
+    {
+     "id": 1,
+     "name": "Absurd Catastrophe, Human Response",
+     "description": "Works that confront suffering and a meaningless or indifferent world, questioning comforting beliefs and social systems. They find what dignity there is in solidarity, action, and lucid defiance rather than in faith or optimism.",
+     "members": [
+      "blindness",
+      "candide",
+      "plague",
+      "unbearable"
+     ],
+     "themes": "absurd:3 love:1"
+    }
+   ],
+   "events": [
+    "kept #1 \"Absurd Catastrophe, Human Response\" (change 25%, J=0.75)"
+   ]
+  },
+  {
+   "n": 15,
+   "added": "rest-relaxation",
+   "edges": 27,
+   "clusters": [
+    {
+     "id": 2,
+     "name": "Tender Misunderstandings",
+     "description": "Young adults fumble toward intimacy, in friendships and romances alike, held back by what they can't say aloud. Each book shows how attachment, insecurity, and the distance between private and public selves shape the search for connection.",
+     "members": [
+      "beautiful-world",
+      "brilliant-friend",
+      "everything-love",
+      "intermezzo",
+      "normal-people"
+     ],
+     "themes": "love:5"
+    },
+    {
+     "id": 1,
+     "name": "Absurd Catastrophe, Human Response",
+     "description": "Works that confront suffering and a meaningless or indifferent world, questioning comforting beliefs and social systems. They find what dignity there is in solidarity, action, and lucid defiance rather than in faith or optimism.",
+     "members": [
+      "blindness",
+      "candide",
+      "plague",
+      "unbearable"
+     ],
+     "themes": "absurd:3 love:1"
+    },
+    {
+     "id": 3,
+     "name": "Strangers Among the Ordinary",
+     "description": "Detached protagonists drift at the edges of society, unsure of their place or purpose in a world that expects conformity. Through routine, surrealism, or indifference, each confronts the gap between living a normal life and finding any real meaning in it.",
+     "members": [
+      "convenience-store",
+      "kafka-shore",
+      "rest-relaxation",
+      "stranger",
+      "wind-up-bird"
+     ],
+     "themes": "dream:4 absurd:1"
+    }
+   ],
+   "events": [
+    "kept #3 \"Strangers Among the Ordinary\" (change 20%, J=0.80)"
+   ]
+  },
+  {
+   "n": 16,
+   "added": "sirens",
+   "edges": 32,
+   "clusters": [
+    {
+     "id": 2,
+     "name": "Tender Misunderstandings",
+     "description": "Young adults fumble toward intimacy, in friendships and romances alike, held back by what they can't say aloud. Each book shows how attachment, insecurity, and the distance between private and public selves shape the search for connection.",
+     "members": [
+      "beautiful-world",
+      "brilliant-friend",
+      "everything-love",
+      "intermezzo",
+      "normal-people"
+     ],
+     "themes": "love:5"
+    },
+    {
+     "id": 3,
+     "name": "Strangers Among the Ordinary",
+     "description": "Detached protagonists drift at the edges of society, unsure of their place or purpose in a world that expects conformity. Through routine, surrealism, or indifference, each confronts the gap between living a normal life and finding any real meaning in it.",
+     "members": [
+      "convenience-store",
+      "kafka-shore",
+      "rest-relaxation",
+      "stranger",
+      "wind-up-bird"
+     ],
+     "themes": "dream:4 absurd:1"
+    },
+    {
+     "id": 1,
+     "name": "Absurd Catastrophe, Human Response",
+     "description": "Works that confront suffering and a meaningless or indifferent world, questioning comforting beliefs and social systems. They find what dignity there is in solidarity, action, and lucid defiance rather than in faith or optimism.",
+     "members": [
+      "blindness",
+      "candide",
+      "plague",
+      "sirens",
+      "unbearable"
+     ],
+     "themes": "absurd:4 love:1"
+    }
+   ],
+   "events": [
+    "kept #1 \"Absurd Catastrophe, Human Response\" (change 20%, J=0.80)"
+   ]
+  },
+  {
+   "n": 17,
+   "added": "norwegian-wood",
+   "edges": 37,
+   "clusters": [
+    {
+     "id": 1,
+     "name": "Absurd Catastrophe, Human Response",
+     "description": "Works that confront suffering and a meaningless or indifferent world, questioning comforting beliefs and social systems. They find what dignity there is in solidarity, action, and lucid defiance rather than in faith or optimism.",
+     "members": [
+      "blindness",
+      "candide",
+      "plague",
+      "sirens",
+      "unbearable"
+     ],
+     "themes": "absurd:4 love:1"
+    },
+    {
+     "id": 3,
+     "name": "Strangers Among the Ordinary",
+     "description": "Detached protagonists drift at the edges of society, unsure of their place or purpose in a world that expects conformity. Through routine, surrealism, or indifference, each confronts the gap between living a normal life and finding any real meaning in it.",
+     "members": [
+      "convenience-store",
+      "kafka-shore",
+      "rest-relaxation",
+      "stranger",
+      "wind-up-bird"
+     ],
+     "themes": "dream:4 absurd:1"
+    },
+    {
+     "id": 2,
+     "name": "Tender Misunderstandings",
+     "description": "Young adults fumble toward intimacy, in friendships and romances alike, held back by what they can't say aloud. Each book shows how attachment, insecurity, and the distance between private and public selves shape the search for connection.",
+     "members": [
+      "beautiful-world",
+      "brilliant-friend",
+      "everything-love",
+      "intermezzo",
+      "normal-people",
+      "norwegian-wood"
+     ],
+     "themes": "love:6"
+    }
+   ],
+   "events": [
+    "kept #2 \"Tender Misunderstandings\" (change 17%, J=0.83)"
+   ]
+  },
+  {
+   "n": 18,
+   "added": "inverting-pyramid",
+   "edges": 37,
+   "clusters": [
+    {
+     "id": 2,
+     "name": "Tender Misunderstandings",
+     "description": "Young adults fumble toward intimacy, in friendships and romances alike, held back by what they can't say aloud. Each book shows how attachment, insecurity, and the distance between private and public selves shape the search for connection.",
+     "members": [
+      "beautiful-world",
+      "brilliant-friend",
+      "everything-love",
+      "intermezzo",
+      "normal-people",
+      "norwegian-wood"
+     ],
+     "themes": "love:6"
+    },
+    {
+     "id": 1,
+     "name": "Absurd Catastrophe, Human Response",
+     "description": "Works that confront suffering and a meaningless or indifferent world, questioning comforting beliefs and social systems. They find what dignity there is in solidarity, action, and lucid defiance rather than in faith or optimism.",
+     "members": [
+      "blindness",
+      "candide",
+      "plague",
+      "sirens",
+      "unbearable"
+     ],
+     "themes": "absurd:4 love:1"
+    },
+    {
+     "id": 3,
+     "name": "Strangers Among the Ordinary",
+     "description": "Detached protagonists drift at the edges of society, unsure of their place or purpose in a world that expects conformity. Through routine, surrealism, or indifference, each confronts the gap between living a normal life and finding any real meaning in it.",
+     "members": [
+      "convenience-store",
+      "kafka-shore",
+      "rest-relaxation",
+      "stranger",
+      "wind-up-bird"
+     ],
+     "themes": "dream:4 absurd:1"
+    }
+   ],
+   "events": []
+  },
+  {
+   "n": 19,
+   "added": "set-my-heart",
+   "edges": 37,
+   "clusters": [
+    {
+     "id": 2,
+     "name": "Tender Misunderstandings",
+     "description": "Young adults fumble toward intimacy, in friendships and romances alike, held back by what they can't say aloud. Each book shows how attachment, insecurity, and the distance between private and public selves shape the search for connection.",
+     "members": [
+      "beautiful-world",
+      "brilliant-friend",
+      "everything-love",
+      "intermezzo",
+      "normal-people",
+      "norwegian-wood"
+     ],
+     "themes": "love:6"
+    },
+    {
+     "id": 1,
+     "name": "Absurd Catastrophe, Human Response",
+     "description": "Works that confront suffering and a meaningless or indifferent world, questioning comforting beliefs and social systems. They find what dignity there is in solidarity, action, and lucid defiance rather than in faith or optimism.",
+     "members": [
+      "blindness",
+      "candide",
+      "plague",
+      "sirens",
+      "unbearable"
+     ],
+     "themes": "absurd:4 love:1"
+    },
+    {
+     "id": 3,
+     "name": "Strangers Among the Ordinary",
+     "description": "Detached protagonists drift at the edges of society, unsure of their place or purpose in a world that expects conformity. Through routine, surrealism, or indifference, each confronts the gap between living a normal life and finding any real meaning in it.",
+     "members": [
+      "convenience-store",
+      "kafka-shore",
+      "rest-relaxation",
+      "stranger",
+      "wind-up-bird"
+     ],
+     "themes": "dream:4 absurd:1"
+    }
+   ],
+   "events": []
+  }
+ ],
+ "namingCalls": 4
+}
