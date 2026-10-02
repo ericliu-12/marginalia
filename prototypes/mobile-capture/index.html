@@ -49,6 +49,8 @@ body{display:grid;place-items:center}
 }
 
 #app,.overlay{position:absolute;inset:0}
+.overlay{pointer-events:none}
+.overlay>*{pointer-events:auto}
 .scroll{position:absolute;inset:0;overflow:auto;padding:max(18px,env(safe-area-inset-top)) 20px 120px;overscroll-behavior:contain}
 
 /* shared bits */
@@ -139,6 +141,7 @@ svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.75;strok
 .search{display:flex;align-items:center;gap:10px;background:var(--paper-2);border:1px solid var(--rule);border-radius:12px;padding:0 14px;min-height:52px;margin:8px 0 6px;color:var(--ink-3)}
 .search:focus-within{border-color:var(--ink-2)}
 .search input{font-size:18px;color:var(--ink)}
+.search input:focus-visible{outline:0}
 .search input::-webkit-search-cancel-button{display:none}
 .results{flex:1;overflow:auto;padding:4px 20px max(24px,env(safe-area-inset-bottom));overscroll-behavior:contain}
 .hint{font-size:16px;color:var(--ink-2);margin:14px 0;max-width:34ch}
