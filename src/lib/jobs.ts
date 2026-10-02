@@ -58,7 +58,11 @@ export async function startWorker(options: WorkerOptions) {
   await ensureQueues(boss);
   await boss.work(
     ENRICH_QUEUE,
-    { localConcurrency: ENRICH_CONCURRENCY, includeMetadata: true, pollingIntervalSeconds: options.pollingIntervalSeconds },
+    {
+      localConcurrency: ENRICH_CONCURRENCY,
+      includeMetadata: true,
+      ...(options.pollingIntervalSeconds && { pollingIntervalSeconds: options.pollingIntervalSeconds }),
+    },
     async ([job]) => {
       await enrichBook(
         options.db,
