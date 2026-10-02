@@ -1,8 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import type { LibraryItem } from "@/domain/library";
+import type { Status } from "@/domain/search";
+import { changeStatusAction } from "./actions";
 import { Cover } from "./cover";
+
+// Quiet one-click moves per Status; the full Status control lives in the Book panel.
+const MOVES: Record<Status, { label: string; to: Status }[]> = {
+  reading: [
+    { label: "Finished", to: "read" },
+    { label: "Want to read", to: "want" },
+  ],
+  want: [
+    { label: "Start reading", to: "reading" },
+    { label: "Finished", to: "read" },
+  ],
+  read: [{ label: "Read again", to: "reading" }],
+};
 
 const SECTIONS = [
   { status: "reading", label: "Reading", collapsible: false },
@@ -53,15 +68,7 @@ export function LibraryList({ items }: { items: LibraryItem[] }) {
             {open && (
               <ul className="divide-y divide-rule/60">
                 {rows.map((item) => (
-                  <li key={item.bookId} className="flex items-center gap-4 py-3">
-                    <Cover title={item.title} url={item.coverUrl} />
-                    <div className="min-w-0">
-                      <p className="text-[1.05rem] leading-snug font-medium">{item.title}</p>
-                      {item.authors.length > 0 && (
-                        <p className="font-sans text-sm text-ink-2">{item.authors.join(", ")}</p>
-                      )}
-                    </div>
-                  </li>
+                  <Row key={item.bookId} item={item} />
                 ))}
               </ul>
             )}
@@ -69,5 +76,51 @@ export function LibraryList({ items }: { items: LibraryItem[] }) {
         );
       })}
     </div>
+  );
+}
+
+function Row({ item }: { item: LibraryItem }) {
+  const [pending, start] = useTransition();
+  const [error, setError] = useState(false);
+
+  function move(to: Status) {
+    setError(false);
+    start(async () => {
+      const res = await changeStatusAction(item.bookId, to);
+      if (!res.ok) setError(true);
+    });
+  }
+
+  return (
+    <li className="flex items-start gap-4 py-3">
+      <Cover title={item.title} url={item.coverUrl} />
+      <div className="min-w-0">
+        <p className="text-[1.05rem] leading-snug font-medium">{item.title}</p>
+        {(item.authors.length > 0 || item.reReading) && (
+          <p className="font-sans text-sm text-ink-2">
+            {item.authors.join(", ")}
+            {item.reReading && (
+              <span className="font-serif text-ink-3 italic">
+                {item.authors.length > 0 && " · "}Re-reading
+              </span>
+            )}
+          </p>
+        )}
+        <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label={`Move ${item.title}`}>
+          {MOVES[item.status].map(({ label, to }) => (
+            <button
+              key={to}
+              type="button"
+              disabled={pending}
+              onClick={() => move(to)}
+              className="min-h-11 rounded-[3px] border border-ink/70 px-2.5 font-sans text-[0.8rem] font-medium text-ink transition-colors duration-150 hover:bg-ink hover:text-paper disabled:border-rule disabled:text-ink-3 disabled:hover:bg-transparent disabled:hover:text-ink-3 lg:min-h-0 lg:py-1"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {error && <p role="alert" className="mt-1.5 font-sans text-sm text-contrast">Couldn’t change this. Try again.</p>}
+      </div>
+    </li>
   );
 }

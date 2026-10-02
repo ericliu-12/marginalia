@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { appDb } from "@/db/client";
 import { getSeededUserId } from "@/db/seed";
 import { addBook, DuplicateBookError } from "@/domain/add-book";
+import { changeStatus } from "@/domain/status";
 import type { OpenLibraryWork, Status } from "@/domain/search";
 
 export type AddResult = { ok: true } | { ok: false; reason: "duplicate" | "failed" };
@@ -20,5 +21,17 @@ export async function addBookAction(work: OpenLibraryWork, status: Status): Prom
     if (err instanceof DuplicateBookError) return { ok: false, reason: "duplicate" };
     console.error(err);
     return { ok: false, reason: "failed" };
+  }
+}
+
+export async function changeStatusAction(bookId: string, status: Status): Promise<{ ok: boolean }> {
+  try {
+    const db = appDb();
+    await changeStatus(db, await getSeededUserId(db), bookId, status);
+    revalidatePath("/");
+    return { ok: true };
+  } catch (err) {
+    console.error(err);
+    return { ok: false };
   }
 }
