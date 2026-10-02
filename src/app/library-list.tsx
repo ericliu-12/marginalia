@@ -25,7 +25,7 @@ const SECTIONS = [
   { status: "read", label: "Read", collapsible: true },
 ] as const;
 
-export function LibraryList({ items }: { items: LibraryItem[] }) {
+export function LibraryList({ items, openBookId, onOpen }: { items: LibraryItem[]; openBookId?: string; onOpen: (bookId: string) => void }) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   if (items.length === 0) {
@@ -68,7 +68,7 @@ export function LibraryList({ items }: { items: LibraryItem[] }) {
             {open && (
               <ul className="divide-y divide-rule/60">
                 {rows.map((item) => (
-                  <Row key={item.bookId} item={item} />
+                  <Row key={item.bookId} item={item} open={item.bookId === openBookId} onOpen={onOpen} />
                 ))}
               </ul>
             )}
@@ -79,7 +79,7 @@ export function LibraryList({ items }: { items: LibraryItem[] }) {
   );
 }
 
-function Row({ item }: { item: LibraryItem }) {
+function Row({ item, open, onOpen }: { item: LibraryItem; open: boolean; onOpen: (bookId: string) => void }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState(false);
   const [moving, setMoving] = useState<Status | null>(null);
@@ -97,7 +97,16 @@ function Row({ item }: { item: LibraryItem }) {
     <li aria-busy={pending} className="group flex items-start gap-4 py-3">
       <Cover title={item.title} url={item.coverUrl} />
       <div className="min-w-0">
-        <p className="text-[1.05rem] leading-snug font-medium">{item.title}</p>
+        <p className="text-[1.05rem] leading-snug font-medium">
+          <button
+            type="button"
+            aria-current={open || undefined}
+            onClick={() => onOpen(item.bookId)}
+            className="text-left decoration-rule underline-offset-4 transition-colors hover:underline hover:decoration-ink"
+          >
+            {item.title}
+          </button>
+        </p>
         {(item.authors.length > 0 || item.reReading) && (
           <p className="font-sans text-sm text-ink-2">
             {item.authors.join(", ")}

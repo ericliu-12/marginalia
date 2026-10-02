@@ -3,11 +3,14 @@
 import { useRef, useState } from "react";
 import type { LibraryItem } from "@/domain/library";
 import { LibraryList } from "./library-list";
+import { BookPanel } from "./book-panel";
 import { SearchPane } from "./search-pane";
 
 export function LibraryWorkspace({ items }: { items: LibraryItem[] }) {
   const [searchOpen, setSearchOpen] = useState(true);
+  const [bookId, setBookId] = useState<string | null>(null);
   const openRef = useRef<HTMLButtonElement>(null);
+  const book = items.find((i) => i.bookId === bookId);
 
   return (
     <div className="flex min-h-screen flex-col lg:h-screen">
@@ -29,17 +32,21 @@ export function LibraryWorkspace({ items }: { items: LibraryItem[] }) {
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <main className="min-w-0 flex-1 overflow-y-auto px-8 pt-4 pb-16 lg:px-12">
           <div className="max-w-[42rem]">
-            <LibraryList items={items} />
+            <LibraryList items={items} openBookId={book?.bookId} onOpen={(id) => { setBookId(id); setSearchOpen(true); }} />
           </div>
         </main>
         {searchOpen && (
           <div className="border-t border-rule lg:w-[27rem] lg:shrink-0 lg:border-t-0 lg:border-l">
-            <SearchPane
-              onClose={() => {
-                setSearchOpen(false);
-                requestAnimationFrame(() => openRef.current?.focus());
-              }}
-            />
+            {book && <BookPanel item={book} backLabel="Back to search" onBack={() => setBookId(null)} />}
+            {/* Kept mounted while a Book is open so the query and results are still there on return. */}
+            <div hidden={!!book} className="h-full">
+              <SearchPane
+                onClose={() => {
+                  setSearchOpen(false);
+                  requestAnimationFrame(() => openRef.current?.focus());
+                }}
+              />
+            </div>
           </div>
         )}
       </div>
