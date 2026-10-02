@@ -5,7 +5,7 @@ import { appDb } from "@/db/client";
 import { getSeededUserId } from "@/db/seed";
 import { addBook, DuplicateBookError } from "@/domain/add-book";
 import { descriptionGateway } from "@/lib/book-search";
-import { changeStatus } from "@/domain/status";
+import { changeStatus } from "@/domain/library-entry";
 import { addNote, deleteNote, listNotes, updateNote, type Note, type NoteInput } from "@/domain/notes";
 import type { OpenLibraryWork, Status } from "@/domain/search";
 

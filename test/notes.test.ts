@@ -1,8 +1,9 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { addBook } from "../src/domain/add-book";
-import { addNote, deleteNote, listNotes, updateNote } from "../src/domain/notes";
-import { connection } from "../src/db/schema";
+import { NotInLibraryError } from "../src/domain/library-entry";
+import { addNote, deleteNote, listNotes, NoteNotFoundError, updateNote } from "../src/domain/notes";
+import { book, connection } from "../src/db/schema";
 import { work } from "./fakes";
 import { useTestDb } from "./harness";
 
@@ -51,6 +52,26 @@ describe("notes", () => {
     await expect(updateNote(ctx.db, other, n.id, { body: "Hijacked" })).rejects.toThrow();
     await deleteNote(ctx.db, other, n.id);
     expect((await listNotes(ctx.db, ctx.userId, id))[0].body).toBe("Mine");
+  });
+
+  it("deleting a Note that is already gone is a no-op", async () => {
+    const id = await bookId();
+    const n = await addNote(ctx.db, ctx.userId, id, { body: "Once" });
+    await deleteNote(ctx.db, ctx.userId, n.id);
+    await expect(deleteNote(ctx.db, ctx.userId, n.id)).resolves.toBeUndefined();
+  });
+
+  it("editing a Note that is gone fails", async () => {
+    const id = await bookId();
+    const n = await addNote(ctx.db, ctx.userId, id, { body: "Once" });
+    await deleteNote(ctx.db, ctx.userId, n.id);
+    await expect(updateNote(ctx.db, ctx.userId, n.id, { body: "Again" })).rejects.toThrow(NoteNotFoundError);
+  });
+
+  it("a Book outside the library has no Notes and takes none", async () => {
+    const [b] = await ctx.db.insert(book).values({ title: "Elsewhere" }).returning();
+    expect(await listNotes(ctx.db, ctx.userId, b.id)).toEqual([]);
+    await expect(addNote(ctx.db, ctx.userId, b.id, { body: "Hi" })).rejects.toThrow(NotInLibraryError);
   });
 
   it("rejects an empty body", async () => {

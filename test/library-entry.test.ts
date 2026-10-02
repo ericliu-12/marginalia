@@ -2,7 +2,7 @@ import { asc, eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { addBook } from "../src/domain/add-book";
 import { readLibrary } from "../src/domain/library";
-import { changeStatus } from "../src/domain/status";
+import { changeStatus } from "../src/domain/library-entry";
 import { book, libraryEntry, readThrough } from "../src/db/schema";
 import { work } from "./fakes";
 import { useTestDb } from "./harness";
@@ -86,6 +86,15 @@ describe("status changes and read-throughs", () => {
     await change(id, "reading");
     expect((await change(id, "read")).firstCompletion).toBe(false);
     expect(await passes()).toHaveLength(2);
+  });
+
+  it("adding a Book directly as read is a first completion; as want or reading it is not", async () => {
+    const first = await addBook(ctx.db, ctx.userId, work({ workKey: "/works/a", title: "A" }), "read");
+    expect(first.firstCompletion).toBe(true);
+    expect(await item()).toMatchObject({ finished: true });
+    const want = await addBook(ctx.db, ctx.userId, work({ workKey: "/works/b", title: "B" }), "want");
+    const reading = await addBook(ctx.db, ctx.userId, work({ workKey: "/works/c", title: "C" }), "reading");
+    expect([want.firstCompletion, reading.firstCompletion]).toEqual([false, false]);
   });
 
   it("moving to the same status changes nothing", async () => {

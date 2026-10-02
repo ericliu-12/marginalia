@@ -1,7 +1,7 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { libraryEntry, note } from "@/db/schema";
-import { NotInLibraryError } from "./status";
+import { NotInLibraryError, findEntry } from "./library-entry";
 
 export type Note = {
   id: string;
@@ -25,6 +25,10 @@ export class EmptyNoteError extends Error {
 
 export type NoteInput = { body: string; quote?: string | null; page?: number | null };
 
+// A Note belongs to the reader when its Library Entry does.
+const ownedBy = (db: Db, userId: string) =>
+  inArray(note.libraryEntryId, db.select({ id: libraryEntry.id }).from(libraryEntry).where(eq(libraryEntry.userId, userId)));
+
 const columns = { id: note.id, body: note.body, quote: note.quote, page: note.page, createdAt: note.createdAt };
 
 function clean(input: NoteInput) {
@@ -36,10 +40,7 @@ function clean(input: NoteInput) {
 // Domain seam: Notes attach to the reader's Library Entry for a Book, never to the shared Book.
 export async function addNote(db: Db, userId: string, bookId: string, input: NoteInput): Promise<Note> {
   const values = clean(input);
-  const [entry] = await db
-    .select({ id: libraryEntry.id })
-    .from(libraryEntry)
-    .where(and(eq(libraryEntry.userId, userId), eq(libraryEntry.bookId, bookId)));
+  const entry = await findEntry(db, userId, bookId);
   if (!entry) throw new NotInLibraryError(bookId);
   const [created] = await db
     .insert(note)
@@ -54,7 +55,7 @@ export async function listNotes(db: Db, userId: string, bookId: string): Promise
     .select(columns)
     .from(note)
     .innerJoin(libraryEntry, eq(libraryEntry.id, note.libraryEntryId))
-    .where(and(eq(libraryEntry.userId, userId), eq(libraryEntry.bookId, bookId), eq(note.userId, userId)))
+    .where(and(eq(libraryEntry.userId, userId), eq(libraryEntry.bookId, bookId)))
     .orderBy(desc(note.createdAt), desc(note.id));
 }
 
@@ -63,12 +64,13 @@ export async function updateNote(db: Db, userId: string, noteId: string, input: 
   const [updated] = await db
     .update(note)
     .set({ ...clean(input), updatedAt: new Date() })
-    .where(and(eq(note.id, noteId), eq(note.userId, userId)))
+    .where(and(eq(note.id, noteId), ownedBy(db, userId)))
     .returning(columns);
   if (!updated) throw new NoteNotFoundError(noteId);
   return updated;
 }
 
+// Idempotent: a Note that is already gone, or isn't the reader's, is left alone without error.
 export async function deleteNote(db: Db, userId: string, noteId: string): Promise<void> {
-  await db.delete(note).where(and(eq(note.id, noteId), eq(note.userId, userId)));
+  await db.delete(note).where(and(eq(note.id, noteId), ownedBy(db, userId)));
 }
