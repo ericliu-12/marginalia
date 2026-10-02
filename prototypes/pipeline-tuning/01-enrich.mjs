@@ -36,10 +36,15 @@ const BAD_TITLE = /study guide|summary|sparknotes|cliffs|analysis|graphic novel|
 const BAD_CAT = /study aids|comics|graphic novels|literary criticism|language arts/i;
 async function googleBooks(b) {
   const lastName = norm(b.author).split(' ').at(-1);
-  const q = `intitle:"${b.title}" inauthor:"${b.author}"`;
-  const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=20&printType=books&key=${process.env.GOOGLE_BOOKS_API_KEY}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`google books ${res.status}: ${(await res.text()).slice(0, 200).replace(process.env.GOOGLE_BOOKS_API_KEY, '<key>')}`);
+  const q = `${b.title} ${b.author}`; // field-restricted intitle:/inauthor: queries returned 0 results
+  const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=20&langRestrict=en&key=${process.env.GOOGLE_BOOKS_API_KEY}`;
+  let res;
+  for (let attempt = 1; ; attempt++) {
+    res = await fetch(url);
+    if (res.ok || attempt >= 4 || ![429, 503].includes(res.status)) break;
+    await sleep(2000 * attempt);
+  }
+  if (!res.ok) throw new Error(`google books ${res.status}`);
   const items = (await res.json()).items ?? [];
   const cands = items.map((it) => {
     const v = it.volumeInfo ?? {};
@@ -48,12 +53,12 @@ async function googleBooks(b) {
     const authorOk = (v.authors ?? []).some((a) => norm(a).includes(lastName));
     const bad = BAD_TITLE.test(`${v.title} ${v.subtitle ?? ''}`) || BAD_CAT.test((v.categories ?? []).join(' '));
     return { id: it.id, title: v.title, subtitle: v.subtitle, authors: v.authors, published: v.publishedDate,
-      categories: v.categories, desc, descChars: desc.length, titleOk, authorOk, bad };
+      categories: v.categories, lang: v.language, desc, descChars: desc.length, titleOk, authorOk, bad };
   });
-  const good = cands.filter((c) => c.titleOk && c.authorOk && !c.bad && c.descChars > 0);
+  const good = cands.filter((c) => c.titleOk && c.authorOk && !c.bad && c.lang === 'en' && c.descChars > 0);
   good.sort((a, c) => c.descChars - a.descChars);
   return { query: q, picked: good[0] ?? null, considered: cands.length,
-    rejected: cands.filter((c) => !good.includes(c)).slice(0, 5).map((c) => ({ title: c.title, authors: c.authors, why: c.bad ? 'adaptation/guide' : !c.titleOk ? 'title' : !c.authorOk ? 'author' : 'no description' })) };
+    rejected: cands.filter((c) => !good.includes(c)).slice(0, 5).map((c) => ({ title: c.title, authors: c.authors, why: c.bad ? 'adaptation/guide' : !c.titleOk ? 'title' : !c.authorOk ? 'author' : c.lang !== 'en' ? 'not English' : 'no description' })) };
 }
 
 const Enrich = z.object({ recognised: z.boolean(), summary: z.string(), themes: z.array(z.string()) });
