@@ -29,6 +29,15 @@ typography:
     fontSize: "1.0625rem"
     fontWeight: 400
     lineHeight: 1.5
+  input:
+    fontFamily: "Hanken Grotesk, system-ui, sans-serif"
+    fontSize: "0.95rem"
+    fontWeight: 400
+  cover-title:
+    fontFamily: "Newsreader, Georgia, serif"
+    fontSize: "10px"
+    fontWeight: 500
+    lineHeight: 1.15
   label:
     fontFamily: "Hanken Grotesk, system-ui, sans-serif"
     fontSize: "0.8rem"

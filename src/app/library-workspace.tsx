@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { LibraryItem } from "@/domain/library";
 import { LibraryList } from "./library-list";
 import { SearchPane } from "./search-pane";
 
 export function LibraryWorkspace({ items }: { items: LibraryItem[] }) {
   const [searchOpen, setSearchOpen] = useState(true);
+  const openRef = useRef<HTMLButtonElement>(null);
 
   return (
     <div className="flex min-h-screen flex-col lg:h-screen">
@@ -14,7 +15,10 @@ export function LibraryWorkspace({ items }: { items: LibraryItem[] }) {
         <h1 className="text-[1.75rem] leading-none font-medium tracking-[-0.01em] italic">Marginalia</h1>
         {!searchOpen && (
           <button
+            ref={openRef}
             type="button"
+            aria-expanded={false}
+            aria-controls="add-a-book"
             onClick={() => setSearchOpen(true)}
             className="rounded-[3px] bg-ink px-4 py-2 font-sans text-sm font-medium text-paper transition-colors hover:bg-ink-2"
           >
@@ -30,7 +34,12 @@ export function LibraryWorkspace({ items }: { items: LibraryItem[] }) {
         </main>
         {searchOpen && (
           <div className="border-t border-rule lg:w-[27rem] lg:shrink-0 lg:border-t-0 lg:border-l">
-            <SearchPane onClose={() => setSearchOpen(false)} />
+            <SearchPane
+              onClose={() => {
+                setSearchOpen(false);
+                requestAnimationFrame(() => openRef.current?.focus());
+              }}
+            />
           </div>
         )}
       </div>

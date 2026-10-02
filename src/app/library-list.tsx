@@ -54,7 +54,7 @@ export function LibraryList({ items }: { items: LibraryItem[] }) {
               <ul className="divide-y divide-rule/60">
                 {rows.map((item) => (
                   <li key={item.bookId} className="flex items-center gap-4 py-3">
-                    <Cover title={item.title} author={item.authors[0]} url={item.coverUrl} />
+                    <Cover title={item.title} url={item.coverUrl} />
                     <div className="min-w-0">
                       <p className="text-[1.05rem] leading-snug font-medium">{item.title}</p>
                       {item.authors.length > 0 && (
