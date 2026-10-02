@@ -16,7 +16,7 @@ export function LibraryList({ items }: { items: LibraryItem[] }) {
   if (items.length === 0) {
     return (
       <p className="max-w-[34ch] pt-6 text-xl text-ink-2 italic">
-        Nothing on the shelf yet. Search for a book to begin.
+        Your library is empty. Search for a book to begin.
       </p>
     );
   }
