@@ -115,18 +115,22 @@ export async function enrichBook(db: Db, deps: EnrichDeps, bookId: string): Prom
   const subjects = (b.snapshot as { subjects?: string[] } | null)?.subjects ?? [];
   try {
     const r = await model.enrich({ title: b.title, authors: b.authors, description: b.description ?? "", subjects });
-    // Unrecognised stays empty: nothing the model said about an unrecognised Book is kept.
+    // Unrecognised stays empty: no summary or themes are kept for it.
     const recognised = r.recognised && authorsMatch(r.author, b.authors);
     if (r.firstPublishedYear && b.firstPublishedYear && r.firstPublishedYear !== b.firstPublishedYear) {
       console.warn(`Enrichment year mismatch for "${b.title}": model ${r.firstPublishedYear}, Book ${b.firstPublishedYear}`);
     }
+    // A "Try again" that arrived while this run was in flight cleared the hashes; keep them cleared so
+    // the job it queued still does its work.
+    const [latest] = await db.select({ hash: enrichment.descriptionHash }).from(enrichment).where(eq(enrichment.bookId, bookId));
+    const retryRequested = !!current?.descriptionHash && latest?.hash === null;
     const values = {
       bookId,
       recognised,
       summary: recognised ? r.summary : null,
       themes: recognised ? r.themes : null,
-      descriptionHash,
-      metadataHash,
+      descriptionHash: retryRequested ? null : descriptionHash,
+      metadataHash: retryRequested ? null : metadataHash,
       believedAuthor: r.author,
       believedFirstPublishedYear: r.firstPublishedYear,
       model: model.model,
@@ -166,5 +170,11 @@ export async function tryAgain(db: Db, queue: EnrichmentQueue, bookId: string): 
     .update(enrichment)
     .set({ descriptionHash: null, metadataHash: null, status: "pending" })
     .where(eq(enrichment.bookId, bookId));
-  await queue.enqueueEnrichment(bookId);
+  try {
+    await queue.enqueueEnrichment(bookId);
+  } catch (err) {
+    // No job is coming, so don't leave the reader waiting on one.
+    await db.update(enrichment).set({ status: "failed" }).where(eq(enrichment.bookId, bookId));
+    throw err;
+  }
 }

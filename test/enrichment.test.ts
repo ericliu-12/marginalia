@@ -74,6 +74,28 @@ describe("Enrichment", () => {
     expect(model.inputs).toHaveLength(2);
   });
 
+  it("a 'Try again' that lands while a run is in flight is not lost", async () => {
+    const b = await addStoner(prose(700));
+    await enrichBook(ctx.db, { model: fakeEnricher() }, b.id);
+    await ctx.db.update(book).set({ description: prose(900) }).where(eq(book.id, b.id));
+    const slow = fakeEnricher(async () => {
+      await tryAgain(ctx.db, noQueue, b.id);
+      return {};
+    });
+    await enrichBook(ctx.db, { model: slow }, b.id);
+    const next = fakeEnricher();
+    await enrichBook(ctx.db, { model: next }, b.id);
+    expect(next.inputs).toHaveLength(1);
+  });
+
+  it("'Try again' reads as failed, not pending, when the job could not be queued", async () => {
+    const b = await addStoner(prose(700));
+    await enrichBook(ctx.db, { model: fakeEnricher() }, b.id);
+    const down: EnrichmentQueue = { enqueueEnrichment: () => Promise.reject(new Error("queue down")) };
+    await expect(tryAgain(ctx.db, down, b.id)).rejects.toThrow("queue down");
+    expect(await readEnrichment(ctx.db, b.id)).toMatchObject({ status: "failed" });
+  });
+
   it("runs conservatively with no description, and a missing description does not force unrecognised", async () => {
     const b = await addStoner();
     const model = fakeEnricher();

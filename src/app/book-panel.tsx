@@ -141,7 +141,6 @@ const ENRICHMENT_POLL_MS = 4000;
 // recognise the Book and the reader's Notes carry the weight instead.
 function About({ bookId, noteCount }: { bookId: string; noteCount: number | null }) {
   const [enrichment, setEnrichment] = useState<EnrichmentView | null | undefined>(undefined);
-  const [retrying, setRetrying] = useState(false);
   const [retryFailed, setRetryFailed] = useState(false);
   const [pending, start] = useTransition();
 
@@ -161,17 +160,16 @@ function About({ bookId, noteCount }: { bookId: string; noteCount: number | null
     };
   }, [bookId, waiting]);
 
-  function tryAgain() {
+  function retry() {
     setRetryFailed(false);
     start(async () => {
       const res = await tryAgainAction(bookId);
       if (!res.ok) return setRetryFailed(true);
-      setRetrying(true);
       setEnrichment((e) => (e ? { ...e, status: "pending" } : e));
     });
   }
   const again = (
-    <button type="button" onClick={tryAgain} disabled={pending} className={quietLink}>
+    <button type="button" onClick={retry} disabled={pending} className={quietLink}>
       Try again
     </button>
   );
@@ -179,7 +177,12 @@ function About({ bookId, noteCount }: { bookId: string; noteCount: number | null
   let body;
   if (enrichment === undefined) return null;
   if (waiting) {
-    body = <p className="text-ink-2 italic">{retrying ? "Looking again…" : "Getting to know this book…"}</p>;
+    // With no Enrichment started at all (null) nothing is coming, so offer the way to start it.
+    body = (
+      <p className="text-ink-2">
+        <span className="italic">Getting to know this book…</span> {enrichment === null && again}
+      </p>
+    );
   } else if (enrichment.status === "failed") {
     body = (
       <p className="text-ink-2">
@@ -191,7 +194,11 @@ function About({ bookId, noteCount }: { bookId: string; noteCount: number | null
       <div>
         <p className="text-ink-2 italic">Marginalia doesn’t know this book well.</p>
         <p className="mt-1 max-w-[40ch] text-ink-2">
-          {noteCount ? "Your notes now shape its Connections." : "Add a few notes and they’ll shape its Connections."}
+          {noteCount === null
+            ? ""
+            : noteCount > 0
+              ? "Your notes now shape its Connections."
+              : "Add a few notes and they’ll shape its Connections."}
         </p>
         <div className="mt-1">{again}</div>
       </div>
