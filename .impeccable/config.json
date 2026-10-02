@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "cream-palette",
+        "value": "*",
+        "files": [
+          "prototypes/graph-view/index.html"
+        ],
+        "createdAt": "2026-10-01T21:03:46.248Z",
+        "reason": "user confirmed: chose 'Warm paper and ink' visual world for the graph prototype"
+      }
+    ]
+  }
+}
