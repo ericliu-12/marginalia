@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { book } from "@/db/schema";
-import { findDescription, type BookDescription, type DescriptionGateway } from "./description";
+import { ADD_TIME_BUDGET, describeBook, type DescriptionGateway } from "./description";
 import { enterLibrary } from "./library-entry";
 import { coverUrlFor, type OpenLibraryWork, type Status } from "./search";
 
@@ -22,34 +22,6 @@ function isUniqueViolation(err: unknown) {
   return e?.code === "23505" || e?.cause?.code === "23505";
 }
 
-// The whole add-time lookup gets this long; a person is waiting on the add.
-export const DESCRIPTION_TIMEOUT_MS = 3000;
-
-// A Book's description is fetched once, when the shared Book is first created. A failed, slow or
-// missing lookup never blocks adding: the Book is added without one.
-async function describeNewBook(db: Db, work: OpenLibraryWork, gateway?: DescriptionGateway | null) {
-  const none: BookDescription = { description: "", googleBooksVolumeId: null };
-  if (!gateway) return none;
-  const [existing] = await db.select({ id: book.id }).from(book).where(eq(book.openLibraryWorkKey, work.workKey));
-  if (existing) return none;
-  const controller = new AbortController();
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timedOut = new Promise<BookDescription>((resolve) => {
-    timer = setTimeout(() => {
-      controller.abort();
-      resolve(none);
-    }, DESCRIPTION_TIMEOUT_MS);
-  });
-  try {
-    return await Promise.race([findDescription(gateway, work, controller.signal), timedOut]);
-  } catch (err) {
-    console.error(err);
-    return none;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 // Domain seam: add a Book to the reader's library with a Status. One Library Entry per Book,
 // identified by Open Library work key.
 export async function addBook(
@@ -59,7 +31,14 @@ export async function addBook(
   status: Status,
   descriptions?: DescriptionGateway | null,
 ) {
-  const found = await describeNewBook(db, work, descriptions);
+  // A description is fetched once, when the shared Book is first created; a failed or missing lookup
+  // never blocks the add. Two requests adding the same new Book can both look it up, and the loser's
+  // result is discarded by the insert: one wasted lookup, not worth holding a transaction over.
+  const [existing] = await db.select({ id: book.id }).from(book).where(eq(book.openLibraryWorkKey, work.workKey));
+  const found =
+    existing || !descriptions
+      ? { description: "", googleBooksVolumeId: null }
+      : await describeBook(descriptions, work, ADD_TIME_BUDGET);
   try {
     return await db.transaction(async (tx) => {
       await tx

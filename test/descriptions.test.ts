@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it, vi } from "vitest";
-import { addBook, DESCRIPTION_TIMEOUT_MS } from "../src/domain/add-book";
+import { addBook } from "../src/domain/add-book";
+import { ADD_TIME_BUDGET, BACKGROUND_BUDGET, describeBook } from "../src/domain/description";
 import { book } from "../src/db/schema";
 import { createDescriptionGateway } from "../src/lib/google-books";
 import { fakeDescriptions, prose, volume, work } from "./fakes";
@@ -142,7 +143,7 @@ describe("add-time description", () => {
       };
       const added = addBook(ctx.db, ctx.userId, stoner, "want", hung);
       await lookupStarted;
-      await vi.advanceTimersByTimeAsync(DESCRIPTION_TIMEOUT_MS);
+      await vi.advanceTimersByTimeAsync(ADD_TIME_BUDGET.timeoutMs!);
       await added;
     } finally {
       vi.useRealTimers();
@@ -180,7 +181,7 @@ describe("Google Books gateway", () => {
 
   it("makes a single attempt when maxAttempts is 1", async () => {
     const fetch = vi.fn().mockResolvedValue(new Response("", { status: 429 }));
-    await expect(createDescriptionGateway({ ...opts, maxAttempts: 1, fetch }).googleBooksVolumes("x")).rejects.toThrow();
+    await expect(createDescriptionGateway({ ...opts, fetch }).googleBooksVolumes("x", { retry: { maxAttempts: 1, retryDelayMs: 0 } })).rejects.toThrow();
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
@@ -189,8 +190,8 @@ describe("Google Books gateway", () => {
     const fetch = vi.fn()
       .mockResolvedValueOnce(new Response("", { status: 503 }))
       .mockResolvedValueOnce(Response.json({ items: items(2, "a") }));
-    const gw = createDescriptionGateway({ ...opts, retryDelayMs: 300, fetch, sleep: async (ms) => void sleeps.push(ms) });
-    expect(await gw.googleBooksVolumes("x")).toHaveLength(2);
+    const gw = createDescriptionGateway({ ...opts, fetch, sleep: async (ms) => void sleeps.push(ms) });
+    expect(await gw.googleBooksVolumes("x", { retry: { maxAttempts: 2, retryDelayMs: 300 } })).toHaveLength(2);
     expect(sleeps).toEqual([300]);
   });
 
@@ -211,5 +212,60 @@ describe("Google Books gateway", () => {
     expect(await gw.openLibraryDescription("/works/OL1W")).toBe("plain");
     expect(await gw.openLibraryDescription("/works/OL1W")).toBe("typed");
     expect(await gw.openLibraryDescription("/works/OL1W")).toBe("");
+  });
+});
+
+describe("description budgets", () => {
+  const w = { title: "Stoner", authors: ["John Williams"], workKey: "/works/stoner" };
+  const sleepNever = { apiKey: "k", userAgent: "Marginalia/0.1 (me@example.com)" };
+
+  // Google Books answers 503 `failures` times, then a good volume; Open Library has nothing.
+  function flaky(failures: number) {
+    let googleCalls = 0;
+    const fetch = vi.fn(async (url: string | URL | Request) => {
+      if (String(url).includes("openlibrary.org")) return Response.json({});
+      return ++googleCalls <= failures
+        ? new Response("", { status: 503 })
+        : Response.json({ items: [volume("v1", { description: prose(600) })] });
+    });
+    return { fetch: fetch as unknown as typeof globalThis.fetch, googleCalls: () => googleCalls };
+  }
+
+  it("the add-time retry fits inside the add-time cap", () => {
+    const { maxAttempts, retryDelayMs } = ADD_TIME_BUDGET.retry;
+    const sleeping = Array.from({ length: maxAttempts - 1 }, (_, i) => retryDelayMs * (i + 1)).reduce((a, b) => a + b, 0);
+    expect(sleeping).toBeLessThan(ADD_TIME_BUDGET.timeoutMs!);
+  });
+
+  it("the background budget retries past what the add-time budget allows", async () => {
+    const outage = 3; // three 503s, then Google answers
+    const quick = async () => {};
+
+    const addTime = flaky(outage);
+    const gwAdd = createDescriptionGateway({ ...sleepNever, fetch: addTime.fetch, sleep: quick });
+    expect(await describeBook(gwAdd, w, ADD_TIME_BUDGET)).toEqual({ description: "", googleBooksVolumeId: null });
+    expect(addTime.googleCalls()).toBe(ADD_TIME_BUDGET.retry.maxAttempts);
+
+    const background = flaky(outage);
+    const gwBg = createDescriptionGateway({ ...sleepNever, fetch: background.fetch, sleep: quick });
+    expect(await describeBook(gwBg, w, BACKGROUND_BUDGET)).toEqual({ description: prose(600), googleBooksVolumeId: "v1" });
+    expect(background.googleCalls()).toBe(outage + 1);
+  });
+
+  it("the cap cuts a retry sleep short instead of waiting it out", async () => {
+    vi.useFakeTimers();
+    try {
+      const { fetch } = flaky(Infinity);
+      const gw = createDescriptionGateway({ ...sleepNever, fetch });
+      const controller = new AbortController();
+      const lookup = gw.googleBooksVolumes("x", { signal: controller.signal, retry: { maxAttempts: 5, retryDelayMs: 2000 } });
+      const settled = lookup.then(() => "resolved", (e) => e);
+      await vi.advanceTimersByTimeAsync(1000); // mid-sleep
+      controller.abort(new Error("cap"));
+      expect(await settled).toEqual(new Error("cap"));
+      expect(fetch).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

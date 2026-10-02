@@ -13,13 +13,33 @@ export type GoogleBooksVolume = {
   };
 };
 
+// Attempts per Google Books page when it answers 429/503; attempt n sleeps n times the delay after failing.
+export type RetryBudget = { maxAttempts: number; retryDelayMs: number };
+
+export type LookupOptions = {
+  // Aborting cuts a request or a retry sleep short.
+  signal?: AbortSignal;
+  // Retries for rate-limited and unavailable answers; the adapter picks its own default when absent.
+  retry?: RetryBudget;
+};
+
 // Seam to Google Books and Open Library descriptions; tests supply a fake.
 export interface DescriptionGateway {
   // Up to 40 results (two pages of 20) for a plain `title author` query.
-  googleBooksVolumes(query: string, signal?: AbortSignal): Promise<GoogleBooksVolume[]>;
+  googleBooksVolumes(query: string, options?: LookupOptions): Promise<GoogleBooksVolume[]>;
   // The Open Library work description, or "" when it has none.
-  openLibraryDescription(workKey: string, signal?: AbortSignal): Promise<string>;
+  openLibraryDescription(workKey: string, options?: LookupOptions): Promise<string>;
 }
+
+// How hard a lookup tries. `timeoutMs: null` means no cap on the whole lookup.
+export type DescriptionBudget = { timeoutMs: number | null; retry: RetryBudget };
+
+// Adding a Book: a person is waiting, so the whole lookup gets ~3s and one quick retry for a
+// transient 503. Both numbers live here so the retry always fits inside the cap.
+export const ADD_TIME_BUDGET: DescriptionBudget = { timeoutMs: 3000, retry: { maxAttempts: 2, retryDelayMs: 300 } };
+
+// The Enrichment worker: nobody is waiting, so full retries with backoff and no cap.
+export const BACKGROUND_BUDGET: DescriptionBudget = { timeoutMs: null, retry: { maxAttempts: 5, retryDelayMs: 2000 } };
 
 export type BookDescription = { description: string; googleBooksVolumeId: string | null };
 
@@ -72,31 +92,64 @@ export function pickGoogleBooksDescription(
 // Google Books description, with the Open Library one when Google's is missing or thin and
 // Open Library's is longer. The Google Books volume id is returned only when Google's description
 // is the one used: it backs the link Google requires wherever its description is shown.
-export async function findDescription(
+async function findDescription(
   gateway: DescriptionGateway,
   book: { title: string; authors: string[]; workKey: string },
-  signal?: AbortSignal,
+  options: LookupOptions,
 ): Promise<BookDescription> {
   const author = book.authors[0] ?? "";
+  // An abort is the budget running out, not a source failing; don't log it.
+  const failed = (err: unknown) => {
+    if (!options.signal?.aborted) console.error(err);
+  };
   // Each source failing independently must not lose what the other found.
   const picked = await gateway
-    .googleBooksVolumes(`${book.title} ${author}`.trim(), signal)
+    .googleBooksVolumes(`${book.title} ${author}`.trim(), options)
     .then((volumes) => pickGoogleBooksDescription(volumes, book.title, author))
     .catch((err) => {
-      console.error(err);
+      failed(err);
       return null;
     });
 
   let description = picked?.description ?? "";
   if (description.length < THIN_DESCRIPTION_CHARS) {
     const ol = await gateway
-      .openLibraryDescription(book.workKey, signal)
+      .openLibraryDescription(book.workKey, options)
       .then((d) => d.trim())
       .catch((err) => {
-        console.error(err);
+        failed(err);
         return "";
       });
     if (ol.length > description.length) return { description: ol, googleBooksVolumeId: null };
   }
   return { description, googleBooksVolumeId: description ? (picked?.id ?? null) : null };
+}
+
+// Domain seam: a Book's description under a budget. Never throws: a failed, slow or missing lookup
+// yields an empty description, and the caller carries on without one.
+export async function describeBook(
+  gateway: DescriptionGateway,
+  book: { title: string; authors: string[]; workKey: string },
+  budget: DescriptionBudget,
+): Promise<BookDescription> {
+  const none: BookDescription = { description: "", googleBooksVolumeId: null };
+  const controller = new AbortController();
+  const lookup = findDescription(gateway, book, { signal: controller.signal, retry: budget.retry });
+  if (budget.timeoutMs === null) return lookup.catch(() => none);
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timedOut = new Promise<BookDescription>((resolve) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      resolve(none);
+    }, budget.timeoutMs!);
+  });
+  try {
+    return await Promise.race([lookup, timedOut]);
+  } catch (err) {
+    console.error(err);
+    return none;
+  } finally {
+    clearTimeout(timer);
+  }
 }

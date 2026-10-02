@@ -9,9 +9,6 @@ import { changeStatus } from "@/domain/library-entry";
 import { addNote, deleteNote, listNotes, updateNote, type Note, type NoteInput } from "@/domain/notes";
 import type { OpenLibraryWork, Status } from "@/domain/search";
 
-// Google Books answers an occasional transient 503; one quick retry fits inside the add-time cap.
-const ADD_TIME_RETRY = { maxAttempts: 2, retryDelayMs: 300 };
-
 export type AddResult = { ok: true } | { ok: false; reason: "duplicate" | "failed" };
 
 // TODO(before multi-user): `work` comes from the browser and is stored as sent. Re-fetch the work
@@ -19,7 +16,7 @@ export type AddResult = { ok: true } | { ok: false; reason: "duplicate" | "faile
 export async function addBookAction(work: OpenLibraryWork, status: Status): Promise<AddResult> {
   try {
     const db = appDb();
-    await addBook(db, await getSeededUserId(db), work, status, descriptionGateway(ADD_TIME_RETRY));
+    await addBook(db, await getSeededUserId(db), work, status, descriptionGateway());
     revalidatePath("/");
     return { ok: true };
   } catch (err) {
