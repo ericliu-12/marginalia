@@ -1482,5 +1482,194 @@
   "in": 642,
   "out": 91,
   "usd": 0.002194
+ },
+ {
+  "label": "enrich:hyb",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 1373,
+  "out": 132,
+  "usd": 0.002033
+ },
+ {
+  "label": "enrich:hyb",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 1172,
+  "out": 109,
+  "usd": 0.001717
+ },
+ {
+  "label": "enrich:hyb",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 1101,
+  "out": 115,
+  "usd": 0.001676
+ },
+ {
+  "label": "enrich:hyb",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 810,
+  "out": 129,
+  "usd": 0.001455
+ },
+ {
+  "label": "enrich:hyb",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 936,
+  "out": 129,
+  "usd": 0.001581
+ },
+ {
+  "label": "enrich:hyb",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 764,
+  "out": 138,
+  "usd": 0.001454
+ },
+ {
+  "label": "enrich:hyb",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 1082,
+  "out": 137,
+  "usd": 0.001767
+ },
+ {
+  "label": "enrich:hyb",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 1094,
+  "out": 152,
+  "usd": 0.001854
+ },
+ {
+  "label": "enrich:hyb",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 953,
+  "out": 124,
+  "usd": 0.001573
+ },
+ {
+  "label": "enrich:hyb",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 942,
+  "out": 144,
+  "usd": 0.001662
+ },
+ {
+  "label": "enrich:hyb",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 849,
+  "out": 153,
+  "usd": 0.001614
+ },
+ {
+  "label": "enrich:hyb",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 762,
+  "out": 138,
+  "usd": 0.001452
+ },
+ {
+  "label": "enrich:hyb",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 624,
+  "out": 153,
+  "usd": 0.001389
+ },
+ {
+  "label": "enrich:hyb",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 559,
+  "out": 119,
+  "usd": 0.001154
+ },
+ {
+  "label": "enrich:hyb",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 920,
+  "out": 142,
+  "usd": 0.00163
+ },
+ {
+  "label": "enrich:hyb",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 1264,
+  "out": 153,
+  "usd": 0.002029
+ },
+ {
+  "label": "enrich:hyb",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 672,
+  "out": 148,
+  "usd": 0.001412
+ },
+ {
+  "label": "enrich:hyb",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 999,
+  "out": 119,
+  "usd": 0.001594
+ },
+ {
+  "label": "enrich:hyb",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 756,
+  "out": 123,
+  "usd": 0.001371
+ },
+ {
+  "label": "enrich:hyb",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 751,
+  "out": 123,
+  "usd": 0.001366
+ },
+ {
+  "label": "enrich:hyb",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 596,
+  "out": 136,
+  "usd": 0.001276
+ },
+ {
+  "label": "enrich:hyb",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 701,
+  "out": 152,
+  "usd": 0.001461
+ },
+ {
+  "label": "enrich:hyb",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 1085,
+  "out": 164,
+  "usd": 0.001905
+ },
+ {
+  "label": "enrich:hyb",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 770,
+  "out": 102,
+  "usd": 0.00128
+ },
+ {
+  "label": "enrich:hyb",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 906,
+  "out": 134,
+  "usd": 0.001576
+ },
+ {
+  "label": "enrich:hyb",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 673,
+  "out": 130,
+  "usd": 0.001323
+ },
+ {
+  "label": "enrich:hyb",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 642,
+  "out": 128,
+  "usd": 0.001282
  }
 ]

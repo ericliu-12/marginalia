@@ -2,7 +2,7 @@
 // Open Library always supplies identity; SRC decides where the description comes from.
 // p2 changes: the model reports `recognised`, the length-based low-confidence rule is gone, and
 // Enrichment avoids character names and plot details unless confident.
-//   SRC=ol node 01-enrich.mjs     SRC=gb node 01-enrich.mjs
+//   SRC=ol node 01-enrich.mjs     SRC=gb node 01-enrich.mjs     SRC=hyb node 01-enrich.mjs (ticket #16)
 import fs from 'node:fs';
 import { z } from 'zod';
 import { BOOKS } from './data.mjs';
@@ -32,33 +32,44 @@ async function openLibrary(b) {
 }
 
 // ---- Google Books description: match title + primary author, prefer the original work.
-const BAD_TITLE = /study guide|summary|sparknotes|cliffs|analysis|graphic novel|workbook|companion|box set|collection|critical|essays|notes on/i;
+const BAD_TITLE = /study guide|summary|sparknotes|cliffs|analysis|graphic novel|workbook|companion|box set|four volumes|omnibus|collection|critical|essays|notes on/i;
 const BAD_CAT = /study aids|comics|graphic novels|literary criticism|language arts/i;
-async function googleBooks(b) {
-  const lastName = norm(b.author).split(' ').at(-1);
-  const q = `${b.title} ${b.author}`; // field-restricted intitle:/inauthor: queries returned 0 results
-  const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=20&langRestrict=en&key=${process.env.GOOGLE_BOOKS_API_KEY}`;
+const THIN = 500; // chars; a Google Books description below this is too thin to ground Enrichment, so Open Library's is preferred if longer
+const ENGLISH = /\b(the|and|of|is|her|his|with|that|was|as|he|she)\b/gi;
+const looksEnglish = (t) => (t.match(ENGLISH) ?? []).length >= t.split(' ').length / 15;
+// Scan up to 40 results (the API returns 20 per page), keep every matching volume, pick the longest description.
+async function gbPage(q, startIndex) {
+  const url = `https://www.googleapis.com/books/v1/volumes?${new URLSearchParams({ q, maxResults: '20', startIndex: String(startIndex), key: process.env.GOOGLE_BOOKS_API_KEY })}`;
   let res;
   for (let attempt = 1; ; attempt++) {
     res = await fetch(url);
-    if (res.ok || attempt >= 4 || ![429, 503].includes(res.status)) break;
+    if (res.ok || attempt >= 5 || ![429, 503].includes(res.status)) break;
     await sleep(2000 * attempt);
   }
   if (!res.ok) throw new Error(`google books ${res.status}`);
-  const items = (await res.json()).items ?? [];
+  return (await res.json()).items ?? [];
+}
+async function googleBooks(b) {
+  const lastName = norm(b.author).split(' ').at(-1);
+  // Field-restricted intitle:/inauthor: queries return 0 results for every query on this API key
+  // (curl, fetch and python alike, even intitle:harry), so this is upstream, not our encoding.
+  const q = `${b.title} ${b.author}`;
+  const items = [...await gbPage(q, 0), ...await gbPage(q, 20)];
   const cands = items.map((it) => {
     const v = it.volumeInfo ?? {};
     const desc = stripHtml(v.description ?? '');
-    const titleOk = norm(v.title ?? '').startsWith(norm(b.title).slice(0, 18)) || norm(b.title).startsWith(norm(v.title ?? '').slice(0, 18));
+    const full = `${v.title ?? ''} ${v.subtitle ?? ''}`;
+    const titleOk = norm(v.title ?? '').startsWith(norm(b.title).slice(0, 18)) || norm(b.title).startsWith(norm(v.title ?? '').slice(0, 18)) || norm(v.title ?? '').includes(norm(b.title));
     const authorOk = (v.authors ?? []).some((a) => norm(a).includes(lastName));
-    const bad = BAD_TITLE.test(`${v.title} ${v.subtitle ?? ''}`) || BAD_CAT.test((v.categories ?? []).join(' '));
+    const bad = BAD_TITLE.test(full) || BAD_CAT.test((v.categories ?? []).join(' '));
+    const english = v.language === 'en' && looksEnglish(desc); // both: bilingual-titled volumes can carry a Spanish description
     return { id: it.id, title: v.title, subtitle: v.subtitle, authors: v.authors, published: v.publishedDate,
-      categories: v.categories, lang: v.language, desc, descChars: desc.length, titleOk, authorOk, bad };
+      categories: v.categories, lang: v.language, desc, descChars: desc.length, titleOk, authorOk, bad, english };
   });
-  const good = cands.filter((c) => c.titleOk && c.authorOk && !c.bad && c.lang === 'en' && c.descChars > 0);
+  const good = cands.filter((c) => c.titleOk && c.authorOk && !c.bad && c.english && c.descChars > 0);
   good.sort((a, c) => c.descChars - a.descChars);
-  return { query: q, picked: good[0] ?? null, considered: cands.length,
-    rejected: cands.filter((c) => !good.includes(c)).slice(0, 5).map((c) => ({ title: c.title, authors: c.authors, why: c.bad ? 'adaptation/guide' : !c.titleOk ? 'title' : !c.authorOk ? 'author' : c.lang !== 'en' ? 'not English' : 'no description' })) };
+  return { query: q, picked: good[0] ?? null, considered: cands.length, matches: good.length,
+    rejected: cands.filter((c) => !good.includes(c)).slice(0, 8).map((c) => ({ title: c.title, authors: c.authors, why: c.bad ? 'adaptation/guide' : !c.titleOk ? 'title' : !c.authorOk ? 'author' : !c.english ? 'not English' : 'no description' })) };
 }
 
 const Enrich = z.object({ recognised: z.boolean(), summary: z.string(), themes: z.array(z.string()) });
@@ -70,17 +81,19 @@ const SYSTEM = `You write Enrichment for a personal reading app: a short summary
 Only state what you are confident is true about this specific book.`;
 
 const olCache = readCache('ol-cache.json');
-const gbCachePath = 'gb-cache.json';
+const gbCachePath = 'gb-cache-p3.json';
 const gbCache = readCache(gbCachePath);
 const books = [];
 for (const b of BOOKS) {
   if (!olCache[b.slug]) { olCache[b.slug] = await openLibrary(b); saveJson('ol-cache.json', olCache); }
   const ol = olCache[b.slug];
   let desc = ol.description ?? '', descFrom = 'Open Library', gb = null;
-  if (SRC === 'gb') {
+  if (SRC === 'gb' || SRC === 'hyb') {
     if (!gbCache[b.slug]) { gbCache[b.slug] = await googleBooks(b); saveJson(gbCachePath, gbCache); await sleep(300); }
     gb = gbCache[b.slug];
     desc = gb.picked?.desc ?? ''; descFrom = gb.picked ? `Google Books (${gb.picked.title})` : 'none';
+    // hybrid: Open Library's description when Google Books has none or a thin (< THIN) one and OL has more
+    if (SRC === 'hyb' && desc.length < THIN && (ol.description ?? '').length > desc.length) { desc = ol.description; descFrom = 'Open Library (fallback)'; }
   }
   const user = [`Title: ${b.title}`, `Author: ${b.author}`,
     `Description: ${desc || '(none)'}`, `Subjects: ${ol.subjects?.join('; ') || '(none)'}`].join('\n');
