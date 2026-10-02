@@ -4,8 +4,10 @@ type Options = {
   apiKey: string;
   userAgent: string;
   // Attempts per Google Books page when it answers 429/503, with growing sleeps between them.
-  // Use 1 on paths where a person is waiting.
+  // Use few attempts and a short delay on paths where a person is waiting.
   maxAttempts?: number;
+  // Base sleep between attempts; attempt n sleeps n times this.
+  retryDelayMs?: number;
   fetch?: typeof fetch;
   sleep?: (ms: number) => Promise<void>;
 };
@@ -17,6 +19,7 @@ export function createDescriptionGateway({
   apiKey,
   userAgent,
   maxAttempts = 5,
+  retryDelayMs = 2000,
   fetch: doFetch = fetch,
   sleep = (ms) => new Promise((r) => setTimeout(r, ms)),
 }: Options): DescriptionGateway {
@@ -31,7 +34,7 @@ export function createDescriptionGateway({
     for (let attempt = 1; ; attempt++) {
       res = await doFetch(url, { signal });
       if (res.ok || attempt >= maxAttempts || ![429, 503].includes(res.status)) break;
-      await sleep(2000 * attempt);
+      await sleep(retryDelayMs * attempt);
     }
     if (!res.ok) throw new Error(`Google Books failed: ${res.status}`);
     return ((await res.json()) as { items?: GoogleBooksVolume[] }).items ?? [];

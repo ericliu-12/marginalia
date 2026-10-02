@@ -13,7 +13,7 @@ export function bookSearchGateway() {
 }
 
 // Null without a Google Books key: adding a Book never depends on a description.
-export function descriptionGateway(options: { maxAttempts?: number } = {}): DescriptionGateway | null {
+export function descriptionGateway(options: { maxAttempts?: number; retryDelayMs?: number } = {}): DescriptionGateway | null {
   const apiKey = process.env.GOOGLE_BOOKS_API_KEY;
   const contact = process.env.OPEN_LIBRARY_CONTACT;
   if (!apiKey || !contact) return null;

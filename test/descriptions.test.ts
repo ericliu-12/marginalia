@@ -184,6 +184,16 @@ describe("Google Books gateway", () => {
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
+  it("sleeps retryDelayMs times the attempt number between attempts", async () => {
+    const sleeps: number[] = [];
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(new Response("", { status: 503 }))
+      .mockResolvedValueOnce(Response.json({ items: items(2, "a") }));
+    const gw = createDescriptionGateway({ ...opts, retryDelayMs: 300, fetch, sleep: async (ms) => void sleeps.push(ms) });
+    expect(await gw.googleBooksVolumes("x")).toHaveLength(2);
+    expect(sleeps).toEqual([300]);
+  });
+
   it("stops after a short first page and retries on 429", async () => {
     const fetch = vi.fn()
       .mockResolvedValueOnce(new Response("", { status: 429 }))
