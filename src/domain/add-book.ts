@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { book } from "@/db/schema";
 import { ADD_TIME_BUDGET, describeBook, type DescriptionGateway } from "./description";
+import type { EnrichmentQueue } from "./enrichment";
 import { enterLibrary } from "./library-entry";
 import { coverUrlFor, type OpenLibraryWork, type Status } from "./search";
 
@@ -30,6 +31,7 @@ export async function addBook(
   work: OpenLibraryWork,
   status: Status,
   descriptions?: DescriptionGateway | null,
+  queue?: EnrichmentQueue | null,
 ) {
   // A description is fetched once, when the shared Book is first created; a failed or missing lookup
   // never blocks the add. Two requests adding the same new Book can both look it up, and the loser's
@@ -39,8 +41,9 @@ export async function addBook(
     existing || !descriptions
       ? { description: "", googleBooksVolumeId: null }
       : await describeBook(descriptions, work, ADD_TIME_BUDGET);
+  let result;
   try {
-    return await db.transaction(async (tx) => {
+    result = await db.transaction(async (tx) => {
       await tx
         .insert(book)
         .values({
@@ -57,10 +60,14 @@ export async function addBook(
       const [row] = await tx.select({ id: book.id }).from(book).where(eq(book.openLibraryWorkKey, work.workKey));
 
       const { entry, firstCompletion } = await enterLibrary(tx, userId, row.id, status);
-      return { ...entry, firstCompletion };
+      return { ...entry, firstCompletion, bookId: row.id };
     });
   } catch (err) {
     if (isUniqueViolation(err)) throw new DuplicateBookError(work.workKey);
     throw err;
   }
+  // Enrichment is generated once per Book; the job is a no-op when the Book is already enriched.
+  // The Book is added either way, so a queue outage must not fail the add.
+  await queue?.enqueueEnrichment(result.bookId).catch((err) => console.error(err));
+  return result;
 }

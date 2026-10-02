@@ -1,3 +1,4 @@
+import type { EnrichmentModel, EnrichmentResult } from "../src/domain/enrichment";
 import type { DescriptionGateway, GoogleBooksVolume } from "../src/domain/description";
 import type { BookSearchGateway, OpenLibraryWork } from "../src/domain/search";
 
@@ -55,6 +56,35 @@ export function fakeDescriptions(opts: {
       olCalls.push(key);
       if (opts.olError) throw new Error("Open Library is down");
       return opts.openLibrary ?? "";
+    },
+  };
+}
+
+export type EnrichInput = { title: string; authors: string[]; description: string; subjects: string[] };
+
+// Fake Claude for Enrichment: answers with `reply` (author/year default to the Book's own), records inputs.
+export function fakeEnricher(
+  reply: Partial<EnrichmentResult> | ((input: EnrichInput) => Partial<EnrichmentResult> | Promise<never>) = {},
+): EnrichmentModel & { inputs: EnrichInput[] } {
+  const inputs: EnrichInput[] = [];
+  return {
+    inputs,
+    model: "fake-haiku",
+    promptVersion: "test-1",
+    async enrich(input) {
+      inputs.push(input);
+      const r = typeof reply === "function" ? await reply(input) : reply;
+      return {
+        recognised: true,
+        summary: "A quiet novel about a life.",
+        themes: ["work", "solitude"],
+        author: input.authors[0] ?? null,
+        firstPublishedYear: null,
+        inputTokens: 300,
+        outputTokens: 100,
+        costUsd: 0.0008,
+        ...r,
+      };
     },
   };
 }
