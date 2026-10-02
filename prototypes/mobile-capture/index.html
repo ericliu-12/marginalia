@@ -1,0 +1,428 @@
+<!doctype html>
+<!--
+PROTOTYPE (throwaway), ticket "Mobile quick-capture surface".
+Question: how little friction can adding a Book, writing a Note (optional quote + page) and changing Status achieve on a phone?
+One refined flow, open directly in a browser (on a wide screen it renders inside a phone frame; use device emulation for the real feel):
+  Home      Reading shelf. Row tap -> Book. Pen on a row -> Note sheet for that Book. "Add a Book" pinned at the bottom.
+  Book      Status control (Want / Reading / Read), "Write a Note", that Book's Notes.
+  Note      Bottom sheet. Text first; quote and page number opt-in. Unsent draft survives dismissal.
+  Add       Full-screen search. Each result: Want to read / Reading / Already read in one tap. Search stays open + selected.
+            Zero-match fallback: add by hand (private Manual Book). Queue line shows the graph filling in.
+All data is SAMPLE: real Books, invented reader Notes. Nothing persists. No network: search filters a local catalog.
+Not simulated: the on-screen keyboard resizing the viewport (check that on a real phone).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Marginalia mobile capture prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#f3ecdd; --paper-2:#faf5ea; --paper-3:#e9e0cd;
+  --ink:#231d17; --ink-2:#5d5245; --ink-3:#6f6454; --rule:#d8cdb7;
+  --thematic:#3e5f8a; --contrast:#a8432f; --context:#6f7a3a;
+  --serif:'Newsreader',Georgia,serif; --sans:'Hanken Grotesk',system-ui,sans-serif;
+  --ease:cubic-bezier(.16,1,.3,1);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--paper);color:var(--ink);font-family:var(--serif);font-size:17px;line-height:1.5;-webkit-text-size-adjust:100%}
+::selection{background:#e6c98a;color:var(--ink)}
+button,input,textarea{font:inherit;color:inherit}
+button{background:none;border:0;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent}
+button:disabled{cursor:default}
+input,textarea{background:transparent;border:0;outline:0;caret-color:var(--contrast);width:100%}
+::placeholder{color:var(--ink-3);opacity:1}
+:focus-visible{outline:2px solid var(--thematic);outline-offset:2px;border-radius:6px}
+*{scrollbar-width:thin;scrollbar-color:var(--rule) transparent}
+
+/* phone frame on wide screens; full-bleed on a phone */
+body{display:grid;place-items:center}
+.device{position:relative;width:100%;height:100dvh;overflow:hidden;background:var(--paper)}
+.caption{display:none}
+@media (min-width:600px){
+  body{background:var(--paper-3);grid-template-rows:auto auto;align-content:center;gap:14px}
+  .device{width:390px;height:min(820px,calc(100dvh - 80px));border-radius:30px;border:1px solid var(--rule);box-shadow:0 18px 50px rgba(35,29,23,.16),0 3px 8px rgba(35,29,23,.07)}
+  .caption{display:block;font:500 12px var(--sans);color:var(--ink-2);text-align:center}
+  .caption button{text-decoration:underline;text-underline-offset:3px;margin-left:8px}
+}
+
+#app,.overlay{position:absolute;inset:0}
+.scroll{position:absolute;inset:0;overflow:auto;padding:max(18px,env(safe-area-inset-top)) 20px 120px;overscroll-behavior:contain}
+
+/* shared bits */
+.brand{font:italic 500 22px var(--serif);letter-spacing:.01em}
+.sample{font:500 11px var(--sans);letter-spacing:.04em;color:var(--ink-3);background:var(--paper-2);border:1px solid var(--rule);padding:3px 10px;border-radius:99px;white-space:nowrap}
+.topbar{display:flex;align-items:center;justify-content:space-between;min-height:44px;margin-bottom:14px}
+h1,h2{font-weight:500;text-wrap:balance}
+.cover{flex:none;display:grid;place-items:center;border-radius:3px;box-shadow:0 1px 2px rgba(35,29,23,.2),inset 0 0 0 1px rgba(35,29,23,.08)}
+.cover i{font:italic 500 18px var(--serif);color:rgba(35,29,23,.55)}
+.cover.s{width:44px;height:64px}
+.cover.l{width:64px;height:94px}
+.cover.l i{font-size:28px}
+.cover.xs{width:32px;height:46px}
+.cover.xs i{font-size:14px}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;min-height:52px;width:100%;border-radius:14px;background:var(--ink);color:var(--paper);font:500 16px var(--sans)}
+.btn:active{transform:scale(.985)}
+.btn:disabled{background:var(--paper-3);color:var(--ink-3)}
+.btn.ghost{background:var(--paper-2);color:var(--ink);border:1px solid var(--rule)}
+svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.link{font:500 15px var(--sans);color:var(--ink-2);min-height:44px;padding:0 4px;display:inline-flex;align-items:center;gap:4px}
+.link:active{color:var(--ink)}
+
+/* shelf */
+.shelf h1{font-size:34px;line-height:1.1;margin:6px 0 4px}
+.queue{font:400 13.5px var(--sans);color:var(--ink-2);margin:0 0 6px;min-height:20px}
+.rows{list-style:none;margin:10px 0 0;padding:0}
+.row{display:flex;align-items:center;border-top:1px solid var(--rule)}
+.row:last-child{border-bottom:1px solid var(--rule)}
+.rowmain{flex:1;min-width:0;display:flex;align-items:center;gap:14px;text-align:left;padding:12px 0;min-height:76px}
+.rowmain:active{background:linear-gradient(90deg,#f0e4c6,#f0e4c600)}
+.rowtxt{min-width:0}
+.rowtxt b{display:block;font:500 19px/1.2 var(--serif);text-wrap:balance}
+.rowtxt span{display:block;font:400 13.5px var(--sans);color:var(--ink-2);margin-top:2px}
+.rowtxt em{display:block;font:italic 400 14px var(--serif);color:var(--ink-3);margin-top:3px}
+.iconbtn{width:48px;height:48px;flex:none;display:grid;place-items:center;border-radius:50%;color:var(--ink-2)}
+.iconbtn:active{background:var(--paper-3)}
+.chev{color:var(--ink-3)}
+.empty{font-size:18px;color:var(--ink-2);margin:18px 0 8px;max-width:30ch}
+.sec{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:52px;margin-top:22px;font:500 15px var(--sans);color:var(--ink-2);border-top:1px solid var(--rule)}
+.sec svg{transition:transform .3s var(--ease)}
+.sec[aria-expanded=true] svg{transform:rotate(90deg)}
+.pin{position:absolute;left:16px;right:16px;bottom:max(16px,env(safe-area-inset-bottom));z-index:5}
+.pin .btn{box-shadow:0 8px 22px rgba(35,29,23,.25),0 2px 5px rgba(35,29,23,.12)}
+.fadebar{position:absolute;left:0;right:0;bottom:0;height:96px;background:linear-gradient(to top,var(--paper) 55%,#f3ecdd00);pointer-events:none;z-index:4}
+
+/* book */
+.bookhead{display:flex;gap:16px;align-items:flex-end;margin-bottom:20px}
+.bookhead h1{font-size:28px;line-height:1.1;margin:0 0 4px}
+.bookhead p{font:400 14px var(--sans);color:var(--ink-2);margin:0}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--paper-3);border-radius:12px;padding:3px;margin-bottom:12px}
+.seg button{min-height:44px;border-radius:9px;font:500 14px var(--sans);color:var(--ink-2);transition:background .2s,color .2s}
+.seg button[aria-checked=true]{background:var(--paper-2);color:var(--ink);box-shadow:0 1px 3px rgba(35,29,23,.18)}
+.finish{background:var(--paper-3);border-radius:12px;padding:14px 16px;margin:0 0 14px;font-size:16px;line-height:1.45;color:#33291f}
+.finish b{font-weight:600}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.rise{animation:rise .6s var(--ease) both}
+.notes{margin-top:28px}
+.notes h2{font:500 13px var(--sans);color:var(--ink-3);letter-spacing:.02em;margin:0 0 4px}
+.note{padding:16px 0;border-top:1px solid var(--rule)}
+.note blockquote{margin:0 0 8px;font-style:italic;color:var(--ink-2);text-decoration:underline;text-decoration-color:#c9a45a;text-decoration-thickness:1px;text-underline-offset:4px}
+.note p{margin:0;font-size:17.5px;color:#33291f;white-space:pre-wrap}
+.note .pg{display:block;font:400 12.5px var(--sans);color:var(--ink-3);margin-top:6px}
+.note.new{background:linear-gradient(90deg,#f0e4c6,#f0e4c600);margin:0 -20px;padding-left:20px;padding-right:20px}
+.nonotes{font-size:16px;color:var(--ink-3);margin:6px 0}
+
+/* note sheet */
+.scrim{position:absolute;inset:0;background:rgba(35,29,23,.38);animation:fade .3s ease both;z-index:20}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes sheetup{from{transform:translateY(100%)}to{transform:none}}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:21;background:var(--paper-2);border-radius:20px 20px 0 0;padding:14px 18px max(14px,env(safe-area-inset-bottom));max-height:90%;overflow:auto;box-shadow:0 -10px 30px rgba(35,29,23,.16);animation:sheetup .5s var(--ease) both}
+.sheet header{display:flex;align-items:center;justify-content:space-between;min-height:44px;gap:12px}
+.sheet header span{font:400 14px var(--sans);color:var(--ink-2);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sheet header span i{font-family:var(--serif);font-size:16px;color:var(--ink)}
+.sheet textarea{display:block;resize:none;font-size:19px;line-height:1.5;min-height:132px;padding:6px 0}
+.sheet .quote{font-style:italic;color:var(--ink-2);min-height:72px;font-size:17px;border-top:1px solid var(--rule);padding-top:12px}
+.pagefield{display:flex;align-items:center;gap:10px;border-top:1px solid var(--rule);padding:6px 0;font:400 14px var(--sans);color:var(--ink-2)}
+.pagefield input{width:7ch;font:500 17px var(--sans);padding:8px 0;border-bottom:1px solid var(--rule)}
+.tools{display:flex;align-items:center;gap:4px;margin:6px 0 10px}
+.tools .link{margin-right:2px}
+.tools .link svg{width:18px;height:18px}
+.sheet .btn{min-height:50px}
+
+/* add overlay */
+.add{position:absolute;inset:0;background:var(--paper);z-index:10;display:flex;flex-direction:column;animation:sheetup .5s var(--ease) both}
+.add .head{padding:max(14px,env(safe-area-inset-top)) 20px 0;flex:none}
+.add .topbar{margin-bottom:6px}
+.add h2{font:500 28px/1.1 var(--serif);margin:0}
+.search{display:flex;align-items:center;gap:10px;background:var(--paper-2);border:1px solid var(--rule);border-radius:12px;padding:0 14px;min-height:52px;margin:8px 0 6px;color:var(--ink-3)}
+.search:focus-within{border-color:var(--ink-2)}
+.search input{font-size:18px;color:var(--ink)}
+.search input::-webkit-search-cancel-button{display:none}
+.results{flex:1;overflow:auto;padding:4px 20px max(24px,env(safe-area-inset-bottom));overscroll-behavior:contain}
+.hint{font-size:16px;color:var(--ink-2);margin:14px 0;max-width:34ch}
+.res{padding:14px 0;border-top:1px solid var(--rule)}
+.res:last-child{border-bottom:1px solid var(--rule)}
+.res .meta{display:flex;gap:12px;align-items:center}
+.res b{display:block;font:500 18px/1.2 var(--serif)}
+.res span.by{display:block;font:400 13.5px var(--sans);color:var(--ink-2);margin-top:2px}
+.acts{display:grid;grid-template-columns:1fr 1fr 1.15fr;gap:6px;margin-top:10px}
+.acts button{min-height:44px;border-radius:10px;border:1px solid var(--rule);background:var(--paper-2);font:500 13.5px var(--sans);color:var(--ink)}
+.acts button:active{background:var(--paper-3)}
+.acts button.read{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.done{display:flex;align-items:center;justify-content:space-between;margin-top:8px;font:500 14px var(--sans);color:var(--context);min-height:44px}
+.done .l{display:flex;align-items:center;gap:6px}
+.done .l svg{width:18px;height:18px}
+.done button{color:var(--ink-2);min-height:44px;padding:0 8px;text-decoration:underline;text-underline-offset:3px;font-weight:500}
+.in{font:400 14px var(--sans);color:var(--ink-3);margin-top:8px}
+.group h3{font:500 13px var(--sans);color:var(--ink-3);letter-spacing:.02em;margin:18px 0 0}
+.manual{margin-top:6px}
+.manual .field{border-bottom:1px solid var(--rule);padding:10px 0}
+.manual label{display:block;font:400 12.5px var(--sans);color:var(--ink-3)}
+.manual input{font-size:18px;padding:4px 0}
+.manual p{font:400 13.5px var(--sans);color:var(--ink-2);margin:12px 0 0}
+
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div class="device" id="device">
+  <div id="app"></div>
+  <div class="overlay" id="overlay"></div>
+</div>
+<div class="caption">PROTOTYPE · Books are real, Notes are invented · nothing is saved <button id="reset" type="button">Reset</button></div>
+
+<script>
+const $=(s,r=document)=>r.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const I={
+  plus:'<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+  back:'<svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>',
+  chev:'<svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>',
+  pen:'<svg viewBox="0 0 24 24"><path d="M4 20l1-4L16.5 4.5a2.1 2.1 0 013 3L8 19z"/><path d="M14.5 6.5l3 3"/></svg>',
+  check:'<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  search:'<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg>',
+  quote:'<svg viewBox="0 0 24 24"><path d="M6 17v-4a5 5 0 015-5M14 17v-4a5 5 0 015-5"/></svg>',
+  page:'<svg viewBox="0 0 24 24"><path d="M7 3h8l4 4v14H7z"/><path d="M15 3v4h4"/></svg>',
+};
+const TONES=['#d9c7a0','#c9d0b0','#d4b8a6','#bfc8d4','#d8cfae','#cdb9c0'];
+const tone=t=>TONES[[...t].reduce((a,c)=>a+c.charCodeAt(0),0)%TONES.length];
+const cover=(t,sz)=>`<span class="cover ${sz}" style="background:${tone(t)}" aria-hidden="true"><i>${esc(t.replace(/^(The|A) /,'')[0])}</i></span>`;
+const LABEL={want:'Want to read',reading:'Reading',read:'Read'};
+
+/* stand-in for an Open Library search */
+const CATALOG=[
+  ['Stoner','John Williams'],['The Remains of the Day','Kazuo Ishiguro'],['Middlemarch','George Eliot'],
+  ['Meditations','Marcus Aurelius'],['Gilead','Marilynne Robinson'],['The Peregrine','J. A. Baker'],
+  ['Braiding Sweetgrass','Robin Wall Kimmerer'],['Seeing Like a State','James C. Scott'],
+  ['Thinking, Fast and Slow','Daniel Kahneman'],['The Dispossessed','Ursula K. Le Guin'],
+  ['Austerlitz','W. G. Sebald'],['A Pattern Language','Christopher Alexander'],
+  ['Homage to Catalonia','George Orwell'],['Down and Out in Paris and London','George Orwell'],
+  ['Nineteen Eighty-Four','George Orwell'],['Piranesi','Susanna Clarke'],
+].map(([title,author],i)=>({cat:'c'+i,title,author}));
+const byCat=Object.fromEntries(CATALOG.map(c=>[c.cat,c]));
+
+let uid=0;
+const mk=(cat,status,notes=[])=>({id:'b'+(uid++),cat,title:byCat[cat].title,author:byCat[cat].author,status,finished:status==='read',notes});
+function seed(){
+  uid=0;
+  return [
+    mk('c2','reading',[{text:'Dorothea\'s certainty about Casaubon is the whole tragedy, and she can\'t see it because she wants it to be true.',quote:'',page:'112'}]),
+    mk('c6','reading',[
+      {text:'Gratitude as a practice, not a feeling. The grammar point about "it" vs "ki" keeps nagging at me.',quote:'',page:'55'},
+      {text:'',quote:'Despair is paralyzing; it robs us of agency.',page:'373'}]),
+    mk('c7','reading'),
+    mk('c9','want'),mk('c10','want'),
+    mk('c0','read',[{text:'Quiet failure, and no bitterness in it. The ending is not a tragedy to him.',quote:'',page:'278'}]),
+    mk('c1','read'),mk('c4','read'),
+  ];
+}
+
+let lib,view,noteFor,addOpen,session,queued,manual,justFinished,openSec,drafts,q,newNote;
+function reset(){
+  lib=seed();view={name:'shelf'};noteFor=null;addOpen=false;session=[];queued=0;manual=false;
+  justFinished=null;openSec={want:false,read:false};drafts={};q='';newNote=null;
+  $('#overlay').innerHTML='';render();
+}
+const book=id=>lib.find(b=>b.id===id);
+const nNotes=b=>b.notes.length?`${b.notes.length} Note${b.notes.length>1?'s':''}`:'No Notes yet';
+
+/* queue indicator: the graph filling in. Drains on a timer so the line is seen to come and go. */
+setInterval(()=>{ if(queued>0){queued--;paintQueue();} },3500);
+const queueText=()=>queued>0?`${queued} Book${queued>1?'s':''} finding Connections`:'';
+function paintQueue(){ document.querySelectorAll('.queue').forEach(el=>el.textContent=queueText()); }
+
+/* ---------- screens ---------- */
+function rowHTML(b,quick){
+  const last=b.notes[0];
+  return `<li class="row"><button class="rowmain" data-act="open" data-id="${b.id}">
+    ${cover(b.title,'s')}
+    <span class="rowtxt"><b>${esc(b.title)}</b><span>${esc(b.author)} · ${nNotes(b)}</span></span>
+  </button>${quick
+    ?`<button class="iconbtn" data-act="note" data-id="${b.id}" aria-label="Write a Note on ${esc(b.title)}">${I.pen}</button>`
+    :`<span class="iconbtn chev" aria-hidden="true">${I.chev}</span>`}</li>`;
+}
+function shelfHTML(){
+  const rd=lib.filter(b=>b.status==='reading');
+  const sec=(k,label)=>{
+    const items=lib.filter(b=>b.status===k);
+    return `<button class="sec" data-act="sec" data-val="${k}" aria-expanded="${openSec[k]}"><span>${label} · ${items.length}</span>${I.chev}</button>
+    ${openSec[k]?`<ul class="rows" style="margin-top:0">${items.map(b=>rowHTML(b,false)).join('')}</ul>`:''}`;
+  };
+  return `<div class="scroll shelf">
+    <div class="topbar"><span class="brand">Marginalia</span><span class="sample">Sample data</span></div>
+    <h1>Reading</h1>
+    <p class="queue" aria-live="polite">${queueText()}</p>
+    ${rd.length?`<ul class="rows">${rd.map(b=>rowHTML(b,true)).join('')}</ul>`
+      :`<p class="empty">Nothing in progress. Add a Book you're reading, or move one here from your Library.</p>`}
+    ${sec('want','Want to read')}
+    ${sec('read','Read')}
+  </div>
+  <div class="fadebar"></div>
+  <div class="pin"><button class="btn" data-act="add">${I.plus}Add a Book</button></div>`;
+}
+function bookHTML(id){
+  const b=book(id);
+  const finish=justFinished===id&&b.status==='read'
+    ?`<p class="finish rise"><b>Finished.</b> Marginalia is looking for Connections to the other Books you've finished. They'll be waiting in the graph when you open it on a larger screen.</p>`:'';
+  return `<div class="scroll">
+    <div class="topbar"><button class="link" data-act="back" style="margin-left:-8px">${I.back}Reading</button><span class="sample">Sample data</span></div>
+    <div class="bookhead">${cover(b.title,'l')}<div><h1>${esc(b.title)}</h1><p>${esc(b.author)}</p></div></div>
+    <div class="seg" role="radiogroup" aria-label="Status">
+      ${['want','reading','read'].map(s=>`<button role="radio" aria-checked="${b.status===s}" data-act="status" data-val="${s}">${LABEL[s]}</button>`).join('')}
+    </div>
+    ${finish}
+    <button class="btn" data-act="note" data-id="${b.id}">${I.pen}Write a Note</button>
+    <section class="notes" aria-label="Notes">
+      <h2>${nNotes(b)}</h2>
+      ${b.notes.map(n=>`<article class="note ${n===newNote?'new rise':''}">
+        ${n.quote?`<blockquote>${esc(n.quote)}</blockquote>`:''}
+        ${n.text?`<p>${esc(n.text)}</p>`:''}
+        ${n.page?`<span class="pg">p. ${esc(n.page)}</span>`:''}
+      </article>`).join('')||`<p class="nonotes">Nothing written yet.</p>`}
+    </section>
+  </div>`;
+}
+function render(){
+  const s=$('#app .scroll'),top=s?s.scrollTop:0,prev=$('#app').dataset.v;
+  const key=view.name+(view.id||'');
+  $('#app').innerHTML=view.name==='shelf'?shelfHTML():bookHTML(view.id);
+  $('#app').dataset.v=key;
+  const n=$('#app .scroll'); if(n&&prev===key) n.scrollTop=top;
+}
+
+/* ---------- note sheet ---------- */
+function openNote(id){
+  const b=book(id); noteFor=id;
+  const d=drafts[id]||(drafts[id]={text:'',quote:'',page:'',showQ:false,showP:false});
+  $('#overlay').insertAdjacentHTML('beforeend',`<div class="scrim" data-act="closeNote" id="scrim"></div>
+  <form class="sheet" id="sheet" role="dialog" aria-label="Note on ${esc(b.title)}">
+    <header><span>Note on <i>${esc(b.title)}</i></span><button type="button" class="link" data-act="closeNote">Cancel</button></header>
+    <textarea id="nt" rows="5" placeholder="What are you thinking?" aria-label="Note">${esc(d.text)}</textarea>
+    <div id="extra"></div>
+    <div class="tools">
+      <button type="button" class="link" data-act="toggleQuote">${I.quote}${d.showQ?'Remove quote':'Add a quote'}</button>
+      <button type="button" class="link" data-act="togglePage">${I.page}${d.showP?'Remove page':'Page number'}</button>
+    </div>
+    <button class="btn" id="save" type="submit">Save Note</button>
+  </form>`);
+  paintExtra(); syncSave(); $('#nt').focus();
+}
+function paintExtra(){
+  const d=drafts[noteFor];
+  $('#extra').innerHTML=(d.showQ?`<textarea id="nq" class="quote" rows="3" placeholder="The passage, as written" aria-label="Quote">${esc(d.quote)}</textarea>`:'')
+    +(d.showP?`<label class="pagefield">Page <input id="np" inputmode="numeric" value="${esc(d.page)}" aria-label="Page number"></label>`:'');
+}
+function syncSave(){ const d=drafts[noteFor]; $('#save').disabled=!(d.text.trim()||(d.showQ&&d.quote.trim())); }
+function closeNote(){ $('#sheet')?.remove(); $('#scrim')?.remove(); noteFor=null; }
+function saveNote(){
+  const d=drafts[noteFor],b=book(noteFor);
+  const n={text:d.text.trim(),quote:d.showQ?d.quote.trim():'',page:d.showP?d.page.trim():''};
+  b.notes.unshift(n); newNote=n; delete drafts[noteFor];
+  closeNote(); view={name:'book',id:b.id}; render();
+}
+
+/* ---------- add flow ---------- */
+function openAdd(){
+  addOpen=true; q=''; manual=false;
+  $('#overlay').innerHTML=`<section class="add" id="add" role="dialog" aria-label="Add a Book">
+    <div class="head">
+      <div class="topbar"><h2>Add a Book</h2><button class="link" data-act="closeAdd">Done</button></div>
+      <label class="search">${I.search}<input id="q" type="search" placeholder="Title or author" autocomplete="off" autocapitalize="off" enterkeyhint="search" aria-label="Search for a Book"></label>
+    </div>
+    <div class="results" id="results"></div>
+  </section>`;
+  paintResults(); $('#q').focus();
+}
+function closeAdd(){ addOpen=false; $('#overlay').innerHTML=''; render(); }
+function libEntry(cat){ return lib.find(b=>b.cat===cat); }
+function resHTML(c){
+  const own=libEntry(c.cat), sess=own&&session.includes(own.id);
+  let body;
+  if(sess) body=`<div class="done"><span class="l">${I.check}Added · ${LABEL[own.status]}</span><button data-act="undo" data-id="${own.id}">Undo</button></div>`;
+  else if(own) body=`<p class="in">Already in your Library · ${LABEL[own.status]}</p>`;
+  else body=`<div class="acts">
+      <button data-act="addbook" data-id="${c.cat}" data-val="want">Want to read</button>
+      <button data-act="addbook" data-id="${c.cat}" data-val="reading">Reading</button>
+      <button class="read" data-act="addbook" data-id="${c.cat}" data-val="read">Already read</button></div>`;
+  return `<div class="res"><div class="meta">${cover(c.title,'xs')}<div><b>${esc(c.title)}</b><span class="by">${esc(c.author)}</span></div></div>${body}</div>`;
+}
+function paintResults(){
+  const r=$('#results'); if(!r) return;
+  const term=q.trim().toLowerCase();
+  let html='';
+  if(manual){
+    html=`<div class="manual"><p style="margin-top:14px">Not in Open Library? Add it by hand. Only you will see this Book.</p>
+      <div class="field"><label for="mt">Title</label><input id="mt" value="${esc(q.trim())}" autocomplete="off"></div>
+      <div class="field"><label for="ma">Author</label><input id="ma" autocomplete="off"></div>
+      <div class="acts" style="margin-top:14px">
+        <button data-act="manualadd" data-val="want">Want to read</button>
+        <button data-act="manualadd" data-val="reading">Reading</button>
+        <button class="read" data-act="manualadd" data-val="read">Already read</button></div>
+      <button class="link" data-act="manualcancel" style="margin-top:8px">Back to search</button></div>`;
+  } else if(!term){
+    const added=session.map(book).filter(Boolean);
+    html=`<p class="queue" aria-live="polite" style="margin-top:12px">${queueText()}</p>`
+      +(added.length?`<div class="group"><h3>Added so far</h3>${added.map(b=>`<div class="res"><div class="meta">${cover(b.title,'xs')}<div><b>${esc(b.title)}</b><span class="by">${esc(b.author)} · ${LABEL[b.status]}${b.manual?' · Manual Book':''}</span></div></div></div>`).join('')}</div>`
+        :`<p class="hint">Search by title or author. Books you've already read go straight in with <b>Already read</b>, and you can keep searching.</p>`);
+  } else {
+    const m=CATALOG.filter(c=>(c.title+' '+c.author).toLowerCase().includes(term));
+    html=`<p class="queue" aria-live="polite" style="margin:8px 0 0">${queueText()}</p>`
+      +(m.length?m.map(resHTML).join('')+`<button class="link" data-act="manual" style="margin-top:6px">Not the one? Add it by hand</button>`
+        :`<p class="hint">Nothing in Open Library for “${esc(q.trim())}”.</p><button class="btn ghost" data-act="manual">Add it by hand</button>`);
+  }
+  r.innerHTML=html;
+}
+function addEntry(entry,status){
+  entry.status=status; entry.finished=status==='read'; lib.push(entry); session.unshift(entry.id);
+  if(status==='read') queued++;
+}
+function afterAdd(){ paintResults(); const i=$('#q'); if(i){i.focus();i.select();} }
+
+/* ---------- events ---------- */
+document.addEventListener('click',e=>{
+  const t=e.target.closest('[data-act]'); if(!t) return;
+  const {act,id,val}=t.dataset;
+  if(act==='open'){view={name:'book',id};newNote=null;justFinished=null;render();}
+  else if(act==='back'){view={name:'shelf'};render();}
+  else if(act==='sec'){openSec[val]=!openSec[val];render();}
+  else if(act==='status'){
+    const b=book(view.id); if(b.status===val) return;
+    const first=val==='read'&&!b.finished;
+    b.status=val; if(val==='read'){ b.finished=true; if(first){justFinished=b.id;queued++;} }
+    render();
+  }
+  else if(act==='note') openNote(id);
+  else if(act==='closeNote') closeNote();
+  else if(act==='toggleQuote'){const d=drafts[noteFor];d.showQ=!d.showQ;if(!d.showQ)d.quote='';t.lastChild.textContent=d.showQ?'Remove quote':'Add a quote';paintExtra();syncSave();if(d.showQ)$('#nq').focus();}
+  else if(act==='togglePage'){const d=drafts[noteFor];d.showP=!d.showP;if(!d.showP)d.page='';t.lastChild.textContent=d.showP?'Remove page':'Page number';paintExtra();if(d.showP)$('#np').focus();}
+  else if(act==='add') openAdd();
+  else if(act==='closeAdd') closeAdd();
+  else if(act==='addbook'){const c=byCat[id];addEntry(mk(c.cat,'want'),val);afterAdd();}
+  else if(act==='undo'){const b=book(id);if(b.status==='read'&&queued>0)queued--;lib=lib.filter(x=>x!==b);session=session.filter(s=>s!==id);afterAdd();}
+  else if(act==='manual'){manual=true;paintResults();$('#mt').focus();}
+  else if(act==='manualcancel'){manual=false;paintResults();$('#q').focus();}
+  else if(act==='manualadd'){
+    const title=$('#mt').value.trim(); if(!title){$('#mt').focus();return;}
+    const author=$('#ma').value.trim()||'Unknown author';
+    const entry={id:'b'+(uid++),cat:null,manual:true,title,author,notes:[]};
+    addEntry(entry,val); manual=false; q=''; $('#q').value=''; afterAdd();
+  }
+});
+document.addEventListener('input',e=>{
+  const el=e.target;
+  if(el.id==='q'){q=el.value;paintResults();}
+  else if(noteFor&&el.id==='nt'){drafts[noteFor].text=el.value;syncSave();}
+  else if(noteFor&&el.id==='nq'){drafts[noteFor].quote=el.value;syncSave();}
+  else if(noteFor&&el.id==='np'){el.value=el.value.replace(/\D/g,'');drafts[noteFor].page=el.value;}
+});
+document.addEventListener('submit',e=>{ if(e.target.id==='sheet'){e.preventDefault();saveNote();} });
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){ if(noteFor) closeNote(); else if(addOpen) closeAdd(); }
+});
+$('#reset').addEventListener('click',reset);
+reset();
+</script>
+</body>
+</html>
