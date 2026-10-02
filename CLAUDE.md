@@ -28,3 +28,7 @@ After any change to the Enrichment or connection-judge prompts, re-run the pipel
 ## Git
 
 Before any commit, check the current branch (`git branch --show-current`) and confirm it's the intended one.
+
+## Sub-agents
+
+You may use sub-agents when a skill calls for them (e.g. /code-review's parallel reviewers, /impeccable critique).

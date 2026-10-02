@@ -135,20 +135,18 @@ function parsePage(raw: string): number | null | "invalid" {
 }
 
 // Text first; the quote and the page are quiet reveals. Used to write a new Note (draft kept) and to edit one.
-function NoteForm({
-  bookId,
-  note,
-  onSaved,
-  onCancel,
-}: {
-  bookId: string;
-  note?: Note;
-  onSaved?: (n: Note) => void;
-  onCancel?: () => void;
-}) {
+type NoteFormProps = { onSaved?: (n: Note) => void; onCancel?: () => void } & (
+  | { bookId: string; note?: undefined }
+  | { note: Note; bookId?: undefined }
+);
+
+function NoteForm(props: NoteFormProps) {
+  const { note, onSaved, onCancel } = props;
   const editing = !!note;
   const [draft, setDraft] = useState<Draft>(() =>
-    note ? { body: note.body, quote: note.quote ?? "", page: note.page?.toString() ?? "" } : loadDraft(bookId),
+    props.note
+      ? { body: props.note.body, quote: props.note.quote ?? "", page: props.note.page?.toString() ?? "" }
+      : loadDraft(props.bookId),
   );
   const [showQuote, setShowQuote] = useState(!!draft.quote);
   const [showPage, setShowPage] = useState(!!draft.page);
@@ -167,7 +165,7 @@ function NoteForm({
     const next = { ...draft, ...patch };
     setDraft(next);
     setError(null);
-    if (!editing) saveDraft(bookId, next);
+    if (props.bookId) saveDraft(props.bookId, next);
   }
 
   function submit() {
@@ -177,13 +175,13 @@ function NoteForm({
     setError(null);
     start(async () => {
       const input = { body: draft.body, quote: draft.quote, page };
-      const res = note ? await updateNoteAction(note.id, input) : await addNoteAction(bookId, input);
+      const res = props.note ? await updateNoteAction(props.note.id, input) : await addNoteAction(props.bookId, input);
       if (!res.ok) return setError("Couldn’t save this note. Try again.");
       if (!editing) {
         setDraft(EMPTY);
         setShowQuote(false);
         setShowPage(false);
-        saveDraft(bookId, EMPTY);
+        if (props.bookId) saveDraft(props.bookId, EMPTY);
         bodyRef.current?.focus();
       }
       onSaved?.(res.note);
@@ -319,7 +317,7 @@ function NoteItem({
   if (editing) {
     return (
       <li>
-        <NoteForm bookId="" note={note} onSaved={onChanged} onCancel={onCancel} />
+        <NoteForm note={note} onSaved={onChanged} onCancel={onCancel} />
       </li>
     );
   }
