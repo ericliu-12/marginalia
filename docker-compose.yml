@@ -1,0 +1,16 @@
+# Local Postgres with pgvector. Used by the pipeline-tuning prototype and
+# intended to be reused by the real app's first build ticket.
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: marginalia
+      POSTGRES_PASSWORD: marginalia
+      POSTGRES_DB: marginalia
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
