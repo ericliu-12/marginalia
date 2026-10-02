@@ -1,0 +1,8 @@
+{
+ "theme_precision_at_3": {
+  "voyage-4": "0.65",
+  "voyage-4-lite": "0.65"
+ },
+ "model_overlap_at_3": "0.77",
+ "model_overlap_at_5": "0.84"
+}

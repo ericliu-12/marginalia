@@ -789,5 +789,306 @@
   "in": 608,
   "out": 99,
   "usd": 0.002206
+ },
+ {
+  "label": "enrich:ol",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 751,
+  "out": 154,
+  "usd": 0.001521
+ },
+ {
+  "label": "enrich:ol",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 512,
+  "out": 131,
+  "usd": 0.001167
+ },
+ {
+  "label": "enrich:ol",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 664,
+  "out": 125,
+  "usd": 0.001289
+ },
+ {
+  "label": "enrich:ol",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 453,
+  "out": 118,
+  "usd": 0.001043
+ },
+ {
+  "label": "enrich:ol",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 732,
+  "out": 108,
+  "usd": 0.001272
+ },
+ {
+  "label": "enrich:ol",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 727,
+  "out": 123,
+  "usd": 0.001342
+ },
+ {
+  "label": "enrich:ol",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 433,
+  "out": 110,
+  "usd": 0.000983
+ },
+ {
+  "label": "enrich:ol",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 615,
+  "out": 160,
+  "usd": 0.001415
+ },
+ {
+  "label": "enrich:ol",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 443,
+  "out": 122,
+  "usd": 0.001053
+ },
+ {
+  "label": "enrich:ol",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 440,
+  "out": 141,
+  "usd": 0.001145
+ },
+ {
+  "label": "enrich:ol",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 965,
+  "out": 128,
+  "usd": 0.001605
+ },
+ {
+  "label": "enrich:ol",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 439,
+  "out": 128,
+  "usd": 0.001079
+ },
+ {
+  "label": "enrich:ol",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 438,
+  "out": 138,
+  "usd": 0.001128
+ },
+ {
+  "label": "enrich:ol",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 1085,
+  "out": 152,
+  "usd": 0.001845
+ },
+ {
+  "label": "enrich:ol",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 719,
+  "out": 153,
+  "usd": 0.001484
+ },
+ {
+  "label": "enrich:ol",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 642,
+  "out": 147,
+  "usd": 0.001377
+ },
+ {
+  "label": "enrich:ol",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 437,
+  "out": 17,
+  "usd": 0.000522
+ },
+ {
+  "label": "enrich:ol",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 491,
+  "out": 98,
+  "usd": 0.000981
+ },
+ {
+  "label": "enrich:ol",
+  "model": "claude-haiku-4-5-20251001",
+  "in": 682,
+  "out": 124,
+  "usd": 0.001302
+ },
+ {
+  "label": "embed:document",
+  "model": "voyage-4",
+  "in": 1998,
+  "out": 0,
+  "usd": 0.00011988
+ },
+ {
+  "label": "embed:document",
+  "model": "voyage-4-lite",
+  "in": 1998,
+  "out": 0,
+  "usd": 0.000039960000000000004
+ },
+ {
+  "label": "judge:sonnet:ol",
+  "model": "claude-sonnet-5-5",
+  "in": 1648,
+  "out": 10,
+  "usd": 0.003396
+ },
+ {
+  "label": "judge:sonnet:ol",
+  "model": "claude-sonnet-5-5",
+  "in": 1900,
+  "out": 333,
+  "usd": 0.00713
+ },
+ {
+  "label": "judge:sonnet:ol",
+  "model": "claude-sonnet-5-5",
+  "in": 2092,
+  "out": 133,
+  "usd": 0.005514
+ },
+ {
+  "label": "judge:sonnet:ol",
+  "model": "claude-sonnet-5-5",
+  "in": 2270,
+  "out": 250,
+  "usd": 0.00704
+ },
+ {
+  "label": "judge:sonnet:ol",
+  "model": "claude-sonnet-5-5",
+  "in": 2441,
+  "out": 10,
+  "usd": 0.004982
+ },
+ {
+  "label": "judge:sonnet:ol",
+  "model": "claude-sonnet-5-5",
+  "in": 2679,
+  "out": 438,
+  "usd": 0.009738
+ },
+ {
+  "label": "judge:sonnet:ol",
+  "model": "claude-sonnet-5-5",
+  "in": 2952,
+  "out": 346,
+  "usd": 0.009364
+ },
+ {
+  "label": "judge:sonnet:ol",
+  "model": "claude-sonnet-5-5",
+  "in": 3175,
+  "out": 267,
+  "usd": 0.00902
+ },
+ {
+  "label": "judge:sonnet:ol",
+  "model": "claude-sonnet-5-5",
+  "in": 3427,
+  "out": 559,
+  "usd": 0.012444
+ },
+ {
+  "label": "judge:sonnet:ol",
+  "model": "claude-sonnet-5-5",
+  "in": 3682,
+  "out": 504,
+  "usd": 0.012404
+ },
+ {
+  "label": "judge:sonnet:ol",
+  "model": "claude-sonnet-5-5",
+  "in": 3946,
+  "out": 454,
+  "usd": 0.012432
+ },
+ {
+  "label": "judge:sonnet:ol",
+  "model": "claude-sonnet-5-5",
+  "in": 4151,
+  "out": 465,
+  "usd": 0.012952
+ },
+ {
+  "label": "judge:sonnet:ol",
+  "model": "claude-sonnet-5-5",
+  "in": 4244,
+  "out": 642,
+  "usd": 0.014908
+ },
+ {
+  "label": "judge:sonnet:ol",
+  "model": "claude-sonnet-5-5",
+  "in": 4275,
+  "out": 641,
+  "usd": 0.01496
+ },
+ {
+  "label": "judge:sonnet:ol",
+  "model": "claude-sonnet-5-5",
+  "in": 4327,
+  "out": 806,
+  "usd": 0.016714
+ },
+ {
+  "label": "judge:sonnet:ol",
+  "model": "claude-sonnet-5-5",
+  "in": 4355,
+  "out": 955,
+  "usd": 0.01826
+ },
+ {
+  "label": "judge:sonnet:ol",
+  "model": "claude-sonnet-5-5",
+  "in": 4262,
+  "out": 126,
+  "usd": 0.009784
+ },
+ {
+  "label": "cluster-name",
+  "model": "claude-sonnet-5-5",
+  "in": 567,
+  "out": 102,
+  "usd": 0.002154
+ },
+ {
+  "label": "cluster-name",
+  "model": "claude-sonnet-5-5",
+  "in": 558,
+  "out": 85,
+  "usd": 0.001966
+ },
+ {
+  "label": "cluster-name",
+  "model": "claude-sonnet-5-5",
+  "in": 556,
+  "out": 101,
+  "usd": 0.002122
+ },
+ {
+  "label": "cluster-name",
+  "model": "claude-sonnet-5-5",
+  "in": 646,
+  "out": 99,
+  "usd": 0.002282
+ },
+ {
+  "label": "cluster-name",
+  "model": "claude-sonnet-5-5",
+  "in": 749,
+  "out": 98,
+  "usd": 0.002478
  }
 ]

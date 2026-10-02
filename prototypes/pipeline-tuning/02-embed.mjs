@@ -4,12 +4,12 @@
 // against every other Book's Enrichment + Notes, collapse to Book level (max similarity).
 import { embed, pool, vec, saveJson, loadJson, spent } from './lib.mjs';
 
-const books = loadJson('books.json');
+const SRC = process.env.SRC ?? 'ol';
+const books = loadJson(`p2-${SRC}-books.json`);
 const VOYAGE = ['voyage-4', 'voyage-4-lite'];
 
-// PROTOTYPE hack: an Enrichment that says the model doesn't know the book must not be embedded.
-// (Real design finding: add a `recognised` flag to the Enrichment output instead of this heuristic.)
-const unknown = (e) => e.themes.length <= 2 || /don't have reliable|unable to verify/i.test(e.summary + e.themes.join(' '));
+// p2: an unrecognised book's Enrichment is never embedded (the model reports `recognised`).
+const unknown = (e) => !e.recognised;
 const enrichText = (b) => `${b.enrichment.summary}\nThemes: ${b.enrichment.themes.join('; ')}`;
 
 await pool.query(`create extension if not exists vector`);
@@ -49,7 +49,7 @@ for (const model of VOYAGE) {
     neighbors[model][b.slug] = [...score].sort((a, c) => c[1] - a[1]).map(([slug, sim]) => ({ slug, sim }));
   }
 }
-saveJson('neighbors.json', neighbors);
+saveJson(`p2-${SRC}-neighbors.json`, neighbors);
 
 // bake-off metrics
 const theme = Object.fromEntries(books.map((b) => [b.slug, b.theme]));
@@ -70,6 +70,6 @@ const overlap = (k) => {
 };
 const metrics = { theme_precision_at_3: Object.fromEntries(VOYAGE.map((m) => [m, prec3(m)])),
   model_overlap_at_3: overlap(3), model_overlap_at_5: overlap(5) };
-saveJson('bakeoff.json', metrics);
+saveJson(`p2-${SRC}-bakeoff.json`, metrics);
 console.log(metrics, `ledger $${spent().toFixed(3)}`);
 await pool.end();

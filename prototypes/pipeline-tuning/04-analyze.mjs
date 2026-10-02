@@ -7,16 +7,20 @@ import louvain from 'graphology-communities-louvain';
 import { ORDER } from './data.mjs';
 import { llm, loadJson, saveJson, spent } from './lib.mjs';
 
-const books = Object.fromEntries(loadJson('books.json').map((b) => [b.slug, b]));
+const SRC = process.env.SRC ?? 'ol';
+const books = Object.fromEntries(loadJson(`p2-${SRC}-books.json`).map((b) => [b.slug, b]));
 const RANK = { strong: 3, moderate: 2, weak: 1 };
 const WEIGHT = { strong: 2, moderate: 1, weak: 0.5 };
 const mulberry = (a) => () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 
 // floor: minimum strength kept. cap: max Connections stored per Book judged (per run).
+// 'moderate+both' = the reader's rule: floor moderate, but keep a weak link when it quotes Notes from both Books.
 function edgesFrom(judge, floor, cap) {
   const edges = [];
   for (const r of judge.results) {
-    const kept = r.connections.filter((c) => RANK[c.strength] >= RANK[floor])
+    const kept = r.connections.filter((c) => floor === 'moderate+both'
+      ? RANK[c.strength] >= RANK.moderate || (c.strength === 'weak' && c.quotedBoth)
+      : RANK[c.strength] >= RANK[floor])
       .map((c) => ({ ...c, rank: r.candidates.indexOf(c.other) }))
       .sort((a, b) => RANK[b.strength] - RANK[a.strength] || a.rank - b.rank)
       .slice(0, cap);
@@ -56,19 +60,19 @@ const purity = (members) => {
   return Object.entries(t).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k}:${v}`).join(' ');
 };
 
-const files = { sonnet12: 'judge-sonnet-k12-b600', sonnet6: 'judge-sonnet-k6-b600', sonnet3: 'judge-sonnet-k3-b600', haiku12: 'judge-haiku-k12-b600' };
+const files = { sonnet12: `p2-${SRC}-judge-sonnet-k12-b600` };
 const judges = Object.fromEntries(Object.entries(files).map(([k, f]) => [k, loadJson(f + '.json')]));
 const all = ORDER;
 const analysis = { floorCapSweep: {}, resolutionSweep: {}, incremental: [] };
 
 // 1. floor x cap sweep per judge run
 for (const [name, j] of Object.entries(judges))
-  for (const floor of ['strong', 'moderate', 'weak'])
+  for (const floor of ['strong', 'moderate', 'moderate+both', 'weak'])
     for (const cap of [3, 5, 8])
       analysis.floorCapSweep[`${name} floor=${floor} cap=${cap}`] = stats(edgesFrom(j, floor, cap), all);
 
 // 2. resolution sweep on the primary run (sonnet K=12, floor=moderate, cap=5)
-const base = edgesFrom(judges.sonnet12, 'moderate', 5);
+const base = edgesFrom(judges.sonnet12, 'moderate+both', 5);
 for (const res of [0.5, 0.75, 1, 1.5, 2]) {
   const cl = communities(base, all, res);
   analysis.resolutionSweep[res] = cl.map((m) => ({ size: m.length, members: m, themes: purity(m) }));
@@ -80,7 +84,7 @@ const Name = z.object({ name: z.string(), description: z.string() });
 async function nameCluster(members, why) {
   const lines = members.map((s) => `- ${books[s].title} by ${books[s].author}: ${books[s].enrichment.themes.join('; ')}`).join('\n');
   const r = await llm({ label: 'cluster-name', tier: 'sonnet', maxTokens: 2000, schema: Name,
-    system: 'You name a cluster of books from a reader\'s library. Give a short evocative name (2-4 words, no quotes) and a 1-2 sentence description of what ties the books together. Name the idea, not the genre.',
+    system: 'You name a cluster of books from a reader\'s library. Give a short, evocative name of no more than 4 words (no quotes), the kind of phrase a reader would use for their own shelf, and a 1-2 sentence description of what ties the books together. Name the idea, not the genre.',
     user: `Books in the cluster:\n${lines}` });
   analysis.namingCalls = (analysis.namingCalls ?? 0) + 1;
   return { ...r.parsed, why };
@@ -103,8 +107,9 @@ for (let n = 4; n <= all.length; n++) {
     if (p.jac < JACCARD || usedI.has(p.i) || usedJ.has(p.j)) continue;
     usedI.add(p.i); usedJ.add(p.j);
     const old = prev[p.j], change = 1 - p.jac;
+    const moved = cur[p.i].filter((x) => !old.members.includes(x)).length + old.members.filter((x) => !cur[p.i].includes(x)).length;
     let { name, description } = old;
-    if (change >= RENAME_AT) {
+    if (change >= RENAME_AT && moved >= 2) {
       ({ name, description } = await nameCluster(cur[p.i], 'rename'));
       events.push(`RENAME #${old.id} "${old.name}" -> "${name}" (change ${(change * 100).toFixed(0)}%, J=${p.jac.toFixed(2)})`);
     } else if (change > 0) events.push(`kept #${old.id} "${old.name}" (change ${(change * 100).toFixed(0)}%, J=${p.jac.toFixed(2)})`);
@@ -119,7 +124,7 @@ for (let n = 4; n <= all.length; n++) {
   analysis.incremental.push({ n, added: slugs.at(-1), edges: edges.length, clusters: next.map((c) => ({ id: c.id, name: c.name, description: c.description, members: c.members, themes: purity(c.members) })), events });
   console.log(`n=${String(n).padStart(2)} +${slugs.at(-1).padEnd(18)} clusters=${next.length}  ${events.join(' | ')}`);
 }
-saveJson('analysis.json', analysis);
+saveJson(`p2-${SRC}-analysis.json`, analysis);
 console.log('\nresolution sweep:');
 for (const [r, cl] of Object.entries(analysis.resolutionSweep)) console.log(r, cl.map((c) => `[${c.size}: ${c.themes}]`).join(' '));
 console.log(`ledger $${spent().toFixed(3)}`);

@@ -1,0 +1,883 @@
+{
+ "floorCapSweep": {
+  "sonnet12 floor=strong cap=3": {
+   "edges": 14,
+   "meanDegree": 1.47,
+   "maxDegree": 3,
+   "noConnections": [
+    "the-course",
+    "inverting-pyramid",
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.71,
+   "themedBooksWithSameThemeEdge": "15/17"
+  },
+  "sonnet12 floor=strong cap=5": {
+   "edges": 14,
+   "meanDegree": 1.47,
+   "maxDegree": 3,
+   "noConnections": [
+    "the-course",
+    "inverting-pyramid",
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.71,
+   "themedBooksWithSameThemeEdge": "15/17"
+  },
+  "sonnet12 floor=strong cap=8": {
+   "edges": 14,
+   "meanDegree": 1.47,
+   "maxDegree": 3,
+   "noConnections": [
+    "the-course",
+    "inverting-pyramid",
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.71,
+   "themedBooksWithSameThemeEdge": "15/17"
+  },
+  "sonnet12 floor=moderate cap=3": {
+   "edges": 29,
+   "meanDegree": 3.05,
+   "maxDegree": 8,
+   "noConnections": [
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.62,
+   "themedBooksWithSameThemeEdge": "16/17"
+  },
+  "sonnet12 floor=moderate cap=5": {
+   "edges": 35,
+   "meanDegree": 3.68,
+   "maxDegree": 8,
+   "noConnections": [
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.6,
+   "themedBooksWithSameThemeEdge": "16/17"
+  },
+  "sonnet12 floor=moderate cap=8": {
+   "edges": 36,
+   "meanDegree": 3.79,
+   "maxDegree": 8,
+   "noConnections": [
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.58,
+   "themedBooksWithSameThemeEdge": "16/17"
+  },
+  "sonnet12 floor=moderate+both cap=3": {
+   "edges": 32,
+   "meanDegree": 3.37,
+   "maxDegree": 9,
+   "noConnections": [
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.59,
+   "themedBooksWithSameThemeEdge": "16/17"
+  },
+  "sonnet12 floor=moderate+both cap=5": {
+   "edges": 38,
+   "meanDegree": 4,
+   "maxDegree": 9,
+   "noConnections": [
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.58,
+   "themedBooksWithSameThemeEdge": "16/17"
+  },
+  "sonnet12 floor=moderate+both cap=8": {
+   "edges": 40,
+   "meanDegree": 4.21,
+   "maxDegree": 9,
+   "noConnections": [
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.57,
+   "themedBooksWithSameThemeEdge": "16/17"
+  },
+  "sonnet12 floor=weak cap=3": {
+   "edges": 37,
+   "meanDegree": 3.89,
+   "maxDegree": 10,
+   "noConnections": [
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.57,
+   "themedBooksWithSameThemeEdge": "16/17"
+  },
+  "sonnet12 floor=weak cap=5": {
+   "edges": 47,
+   "meanDegree": 4.95,
+   "maxDegree": 11,
+   "noConnections": [
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.53,
+   "themedBooksWithSameThemeEdge": "16/17"
+  },
+  "sonnet12 floor=weak cap=8": {
+   "edges": 50,
+   "meanDegree": 5.26,
+   "maxDegree": 11,
+   "noConnections": [
+    "set-my-heart"
+   ],
+   "sameThemeEdgeShare": 0.52,
+   "themedBooksWithSameThemeEdge": "16/17"
+  }
+ },
+ "resolutionSweep": {
+  "1": [
+   {
+    "size": 5,
+    "members": [
+     "beautiful-world",
+     "brilliant-friend",
+     "everything-love",
+     "intermezzo",
+     "normal-people"
+    ],
+    "themes": "love:5"
+   },
+   {
+    "size": 5,
+    "members": [
+     "blindness",
+     "candide",
+     "plague",
+     "sirens",
+     "unbearable"
+    ],
+    "themes": "absurd:4 love:1"
+   },
+   {
+    "size": 6,
+    "members": [
+     "convenience-store",
+     "kafka-shore",
+     "norwegian-wood",
+     "rest-relaxation",
+     "stranger",
+     "wind-up-bird"
+    ],
+    "themes": "dream:4 love:1 absurd:1"
+   }
+  ],
+  "2": [
+   {
+    "size": 5,
+    "members": [
+     "beautiful-world",
+     "brilliant-friend",
+     "everything-love",
+     "intermezzo",
+     "normal-people"
+    ],
+    "themes": "love:5"
+   },
+   {
+    "size": 3,
+    "members": [
+     "kafka-shore",
+     "norwegian-wood",
+     "wind-up-bird"
+    ],
+    "themes": "dream:2 love:1"
+   },
+   {
+    "size": 3,
+    "members": [
+     "convenience-store",
+     "rest-relaxation",
+     "stranger"
+    ],
+    "themes": "dream:2 absurd:1"
+   },
+   {
+    "size": 3,
+    "members": [
+     "candide",
+     "sirens",
+     "unbearable"
+    ],
+    "themes": "absurd:2 love:1"
+   }
+  ],
+  "0.5": [
+   {
+    "size": 5,
+    "members": [
+     "beautiful-world",
+     "brilliant-friend",
+     "everything-love",
+     "intermezzo",
+     "normal-people"
+    ],
+    "themes": "love:5"
+   },
+   {
+    "size": 11,
+    "members": [
+     "blindness",
+     "candide",
+     "convenience-store",
+     "kafka-shore",
+     "norwegian-wood",
+     "plague",
+     "rest-relaxation",
+     "sirens",
+     "stranger",
+     "unbearable",
+     "wind-up-bird"
+    ],
+    "themes": "absurd:5 dream:4 love:2"
+   }
+  ],
+  "0.75": [
+   {
+    "size": 5,
+    "members": [
+     "beautiful-world",
+     "brilliant-friend",
+     "everything-love",
+     "intermezzo",
+     "normal-people"
+    ],
+    "themes": "love:5"
+   },
+   {
+    "size": 5,
+    "members": [
+     "blindness",
+     "candide",
+     "plague",
+     "sirens",
+     "unbearable"
+    ],
+    "themes": "absurd:4 love:1"
+   },
+   {
+    "size": 6,
+    "members": [
+     "convenience-store",
+     "kafka-shore",
+     "norwegian-wood",
+     "rest-relaxation",
+     "stranger",
+     "wind-up-bird"
+    ],
+    "themes": "dream:4 love:1 absurd:1"
+   }
+  ],
+  "1.5": [
+   {
+    "size": 5,
+    "members": [
+     "beautiful-world",
+     "brilliant-friend",
+     "everything-love",
+     "intermezzo",
+     "normal-people"
+    ],
+    "themes": "love:5"
+   },
+   {
+    "size": 5,
+    "members": [
+     "blindness",
+     "candide",
+     "plague",
+     "sirens",
+     "unbearable"
+    ],
+    "themes": "absurd:4 love:1"
+   },
+   {
+    "size": 3,
+    "members": [
+     "kafka-shore",
+     "norwegian-wood",
+     "wind-up-bird"
+    ],
+    "themes": "dream:2 love:1"
+   },
+   {
+    "size": 3,
+    "members": [
+     "convenience-store",
+     "rest-relaxation",
+     "stranger"
+    ],
+    "themes": "dream:2 absurd:1"
+   }
+  ]
+ },
+ "incremental": [
+  {
+   "n": 4,
+   "added": "everything-love",
+   "edges": 2,
+   "clusters": [],
+   "events": []
+  },
+  {
+   "n": 5,
+   "added": "stranger",
+   "edges": 4,
+   "clusters": [
+    {
+     "id": 1,
+     "name": "Absurd Silence, Searching Anyway",
+     "description": "Protagonists adrift in an indifferent or surreal world, estranged from others and from meaning itself. Each confronts alienation, mortality, and moral responsibility, finding purpose only through action, solidarity, or the persistent search.",
+     "members": [
+      "plague",
+      "stranger",
+      "wind-up-bird"
+     ],
+     "themes": "absurd:2 dream:1"
+    }
+   ],
+   "events": [
+    "NEW #1 \"Absurd Silence, Searching Anyway\" (3 Books)"
+   ]
+  },
+  {
+   "n": 6,
+   "added": "the-course",
+   "edges": 4,
+   "clusters": [
+    {
+     "id": 1,
+     "name": "Absurd Silence, Searching Anyway",
+     "description": "Protagonists adrift in an indifferent or surreal world, estranged from others and from meaning itself. Each confronts alienation, mortality, and moral responsibility, finding purpose only through action, solidarity, or the persistent search.",
+     "members": [
+      "plague",
+      "stranger",
+      "wind-up-bird"
+     ],
+     "themes": "absurd:2 dream:1"
+    }
+   ],
+   "events": []
+  },
+  {
+   "n": 7,
+   "added": "beautiful-world",
+   "edges": 7,
+   "clusters": [
+    {
+     "id": 1,
+     "name": "Absurd Silence, Searching Anyway",
+     "description": "Protagonists adrift in an indifferent or surreal world, estranged from others and from meaning itself. Each confronts alienation, mortality, and moral responsibility, finding purpose only through action, solidarity, or the persistent search.",
+     "members": [
+      "plague",
+      "stranger",
+      "wind-up-bird"
+     ],
+     "themes": "absurd:2 dream:1"
+    },
+    {
+     "id": 2,
+     "name": "Tender, Tangled Twenties",
+     "description": "Young adults fumbling toward intimacy, caught between desire, friendship, and self-protection. These books trace how love and close bonds shape, wound, and eventually help people grow into themselves.",
+     "members": [
+      "beautiful-world",
+      "everything-love",
+      "normal-people"
+     ],
+     "themes": "love:3"
+    }
+   ],
+   "events": [
+    "NEW #2 \"Tender, Tangled Twenties\" (3 Books)"
+   ]
+  },
+  {
+   "n": 8,
+   "added": "kafka-shore",
+   "edges": 8,
+   "clusters": [
+    {
+     "id": 2,
+     "name": "Tender, Tangled Twenties",
+     "description": "Young adults fumbling toward intimacy, caught between desire, friendship, and self-protection. These books trace how love and close bonds shape, wound, and eventually help people grow into themselves.",
+     "members": [
+      "beautiful-world",
+      "everything-love",
+      "normal-people"
+     ],
+     "themes": "love:3"
+    },
+    {
+     "id": 1,
+     "name": "Absurd Silence, Searching Anyway",
+     "description": "Protagonists adrift in an indifferent or surreal world, estranged from others and from meaning itself. Each confronts alienation, mortality, and moral responsibility, finding purpose only through action, solidarity, or the persistent search.",
+     "members": [
+      "kafka-shore",
+      "plague",
+      "stranger",
+      "wind-up-bird"
+     ],
+     "themes": "dream:2 absurd:2"
+    }
+   ],
+   "events": [
+    "kept #1 \"Absurd Silence, Searching Anyway\" (change 25%, J=0.75)"
+   ]
+  },
+  {
+   "n": 9,
+   "added": "blindness",
+   "edges": 9,
+   "clusters": [
+    {
+     "id": 2,
+     "name": "Tender, Tangled Twenties",
+     "description": "Young adults fumbling toward intimacy, caught between desire, friendship, and self-protection. These books trace how love and close bonds shape, wound, and eventually help people grow into themselves.",
+     "members": [
+      "beautiful-world",
+      "everything-love",
+      "normal-people"
+     ],
+     "themes": "love:3"
+    },
+    {
+     "id": 3,
+     "name": "Absurd Crises, Human Solidarity",
+     "description": "Novels in which catastrophe or indifference strips away comforting illusions, exposing life's absurdity and society's fragility. They ask how individuals owe responsibility, compassion, and solidarity to one another when meaning is absent.",
+     "members": [
+      "blindness",
+      "plague",
+      "stranger"
+     ],
+     "themes": "absurd:3"
+    }
+   ],
+   "events": [
+    "NEW #3 \"Absurd Crises, Human Solidarity\" (3 Books)",
+    "DISSOLVED #1 \"Absurd Silence, Searching Anyway\""
+   ]
+  },
+  {
+   "n": 10,
+   "added": "intermezzo",
+   "edges": 12,
+   "clusters": [
+    {
+     "id": 3,
+     "name": "Absurd Crises, Human Solidarity",
+     "description": "Novels in which catastrophe or indifference strips away comforting illusions, exposing life's absurdity and society's fragility. They ask how individuals owe responsibility, compassion, and solidarity to one another when meaning is absent.",
+     "members": [
+      "blindness",
+      "plague",
+      "stranger"
+     ],
+     "themes": "absurd:3"
+    },
+    {
+     "id": 2,
+     "name": "Tender, Tangled Twenties",
+     "description": "Young adults fumbling toward intimacy, caught between desire, friendship, and self-protection. These books trace how love and close bonds shape, wound, and eventually help people grow into themselves.",
+     "members": [
+      "beautiful-world",
+      "everything-love",
+      "intermezzo",
+      "normal-people"
+     ],
+     "themes": "love:4"
+    }
+   ],
+   "events": [
+    "kept #2 \"Tender, Tangled Twenties\" (change 25%, J=0.75)"
+   ]
+  },
+  {
+   "n": 11,
+   "added": "candide",
+   "edges": 14,
+   "clusters": [
+    {
+     "id": 2,
+     "name": "Tender, Tangled Twenties",
+     "description": "Young adults fumbling toward intimacy, caught between desire, friendship, and self-protection. These books trace how love and close bonds shape, wound, and eventually help people grow into themselves.",
+     "members": [
+      "beautiful-world",
+      "everything-love",
+      "intermezzo",
+      "normal-people"
+     ],
+     "themes": "love:4"
+    },
+    {
+     "id": 3,
+     "name": "Absurd Crises, Human Solidarity",
+     "description": "Novels in which catastrophe or indifference strips away comforting illusions, exposing life's absurdity and society's fragility. They ask how individuals owe responsibility, compassion, and solidarity to one another when meaning is absent.",
+     "members": [
+      "blindness",
+      "candide",
+      "plague",
+      "stranger"
+     ],
+     "themes": "absurd:4"
+    }
+   ],
+   "events": [
+    "kept #3 \"Absurd Crises, Human Solidarity\" (change 25%, J=0.75)"
+   ]
+  },
+  {
+   "n": 12,
+   "added": "convenience-store",
+   "edges": 17,
+   "clusters": [
+    {
+     "id": 2,
+     "name": "Tender, Tangled Twenties",
+     "description": "Young adults fumbling toward intimacy, caught between desire, friendship, and self-protection. These books trace how love and close bonds shape, wound, and eventually help people grow into themselves.",
+     "members": [
+      "beautiful-world",
+      "everything-love",
+      "intermezzo",
+      "normal-people"
+     ],
+     "themes": "love:4"
+    },
+    {
+     "id": 3,
+     "name": "Absurd Crises, Human Solidarity",
+     "description": "Novels in which catastrophe or indifference strips away comforting illusions, exposing life's absurdity and society's fragility. They ask how individuals owe responsibility, compassion, and solidarity to one another when meaning is absent.",
+     "members": [
+      "blindness",
+      "candide",
+      "convenience-store",
+      "plague",
+      "stranger"
+     ],
+     "themes": "absurd:4 dream:1"
+    }
+   ],
+   "events": [
+    "kept #3 \"Absurd Crises, Human Solidarity\" (change 20%, J=0.80)"
+   ]
+  },
+  {
+   "n": 13,
+   "added": "brilliant-friend",
+   "edges": 19,
+   "clusters": [
+    {
+     "id": 3,
+     "name": "Absurd Crises, Human Solidarity",
+     "description": "Novels in which catastrophe or indifference strips away comforting illusions, exposing life's absurdity and society's fragility. They ask how individuals owe responsibility, compassion, and solidarity to one another when meaning is absent.",
+     "members": [
+      "blindness",
+      "candide",
+      "convenience-store",
+      "plague",
+      "stranger"
+     ],
+     "themes": "absurd:4 dream:1"
+    },
+    {
+     "id": 2,
+     "name": "Tender, Tangled Twenties",
+     "description": "Young adults fumbling toward intimacy, caught between desire, friendship, and self-protection. These books trace how love and close bonds shape, wound, and eventually help people grow into themselves.",
+     "members": [
+      "beautiful-world",
+      "brilliant-friend",
+      "everything-love",
+      "intermezzo",
+      "normal-people"
+     ],
+     "themes": "love:5"
+    }
+   ],
+   "events": [
+    "kept #2 \"Tender, Tangled Twenties\" (change 20%, J=0.80)"
+   ]
+  },
+  {
+   "n": 14,
+   "added": "unbearable",
+   "edges": 23,
+   "clusters": [
+    {
+     "id": 2,
+     "name": "Tender, Tangled Twenties",
+     "description": "Young adults fumbling toward intimacy, caught between desire, friendship, and self-protection. These books trace how love and close bonds shape, wound, and eventually help people grow into themselves.",
+     "members": [
+      "beautiful-world",
+      "brilliant-friend",
+      "everything-love",
+      "intermezzo",
+      "normal-people"
+     ],
+     "themes": "love:5"
+    },
+    {
+     "id": 3,
+     "name": "Absurd Crises, Human Solidarity",
+     "description": "Novels in which catastrophe or indifference strips away comforting illusions, exposing life's absurdity and society's fragility. They ask how individuals owe responsibility, compassion, and solidarity to one another when meaning is absent.",
+     "members": [
+      "blindness",
+      "candide",
+      "convenience-store",
+      "plague",
+      "stranger",
+      "unbearable"
+     ],
+     "themes": "absurd:4 dream:1 love:1"
+    }
+   ],
+   "events": [
+    "kept #3 \"Absurd Crises, Human Solidarity\" (change 17%, J=0.83)"
+   ]
+  },
+  {
+   "n": 15,
+   "added": "rest-relaxation",
+   "edges": 27,
+   "clusters": [
+    {
+     "id": 2,
+     "name": "Tender, Tangled Twenties",
+     "description": "Young adults fumbling toward intimacy, caught between desire, friendship, and self-protection. These books trace how love and close bonds shape, wound, and eventually help people grow into themselves.",
+     "members": [
+      "beautiful-world",
+      "brilliant-friend",
+      "everything-love",
+      "intermezzo",
+      "normal-people"
+     ],
+     "themes": "love:5"
+    },
+    {
+     "id": 3,
+     "name": "Living Through the Absurd",
+     "description": "Philosophical novels that confront suffering, catastrophe, and political upheaval, questioning easy certainties about meaning, reason, and choice. Their characters find what dignity, solidarity, or love they can in a world that offers no guarantees.",
+     "members": [
+      "blindness",
+      "candide",
+      "plague",
+      "unbearable"
+     ],
+     "themes": "absurd:3 love:1"
+    },
+    {
+     "id": 4,
+     "name": "Strangers in Ordinary Lives",
+     "description": "Detached, estranged protagonists drift through mundane routines and social expectations, withdrawing or being pushed into strange inner and outer worlds. Each book probes alienation and the thin line between numb normalcy and the surreal.",
+     "members": [
+      "convenience-store",
+      "kafka-shore",
+      "rest-relaxation",
+      "stranger",
+      "wind-up-bird"
+     ],
+     "themes": "dream:4 absurd:1"
+    }
+   ],
+   "events": [
+    "RENAME #3 \"Absurd Crises, Human Solidarity\" -> \"Living Through the Absurd\" (change 33%, J=0.67)",
+    "NEW #4 \"Strangers in Ordinary Lives\" (5 Books)"
+   ]
+  },
+  {
+   "n": 16,
+   "added": "sirens",
+   "edges": 32,
+   "clusters": [
+    {
+     "id": 2,
+     "name": "Tender, Tangled Twenties",
+     "description": "Young adults fumbling toward intimacy, caught between desire, friendship, and self-protection. These books trace how love and close bonds shape, wound, and eventually help people grow into themselves.",
+     "members": [
+      "beautiful-world",
+      "brilliant-friend",
+      "everything-love",
+      "intermezzo",
+      "normal-people"
+     ],
+     "themes": "love:5"
+    },
+    {
+     "id": 4,
+     "name": "Strangers in Ordinary Lives",
+     "description": "Detached, estranged protagonists drift through mundane routines and social expectations, withdrawing or being pushed into strange inner and outer worlds. Each book probes alienation and the thin line between numb normalcy and the surreal.",
+     "members": [
+      "convenience-store",
+      "kafka-shore",
+      "rest-relaxation",
+      "stranger",
+      "wind-up-bird"
+     ],
+     "themes": "dream:4 absurd:1"
+    },
+    {
+     "id": 3,
+     "name": "Living Through the Absurd",
+     "description": "Philosophical novels that confront suffering, catastrophe, and political upheaval, questioning easy certainties about meaning, reason, and choice. Their characters find what dignity, solidarity, or love they can in a world that offers no guarantees.",
+     "members": [
+      "blindness",
+      "candide",
+      "plague",
+      "sirens",
+      "unbearable"
+     ],
+     "themes": "absurd:4 love:1"
+    }
+   ],
+   "events": [
+    "kept #3 \"Living Through the Absurd\" (change 20%, J=0.80)"
+   ]
+  },
+  {
+   "n": 17,
+   "added": "norwegian-wood",
+   "edges": 37,
+   "clusters": [
+    {
+     "id": 2,
+     "name": "Tender, Tangled Twenties",
+     "description": "Young adults fumbling toward intimacy, caught between desire, friendship, and self-protection. These books trace how love and close bonds shape, wound, and eventually help people grow into themselves.",
+     "members": [
+      "beautiful-world",
+      "brilliant-friend",
+      "everything-love",
+      "intermezzo",
+      "normal-people"
+     ],
+     "themes": "love:5"
+    },
+    {
+     "id": 3,
+     "name": "Living Through the Absurd",
+     "description": "Philosophical novels that confront suffering, catastrophe, and political upheaval, questioning easy certainties about meaning, reason, and choice. Their characters find what dignity, solidarity, or love they can in a world that offers no guarantees.",
+     "members": [
+      "blindness",
+      "candide",
+      "plague",
+      "sirens",
+      "unbearable"
+     ],
+     "themes": "absurd:4 love:1"
+    },
+    {
+     "id": 4,
+     "name": "Strangers in Ordinary Lives",
+     "description": "Detached, estranged protagonists drift through mundane routines and social expectations, withdrawing or being pushed into strange inner and outer worlds. Each book probes alienation and the thin line between numb normalcy and the surreal.",
+     "members": [
+      "convenience-store",
+      "kafka-shore",
+      "norwegian-wood",
+      "rest-relaxation",
+      "stranger",
+      "wind-up-bird"
+     ],
+     "themes": "dream:4 love:1 absurd:1"
+    }
+   ],
+   "events": [
+    "kept #4 \"Strangers in Ordinary Lives\" (change 17%, J=0.83)"
+   ]
+  },
+  {
+   "n": 18,
+   "added": "inverting-pyramid",
+   "edges": 38,
+   "clusters": [
+    {
+     "id": 2,
+     "name": "Tender, Tangled Twenties",
+     "description": "Young adults fumbling toward intimacy, caught between desire, friendship, and self-protection. These books trace how love and close bonds shape, wound, and eventually help people grow into themselves.",
+     "members": [
+      "beautiful-world",
+      "brilliant-friend",
+      "everything-love",
+      "intermezzo",
+      "normal-people"
+     ],
+     "themes": "love:5"
+    },
+    {
+     "id": 3,
+     "name": "Living Through the Absurd",
+     "description": "Philosophical novels that confront suffering, catastrophe, and political upheaval, questioning easy certainties about meaning, reason, and choice. Their characters find what dignity, solidarity, or love they can in a world that offers no guarantees.",
+     "members": [
+      "blindness",
+      "candide",
+      "plague",
+      "sirens",
+      "unbearable"
+     ],
+     "themes": "absurd:4 love:1"
+    },
+    {
+     "id": 4,
+     "name": "Strangers in Ordinary Lives",
+     "description": "Detached, estranged protagonists drift through mundane routines and social expectations, withdrawing or being pushed into strange inner and outer worlds. Each book probes alienation and the thin line between numb normalcy and the surreal.",
+     "members": [
+      "convenience-store",
+      "kafka-shore",
+      "norwegian-wood",
+      "rest-relaxation",
+      "stranger",
+      "wind-up-bird"
+     ],
+     "themes": "dream:4 love:1 absurd:1"
+    }
+   ],
+   "events": []
+  },
+  {
+   "n": 19,
+   "added": "set-my-heart",
+   "edges": 38,
+   "clusters": [
+    {
+     "id": 2,
+     "name": "Tender, Tangled Twenties",
+     "description": "Young adults fumbling toward intimacy, caught between desire, friendship, and self-protection. These books trace how love and close bonds shape, wound, and eventually help people grow into themselves.",
+     "members": [
+      "beautiful-world",
+      "brilliant-friend",
+      "everything-love",
+      "intermezzo",
+      "normal-people"
+     ],
+     "themes": "love:5"
+    },
+    {
+     "id": 3,
+     "name": "Living Through the Absurd",
+     "description": "Philosophical novels that confront suffering, catastrophe, and political upheaval, questioning easy certainties about meaning, reason, and choice. Their characters find what dignity, solidarity, or love they can in a world that offers no guarantees.",
+     "members": [
+      "blindness",
+      "candide",
+      "plague",
+      "sirens",
+      "unbearable"
+     ],
+     "themes": "absurd:4 love:1"
+    },
+    {
+     "id": 4,
+     "name": "Strangers in Ordinary Lives",
+     "description": "Detached, estranged protagonists drift through mundane routines and social expectations, withdrawing or being pushed into strange inner and outer worlds. Each book probes alienation and the thin line between numb normalcy and the surreal.",
+     "members": [
+      "convenience-store",
+      "kafka-shore",
+      "norwegian-wood",
+      "rest-relaxation",
+      "stranger",
+      "wind-up-bird"
+     ],
+     "themes": "dream:4 love:1 absurd:1"
+    }
+   ],
+   "events": []
+  }
+ ],
+ "namingCalls": 5
+}

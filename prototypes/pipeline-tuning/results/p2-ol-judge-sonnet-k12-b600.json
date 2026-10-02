@@ -1,0 +1,1327 @@
+{
+ "tier": "sonnet",
+ "k": 12,
+ "budget": 600,
+ "promptVersion": "p2",
+ "results": [
+  {
+   "slug": "normal-people",
+   "position": 0,
+   "candidates": [],
+   "connections": [],
+   "skipped": "no candidates"
+  },
+  {
+   "slug": "plague",
+   "position": 1,
+   "candidates": [
+    "normal-people"
+   ],
+   "connections": [],
+   "malformed": 0,
+   "usage": {
+    "in": 1648,
+    "out": 10
+   },
+   "usd": 0.003396,
+   "cached": false
+  },
+  {
+   "slug": "wind-up-bird",
+   "position": 2,
+   "candidates": [
+    "plague",
+    "normal-people"
+   ],
+   "connections": [
+    {
+     "other": "plague",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Both books deal with a person facing an indifferent or dislocating world and searching for meaning: The Plague through absurdity and mortality in a stricken city, The Wind-Up Bird Chronicle through Toru Okada's metaphysical searching amid isolation. Your note on The Wind-Up Bird Chronicle, \"questions whether or not we are truly free\", touches the existential question that Camus's novel also raises, though you left no Notes on The Plague.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [
+      {
+       "slug": "wind-up-bird",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 1,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "normal-people",
+     "type": "thematic",
+     "strength": "weak",
+     "explanation": "Both books follow individuals searching for meaning and connection, with Normal People focused on intimacy and Murakami's novel on isolation and disconnection. The link is narrow, as the tone and approach differ greatly, and you have no Notes on Normal People.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    }
+   ],
+   "malformed": 0,
+   "usage": {
+    "in": 1900,
+    "out": 333
+   },
+   "usd": 0.00713,
+   "cached": false
+  },
+  {
+   "slug": "everything-love",
+   "position": 3,
+   "candidates": [
+    "normal-people",
+    "wind-up-bird",
+    "plague"
+   ],
+   "connections": [
+    {
+     "other": "normal-people",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Both books follow young people through early adulthood and the emotional weight of their closest attachments, including heartbreak and self-protection. Normal People centres one on-and-off relationship across years, while Everything I Know About Love sets romance beside friendship.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    }
+   ],
+   "malformed": 0,
+   "usage": {
+    "in": 2092,
+    "out": 133
+   },
+   "usd": 0.005514,
+   "cached": false
+  },
+  {
+   "slug": "stranger",
+   "position": 4,
+   "candidates": [
+    "plague",
+    "wind-up-bird",
+    "normal-people",
+    "everything-love"
+   ],
+   "connections": [
+    {
+     "other": "plague",
+     "type": "context",
+     "strength": "strong",
+     "explanation": "Both are Camus novels set in Algeria/North Africa that take up absurdism, mortality and moral responsibility. The Stranger follows one detached individual, while The Plague follows a whole city's collective response.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "wind-up-bird",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Both novels center on a detached, alienated man in a world that offers no clear meaning. Your note on The Wind-Up Bird Chronicle, \"questions whether or not we are truly free\", echoes the freedom and responsibility theme in The Stranger.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [
+      {
+       "slug": "wind-up-bird",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 1,
+      "invalid": [],
+      "badIds": 0
+     }
+    }
+   ],
+   "malformed": 0,
+   "usage": {
+    "in": 2270,
+    "out": 250
+   },
+   "usd": 0.00704,
+   "cached": false
+  },
+  {
+   "slug": "the-course",
+   "position": 5,
+   "candidates": [
+    "everything-love",
+    "stranger",
+    "normal-people",
+    "wind-up-bird",
+    "plague"
+   ],
+   "connections": [],
+   "malformed": 0,
+   "usage": {
+    "in": 2441,
+    "out": 10
+   },
+   "usd": 0.004982,
+   "cached": false
+  },
+  {
+   "slug": "beautiful-world",
+   "position": 6,
+   "candidates": [
+    "normal-people",
+    "everything-love",
+    "wind-up-bird",
+    "plague",
+    "stranger",
+    "the-course"
+   ],
+   "connections": [
+    {
+     "other": "normal-people",
+     "type": "context",
+     "strength": "strong",
+     "explanation": "Both are Sally Rooney novels set among young people in Ireland, and both trace how intimacy and vulnerability play out in relationships that shift over time. Normal People follows Connell and Marianne from school through Trinity College Dublin, while Beautiful World, Where Are You follows four friends and lovers in Dublin over a year.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "everything-love",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Your note on Everything I Know About Love, \"love isn't just romance, cherish friendships\", fits Beautiful World, Where Are You, where friendship under strain runs alongside the romantic entanglements. Both books give female friendship as much weight as romance in early adulthood.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [
+      {
+       "slug": "everything-love",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 1,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "wind-up-bird",
+     "type": "thematic",
+     "strength": "weak",
+     "explanation": "Your notes on both books single out letters or emails as a highlight: your note on Beautiful World, Where Are You says \"emails were a highlight\", and your note on The Wind-Up Bird Chronicle says \"the letters were the best part\". Both books also center on people searching for connection.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": true,
+     "quoted": [
+      {
+       "slug": "beautiful-world",
+       "idx": 0
+      },
+      {
+       "slug": "wind-up-bird",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 2,
+      "invalid": [],
+      "badIds": 0
+     }
+    }
+   ],
+   "malformed": 0,
+   "usage": {
+    "in": 2679,
+    "out": 438
+   },
+   "usd": 0.009738,
+   "cached": false
+  },
+  {
+   "slug": "kafka-shore",
+   "position": 7,
+   "candidates": [
+    "wind-up-bird",
+    "plague",
+    "normal-people",
+    "beautiful-world",
+    "stranger",
+    "everything-love",
+    "the-course"
+   ],
+   "connections": [
+    {
+     "other": "wind-up-bird",
+     "type": "context",
+     "strength": "strong",
+     "explanation": "Both are Murakami novels in which everyday life slides into dreamlike, parallel realities and lonely protagonists search for connection. Your note on Kafka on the Shore, \"murakami weaves smoothly between reality and dream, using rivers and transitions as metaphor\", describes the same blending of the surreal and the mundane that the Enrichment gives for The Wind-Up Bird Chronicle, and your note on that book, \"questions whether or not we are truly free\", echoes the fate versus free will theme of Kafka on the Shore.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": true,
+     "quoted": [
+      {
+       "slug": "kafka-shore",
+       "idx": 0
+      },
+      {
+       "slug": "wind-up-bird",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 2,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "stranger",
+     "type": "thematic",
+     "strength": "weak",
+     "explanation": "Both books deal with alienation and with freedom and responsibility, though The Stranger takes a spare, detached realist approach while Kafka on the Shore turns to magical realism and a runaway boy's search for self.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    }
+   ],
+   "malformed": 0,
+   "usage": {
+    "in": 2952,
+    "out": 346
+   },
+   "usd": 0.009364,
+   "cached": false
+  },
+  {
+   "slug": "blindness",
+   "position": 8,
+   "candidates": [
+    "plague",
+    "wind-up-bird",
+    "kafka-shore",
+    "stranger",
+    "beautiful-world",
+    "normal-people",
+    "everything-love",
+    "the-course"
+   ],
+   "connections": [
+    {
+     "other": "plague",
+     "type": "thematic",
+     "strength": "strong",
+     "explanation": "Both Blindness and The Plague turn a sudden, unexplained epidemic in a city into a test of how people respond to collective catastrophe, with solidarity and moral responsibility set against social breakdown. Each uses the disease as a metaphor for something larger about human vulnerability.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "stranger",
+     "type": "context",
+     "strength": "weak",
+     "explanation": "The Stranger shares an author with The Plague rather than with Blindness, but it is a spare, philosophical work like Blindness, and both examine alienation and the way society judges and marginalizes individuals. The link is narrower and rests on tone and theme.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    }
+   ],
+   "malformed": 0,
+   "usage": {
+    "in": 3175,
+    "out": 267
+   },
+   "usd": 0.00902,
+   "cached": false
+  },
+  {
+   "slug": "intermezzo",
+   "position": 9,
+   "candidates": [
+    "beautiful-world",
+    "normal-people",
+    "wind-up-bird",
+    "plague",
+    "everything-love",
+    "kafka-shore",
+    "stranger",
+    "blindness",
+    "the-course"
+   ],
+   "connections": [
+    {
+     "other": "beautiful-world",
+     "type": "context",
+     "strength": "strong",
+     "explanation": "Both are Sally Rooney novels set in contemporary Dublin, tracing intimacy, desire and the struggle to say what one wants. Your note on Intermezzo, \"immersed in peter's stream of consciousness\", pairs with the interior observation the Enrichment describes in Beautiful World, Where Are You, and your note on that book, \"alice and felix's relationship 10/10, emails were a highlight\", shows you responding to its relationships.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": true,
+     "quoted": [
+      {
+       "slug": "intermezzo",
+       "idx": 0
+      },
+      {
+       "slug": "beautiful-world",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 2,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "normal-people",
+     "type": "context",
+     "strength": "moderate",
+     "explanation": "Normal People shares an author and an Irish setting with Intermezzo, and both examine vulnerability and the psychological texture of closeness in relationships. Normal People follows a relationship across years, while Intermezzo follows brothers in the months after a death.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "plague",
+     "type": "thematic",
+     "strength": "weak",
+     "explanation": "Both books concern how people respond to mortality and suffering. The Plague looks at this through collective catastrophe and solidarity, while Intermezzo looks at it through two brothers' private grief.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "everything-love",
+     "type": "thematic",
+     "strength": "weak",
+     "explanation": "Your note on Everything I Know About Love, \"love isn't just romance, cherish friendships\", and your note on Intermezzo, \"pursue living through the dark times\", both point to connection with others as what carries a person through hard periods.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": true,
+     "quoted": [
+      {
+       "slug": "everything-love",
+       "idx": 0
+      },
+      {
+       "slug": "intermezzo",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 2,
+      "invalid": [],
+      "badIds": 0
+     }
+    }
+   ],
+   "malformed": 0,
+   "usage": {
+    "in": 3427,
+    "out": 559
+   },
+   "usd": 0.012444,
+   "cached": false
+  },
+  {
+   "slug": "candide",
+   "position": 10,
+   "candidates": [
+    "plague",
+    "blindness",
+    "stranger",
+    "kafka-shore",
+    "normal-people",
+    "wind-up-bird",
+    "everything-love",
+    "beautiful-world",
+    "intermezzo",
+    "the-course"
+   ],
+   "connections": [
+    {
+     "other": "plague",
+     "type": "thematic",
+     "strength": "strong",
+     "explanation": "Both books confront suffering and the problem of evil in a world without guaranteed meaning: Candide satirizes the belief that everything is for the best, while The Plague asks how people act when catastrophe and mortality offer no such comfort.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "stranger",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Candide's attack on philosophical certainty and The Stranger's confrontation with an indifferent, meaningless existence both challenge comfortable assumptions about order and purpose, though one does it with dark comedy and the other with detached, spare prose.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "blindness",
+     "type": "thematic",
+     "strength": "weak",
+     "explanation": "Both books present sudden catastrophe and the thin surface of civilization, with Blindness showing society fragmenting under epidemic and Candide moving through disasters that undercut faith in progress.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "wind-up-bird",
+     "type": "thematic",
+     "strength": "weak",
+     "explanation": "Both follow a protagonist moving through displacement and questions of agency; your note on The Wind-Up Bird Chronicle says it \"questions whether or not we are truly free\" and that Okada \"drifts from story to story, place to place,\" which echoes Candide's picaresque journey from one episode to the next.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [
+      {
+       "slug": "wind-up-bird",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 2,
+      "invalid": [],
+      "badIds": 0
+     }
+    }
+   ],
+   "malformed": 0,
+   "usage": {
+    "in": 3682,
+    "out": 504
+   },
+   "usd": 0.012404,
+   "cached": false
+  },
+  {
+   "slug": "convenience-store",
+   "position": 11,
+   "candidates": [
+    "wind-up-bird",
+    "blindness",
+    "everything-love",
+    "beautiful-world",
+    "stranger",
+    "normal-people",
+    "intermezzo",
+    "plague",
+    "kafka-shore",
+    "the-course",
+    "candide"
+   ],
+   "connections": [
+    {
+     "other": "stranger",
+     "type": "thematic",
+     "strength": "strong",
+     "explanation": "Both books center on a detached narrator whose alienation from society's expectations is shown in spare, matter-of-fact terms. The Stranger's themes of alienation and social conformity and judgment parallel Convenience Store Woman's tension between authenticity and performing normalcy.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "wind-up-bird",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Both follow a solitary adult living at the edge of conventional society in modern Japan, and both treat isolation sitting beneath ordinary domestic or working routines. Your note on The Wind-Up Bird Chronicle, \"questions whether or not we are truly free\", touches on the freedom and conformity question Convenience Store Woman raises.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [
+      {
+       "slug": "wind-up-bird",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 1,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "intermezzo",
+     "type": "thematic",
+     "strength": "weak",
+     "explanation": "Both are about adults in their thirties dealing with social isolation and the gap between their inner lives and what others expect of them. Your notes on the two books point in different directions: Convenience Store Woman was \"pretty funny but didn't fully get the point\", while your note on Intermezzo calls it \"a meditation on grief\".",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": true,
+     "quoted": [
+      {
+       "slug": "convenience-store",
+       "idx": 0
+      },
+      {
+       "slug": "intermezzo",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 2,
+      "invalid": [],
+      "badIds": 0
+     }
+    }
+   ],
+   "malformed": 0,
+   "usage": {
+    "in": 3946,
+    "out": 454
+   },
+   "usd": 0.012432,
+   "cached": false
+  },
+  {
+   "slug": "brilliant-friend",
+   "position": 12,
+   "candidates": [
+    "normal-people",
+    "everything-love",
+    "beautiful-world",
+    "kafka-shore",
+    "intermezzo",
+    "convenience-store",
+    "plague",
+    "blindness",
+    "wind-up-bird",
+    "candide",
+    "stranger",
+    "the-course"
+   ],
+   "connections": [
+    {
+     "other": "everything-love",
+     "type": "thematic",
+     "strength": "strong",
+     "explanation": "Both books put female friendship at the centre. Your note on Everything I Know About Love, \"love isn't just romance, cherish friendships\", matches My Brilliant Friend's focus on an intense bond between two girls, rivalry included.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [
+      {
+       "slug": "everything-love",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 1,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "normal-people",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Both follow two people whose bond is shaped by class and social position as they grow up, and both use education as part of that story. In My Brilliant Friend it is Naples, and in Normal People it is school and Trinity College Dublin.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "beautiful-world",
+     "type": "thematic",
+     "strength": "weak",
+     "explanation": "Beautiful World, Where Are You looks at friendship under strain, and My Brilliant Friend looks at friendship shaped by rivalry and ambition. Both explore intellectual connection between young people.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "convenience-store",
+     "type": "thematic",
+     "strength": "weak",
+     "explanation": "Both treat the pressure on women to conform to social expectations. Convenience Store Woman is about performing normalcy, while My Brilliant Friend is about the constraints of class and neighbourhood.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    }
+   ],
+   "malformed": 0,
+   "usage": {
+    "in": 4151,
+    "out": 465
+   },
+   "usd": 0.012952,
+   "cached": false
+  },
+  {
+   "slug": "unbearable",
+   "position": 13,
+   "candidates": [
+    "wind-up-bird",
+    "plague",
+    "intermezzo",
+    "beautiful-world",
+    "stranger",
+    "blindness",
+    "normal-people",
+    "convenience-store",
+    "candide",
+    "kafka-shore",
+    "everything-love",
+    "brilliant-friend"
+   ],
+   "connections": [
+    {
+     "other": "wind-up-bird",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Both novels place a drifting individual in a world where meaning is hard to pin down, and both ask about freedom and choice. Your note on The Wind-Up Bird Chronicle, \"questions whether or not we are truly free\", sits alongside the Unbearable Lightness themes of eternal return and human choice.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [
+      {
+       "slug": "wind-up-bird",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 1,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "plague",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Both novels use a historical or collective crisis to ask whether meaning and moral responsibility are possible in an indifferent world. The Plague focuses on solidarity in catastrophe, while Kundera sets responsibility against political powerlessness in Prague.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "stranger",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Both books deal with meaninglessness and with freedom versus responsibility. The Stranger treats these through a detached narrator, while Kundera treats them through the weight and lightness of choices.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "candide",
+     "type": "contrast",
+     "strength": "moderate",
+     "explanation": "Both works are philosophical fiction that tests a big idea against lived experience. Candide satirizes the belief that everything happens for the best, while Kundera weighs the meaning of choice and coincidence under eternal return.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "kafka-shore",
+     "type": "thematic",
+     "strength": "weak",
+     "explanation": "Both novels touch on fate versus free will, and how larger forces shape individual lives. Your note on Kafka on the Shore, \"murakami weaves smoothly between reality and dream\", reflects an interest in the novel's form that parallels your appreciation of Kundera's writing.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [
+      {
+       "slug": "kafka-shore",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 1,
+      "invalid": [],
+      "badIds": 0
+     }
+    }
+   ],
+   "malformed": 0,
+   "usage": {
+    "in": 4244,
+    "out": 642
+   },
+   "usd": 0.014908,
+   "cached": false
+  },
+  {
+   "slug": "rest-relaxation",
+   "position": 14,
+   "candidates": [
+    "wind-up-bird",
+    "intermezzo",
+    "unbearable",
+    "beautiful-world",
+    "convenience-store",
+    "blindness",
+    "everything-love",
+    "normal-people",
+    "plague",
+    "stranger",
+    "kafka-shore",
+    "brilliant-friend"
+   ],
+   "connections": [
+    {
+     "other": "convenience-store",
+     "type": "thematic",
+     "strength": "strong",
+     "explanation": "Both follow a woman who steps away from ordinary social expectations and lives in alienation from the people around her. Your note on My Year of Rest and Relaxation, \"the protagonist is somehow a terrible person but understandable\", fits a narrator whose detachment the Convenience Store Woman Enrichment frames as isolation masked by surface adaptation.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [
+      {
+       "slug": "rest-relaxation",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 1,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "stranger",
+     "type": "thematic",
+     "strength": "strong",
+     "explanation": "Both centre on a detached narrator whose emotional numbness and alienation set them apart from social expectations. The Stranger's spare, matter-of-fact indifference echoes the numbness in My Year of Rest and Relaxation, which you noted as a protagonist who is \"somehow a terrible person but understandable\".",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [
+      {
+       "slug": "rest-relaxation",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 1,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "wind-up-bird",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Both follow an isolated, disconnected person in a big city whose grip on reality loosens into dreamlike states. Your note on My Year of Rest and Relaxation, \"snippets felt like a dream\", lines up with the dreamlike alternate spaces in The Wind-Up Bird Chronicle, where you noted that Okada \"drifts from story to story, place to place\".",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": true,
+     "quoted": [
+      {
+       "slug": "rest-relaxation",
+       "idx": 0
+      },
+      {
+       "slug": "wind-up-bird",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 2,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "kafka-shore",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Your note on Kafka on the Shore, \"murakami weaves smoothly between reality and dream\", shares ground with your note on My Year of Rest and Relaxation, \"snippets felt like a dream\". Both blur the line between waking life and dream while dealing with loneliness and escape.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": true,
+     "quoted": [
+      {
+       "slug": "kafka-shore",
+       "idx": 0
+      },
+      {
+       "slug": "rest-relaxation",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 2,
+      "invalid": [],
+      "badIds": 0
+     }
+    }
+   ],
+   "malformed": 0,
+   "usage": {
+    "in": 4275,
+    "out": 641
+   },
+   "usd": 0.01496,
+   "cached": false
+  },
+  {
+   "slug": "sirens",
+   "position": 15,
+   "candidates": [
+    "unbearable",
+    "wind-up-bird",
+    "candide",
+    "everything-love",
+    "plague",
+    "stranger",
+    "kafka-shore",
+    "blindness",
+    "convenience-store",
+    "rest-relaxation",
+    "intermezzo",
+    "beautiful-world"
+   ],
+   "connections": [
+    {
+     "other": "candide",
+     "type": "contrast",
+     "strength": "strong",
+     "explanation": "Both are darkly comic journeys across the globe or cosmos that satirize the idea of a guiding design behind events; Candide mocks the belief that everything happens for the best, while The Sirens of Titan treats predestination and cosmic purpose as absurd.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "unbearable",
+     "type": "thematic",
+     "strength": "strong",
+     "explanation": "Both weigh free choice against forces beyond the individual. Your note on The Sirens of Titan, \"things are outside of your control, make the most of it\", echoes the book's pull between eternal return, historical inevitability and choice, and your note on The Unbearable Lightness of Being, \"really liked the thoughts on lightness vs weight, especially when it comes to coincidence\", shows you engaged with that tension.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": true,
+     "quoted": [
+      {
+       "slug": "sirens",
+       "idx": 0
+      },
+      {
+       "slug": "unbearable",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 2,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "plague",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Both place people in an indifferent universe where meaning is uncertain; The Plague answers absurdity with solidarity and action, much like making the most of what you cannot control.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "stranger",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Both are built around absurdism and the meaninglessness of existence. The Stranger shows it through a detached, spare lens, while The Sirens of Titan uses cosmic comedy.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "kafka-shore",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Both follow journeys shaped by fate versus free will, with mysterious forces steering the protagonist. Your note on Kafka on the Shore mentions weaving between reality and dream, which fits the book's blurring of the real and the strange.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [
+      {
+       "slug": "kafka-shore",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "wind-up-bird",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Both ask whether we are free while a protagonist moves through surreal, shifting circumstances. Your note on The Wind-Up Bird Chronicle, \"questions whether or not we are truly free\", names the same concern as The Sirens of Titan's free will versus predestination, and your Sirens note about things outside your control lines up with it.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": true,
+     "quoted": [
+      {
+       "slug": "wind-up-bird",
+       "idx": 0
+      },
+      {
+       "slug": "sirens",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 1,
+      "invalid": [],
+      "badIds": 0
+     }
+    }
+   ],
+   "malformed": 0,
+   "usage": {
+    "in": 4327,
+    "out": 806
+   },
+   "usd": 0.016714,
+   "cached": false
+  },
+  {
+   "slug": "norwegian-wood",
+   "position": 16,
+   "candidates": [
+    "wind-up-bird",
+    "intermezzo",
+    "beautiful-world",
+    "unbearable",
+    "everything-love",
+    "rest-relaxation",
+    "normal-people",
+    "kafka-shore",
+    "plague",
+    "stranger",
+    "convenience-store",
+    "blindness"
+   ],
+   "connections": [
+    {
+     "other": "intermezzo",
+     "type": "thematic",
+     "strength": "strong",
+     "explanation": "Both books follow people absorbed in grief and trying to go on living through intimate relationships; your note on Intermezzo, \"a meditation on grief, pursue living through the dark times\", fits Norwegian Wood's aftermath of a friend's suicide and your note on it, \"growth through love\".",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": true,
+     "quoted": [
+      {
+       "slug": "intermezzo",
+       "idx": 0
+      },
+      {
+       "slug": "norwegian-wood",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 2,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "wind-up-bird",
+     "type": "context",
+     "strength": "strong",
+     "explanation": "Both are Murakami novels about a man named Toru drifting through Tokyo and searching for connection amid isolation. Your note on The Wind-Up Bird Chronicle, \"Okada drifts from story to story, place to place\", points to the same restless searching, though that book turns surreal where Norwegian Wood stays realist.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [
+      {
+       "slug": "wind-up-bird",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 1,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "kafka-shore",
+     "type": "context",
+     "strength": "moderate",
+     "explanation": "Same author, with shared concerns of loneliness, memory and human connection. Your note on Kafka on the Shore says Murakami \"weaves smoothly between reality and dream\", which is the register that Norwegian Wood largely sets aside for a grounded, melancholic retrospective.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [
+      {
+       "slug": "kafka-shore",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 1,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "rest-relaxation",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Both center on young people shaped by alienation, emotional numbness and mental fragility, though My Year of Rest and Relaxation chooses deliberate withdrawal where Norwegian Wood follows grief and depression through relationships.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "unbearable",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Both set love and desire against the backdrop of 1960s political upheaval and the search for meaning. Your note on Norwegian Wood about irony in the \"student revolution\" echoes the Enrichment of The Unbearable Lightness of Being on political powerlessness, though I can't quote that phrase exactly as a single word run.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [],
+     "quotes": {
+      "total": 1,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "stranger",
+     "type": "thematic",
+     "strength": "weak",
+     "explanation": "Both present a detached, alienated perspective on death and the search for meaning, with The Stranger's indifference contrasting with Toru Watanabe's grief.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    },
+    {
+     "other": "beautiful-world",
+     "type": "thematic",
+     "strength": "weak",
+     "explanation": "Both are about intimacy, desire and the difficulty of connecting; your note on Beautiful World, Where Are You, \"alice and felix's relationship 10/10, emails were a highlight\", and your note on Norwegian Wood, \"growth through love\", both focus on how relationships shape people.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": true,
+     "quoted": [
+      {
+       "slug": "beautiful-world",
+       "idx": 0
+      },
+      {
+       "slug": "norwegian-wood",
+       "idx": 0
+      }
+     ],
+     "quotes": {
+      "total": 2,
+      "invalid": [],
+      "badIds": 0
+     }
+    }
+   ],
+   "malformed": 0,
+   "usage": {
+    "in": 4355,
+    "out": 955
+   },
+   "usd": 0.01826,
+   "cached": false
+  },
+  {
+   "slug": "inverting-pyramid",
+   "position": 17,
+   "candidates": [
+    "the-course",
+    "beautiful-world",
+    "unbearable",
+    "normal-people",
+    "brilliant-friend",
+    "everything-love",
+    "intermezzo",
+    "sirens",
+    "kafka-shore",
+    "norwegian-wood",
+    "plague",
+    "convenience-store"
+   ],
+   "connections": [
+    {
+     "other": "the-course",
+     "type": "thematic",
+     "strength": "moderate",
+     "explanation": "Both books are about strategy in a competitive game: Wilson traces how coaches found systems that set their teams apart, while Miller argues that above-average poker results come from abandoning conventional wisdom and differentiating your approach.",
+     "unnamed": 0,
+     "recommends": false,
+     "quotedBoth": false,
+     "quoted": [],
+     "quotes": {
+      "total": 0,
+      "invalid": [],
+      "badIds": 0
+     }
+    }
+   ],
+   "malformed": 0,
+   "usage": {
+    "in": 4262,
+    "out": 126
+   },
+   "usd": 0.009784,
+   "cached": false
+  },
+  {
+   "slug": "set-my-heart",
+   "position": 18,
+   "candidates": [],
+   "connections": [],
+   "skipped": "no candidates"
+  }
+ ]
+}

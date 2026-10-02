@@ -5,12 +5,13 @@ import { z } from 'zod';
 import { ORDER } from './data.mjs';
 import { llm, loadJson, saveJson, spent } from './lib.mjs';
 
+const SRC = process.env.SRC ?? 'ol';
 const [tier = 'sonnet', K = '12', BUDGET = '600', only] = process.argv.slice(2);
 const k = Number(K), budget = Number(BUDGET);
-const PROMPT_VERSION = 'p1';
+const PROMPT_VERSION = 'p2';
 
-const books = Object.fromEntries(loadJson('books.json').map((b) => [b.slug, b]));
-const neighbors = loadJson('neighbors.json')['voyage-4'];
+const books = Object.fromEntries(loadJson(`p2-${SRC}-books.json`).map((b) => [b.slug, b]));
+const neighbors = loadJson(`p2-${SRC}-neighbors.json`)['voyage-4'];
 
 const Out = z.object({
   connections: z.array(z.object({
@@ -39,9 +40,13 @@ Strength:
 Rules:
 - Report only candidates with a real link. Omit the rest. An empty list is a valid answer. Report at most 8.
 - explanation: one or two sentences addressed to the reader, grounded in the Enrichment and the reader's Notes.
+- Describe the connection only. Both books are already read, so never recommend, suggest reading, or use phrasing such as "if you liked X, Y offers".
 - You may quote the reader's own Notes. Quote verbatim, inside double quotation marks, and list the id of each Note you quoted in quoted_note_ids. Never put anything inside double quotation marks that is not copied exactly from a Note. Do not put book titles in quotation marks.
+- Every time you quote a Note, name the book it was written about by title in the same sentence, for example: your note on Intermezzo, "...". Never write "this one", "that book" or "the other" for a quoted Note.
+- A link that rests on the reader's Notes for both books is worth reporting even if it is only weak.
 - Never claim the reader thought or felt something their Notes do not say. If a book has no Notes, rely on its Enrichment only and do not imply the reader said anything about it.
-- If a book's Enrichment is unavailable, say little about its content; only link it through its Notes.`;
+- If a book's Enrichment is unavailable, say little about its content; only link it through its Notes.
+- Do not attribute character names or plot events to a book unless its Enrichment or the reader's Notes state them.`;
 
 const approxTokens = (s) => Math.ceil(s.length / 4);
 let noteSeq = 0;
@@ -57,7 +62,7 @@ function noteBlock(slug, cap) {
   });
   return { text: lines.length ? lines.join('\n') : '  (no Notes)', ids };
 }
-const enrich = (b) => b.enrichment.themes.length <= 2 ? '(unavailable)' : `${b.enrichment.summary} Themes: ${b.enrichment.themes.join('; ')}`;
+const enrich = (b) => !b.enrichment.recognised ? '(unavailable)' : `${b.enrichment.summary} Themes: ${b.enrichment.themes.join('; ')}`;
 
 const position = (s) => ORDER.indexOf(s);
 const results = [];
@@ -75,7 +80,7 @@ for (const [i, slug] of ORDER.entries()) {
     return `[C${j + 1}] ${books[c].title} by ${books[c].author}\n  Enrichment: ${enrich(books[c])}\n  Notes:\n${nb.text}`;
   });
   const user = `NEWLY FINISHED BOOK\n${books[slug].title} by ${books[slug].author}\nEnrichment: ${enrich(books[slug])}\nReader's Notes:\n${self.text}\n\nEARLIER-FINISHED CANDIDATES\n${cblocks.join('\n\n')}`;
-  const r = await llm({ label: `judge:${tier}`, tier, system: SYSTEM, user, schema: Out, maxTokens: 8000 });
+  const r = await llm({ label: `judge:${tier}:${SRC}`, tier, system: SYSTEM, user, schema: Out, maxTokens: 8000 });
   const byId = Object.fromEntries(noteIndex.map((n) => [n.id, n]));
   const conns = [];
   let malformed = 0;
@@ -89,14 +94,17 @@ for (const [i, slug] of ORDER.entries()) {
     const pool = cited.length ? cited : noteIndex;
     const spans = [...c.explanation.matchAll(/["“]([^"”]{8,})["”]/g)].map((m) => m[1]);
     const invalid = spans.filter((sp) => !pool.some((n) => norm(n.body).includes(norm(sp))));
-    conns.push({ other, type: c.type, strength: c.strength, explanation: c.explanation,
+    const unnamed = cited.filter((n) => !c.explanation.toLowerCase().includes(books[n.slug].title.toLowerCase().split(/[:,]/)[0])).length;
+    const recommends = /\b(if you (liked|enjoyed|loved)|you might (enjoy|like)|consider (reading|revisiting)|worth (reading|revisiting)|offers? (a |another )?(similar|further|more))\b/i.test(c.explanation);
+    conns.push({ other, type: c.type, strength: c.strength, explanation: c.explanation, unnamed, recommends,
+      quotedBoth: new Set(cited.map((n) => n.slug)).size === 2 && cited.some((n) => n.slug === slug) && cited.some((n) => n.slug === other),
       quoted: cited.map((n) => ({ slug: n.slug, idx: n.idx })),
       quotes: { total: spans.length, invalid, badIds: c.quoted_note_ids.length - cited.length } });
   }
   results.push({ slug, position: i, candidates: cands, connections: conns, malformed, usage: r.usage, usd: r.usd, cached: !!r.cached });
   console.log(`${String(i).padStart(2)} ${slug.padEnd(18)} cands=${cands.length} conns=${conns.length} $${r.usd.toFixed(4)}${r.cached ? ' (cached)' : ''}`);
 }
-const name = `judge-${tier}-k${k}-b${budget}${only ? '-sample' : ''}.json`;
+const name = `p2-${SRC}-judge-${tier}-k${k}-b${budget}${only ? '-sample' : ''}.json`;
 saveJson(name, { tier, k, budget, promptVersion: PROMPT_VERSION, results });
 console.log(`wrote ${name}; ledger $${spent().toFixed(3)}`);
 await (await import('./lib.mjs')).pool.end();
