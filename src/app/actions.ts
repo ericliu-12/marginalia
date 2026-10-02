@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { appDb } from "@/db/client";
 import { getSeededUserId } from "@/db/seed";
 import { addBook, DuplicateBookError } from "@/domain/add-book";
+import { descriptionGateway } from "@/lib/book-search";
 import { changeStatus } from "@/domain/status";
 import type { OpenLibraryWork, Status } from "@/domain/search";
 
@@ -14,7 +15,7 @@ export type AddResult = { ok: true } | { ok: false; reason: "duplicate" | "faile
 export async function addBookAction(work: OpenLibraryWork, status: Status): Promise<AddResult> {
   try {
     const db = appDb();
-    await addBook(db, await getSeededUserId(db), work, status);
+    await addBook(db, await getSeededUserId(db), work, status, descriptionGateway());
     revalidatePath("/");
     return { ok: true };
   } catch (err) {

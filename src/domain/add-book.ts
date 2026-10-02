@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { book, libraryEntry } from "@/db/schema";
+import { findDescription, type BookDescription, type DescriptionGateway } from "./description";
 import { applyStatus } from "./status";
 import { coverUrlFor, type OpenLibraryWork, type Status } from "./search";
 
@@ -21,9 +22,31 @@ function isUniqueViolation(err: unknown) {
   return e?.code === "23505" || e?.cause?.code === "23505";
 }
 
+// A Book's description is fetched once, when the shared Book is first created. A failed or
+// missing lookup never blocks adding.
+async function describeNewBook(db: Db, work: OpenLibraryWork, gateway?: DescriptionGateway | null) {
+  const none: BookDescription = { description: "", googleBooksVolumeId: null };
+  if (!gateway) return none;
+  const [existing] = await db.select({ id: book.id }).from(book).where(eq(book.openLibraryWorkKey, work.workKey));
+  if (existing) return none;
+  try {
+    return await findDescription(gateway, work);
+  } catch (err) {
+    console.error(err);
+    return none;
+  }
+}
+
 // Domain seam: add a Book to the reader's library with a Status. One Library Entry per Book,
 // identified by Open Library work key.
-export async function addBook(db: Db, userId: string, work: OpenLibraryWork, status: Status) {
+export async function addBook(
+  db: Db,
+  userId: string,
+  work: OpenLibraryWork,
+  status: Status,
+  descriptions?: DescriptionGateway | null,
+) {
+  const found = await describeNewBook(db, work, descriptions);
   try {
     return await db.transaction(async (tx) => {
       await tx
@@ -35,6 +58,8 @@ export async function addBook(db: Db, userId: string, work: OpenLibraryWork, sta
           coverUrl: coverUrlFor(work.coverId),
           openLibraryWorkKey: work.workKey,
           snapshot: { subjects: filterSubjects(work.subjects) },
+          description: found.description || null,
+          googleBooksVolumeId: found.googleBooksVolumeId,
         })
         .onConflictDoNothing({ target: book.openLibraryWorkKey });
       const [row] = await tx.select({ id: book.id }).from(book).where(eq(book.openLibraryWorkKey, work.workKey));

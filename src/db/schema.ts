@@ -47,6 +47,8 @@ export const book = pgTable(
     coverUrl: text("cover_url"),
     openLibraryWorkKey: text("open_library_work_key").unique(),
     googleBooksVolumeId: text("google_books_volume_id"),
+    // Fetched once at add-time; null when no source had one.
+    description: text("description"),
     // Set only for Manual Books, which are private to their creator.
     createdByUserId: uuid("created_by_user_id").references(() => user.id),
     // Add-time snapshot (filtered subjects etc.).
