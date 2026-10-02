@@ -11,3 +11,7 @@ Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-
 ### Domain docs
 
 Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+## Git
+
+Before any commit, check the current branch (`git branch --show-current`) and confirm it's the intended one.
