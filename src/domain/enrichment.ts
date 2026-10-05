@@ -116,7 +116,9 @@ export async function enrichBook(db: Db, deps: EnrichDeps, bookId: string): Prom
   try {
     const r = await model.enrich({ title: b.title, authors: b.authors, description: b.description ?? "", subjects });
     // Unrecognised stays empty: no summary or themes are kept for it.
-    const recognised = r.recognised && authorsMatch(r.author, b.authors);
+    // Alternate names cover transliteration: "Murakami Haruki" is "Haruki Murakami".
+    const aliases = (b.snapshot as { authorAliases?: string[] } | null)?.authorAliases ?? [];
+    const recognised = r.recognised && authorsMatch(r.author, [...b.authors, ...aliases]);
     if (r.firstPublishedYear && b.firstPublishedYear && r.firstPublishedYear !== b.firstPublishedYear) {
       console.warn(`Enrichment year mismatch for "${b.title}": model ${r.firstPublishedYear}, Book ${b.firstPublishedYear}`);
     }

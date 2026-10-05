@@ -4,7 +4,7 @@ import { addBook, DuplicateBookError } from "../src/domain/add-book";
 import { readLibrary } from "../src/domain/library";
 import { searchBooks } from "../src/domain/search";
 import { book, libraryEntry, readThrough } from "../src/db/schema";
-import { fakeGateway, work } from "./fakes";
+import { fakeDescriptions, fakeGateway, work } from "./fakes";
 import { useTestDb } from "./harness";
 
 describe("search ranking", () => {
@@ -53,6 +53,31 @@ describe("search ranking", () => {
     ]);
     expect(keys.slice(0, 2)).toEqual(["/works/stranger", "/works/plain"]);
     expect(keys).toHaveLength(7);
+  });
+
+  it("demotes an omnibus by its original title too, and keeps a work whose title is the query", async () => {
+    const keys = await search(
+      [
+        work({
+          workKey: "/works/omnibus",
+          title: "The Fall and The Outsider",
+          originalTitle: "Novels (La chute / L'Étranger)",
+          authors: ["Albert Camus"],
+          editionCount: 40,
+        }),
+        work({ workKey: "/works/defeat", title: "Strange defeat", originalTitle: "L' étrange défaite", authors: ["Marc Bloch"], editionCount: 58 }),
+        work({
+          workKey: "/works/stranger",
+          title: "The Stranger",
+          originalTitle: "L’étranger",
+          authors: ["Albert Camus"],
+          subjects: ["Criticism and interpretation"],
+          editionCount: 468,
+        }),
+      ],
+      "L'étranger",
+    );
+    expect(keys).toEqual(["/works/stranger", "/works/defeat", "/works/omnibus"]);
   });
 
   it("when the query names an author, demotes books about them by someone else, not the novel", async () => {
@@ -170,6 +195,41 @@ describe("add a Book", () => {
       coverUrl: "https://covers.openlibrary.org/b/id/7-M.jpg?default=false",
       snapshot: { subjects: ["College teachers"] },
     });
+  });
+
+  const kafkaOnTheShore = work({
+    workKey: "/works/OL2625431W",
+    title: "Kafka on the Shore",
+    originalTitle: "海辺のカフカ",
+    authors: ["Haruki Murakami"],
+    originalAuthors: ["村上春樹"],
+    authorAliases: ["Haruki Murakami", "Murakami Haruki"],
+  });
+
+  it("stores the English title and Latin author, keeps the originals, and looks the description up by them", async () => {
+    const descriptions = fakeDescriptions({});
+    await addBook(ctx.db, ctx.userId, kafkaOnTheShore, "want", descriptions);
+    const [row] = await ctx.db.select().from(book);
+    expect(row).toMatchObject({
+      title: "Kafka on the Shore",
+      originalTitle: "海辺のカフカ",
+      authors: ["Haruki Murakami"],
+      snapshot: { originalAuthors: ["村上春樹"], authorAliases: ["Haruki Murakami", "Murakami Haruki"] },
+    });
+    expect(descriptions.queries[0]).toContain("Kafka on the Shore");
+    expect(descriptions.queries[0]).toContain("Haruki Murakami");
+  });
+
+  it("stores L'étranger as The Stranger, with the French title kept", async () => {
+    await addBook(ctx.db, ctx.userId, work({ workKey: "/works/OL1230613W", title: "The Stranger", originalTitle: "L’étranger", authors: ["Albert Camus"] }), "read");
+    const [row] = await ctx.db.select().from(book);
+    expect(row).toMatchObject({ title: "The Stranger", originalTitle: "L’étranger", authors: ["Albert Camus"] });
+    expect((await readLibrary(ctx.db, ctx.userId))[0]).toMatchObject({ title: "The Stranger" });
+  });
+
+  it("a Book whose title was not localised has no original title", async () => {
+    await addBook(ctx.db, ctx.userId, stoner, "want");
+    expect((await ctx.db.select().from(book))[0].originalTitle).toBeNull();
   });
 
   it("'Already read' creates one completed Read-through with null dates", async () => {

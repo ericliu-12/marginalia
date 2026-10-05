@@ -42,6 +42,8 @@ export const book = pgTable(
   {
     id: id(),
     title: text("title").notNull(),
+    // Open Library's own title when `title` is the English edition's; null when they are the same.
+    originalTitle: text("original_title"),
     authors: text("authors").array().notNull().default(sql`'{}'::text[]`),
     firstPublishedYear: integer("first_published_year"),
     coverUrl: text("cover_url"),

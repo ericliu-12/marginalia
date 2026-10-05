@@ -48,11 +48,16 @@ export async function addBook(
         .insert(book)
         .values({
           title: work.title,
+          originalTitle: work.originalTitle ?? null,
           authors: work.authors,
           firstPublishedYear: work.firstPublishedYear,
           coverUrl: coverUrlFor(work.coverId),
           openLibraryWorkKey: work.workKey,
-          snapshot: { subjects: filterSubjects(work.subjects) },
+          snapshot: {
+            subjects: filterSubjects(work.subjects),
+            ...(work.originalAuthors && { originalAuthors: work.originalAuthors }),
+            ...(work.authorAliases && { authorAliases: work.authorAliases }),
+          },
           description: found.description || null,
           googleBooksVolumeId: found.googleBooksVolumeId,
         })

@@ -202,4 +202,26 @@ describe("Enrichment", () => {
     await enrichBook(ctx.db, { model }, "00000000-0000-0000-0000-000000000000");
     expect(model.inputs).toHaveLength(0);
   });
+
+  it("cross-checks the believed author against the Book's alternate author names too", async () => {
+    const murakami = work({
+      workKey: "/works/OL2625431W",
+      title: "Kafka on the Shore",
+      originalTitle: "海辺のカフカ",
+      authors: ["Haruki Murakami"],
+      originalAuthors: ["村上春樹"],
+      authorAliases: ["Haruki Murakami", "Murakami Haruki", "Kharuki Murakami"],
+    });
+    const [a, b] = await Promise.all(
+      ["/works/m1", "/works/m2"].map(async (workKey) => {
+        await addBook(ctx.db, ctx.userId, { ...murakami, workKey }, "want", null, noQueue);
+        return (await ctx.db.select().from(book).where(eq(book.openLibraryWorkKey, workKey)))[0];
+      }),
+    );
+    // Family-name-first, as Japanese names are often romanised, is not a different author.
+    await enrichBook(ctx.db, { model: fakeEnricher({ author: "Murakami Haruki" }) }, a.id);
+    expect((await readEnrichment(ctx.db, a.id))?.recognised).toBe(true);
+    await enrichBook(ctx.db, { model: fakeEnricher({ author: "Stephen King" }) }, b.id);
+    expect((await readEnrichment(ctx.db, b.id))?.recognised).toBe(false);
+  });
 });

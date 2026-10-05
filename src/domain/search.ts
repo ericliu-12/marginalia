@@ -8,8 +8,15 @@ export type Status = (typeof statusEnum.enumValues)[number];
 // A work as Open Library describes it; the shape the search gateway returns.
 export type OpenLibraryWork = {
   workKey: string;
+  // Shown and used for every lookup: the English edition title, and Latin-script authors, when
+  // the work has English editions.
   title: string;
   authors: string[];
+  // Set only when the above replaced what Open Library holds for the work.
+  originalTitle?: string;
+  originalAuthors?: string[];
+  // Latin-script alternate names for the authors, for tolerant author cross-checks.
+  authorAliases?: string[];
   firstPublishedYear: number | null;
   editionCount: number;
   coverId: number | null;
@@ -62,7 +69,10 @@ export function rankWorks(works: OpenLibraryWork[], query = ""): OpenLibraryWork
   const knownAuthors = [...new Set(works.flatMap((w) => w.authors))];
   const queryWords = normName(query);
   // Subjects are noisy on the original itself (Open Library tags L'Étranger "Criticism and
-  // interpretation"), so a work by an author the query names is judged by its title only.
+  // interpretation"), so a work by an author the query names, or titled as the query is, is judged
+  // by its title only.
+  const titledAsQuery = (w: OpenLibraryWork) =>
+    queryWords.length > 0 && [w.title, w.originalTitle].some((t) => t && normName(t).join(" ") === queryWords.join(" "));
   const byQueriedAuthor = (w: OpenLibraryWork) =>
     w.authors.some((a) => {
       const surname = normName(a).at(-1);
@@ -70,7 +80,8 @@ export function rankWorks(works: OpenLibraryWork[], query = ""): OpenLibraryWork
     });
   const isDemoted = (w: OpenLibraryWork) =>
     DEMOTED_TITLE.test(w.title) ||
-    (!byQueriedAuthor(w) && w.subjects.some((s) => DEMOTED_SUBJECT.test(s))) ||
+    (!!w.originalTitle && DEMOTED_TITLE.test(w.originalTitle)) ||
+    (!byQueriedAuthor(w) && !titledAsQuery(w) && w.subjects.some((s) => DEMOTED_SUBJECT.test(s))) ||
     isAboutAnotherAuthor(w, knownAuthors, query);
   const demoted = new Map(works.map((w) => [w, isDemoted(w)]));
   return [...works].sort(
