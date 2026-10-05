@@ -67,6 +67,8 @@ export const enrichment = pgTable(
     summary: text("summary"),
     themes: text("themes").array(),
     embedding: embedding("embedding"),
+    // Which model made `embedding`; vectors from different models are never compared.
+    embeddingModel: text("embedding_model"),
     // Inputs the current row was generated from; null means stale ("Try again" clears them).
     descriptionHash: text("description_hash"),
     metadataHash: text("metadata_hash"),
@@ -128,6 +130,7 @@ export const note = pgTable(
     quote: text("quote"),
     page: integer("page"),
     embedding: embedding("embedding"),
+    embeddingModel: text("embedding_model"),
     createdAt: createdAt(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

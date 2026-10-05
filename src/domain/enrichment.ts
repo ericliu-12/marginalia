@@ -129,6 +129,9 @@ export async function enrichBook(db: Db, deps: EnrichDeps, bookId: string): Prom
       recognised,
       summary: recognised ? r.summary : null,
       themes: recognised ? r.themes : null,
+      // Any vector was made from the previous summary; it is re-embedded.
+      embedding: null,
+      embeddingModel: null,
       descriptionHash: retryRequested ? null : descriptionHash,
       metadataHash: retryRequested ? null : metadataHash,
       believedAuthor: r.author,

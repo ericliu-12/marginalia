@@ -1,15 +1,20 @@
+import { eq } from "drizzle-orm";
+import { enrichment, note } from "../src/db/schema";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { addBook } from "../src/domain/add-book";
+import type { EmbeddingQueue } from "../src/domain/embeddings";
 import { readEnrichment, tryAgain, type EnrichmentQueue } from "../src/domain/enrichment";
 import { startWorker } from "../src/lib/jobs";
-import { fakeEnricher, work } from "./fakes";
+import { addNote } from "../src/domain/notes";
+import { fakeEmbedder, fakeEnricher, work } from "./fakes";
 import { useTestDb } from "./harness";
 
 // The real pg-boss queue, running in-process against the test database, with Claude faked.
 describe("Enrichment through the queue", () => {
   const ctx = useTestDb();
   const model = fakeEnricher();
-  let queue: EnrichmentQueue;
+  const embedder = fakeEmbedder(["quiet"]);
+  let queue: EnrichmentQueue & EmbeddingQueue;
   let stop: () => Promise<void>;
 
   beforeAll(async () => {
@@ -17,6 +22,7 @@ describe("Enrichment through the queue", () => {
       connectionString: process.env.TEST_DATABASE_URL!,
       db: ctx.db,
       model,
+      embedder,
       descriptions: null,
       pollingIntervalSeconds: 0.5,
     });
@@ -52,5 +58,14 @@ describe("Enrichment through the queue", () => {
     await queue.enqueueEnrichment(entry.bookId);
     await new Promise((r) => setTimeout(r, 2000));
     expect(model.inputs.filter((i) => i.title === "Dubliners")).toHaveLength(1);
+  });
+
+  it("embeds a recognised Enrichment once it is ready, and a Note when it is saved", async () => {
+    const entry = await addBook(ctx.db, ctx.userId, work({ workKey: "/works/q3", title: "Quiet Book", authors: ["A"] }), "reading", null, queue);
+    const embedded = async () => (await ctx.db.select().from(enrichment).where(eq(enrichment.bookId, entry.bookId)))[0]?.embeddingModel;
+    await until(async () => (await embedded()) === "fake-voyage");
+
+    const n = await addNote(ctx.db, ctx.userId, entry.bookId, { body: "Very quiet." }, queue);
+    await until(async () => (await ctx.db.select().from(note).where(eq(note.id, n.id)))[0].embeddingModel === "fake-voyage");
   });
 });

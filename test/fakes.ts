@@ -1,3 +1,5 @@
+import type { Embedder } from "../src/domain/embeddings";
+import { EMBEDDING_DIMENSIONS } from "../src/lib/models";
 import type { EnrichmentModel, EnrichmentResult } from "../src/domain/enrichment";
 import type { DescriptionGateway, GoogleBooksVolume } from "../src/domain/description";
 import type { BookSearchGateway, OpenLibraryWork } from "../src/domain/search";
@@ -85,6 +87,25 @@ export function fakeEnricher(
         costUsd: 0.0008,
         ...r,
       };
+    },
+  };
+}
+
+// Fake Voyage: a text's vector points along the first of `axes` it mentions
+// (so texts sharing a topic word are near, others orthogonal). Records every call.
+export function fakeEmbedder(axes: string[], model = "fake-voyage"): Embedder & { calls: { texts: string[]; inputType: string }[] } {
+  const calls: { texts: string[]; inputType: string }[] = [];
+  return {
+    model,
+    calls,
+    async embed(texts, inputType) {
+      calls.push({ texts, inputType });
+      return texts.map((t) => {
+        const v = new Array<number>(EMBEDDING_DIMENSIONS).fill(0);
+        const i = axes.findIndex((a) => t.toLowerCase().includes(a));
+        v[i < 0 ? axes.length : i] = 1;
+        return v;
+      });
     },
   };
 }
