@@ -41,6 +41,20 @@ describe("search ranking", () => {
     expect(keys.slice(1).sort()).toEqual(["/works/box", "/works/graphic", "/works/guide", "/works/summary"]);
   });
 
+  it("demotes omnibus editions: titles joining works with ' / ' and generic collection titles", async () => {
+    const keys = await search([
+      work({ workKey: "/works/omnibus", title: "Novels (La chute / L'Étranger)", authors: ["Albert Camus"], editionCount: 40 }),
+      work({ workKey: "/works/joined", title: "Nineteen Eighty-Four / Animal Farm", editionCount: 30 }),
+      work({ workKey: "/works/oeuvres", title: "Œuvres", editionCount: 25 }),
+      work({ workKey: "/works/selected", title: "Selected Works", editionCount: 22 }),
+      work({ workKey: "/works/collected", title: "Collected Works of Albert Camus", editionCount: 21 }),
+      work({ workKey: "/works/stranger", title: "The Stranger", authors: ["Albert Camus"], editionCount: 5 }),
+      work({ workKey: "/works/plain", title: "Fear and Trembling", editionCount: 3 }),
+    ]);
+    expect(keys.slice(0, 2)).toEqual(["/works/stranger", "/works/plain"]);
+    expect(keys).toHaveLength(7);
+  });
+
   it("builds a cover url when Open Library has a cover id, none otherwise", async () => {
     const results = await searchBooks(
       ctx.db,

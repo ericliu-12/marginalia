@@ -30,8 +30,9 @@ export function coverUrlFor(coverId: number | null) {
   return coverId ? `https://covers.openlibrary.org/b/id/${coverId}-M.jpg?default=false` : null;
 }
 
+// Also omnibus editions: a title joining works with " / ", or a generic collection title.
 const DEMOTED_TITLE =
-  /study guide|summary of|analysis of|sparknotes|cliffsnotes|workbook|box(ed)? set|boxset|\b(complete|collected) (trilogy|collection|series|works)\b|omnibus|screenplay|graphic novel/i;
+  /study guide|summary of|analysis of|sparknotes|cliffsnotes|workbook|box(ed)? set|boxset|\b(complete|collected) (trilogy|collection|series|works)\b|omnibus|screenplay|graphic novel| \/ |^(the )?(novels|selected works|œuvres|oeuvres)\b/i;
 const DEMOTED_SUBJECT = /adaptation|study guide|graphic novel|screenplay|criticism and interpretation|box set/i;
 
 function isDemoted(w: OpenLibraryWork) {

@@ -6,6 +6,7 @@ import type { DescriptionGateway } from "@/domain/description";
 
 const ENRICH_QUEUE = "enrich-book";
 const EMBED_QUEUE = "embed";
+const EMBED_RETRY = { retryLimit: 5, retryDelay: 20, retryBackoff: true, retryDelayMax: 300 };
 const ENRICH_RETRIES = 3;
 const ENRICH_CONCURRENCY = 3;
 
@@ -18,13 +19,11 @@ async function ensureQueues(boss: PgBoss) {
     retryDelay: 5,
     retryBackoff: true,
   });
-  // Same coalescing per target: saving a Note twice in a row embeds it once.
-  await boss.createQueue(EMBED_QUEUE, {
-    policy: "short",
-    retryLimit: ENRICH_RETRIES,
-    retryDelay: 5,
-    retryBackoff: true,
-  });
+  // Same coalescing per target: saving a Note twice in a row embeds it once. Voyage rate limits
+  // (429) need minutes, not seconds, to clear: 20s, 40s, 80s... capped at 5 minutes.
+  await boss.createQueue(EMBED_QUEUE, { policy: "short", ...EMBED_RETRY });
+  // createQueue leaves an existing queue as it was; keep its retry settings current.
+  await boss.updateQueue(EMBED_QUEUE, EMBED_RETRY);
 }
 
 type Queues = EnrichmentQueue & EmbeddingQueue;

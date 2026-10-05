@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { enrichment, note } from "../src/db/schema";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { addBook } from "../src/domain/add-book";
@@ -67,5 +67,12 @@ describe("Enrichment through the queue", () => {
 
     const n = await addNote(ctx.db, ctx.userId, entry.bookId, { body: "Very quiet." }, queue);
     await until(async () => (await ctx.db.select().from(note).where(eq(note.id, n.id)))[0].embeddingModel === "fake-voyage");
+  });
+
+  it("retries embed jobs on a slow, backing-off schedule so a Voyage 429 can clear", async () => {
+    const { rows } = await ctx.db.execute<{ retry_limit: number; retry_delay: number; retry_backoff: boolean }>(
+      sql`SELECT retry_limit, retry_delay, retry_backoff FROM pgboss.queue WHERE name = 'embed'`,
+    );
+    expect(rows[0]).toEqual({ retry_limit: 5, retry_delay: 20, retry_backoff: true });
   });
 });
