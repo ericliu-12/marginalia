@@ -283,8 +283,10 @@ export type ConnectionCard = {
 export type ConnectionsView = {
   cards: ConnectionCard[];
   status: "idle" | "running" | "failed";
-  // Whether Connections have been generated for this Book: "no Connections yet" is only true then.
+  // Whether Connections have been generated for this Book.
   generated: boolean;
+  // A Book that is not Finished takes no part in Connections, so the panel has nothing to say about them.
+  finished: boolean;
 };
 
 // Domain seam: what the Book panel shows. Strongest first, then most similar. Dismissed ones are hidden.
@@ -323,6 +325,7 @@ export async function readConnections(db: Db, userId: string, bookId: string): P
     }),
     status: entry?.connectionsStatus ?? "idle",
     generated: !!entry?.connectionsGeneratedAt,
+    finished: !!entry && (await isFinished(db, entry.id)),
   };
 }
 

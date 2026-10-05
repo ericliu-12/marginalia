@@ -250,9 +250,11 @@ describe("Connections on first finish", () => {
     }));
     await run(d, a);
     const fromLonely = await readConnections(ctx.db, ctx.userId, b);
-    expect(fromLonely).toMatchObject({ cards: [{ otherBookId: a, otherTitle: "Stoner", explanation: "Narrower.", grounding: "enrichment" }], status: "idle", generated: false });
+    expect(fromLonely).toMatchObject({ cards: [{ otherBookId: a, otherTitle: "Stoner", explanation: "Narrower.", grounding: "enrichment" }], status: "idle", generated: false, finished: true });
     const fromStoner = await readConnections(ctx.db, ctx.userId, a);
     expect(fromStoner.generated).toBe(true);
+    const wanted = (await addBook(ctx.db, ctx.userId, work({ workKey: "/works/w", title: "Wanted", authors: ["A"] }), "want")).bookId;
+    expect(await readConnections(ctx.db, ctx.userId, wanted)).toMatchObject({ cards: [], finished: false });
     expect(fromStoner.cards.map((x) => x.explanation)).toEqual(["Wider.", "Narrower."]);
   });
 });

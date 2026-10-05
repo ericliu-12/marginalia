@@ -34,9 +34,8 @@ export function ConnectionsSection({ bookId }: { bookId: string }) {
   }, [bookId, running]);
 
   if (!view) return null;
-  const { cards, status, generated } = view;
-  // A Book that is not Finished has nothing to find and nothing to say.
-  if (status === "idle" && !generated && cards.length === 0) return null;
+  const { cards, status, finished } = view;
+  if (!finished && cards.length === 0) return null;
 
   return (
     <section aria-label="Connections" className="mb-8 border-b border-rule pb-6">
@@ -49,7 +48,7 @@ export function ConnectionsSection({ bookId }: { bookId: string }) {
       {status === "failed" && cards.length === 0 && (
         <p className="pt-4 text-ink-2 italic">Couldn’t find Connections just now.</p>
       )}
-      {status === "idle" && generated && cards.length === 0 && <p className="pt-4 text-ink-2 italic">No Connections yet.</p>}
+      {status === "idle" && cards.length === 0 && <p className="pt-4 text-ink-2 italic">No Connections yet.</p>}
       {cards.length > 0 && (
         <ul className="divide-y divide-rule/60">
           {cards.map((c) => (
@@ -73,8 +72,9 @@ export function ConnectionsSection({ bookId }: { bookId: string }) {
 export function FindingIndicator({ initial }: { initial: number }) {
   const [count, setCount] = useState(initial);
   useEffect(() => setCount(initial), [initial]);
+  const idle = count === 0;
   useEffect(() => {
-    if (count === 0) return;
+    if (idle) return;
     let live = true;
     const timer = setInterval(
       () => countFindingConnectionsAction().then((n) => live && n !== null && setCount(n)),
@@ -84,7 +84,7 @@ export function FindingIndicator({ initial }: { initial: number }) {
       live = false;
       clearInterval(timer);
     };
-  }, [count === 0]);
+  }, [idle]);
   if (count === 0) return null;
   return (
     <p role="status" className="ml-4 mr-auto font-serif text-sm text-ink-3 italic">
