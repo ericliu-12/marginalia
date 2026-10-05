@@ -1,4 +1,5 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, ne, or, sql } from "drizzle-orm";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import type { Db } from "@/db/client";
 import { enrichment, note } from "@/db/schema";
 
@@ -27,7 +28,7 @@ export async function embedEnrichment(db: Db, embedder: Embedder, bookId: string
   await db
     .update(enrichment)
     .set({ embedding: vector, embeddingModel: embedder.model })
-    .where(and(eq(enrichment.bookId, bookId), eq(enrichment.summary, row.summary)));
+    .where(and(eq(enrichment.bookId, bookId), eq(enrichment.summary, row.summary), eq(enrichment.themes, row.themes ?? [])));
 }
 
 // Domain seam, run by the worker: embed one Note (its text and quoted passage) on its own. A Note
@@ -67,4 +68,19 @@ export async function nearestBooks(db: Db, userId: string, bookId: string, model
     LIMIT ${limit}
   `);
   return rows.map((r) => ({ bookId: r.book_id, similarity: r.similarity }));
+}
+
+// Queues an embed job for every recognised Enrichment and every Note with no vector, or one from
+// another model. Returns how many were queued; jobs for the same target coalesce, so re-running is safe.
+export async function backfillEmbeddings(db: Db, queue: EmbeddingQueue, model: string): Promise<number> {
+  const stale = (embedding: AnyPgColumn, embeddingModel: AnyPgColumn) =>
+    or(isNull(embedding), isNull(embeddingModel), ne(embeddingModel, model));
+  const enrichments = await db
+    .select({ id: enrichment.bookId })
+    .from(enrichment)
+    .where(and(eq(enrichment.recognised, true), eq(enrichment.status, "ready"), stale(enrichment.embedding, enrichment.embeddingModel)));
+  const notes = await db.select({ id: note.id }).from(note).where(stale(note.embedding, note.embeddingModel));
+  for (const { id } of enrichments) await queue.enqueueEmbedding({ kind: "enrichment", id });
+  for (const { id } of notes) await queue.enqueueEmbedding({ kind: "note", id });
+  return enrichments.length + notes.length;
 }

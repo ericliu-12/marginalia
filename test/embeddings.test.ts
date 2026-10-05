@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { addBook } from "../src/domain/add-book";
-import { embedEnrichment, embedNote, nearestBooks, type EmbeddingQueue } from "../src/domain/embeddings";
+import { backfillEmbeddings, embedEnrichment, embedNote, nearestBooks, type EmbeddingQueue } from "../src/domain/embeddings";
 import { enrichBook } from "../src/domain/enrichment";
 import { addNote, updateNote } from "../src/domain/notes";
 import { enrichment, note } from "../src/db/schema";
@@ -121,5 +121,43 @@ describe("Embeddings", () => {
     await embedNote(ctx.db, fakeEmbedder(AXES, "old"), n.id);
     const other = "00000000-0000-0000-0000-000000000000";
     expect(await nearestBooks(ctx.db, other, a, "old")).toEqual([]);
+  });
+
+  it("does not store a vector made from themes that changed while embedding", async () => {
+    const id = await enriched("/works/t", "T", { summary: "Same.", themes: ["solitude"] });
+    const embedder = fakeEmbedder(AXES);
+    const slow = {
+      ...embedder,
+      async embed(texts: string[], inputType: "document" | "query") {
+        await ctx.db.update(enrichment).set({ themes: ["war"] }).where(eq(enrichment.bookId, id));
+        return embedder.embed(texts, inputType);
+      },
+    };
+    await embedEnrichment(ctx.db, slow, id);
+    expect(await enrichmentRow(id)).toMatchObject({ embedding: null });
+  });
+
+  it("backfill queues every recognised Enrichment and Note lacking a vector from the current model", async () => {
+    const done = await enriched("/works/b1", "Done");
+    const fresh = await enriched("/works/b2", "Fresh");
+    const old = await enriched("/works/b3", "Old");
+    await enriched("/works/b4", "Unrecognised", { recognised: false });
+    await addBook(ctx.db, ctx.userId, work({ workKey: "/works/b5", title: "Not enriched" }), "want");
+    await embedEnrichment(ctx.db, fakeEmbedder(AXES, "current"), done);
+    await embedEnrichment(ctx.db, fakeEmbedder(AXES, "retired"), old);
+    const doneNote = await addNote(ctx.db, ctx.userId, done, { body: "embedded" });
+    const oldNote = await addNote(ctx.db, ctx.userId, done, { body: "retired" });
+    const freshNote = await addNote(ctx.db, ctx.userId, fresh, { body: "none" });
+    await embedNote(ctx.db, fakeEmbedder(AXES, "current"), doneNote.id);
+    await embedNote(ctx.db, fakeEmbedder(AXES, "retired"), oldNote.id);
+
+    const queued: { kind: string; id: string }[] = [];
+    const queue: EmbeddingQueue = { async enqueueEmbedding(t) { queued.push(t); } };
+    const count = await backfillEmbeddings(ctx.db, queue, "current");
+    const key = (t: { kind: string; id: string }) => `${t.kind}:${t.id}`;
+    expect(queued.map(key).sort()).toEqual(
+      [`enrichment:${fresh}`, `enrichment:${old}`, `note:${oldNote.id}`, `note:${freshNote.id}`].sort(),
+    );
+    expect(count).toBe(4);
   });
 });
