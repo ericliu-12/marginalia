@@ -12,6 +12,7 @@ import {
   tryAgainAction,
   updateNoteAction,
 } from "./actions";
+import { ConnectionsSection } from "./connections";
 import { Cover } from "./cover";
 
 type Draft = { body: string; quote: string; page: string };
@@ -91,6 +92,7 @@ export function BookPanel({
 
       <div className="min-h-0 flex-1 overflow-y-auto px-6 pt-5 pb-10">
         <About key={`about-${item.bookId}`}bookId={item.bookId} noteCount={notes?.length ?? null} />
+        <ConnectionsSection key={`connections-${item.bookId}`} bookId={item.bookId} />
 
         <NoteForm
           key={item.bookId}

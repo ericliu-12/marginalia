@@ -2,11 +2,12 @@
 
 import { useRef, useState } from "react";
 import type { LibraryItem } from "@/domain/library";
+import { FindingIndicator } from "./connections";
 import { LibraryList } from "./library-list";
 import { BookPanel } from "./book-panel";
 import { SearchPane } from "./search-pane";
 
-export function LibraryWorkspace({ items }: { items: LibraryItem[] }) {
+export function LibraryWorkspace({ items, finding }: { items: LibraryItem[]; finding: number }) {
   const [searchOpen, setSearchOpen] = useState(true);
   const [bookId, setBookId] = useState<string | null>(null);
   const openRef = useRef<HTMLButtonElement>(null);
@@ -16,6 +17,7 @@ export function LibraryWorkspace({ items }: { items: LibraryItem[] }) {
     <div className="flex min-h-screen flex-col lg:h-screen">
       <header className="flex items-baseline justify-between px-8 pt-7 pb-5 lg:px-12">
         <h1 className="text-[1.75rem] leading-none font-medium tracking-[-0.01em] italic">Marginalia</h1>
+        <FindingIndicator initial={finding} />
         {!searchOpen && (
           <button
             ref={openRef}
