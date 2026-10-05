@@ -135,12 +135,110 @@ describe("search ranking", () => {
   it("leaves a possessive title alone when the possessor is not an author in the results", async () => {
     const keys = await search(
       [
-        work({ workKey: "/works/other", title: "Another Book", authors: ["Zed Other"], editionCount: 90 }),
-        work({ workKey: "/works/bridget", title: "Bridget Jones's Diary", authors: ["Helen Fielding"], editionCount: 20 }),
+        work({ workKey: "/works/revisited", title: "Bridget Jones Revisited", authors: ["Zed Other"], editionCount: 20 }),
+        work({ workKey: "/works/bridget", title: "Bridget Jones's Diary", authors: ["Helen Fielding"], editionCount: 90 }),
       ],
       "bridget jones",
     );
-    expect(keys).toEqual(["/works/other", "/works/bridget"]);
+    expect(keys).toEqual(["/works/bridget", "/works/revisited"]);
+  });
+
+  describe("title match leads, edition count only breaks ties", () => {
+    it("Set My Heart on Fire: the exact title beats a 408-edition book that merely turned up", async () => {
+      const keys = await search(
+        [
+          work({ workKey: "/works/twain", title: "Roughing It", authors: ["Mark Twain"], editionCount: 408 }),
+          work({ workKey: "/works/film", title: "American Film", authors: ["American Film Institute"], editionCount: 83 }),
+          work({ workKey: "/works/martin", title: "Set My Heart on Fire", authors: ["Catherine Martin"], editionCount: 1 }),
+          work({ workKey: "/works/suzuki", title: "Set My Heart on Fire", authors: ["Izumi Suzuki"], editionCount: 2 }),
+        ],
+        "Set My Heart on Fire",
+      );
+      expect(keys.slice(0, 2)).toEqual(["/works/suzuki", "/works/martin"]);
+    });
+
+    it("The Plague: Camus's novel leads Defoe's journal and The Plague Dogs", async () => {
+      const keys = await search(
+        [
+          work({ workKey: "/works/defoe", title: "Daniel Defoe's Journal of the plague year", authors: ["Daniel Defoe"], editionCount: 318 }),
+          work({ workKey: "/works/camus", title: "The Plague", authors: ["Albert Camus"], editionCount: 280 }),
+          work({ workKey: "/works/dogs", title: "The Plague Dogs", authors: ["Richard Adams"], editionCount: 8 }),
+          work({ workKey: "/works/paul", title: "Old Saint Paul's, a tale of the plague & the fire.", authors: ["William Harrison Ainsworth"], editionCount: 125 }),
+        ],
+        "The Plague",
+      );
+      expect(keys[0]).toBe("/works/camus");
+    });
+
+    it("Normal People: Sally Rooney's novel leads books that contain the words", async () => {
+      const keys = await search(
+        [
+          work({ workKey: "/works/mysticism", title: "Practical mysticism", authors: ["Evelyn Underhill"], editionCount: 185 }),
+          work({ workKey: "/works/prepping", title: "Survival Prepping for Normal People", authors: ["Rick Henderson"], editionCount: 51 }),
+          work({ workKey: "/works/rooney", title: "Normal People", authors: ["Sally Rooney"], editionCount: 27 }),
+        ],
+        "Normal People",
+      );
+      expect(keys).toEqual(["/works/rooney", "/works/prepping", "/works/mysticism"]);
+    });
+
+    it("Convenience Store Woman: Sayaka Murata's novel leads, by title and by author in the query", async () => {
+      const works = [
+        work({ workKey: "/works/king", title: "Night Shift", authors: ["Stephen King"], editionCount: 65 }),
+        work({ workKey: "/works/anon", title: "Convenience Store Woman", authors: [], editionCount: 17 }),
+        work({ workKey: "/works/murata", title: "Convenience store woman", authors: ["Sayaka Murata"], editionCount: 16 }),
+      ];
+      expect((await search(works, "Convenience Store Woman"))[0]).toBe("/works/anon");
+      // The title is matched with the author's name left out of the query.
+      expect(await search(works, "Convenience Store Woman Sayaka Murata")).toEqual(["/works/murata", "/works/anon", "/works/king"]);
+    });
+
+    it("an exact match counts against the original and the English title", async () => {
+      const keys = await search(
+        [
+          work({ workKey: "/works/other", title: "Another Book", editionCount: 400 }),
+          work({ workKey: "/works/kafka", title: "Kafka on the Shore", originalTitle: "海辺のカフカ", editionCount: 3 }),
+          work({ workKey: "/works/stranger", title: "The Stranger", originalTitle: "L’étranger", editionCount: 2 }),
+        ],
+        "L'étranger",
+      );
+      expect(keys[0]).toBe("/works/stranger");
+      expect((await search([work({ workKey: "/works/other", title: "Another Book", editionCount: 400 }), work({ workKey: "/works/kafka", title: "Kafka on the Shore", originalTitle: "海辺のカフカ", editionCount: 3 })], "kafka on the shore"))[0]).toBe("/works/kafka");
+    });
+
+    it("results with the same title tier are ordered by the queried author, then edition count", async () => {
+      const keys = await search(
+        [
+          work({ workKey: "/works/jackson", title: "The Stranger", authors: ["Bruce Jackson"], editionCount: 500 }),
+          work({ workKey: "/works/camus", title: "The Stranger", authors: ["Albert Camus"], editionCount: 5 }),
+        ],
+        "The Stranger Camus",
+      );
+      expect(keys).toEqual(["/works/camus", "/works/jackson"]);
+    });
+
+    it("a leading article does not stop an exact match: The Remains of the Day leads Remains of the Day", async () => {
+      const keys = await search(
+        [
+          work({ workKey: "/works/stub", title: "Remains of the Day", authors: ["Kazuo Ishiguro"], editionCount: 1 }),
+          work({ workKey: "/works/novel", title: "The Remains of the Day", authors: ["Kazuo Ishiguro"], editionCount: 87 }),
+          work({ workKey: "/works/parkes", title: "Kazuo Ishiguro's the Remains of the Day", authors: ["Adam Parkes"], editionCount: 40 }),
+        ],
+        "remains of the day",
+      );
+      expect(keys).toEqual(["/works/novel", "/works/stub", "/works/parkes"]);
+    });
+
+    it("demotions still apply: a study guide containing every query word stays below an original", async () => {
+      const keys = await search(
+        [
+          work({ workKey: "/works/guide", title: "Normal People: A Study Guide", editionCount: 99 }),
+          work({ workKey: "/works/original", title: "Normal People", editionCount: 1 }),
+        ],
+        "Normal People",
+      );
+      expect(keys).toEqual(["/works/original", "/works/guide"]);
+    });
   });
 
   it("builds a cover url when Open Library has a cover id, none otherwise", async () => {

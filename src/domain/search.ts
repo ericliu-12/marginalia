@@ -63,8 +63,10 @@ function isAboutAnotherAuthor(w: OpenLibraryWork, knownAuthors: string[], query:
   });
 }
 
-// Originals lead (more editions first, earliest first-publish year as tiebreak);
-// adaptations, study guides, box sets, omnibus editions and books about an author follow, in the same order.
+// Demoted works (adaptations, study guides, box sets, omnibus editions, books about an author) go
+// last. Within each group the title decides first: an exact match for the query, then a title
+// holding every query word. Within a title tier, works by an author the query names lead, and
+// edition count (more first, then earliest first-publish year) only breaks the remaining ties.
 export function rankWorks(works: OpenLibraryWork[], query = ""): OpenLibraryWork[] {
   const knownAuthors = [...new Set(works.flatMap((w) => w.authors))];
   const queryWords = normName(query);
@@ -84,9 +86,31 @@ export function rankWorks(works: OpenLibraryWork[], query = ""): OpenLibraryWork
     (!byQueriedAuthor(w) && !titledAsQuery(w) && w.subjects.some((s) => DEMOTED_SUBJECT.test(s))) ||
     isAboutAnotherAuthor(w, knownAuthors, query);
   const demoted = new Map(works.map((w) => [w, isDemoted(w)]));
+
+  // Title match: 0 when a title (English or original) is the query, 1 when it contains every query
+  // word, else 2. When the query names an author, the title is also matched with their name left out.
+  const queriedAuthorWords = new Set(
+    knownAuthors.flatMap((a) => {
+      const names = normName(a);
+      return queryWords.includes(names.at(-1) ?? "") ? names : [];
+    }),
+  );
+  // A leading article does not make a title a different one ("The Remains of the Day").
+  const wordsOf = (s: string) => lower(s).split(/[^a-z0-9]+/).filter(Boolean).filter((w, i) => i > 0 || !/^(the|a|an)$/.test(w));
+  const fullQuery = wordsOf(query);
+  const queries = [fullQuery, fullQuery.filter((x) => !queriedAuthorWords.has(x))].filter((q) => q.length > 0);
+  const titleTier = (w: OpenLibraryWork) => {
+    const titles = [w.title, w.originalTitle].filter((t): t is string => !!t).map(wordsOf);
+    if (queries.some((q) => titles.some((t) => t.join(" ") === q.join(" ")))) return 0;
+    return queries.some((q) => titles.some((t) => q.every((x) => t.includes(x)))) ? 1 : 2;
+  };
+  const tier = new Map(works.map((w) => [w, titleTier(w)]));
+
   return [...works].sort(
     (a, b) =>
       Number(demoted.get(a)) - Number(demoted.get(b)) ||
+      tier.get(a)! - tier.get(b)! ||
+      Number(!byQueriedAuthor(a)) - Number(!byQueriedAuthor(b)) ||
       b.editionCount - a.editionCount ||
       (a.firstPublishedYear ?? Infinity) - (b.firstPublishedYear ?? Infinity),
   );
