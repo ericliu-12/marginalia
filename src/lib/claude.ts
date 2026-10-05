@@ -5,8 +5,8 @@ import type { ConnectionJudge, JudgeInput } from "@/domain/connections";
 import type { EnrichmentInput, EnrichmentModel } from "@/domain/enrichment";
 import { MODELS } from "./models";
 
-// Bump when SYSTEM or the output schema changes; per the Evals rule in CLAUDE.md, re-run the
-// pipeline-tuning harness (19-book set) before committing a change.
+// Bump when SYSTEM or the output schema changes; per the Evals rule in CLAUDE.md, run `pnpm eval`
+// before committing a change.
 export const ENRICHMENT_PROMPT_VERSION = "enrichment-v1";
 
 // Ported from prototype/pipeline-tuning (01-enrich.mjs, p2), plus the author and year the model believes,
@@ -77,7 +77,7 @@ export function claudeEnricher(client = new Anthropic()): EnrichmentModel {
 }
 
 // Bump when JUDGE_SYSTEM_PROMPT, the input layout or the output schema changes; per the Evals rule in
-// CLAUDE.md, re-run the pipeline-tuning harness (19-book set) before committing a change.
+// CLAUDE.md, run `pnpm eval` before committing a change.
 export const JUDGE_PROMPT_VERSION = "judge-p2";
 
 // Ported verbatim from prototype/pipeline-tuning (03-judge.mjs, p2). Static-first so prompt caching

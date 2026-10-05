@@ -23,7 +23,7 @@ Any work that creates or changes UI uses the `impeccable` skill.
 
 ## Evals
 
-After any change to the Enrichment or connection-judge prompts, re-run the pipeline-tuning harness (`prototype/pipeline-tuning`) on the 19-book set and report quote validity and any explanations that got vaguer, before committing. This is not an MVP ticket.
+After any change to the Enrichment or connection-judge prompts, or to the judge's call settings or input layout, run `pnpm eval` (`scripts/eval/judge-eval.ts`, the 19-book set against the stored baseline; about $0.20, scratch database, local `DATABASE_URL` only) and report quote validity, how many Connections quote Notes, and any explanations that got vaguer (read `scripts/eval/out/comparison.md`), before committing. This is not an MVP ticket.
 
 ## Git
 

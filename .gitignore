@@ -37,5 +37,8 @@ node_modules/
 next-env.d.ts
 *.tsbuildinfo
 
+# Eval run output
+scripts/eval/out/
+
 # Playwright MCP session output
 .playwright-mcp/

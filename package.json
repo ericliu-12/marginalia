@@ -13,6 +13,7 @@
     "dev:seed-library": "tsx --env-file-if-exists=.env src/dev-seed-library.ts",
     "connections:backfill": "tsx --env-file-if-exists=.env src/backfill-connections.ts",
     "embed:backfill": "tsx --env-file-if-exists=.env src/backfill-embeddings.ts",
+    "eval": "tsx --env-file-if-exists=.env scripts/eval/judge-eval.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file-if-exists=.env src/db/migrate.ts",
     "db:seed": "tsx --env-file-if-exists=.env src/db/seed.ts"

@@ -1,0 +1,382 @@
+{
+ "order": [
+  "normal-people",
+  "plague",
+  "wind-up-bird",
+  "everything-love",
+  "stranger",
+  "the-course",
+  "beautiful-world",
+  "kafka-shore",
+  "blindness",
+  "intermezzo",
+  "candide",
+  "convenience-store",
+  "brilliant-friend",
+  "unbearable",
+  "rest-relaxation",
+  "sirens",
+  "norwegian-wood",
+  "inverting-pyramid",
+  "set-my-heart"
+ ],
+ "books": [
+  {
+   "slug": "normal-people",
+   "title": "Normal People",
+   "author": "Sally Rooney",
+   "enrichment": {
+    "recognised": true,
+    "summary": "Normal People follows two Irish teenagers, Connell and Marianne, who share a secret connection that begins at school and deepens through their years at Trinity College Dublin. The novel traces their on-and-off relationship across years, exploring how class differences, social position, and their own vulnerabilities shape their attachment to each other. Rooney's spare, precise prose examines the psychological textures of intimacy and the difficulty of understanding what we owe to those closest to us.",
+    "themes": [
+     "class and social positioning",
+     "intensity of first love",
+     "vulnerability and self-protection",
+     "interconnection across years",
+     "family influence on relationships",
+     "searching for meaning and stability"
+    ]
+   },
+   "notes": []
+  },
+  {
+   "slug": "beautiful-world",
+   "title": "Beautiful World, Where Are You",
+   "author": "Sally Rooney",
+   "enrichment": {
+    "recognised": true,
+    "summary": "The novel follows four young people in contemporary Dublin—two successful women and two men—as their friendships and romantic entanglements shift and deepen over the course of a year. Rooney examines intimacy, desire, and connection through email exchanges, conversations, and interior observation, tracing how relationships evolve when people struggle to articulate what they want from one another.",
+    "themes": [
+     "intimacy and vulnerability",
+     "friendship under strain",
+     "romantic desire and ambivalence",
+     "intellectual connection",
+     "the gap between thought and speech",
+     "contemporary Dublin life"
+    ]
+   },
+   "notes": [
+    "alice and felix's relationship 10/10, emails were a highlight"
+   ]
+  },
+  {
+   "slug": "intermezzo",
+   "title": "Intermezzo",
+   "author": "Sally Rooney",
+   "enrichment": {
+    "recognised": true,
+    "summary": "Two Dublin brothers navigate grief following their father's death through relationships and connections with others. Peter, a successful lawyer in his thirties, juggles competing romantic interests while struggling with loss, while his younger brother Ivan, a chess player, forms an intense bond with an older woman. The novel traces their separate paths through desire and despair in the months following bereavement.",
+    "themes": [
+     "grief and mourning",
+     "brotherhood and family",
+     "romantic relationships and desire",
+     "emotional vulnerability",
+     "social isolation and connection",
+     "intellectual versus emotional life"
+    ]
+   },
+   "notes": [
+    "a meditation on grief, pursue living through the dark times. gets better every reread, immersed in peter's stream of consciousness"
+   ]
+  },
+  {
+   "slug": "brilliant-friend",
+   "title": "My Brilliant Friend",
+   "author": "Elena Ferrante",
+   "enrichment": {
+    "recognised": true,
+    "summary": "The graphic novel adaptation of Elena Ferrante's first novel in the Neapolitan series, following the intense friendship between two girls growing up in post-war Naples. The story traces their competing ambitions, intellectual rivalry, and the social constraints of their working-class neighborhood as they navigate adolescence and education.",
+    "themes": [
+     "Female friendship and rivalry",
+     "Class and social mobility",
+     "Education as escape",
+     "Coming of age in Naples",
+     "Ambition and compromise",
+     "Power dynamics between women"
+    ]
+   },
+   "notes": []
+  },
+  {
+   "slug": "everything-love",
+   "title": "Everything I Know About Love",
+   "author": "Dolly Alderton",
+   "enrichment": {
+    "recognised": true,
+    "summary": "A memoir by journalist Dolly Alderton about navigating early adulthood, relationships, and friendships in contemporary life. The book weaves together personal anecdotes, satirical observations, and reflections on love, loss, and self-worth with warmth and humor.",
+    "themes": [
+     "female friendship",
+     "romantic relationships and heartbreak",
+     "becoming an adult",
+     "self-discovery and self-acceptance",
+     "modern dating",
+     "life transitions"
+    ]
+   },
+   "notes": [
+    "love isn't just romance, cherish friendships"
+   ]
+  },
+  {
+   "slug": "plague",
+   "title": "The Plague",
+   "author": "Albert Camus",
+   "enrichment": {
+    "recognised": true,
+    "summary": "A North African city is struck by plague, and its residents must confront absurdity, mortality, and the possibility of meaning in an indifferent world. The novel follows various characters as they navigate collective catastrophe, exploring how individuals respond to suffering and whether solidarity and action can emerge from despair.",
+    "themes": [
+     "absurdity and meaninglessness",
+     "human resilience and solidarity",
+     "plague as metaphor for existential crisis",
+     "moral responsibility in crisis",
+     "confronting mortality and suffering",
+     "collective versus individual experience"
+    ]
+   },
+   "notes": []
+  },
+  {
+   "slug": "stranger",
+   "title": "The Stranger",
+   "author": "Albert Camus",
+   "enrichment": {
+    "recognised": true,
+    "summary": "A man in Algeria commits a senseless murder and faces trial, confronting the absurd meaninglessness of existence and society's expectations. The novel presents his detached perspective and growing alienation through spare, matter-of-fact prose that mirrors his emotional indifference to life.",
+    "themes": [
+     "absurdism",
+     "alienation and detachment",
+     "meaninglessness of existence",
+     "death and mortality",
+     "social conformity and judgment",
+     "freedom and responsibility"
+    ]
+   },
+   "notes": []
+  },
+  {
+   "slug": "candide",
+   "title": "Candide",
+   "author": "Voltaire",
+   "enrichment": {
+    "recognised": true,
+    "summary": "Candide follows a naive young man raised to believe that everything happens for the best, who is expelled from his sheltered life and embarks on a chaotic journey across the globe encountering endless disasters and suffering. Through picaresque misadventures involving earthquakes, war, disease, and violence, Voltaire satirizes philosophical optimism and blind faith in predetermined harmony, presenting a darkly comic critique of Enlightenment assumptions about progress and divine benevolence.",
+    "themes": [
+     "optimism and disillusionment",
+     "the problem of evil and suffering",
+     "satire of philosophical certainty",
+     "the corrupting influence of civilization",
+     "journey and displacement",
+     "the limits of reason and belief"
+    ]
+   },
+   "notes": []
+  },
+  {
+   "slug": "blindness",
+   "title": "Blindness",
+   "author": "José Saramago",
+   "enrichment": {
+    "recognised": true,
+    "summary": "An unexplained epidemic of blindness sweeps through a city, leaving the government struggling to contain the afflicted in quarantine. Saramago explores how society fragments and individuals grapple with loss of sight, creating a sparse, philosophical narrative about human vulnerability and the bonds that form under extreme duress.",
+    "themes": [
+     "sudden loss and adaptation",
+     "social breakdown and compassion",
+     "the fragility of civilization",
+     "human interdependence",
+     "perception and blindness as metaphor",
+     "state control and marginalization"
+    ]
+   },
+   "notes": [
+    "interesting use of visibility as a deterrent. the dog who wipes away the tears"
+   ]
+  },
+  {
+   "slug": "unbearable",
+   "title": "The Unbearable Lightness of Being",
+   "author": "Milan Kundera",
+   "enrichment": {
+    "recognised": true,
+    "summary": "A philosophical novel exploring the tension between lightness and weight in human existence, following the interconnected lives of four characters in 1960s Prague against the backdrop of political upheaval. Kundera weaves together meditations on eternal return, kitsch, and the weight of responsibility with intimate narrative passages examining love, desire, and the search for meaning in a seemingly indifferent universe.",
+    "themes": [
+     "eternal return and human choice",
+     "lightness versus weight in existence",
+     "kitsch and self-deception",
+     "love and erotic desire",
+     "political powerlessness",
+     "individual versus historical inevitability"
+    ]
+   },
+   "notes": [
+    "loved the writing and really liked the thoughts on lightness vs weight, especially when it comes to coincidence"
+   ]
+  },
+  {
+   "slug": "sirens",
+   "title": "The Sirens of Titan",
+   "author": "Kurt Vonnegut",
+   "enrichment": {
+    "recognised": true,
+    "summary": "A wealthy man is drawn into an extraordinary space journey across planets and through time, encountering alien civilizations and cosmic absurdities while searching for life's ultimate meaning. Vonnegut delivers a darkly comic, kaleidoscopic exploration that combines science fiction adventure with philosophical inquiry into human purpose and free will.",
+    "themes": [
+     "meaning and purpose in an indifferent universe",
+     "free will versus predestination",
+     "wealth and moral corruption",
+     "isolation and human connection",
+     "absurdism and cosmic perspective",
+     "the nature of consciousness and soul"
+    ]
+   },
+   "notes": [
+    "things are outside of your control, make the most of it"
+   ]
+  },
+  {
+   "slug": "wind-up-bird",
+   "title": "The Wind-Up Bird Chronicle",
+   "author": "Haruki Murakami",
+   "enrichment": {
+    "recognised": true,
+    "summary": "A man named Toru Okada, unemployed and alone, navigates a strange Tokyo where reality becomes increasingly fluid and surreal. The novel weaves together his encounters with mysterious women, inexplicable occurrences, and a descent into dreamlike alternate spaces, as he searches for meaning and connection in a dislocating modern world.",
+    "themes": [
+     "isolation and disconnection",
+     "the surreal and the mundane",
+     "parallel realities and consciousness",
+     "memory and the past",
+     "domestic life and alienation",
+     "metaphysical searching"
+    ]
+   },
+   "notes": [
+    "questions whether or not we are truly free. Okada drifts from story to story, place to place. the letters were the best part"
+   ]
+  },
+  {
+   "slug": "kafka-shore",
+   "title": "Kafka on the Shore",
+   "author": "Haruki Murakami",
+   "enrichment": {
+    "recognised": true,
+    "summary": "Two parallel narratives follow a fifteen-year-old boy who runs away from home to escape a dark prophecy, and an elderly man who communicates with fish and searches for a lost wartime artifact. The novel moves between the boy's journey and the man's past, weaving together magical realism with meditation on loneliness, connection, and the mysterious forces that shape human lives.",
+    "themes": [
+     "Parallel worlds and alternate realities",
+     "Escape and self-discovery",
+     "Memory and trauma",
+     "Human connection across isolation",
+     "The supernatural in everyday life",
+     "Fate versus free will"
+    ]
+   },
+   "notes": [
+    "the boy named crow represents the id to kafka's ego. murakami weaves smoothly between reality and dream, using rivers and transitions as metaphor"
+   ]
+  },
+  {
+   "slug": "norwegian-wood",
+   "title": "Norwegian Wood",
+   "author": "Haruki Murakami",
+   "enrichment": {
+    "recognised": true,
+    "summary": "A melancholic retrospective novel following Toru Watanabe as he recalls his late twenties in 1960s Tokyo, navigating love, loss, and grief in the aftermath of his best friend's suicide. The narrative explores his entanglement with two women—the fragile, haunted Naoko and the vibrant Midori—as he struggles to reconcile desire, emotional connection, and the reality of human suffering.",
+    "themes": [
+     "grief and loss",
+     "romantic and sexual ambiguity",
+     "isolation and alienation",
+     "searching for meaning and connection",
+     "mental fragility and depression",
+     "coming of age and disillusionment"
+    ]
+   },
+   "notes": [
+    "growth through love. irony pervades the novel, especially the student revolution (performative?). Reiko was the most well written, liked her thoughts on music for yourself"
+   ]
+  },
+  {
+   "slug": "convenience-store",
+   "title": "Convenience Store Woman",
+   "author": "Sayaka Murata",
+   "enrichment": {
+    "recognised": true,
+    "summary": "Keiko Furukura, a woman in her thirties, has spent eighteen years working at a convenience store where she finds comfort in the predictable rules and manual-dictated behaviour that allow her to function as a socially acceptable person. When a cynical young coworker arrives, he challenges her carefully constructed equilibrium and forces her to confront questions about authenticity, belonging, and what it means to live a meaningful life.",
+    "themes": [
+     "social conformity and alienation",
+     "gender expectations and pressure to conform",
+     "finding belonging in structure and routine",
+     "authenticity versus performance of normalcy",
+     "isolation masked by surface adaptation",
+     "critique of social expectations"
+    ]
+   },
+   "notes": [
+    "pretty funny but didn't fully get the point"
+   ]
+  },
+  {
+   "slug": "rest-relaxation",
+   "title": "My Year of Rest and Relaxation",
+   "author": "Ottessa Moshfegh",
+   "enrichment": {
+    "recognised": true,
+    "summary": "Set in early 2000s New York City, this novel follows an unnamed young woman who withdraws from the world through an extended period of medication-induced sleep and isolation, attempting to escape her alienation and the dysfunction of her relationships. As she increasingly relies on pills prescribed by a morally questionable psychiatrist, her blackouts deepen and her disconnection from reality intensifies, trapping her in a solipsistic state.",
+    "themes": [
+     "intentional withdrawal from society",
+     "medication and pharmaceutical dependency",
+     "alienation and emotional numbness",
+     "the unreliability of perception and memory",
+     "psychiatric exploitation",
+     "privilege and ennui"
+    ]
+   },
+   "notes": [
+    "the protagonist is somehow a terrible person but understandable. snippets felt like a dream"
+   ]
+  },
+  {
+   "slug": "set-my-heart",
+   "title": "Set My Heart on Fire",
+   "author": "Izumi Suzuki",
+   "enrichment": {
+    "recognised": false,
+    "summary": "",
+    "themes": []
+   },
+   "notes": []
+  },
+  {
+   "slug": "the-course",
+   "title": "The Course",
+   "author": "Ed Miller",
+   "enrichment": {
+    "recognised": true,
+    "summary": "A poker strategy book that emphasizes unconventional thinking and differentiated approaches to the game. Miller argues that to achieve above-average results in poker, players must abandon conventional wisdom and develop unique strategies that set them apart from standard game theory approaches.",
+    "themes": [
+     "poker strategy",
+     "unconventional thinking",
+     "game theory application",
+     "competitive advantage through differentiation",
+     "mental approach to gambling",
+     "profit optimization"
+    ]
+   },
+   "notes": []
+  },
+  {
+   "slug": "inverting-pyramid",
+   "title": "Inverting the Pyramid",
+   "author": "Jonathan Wilson",
+   "enrichment": {
+    "recognised": true,
+    "summary": "A historical account of how soccer tactics evolved from the Scottish passing game through continental European and South American innovations to modern approaches like Total Football and Barcelona's possession-based style. Wilson traces the spread of distinctive tactical philosophies across different football cultures, examining how coaches adapted and refined formations, positioning, and team structures over more than a century.",
+    "themes": [
+     "tactical evolution and innovation",
+     "coaching influence and legacy",
+     "cultural approaches to the game",
+     "formation and positioning systems",
+     "global spread of football knowledge",
+     "relationship between individual technique and team structure"
+    ]
+   },
+   "notes": []
+  }
+ ]
+}
