@@ -1,5 +1,6 @@
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import type { Db } from "@/db/client";
+import { startConnections, type ConnectionQueue } from "./connections";
 import { libraryEntry, readThrough } from "@/db/schema";
 import type { Status } from "./search";
 
@@ -63,9 +64,10 @@ export async function enterLibrary(tx: Tx, userId: string, bookId: string, statu
 }
 
 // Domain seam: the one place a Status changes for a Book already in the library.
-// Idempotent, except that read -> read is a no-op (it must not record a second pass).
-export async function changeStatus(db: Db, userId: string, bookId: string, status: Status) {
-  return db.transaction(async (tx) => {
+// Idempotent, except that read -> read is a no-op (it must not record a second pass). The first
+// completed Read-through queues the Book's Connections; later ones do nothing.
+export async function changeStatus(db: Db, userId: string, bookId: string, status: Status, queue?: ConnectionQueue | null) {
+  const result = await db.transaction(async (tx) => {
     const [entry] = await tx
       .select()
       .from(libraryEntry)
@@ -77,6 +79,8 @@ export async function changeStatus(db: Db, userId: string, bookId: string, statu
     if (entry.status !== status) await tx.update(libraryEntry).set({ status }).where(eq(libraryEntry.id, entry.id));
     return { firstCompletion };
   });
+  if (result.firstCompletion) await startConnections(db, queue, userId, bookId);
+  return result;
 }
 
 export type FinishedSummary = { lastCompletedAt: number; lastFinishedAt: number | null };

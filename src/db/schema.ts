@@ -164,6 +164,24 @@ export const connection = pgTable(
   ],
 );
 
+// One row per finished Connections job, so spend is visible: the judge model, prompt version, tokens
+// and cost, even when the run found nothing.
+export const connectionRun = pgTable("connection_run", {
+  id: id(),
+  userId: uuid("user_id").notNull().references(() => user.id),
+  libraryEntryId: uuid("library_entry_id")
+    .notNull()
+    .references(() => libraryEntry.id, { onDelete: "cascade" }),
+  candidateCount: integer("candidate_count").notNull(),
+  connectionCount: integer("connection_count").notNull(),
+  model: text("model"),
+  promptVersion: text("prompt_version"),
+  inputTokens: integer("input_tokens").notNull().default(0),
+  outputTokens: integer("output_tokens").notNull().default(0),
+  costUsd: doublePrecision("cost_usd").notNull().default(0),
+  createdAt: createdAt(),
+});
+
 export const clusterLabel = pgTable("cluster_label", {
   id: id(),
   userId: uuid("user_id").notNull().references(() => user.id),

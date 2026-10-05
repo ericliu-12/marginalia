@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { book } from "@/db/schema";
 import { ADD_TIME_BUDGET, describeBook, type DescriptionGateway } from "./description";
+import { startConnections, type ConnectionQueue } from "./connections";
 import { namesMatch, type EnrichmentQueue } from "./enrichment";
 import { enterLibrary } from "./library-entry";
 import { coverUrlFor, type OpenLibraryWork, type Status } from "./search";
@@ -40,7 +41,7 @@ export async function addBook(
   work: OpenLibraryWork,
   status: Status,
   descriptions?: DescriptionGateway | null,
-  queue?: EnrichmentQueue | null,
+  queue?: (EnrichmentQueue & Partial<ConnectionQueue>) | null,
 ) {
   // A description is fetched once, when the shared Book is first created; a failed or missing lookup
   // never blocks the add. Two requests adding the same new Book can both look it up, and the loser's
@@ -83,5 +84,7 @@ export async function addBook(
   // Enrichment is generated once per Book; the job is a no-op when the Book is already enriched.
   // The Book is added either way, so a queue outage must not fail the add.
   await queue?.enqueueEnrichment(result.bookId).catch((err) => console.error(err));
+  // Adding a Book directly as read is its first completion, so a backfill add finds Connections too.
+  if (result.firstCompletion) await startConnections(db, queue, userId, result.bookId);
   return result;
 }

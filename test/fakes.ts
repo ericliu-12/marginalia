@@ -1,3 +1,4 @@
+import type { ConnectionJudge, JudgeInput, JudgeResult } from "../src/domain/connections";
 import type { Embedder } from "../src/domain/embeddings";
 import { EMBEDDING_DIMENSIONS } from "../src/lib/models";
 import type { EnrichmentModel, EnrichmentResult } from "../src/domain/enrichment";
@@ -106,6 +107,22 @@ export function fakeEmbedder(axes: string[], model = "fake-voyage"): Embedder & 
         v[i < 0 ? axes.length : i] = 1;
         return v;
       });
+    },
+  };
+}
+
+export type FakeJudgeReply = (input: JudgeInput) => Partial<JudgeResult> & Pick<JudgeResult, "connections">;
+
+// Fake Claude for the Connection judge: answers with `reply(input)`, records every input.
+export function fakeJudge(reply: FakeJudgeReply = () => ({ connections: [] })): ConnectionJudge & { inputs: JudgeInput[] } {
+  const inputs: JudgeInput[] = [];
+  return {
+    inputs,
+    model: "fake-sonnet",
+    promptVersion: "judge-test-1",
+    async judge(input) {
+      inputs.push(input);
+      return { inputTokens: 1000, outputTokens: 200, costUsd: 0.004, ...reply(input) };
     },
   };
 }
