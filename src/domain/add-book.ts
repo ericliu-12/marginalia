@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { book } from "@/db/schema";
 import { ADD_TIME_BUDGET, describeBook, type DescriptionGateway } from "./description";
-import type { EnrichmentQueue } from "./enrichment";
+import { namesMatch, type EnrichmentQueue } from "./enrichment";
 import { enterLibrary } from "./library-entry";
 import { coverUrlFor, type OpenLibraryWork, type Status } from "./search";
 
@@ -23,6 +23,15 @@ function isUniqueViolation(err: unknown) {
   return e?.code === "23505" || e?.cause?.code === "23505";
 }
 
+// Open Library lists every contributor to a work as an author, translators included. The Google
+// Books volume found for the description names the real ones, so keep the authors that match one of
+// them. With no matching volume (none found, timed out, no key) only the first-listed author is kept:
+// a co-author can be lost this way, which the Book's author override (#25) puts right.
+export function bookAuthors(listed: string[], volumeAuthors: string[] = []): string[] {
+  const matched = listed.filter((a) => volumeAuthors.some((v) => namesMatch(a, v)));
+  return matched.length > 0 ? matched : listed.slice(0, 1);
+}
+
 // Domain seam: add a Book to the reader's library with a Status. One Library Entry per Book,
 // identified by Open Library work key.
 export async function addBook(
@@ -39,7 +48,7 @@ export async function addBook(
   const [existing] = await db.select({ id: book.id }).from(book).where(eq(book.openLibraryWorkKey, work.workKey));
   const found =
     existing || !descriptions
-      ? { description: "", googleBooksVolumeId: null }
+      ? { description: "", googleBooksVolumeId: null, volumeAuthors: undefined }
       : await describeBook(descriptions, work, ADD_TIME_BUDGET);
   let result;
   try {
@@ -49,7 +58,7 @@ export async function addBook(
         .values({
           title: work.title,
           originalTitle: work.originalTitle ?? null,
-          authors: work.authors,
+          authors: bookAuthors(work.authors, found.volumeAuthors),
           firstPublishedYear: work.firstPublishedYear,
           coverUrl: coverUrlFor(work.coverId),
           openLibraryWorkKey: work.workKey,

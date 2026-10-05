@@ -248,7 +248,7 @@ describe("description budgets", () => {
 
     const background = flaky(outage);
     const gwBg = createDescriptionGateway({ ...sleepNever, fetch: background.fetch, sleep: quick });
-    expect(await describeBook(gwBg, w, BACKGROUND_BUDGET)).toEqual({ description: prose(600), googleBooksVolumeId: "v1" });
+    expect(await describeBook(gwBg, w, BACKGROUND_BUDGET)).toEqual({ description: prose(600), googleBooksVolumeId: "v1", volumeAuthors: expect.any(Array) });
     expect(background.googleCalls()).toBe(outage + 1);
   });
 

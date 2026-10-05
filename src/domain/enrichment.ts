@@ -60,18 +60,34 @@ function editDistance(a: string, b: string) {
   return prev[b.length];
 }
 
+// Two surnames are the same name within a small edit distance (Dostoevsky/Dostoyevsky); short
+// surnames must match exactly.
+function surnamesClose(a: string, b: string) {
+  const allowed = Math.min(a.length, b.length) < 5 ? 0 : 1 + Number(a.length >= 10);
+  return editDistance(a, b) <= allowed;
+}
+
 // The model's stated author against the Book's: surnames after normalisation, within a small edit
-// distance (Dostoevsky/Dostoyevsky). Surname-only keeps "J.R.R. Tolkien" matching "John Ronald Reuel
-// Tolkien"; a wrong author is what the check exists to catch. A missing author on either side is skipped.
+// distance. Surname-only keeps "J.R.R. Tolkien" matching "John Ronald Reuel Tolkien"; a wrong author
+// is what the check exists to catch. A missing author on either side is skipped.
 export function authorsMatch(believed: string | null, authors: string[]): boolean {
   const believedSurname = normName(believed ?? "").at(-1);
   if (!believedSurname || authors.length === 0) return true;
   return authors.some((a) => {
     const surname = normName(a).at(-1);
-    if (!surname) return false;
-    const allowed = Math.min(surname.length, believedSurname.length) < 5 ? 0 : 1 + Number(surname.length >= 10);
-    return editDistance(surname, believedSurname) <= allowed;
+    return !!surname && surnamesClose(surname, believedSurname);
   });
+}
+
+// Whether two names are one person's, in either order ("Murata Sayaka", "Sayaka Murata"): either
+// name's surname is among the other's words.
+export function namesMatch(a: string, b: string): boolean {
+  const wordsA = normName(a);
+  const wordsB = normName(b);
+  const surnameA = wordsA.at(-1);
+  const surnameB = wordsB.at(-1);
+  if (!surnameA || !surnameB) return false;
+  return wordsB.some((w) => surnamesClose(surnameA, w)) || wordsA.some((w) => surnamesClose(surnameB, w));
 }
 
 export type EnrichDeps = {

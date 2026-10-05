@@ -41,7 +41,9 @@ export const ADD_TIME_BUDGET: DescriptionBudget = { timeoutMs: 3000, retry: { ma
 // The Enrichment worker: nobody is waiting, so full retries with backoff and no cap.
 export const BACKGROUND_BUDGET: DescriptionBudget = { timeoutMs: null, retry: { maxAttempts: 5, retryDelayMs: 2000 } };
 
-export type BookDescription = { description: string; googleBooksVolumeId: string | null };
+// `volumeAuthors` are the authors of the Google Books volume that matched the Book, even when Open
+// Library's description was the one used; absent when no volume matched.
+export type BookDescription = { description: string; googleBooksVolumeId: string | null; volumeAuthors?: string[] };
 
 // A Google Books description below this is too thin to ground Enrichment, so Open Library's is
 // preferred when it is longer.
@@ -63,7 +65,7 @@ export function pickGoogleBooksDescription(
   volumes: GoogleBooksVolume[],
   title: string,
   author: string,
-): { id: string; description: string } | null {
+): { id: string; description: string; authors: string[] } | null {
   const wantTitle = norm(title);
   const lastName = norm(author).split(" ").at(-1) ?? "";
 
@@ -81,13 +83,15 @@ export function pickGoogleBooksDescription(
         BAD_TITLE.test(`${v.title ?? ""} ${v.subtitle ?? ""}`) || BAD_CATEGORY.test((v.categories ?? []).join(" "));
       // Both checks: bilingual-titled volumes can carry a Spanish description.
       const english = v.language === "en" && looksEnglish(description);
-      return { id: it.id, description, ok: titleOk && authorOk && !bad && english && description.length > 0 };
+      return { id: it.id, description, authors: v.authors ?? [], ok: titleOk && authorOk && !bad && english && description.length > 0 };
     })
     .filter((c) => c.ok)
     .sort((a, b) => b.description.length - a.description.length);
 
   return good[0] ?? null;
 }
+
+const volumeAuthors = (picked: { authors: string[] } | null) => (picked ? { volumeAuthors: picked.authors } : {});
 
 // Google Books description, with the Open Library one when Google's is missing or thin and
 // Open Library's is longer. The Google Books volume id is returned only when Google's description
@@ -120,9 +124,9 @@ async function findDescription(
         failed(err);
         return "";
       });
-    if (ol.length > description.length) return { description: ol, googleBooksVolumeId: null };
+    if (ol.length > description.length) return { description: ol, googleBooksVolumeId: null, ...volumeAuthors(picked) };
   }
-  return { description, googleBooksVolumeId: description ? (picked?.id ?? null) : null };
+  return { description, googleBooksVolumeId: description ? (picked?.id ?? null) : null, ...volumeAuthors(picked) };
 }
 
 // Domain seam: a Book's description under a budget. Never throws: a failed, slow or missing lookup

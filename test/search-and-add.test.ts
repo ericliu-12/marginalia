@@ -4,7 +4,7 @@ import { addBook, DuplicateBookError } from "../src/domain/add-book";
 import { readLibrary } from "../src/domain/library";
 import { searchBooks } from "../src/domain/search";
 import { book, libraryEntry, readThrough } from "../src/db/schema";
-import { fakeDescriptions, fakeGateway, work } from "./fakes";
+import { fakeDescriptions, fakeGateway, prose, volume, work } from "./fakes";
 import { useTestDb } from "./harness";
 
 describe("search ranking", () => {
@@ -323,6 +323,55 @@ describe("add a Book", () => {
     const [row] = await ctx.db.select().from(book);
     expect(row).toMatchObject({ title: "The Stranger", originalTitle: "L’étranger", authors: ["Albert Camus"] });
     expect((await readLibrary(ctx.db, ctx.userId))[0]).toMatchObject({ title: "The Stranger" });
+  });
+
+  describe("authors", () => {
+    // Open Library lists every contributor of a work as an author, translators included; the Google
+    // Books volume found for the description names the real ones.
+    const authorsOf = async (w: ReturnType<typeof work>, descriptions: ReturnType<typeof fakeDescriptions> | null) => {
+      await addBook(ctx.db, ctx.userId, w, "read", descriptions);
+      return (await ctx.db.select().from(book))[0].authors;
+    };
+    const convenience = work({
+      workKey: "/works/OL19744024W",
+      title: "Convenience store woman",
+      authors: ["Murata Sayaka", "Nancy Wu", "Mathilde Tamae-Bouhon", "Albert Nolla Cabellos", "Marina Bornas Montaña"],
+    });
+
+    it("drops translators: keeps the authors that match an author on the Google Books volume", async () => {
+      const gb = fakeDescriptions({
+        volumes: [volume("gb1", { title: "Convenience Store Woman", authors: ["Sayaka Murata", "Ginny Tapley Takemori"], description: prose(900) })],
+      });
+      // "Murata Sayaka" is "Sayaka Murata"; Takemori is on the volume but not an Open Library author.
+      expect(await authorsOf(convenience, gb)).toEqual(["Murata Sayaka"]);
+    });
+
+    it("keeps real co-authors", async () => {
+      const goodOmens = work({ workKey: "/works/OL1W", title: "Good Omens", authors: ["Terry Pratchett", "Neil Gaiman"] });
+      const gb = fakeDescriptions({
+        volumes: [volume("gb2", { title: "Good Omens", authors: ["Neil Gaiman", "Terry Pratchett"], description: prose(900) })],
+      });
+      expect(await authorsOf(goodOmens, gb)).toEqual(["Terry Pratchett", "Neil Gaiman"]);
+    });
+
+    it("tolerates spelling variants between the two sources", async () => {
+      const w = work({ workKey: "/works/OL2W", title: "The Brothers Karamazov", authors: ["Fyodor Dostoevsky", "Constance Garnett"] });
+      const gb = fakeDescriptions({
+        volumes: [volume("gb3", { title: "The Brothers Karamazov", authors: ["Fyodor Dostoyevsky"], description: prose(900) })],
+      });
+      expect(await authorsOf(w, gb)).toEqual(["Fyodor Dostoevsky"]);
+    });
+
+    it("falls back to the first-listed author when no Google Books volume matches or none is available", async () => {
+      expect(await authorsOf(convenience, fakeDescriptions({ volumes: [] }))).toEqual(["Murata Sayaka"]);
+      await ctx.db.delete(libraryEntry);
+      await ctx.db.delete(book);
+      expect(await authorsOf(convenience, null)).toEqual(["Murata Sayaka"]);
+    });
+
+    it("does not touch a single-author work", async () => {
+      expect(await authorsOf(stoner, null)).toEqual(["John Williams"]);
+    });
   });
 
   it("a Book whose title was not localised has no original title", async () => {
