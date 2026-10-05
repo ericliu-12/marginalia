@@ -1,6 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { book, libraryEntry, statusEnum } from "@/db/schema";
+import { authorsMatch, normName } from "./enrichment";
 
 export type Status = (typeof statusEnum.enumValues)[number];
 
@@ -35,16 +36,46 @@ const DEMOTED_TITLE =
   /study guide|summary of|analysis of|sparknotes|cliffsnotes|workbook|box(ed)? set|boxset|\b(complete|collected) (trilogy|collection|series|works)\b|omnibus|screenplay|graphic novel| \/ |^(the )?(novels|selected works|œuvres|oeuvres)\b/i;
 const DEMOTED_SUBJECT = /adaptation|study guide|graphic novel|screenplay|criticism and interpretation|box set/i;
 
-function isDemoted(w: OpenLibraryWork) {
-  return DEMOTED_TITLE.test(w.title) || w.subjects.some((s) => DEMOTED_SUBJECT.test(s));
+const lower = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+// A book about an author or their work, by someone else: its title names an author who appears in
+// the results but is not one of its own authors, either as a possessive ("Kazuo Ishiguro's the
+// Remains of the Day", "Camus' The Stranger") or, when the query names that author, in any form.
+// Judged against the authors in the results, so "Bridget Jones's Diary" is not mistaken for one.
+function isAboutAnotherAuthor(w: OpenLibraryWork, knownAuthors: string[], query: string) {
+  const title = lower(w.title);
+  const titleWords = normName(w.title);
+  const queryWords = normName(query);
+  return knownAuthors.some((author) => {
+    const surname = normName(author).at(-1);
+    if (!surname || surname.length < 3 || authorsMatch(author, w.authors)) return false;
+    return (
+      new RegExp(`\\b${surname}['\u2019]`).test(title) ||
+      (queryWords.includes(surname) && titleWords.includes(surname))
+    );
+  });
 }
 
 // Originals lead (more editions first, earliest first-publish year as tiebreak);
-// adaptations, study guides and box sets follow, in the same order.
-export function rankWorks(works: OpenLibraryWork[]): OpenLibraryWork[] {
+// adaptations, study guides, box sets, omnibus editions and books about an author follow, in the same order.
+export function rankWorks(works: OpenLibraryWork[], query = ""): OpenLibraryWork[] {
+  const knownAuthors = [...new Set(works.flatMap((w) => w.authors))];
+  const queryWords = normName(query);
+  // Subjects are noisy on the original itself (Open Library tags L'Étranger "Criticism and
+  // interpretation"), so a work by an author the query names is judged by its title only.
+  const byQueriedAuthor = (w: OpenLibraryWork) =>
+    w.authors.some((a) => {
+      const surname = normName(a).at(-1);
+      return !!surname && surname.length >= 3 && queryWords.includes(surname);
+    });
+  const isDemoted = (w: OpenLibraryWork) =>
+    DEMOTED_TITLE.test(w.title) ||
+    (!byQueriedAuthor(w) && w.subjects.some((s) => DEMOTED_SUBJECT.test(s))) ||
+    isAboutAnotherAuthor(w, knownAuthors, query);
+  const demoted = new Map(works.map((w) => [w, isDemoted(w)]));
   return [...works].sort(
     (a, b) =>
-      Number(isDemoted(a)) - Number(isDemoted(b)) ||
+      Number(demoted.get(a)) - Number(demoted.get(b)) ||
       b.editionCount - a.editionCount ||
       (a.firstPublishedYear ?? Infinity) - (b.firstPublishedYear ?? Infinity),
   );
@@ -60,7 +91,7 @@ export async function searchBooks(
   const q = query.trim();
   if (!q) return [];
 
-  const ranked = rankWorks(await gateway.searchWorks(q));
+  const ranked = rankWorks(await gateway.searchWorks(q), q);
   if (ranked.length === 0) return [];
 
   const owned = await db

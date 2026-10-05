@@ -39,7 +39,7 @@ export type EnrichmentView = {
 
 const hash = (s: string) => createHash("sha256").update(s).digest("hex");
 
-const normName = (s: string) =>
+export const normName = (s: string) =>
   s
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")

@@ -55,6 +55,69 @@ describe("search ranking", () => {
     expect(keys).toHaveLength(7);
   });
 
+  it("when the query names an author, demotes books about them by someone else, not the novel", async () => {
+    const keys = await search(
+      [
+        work({ workKey: "/works/mccarthy", title: "Albert Camus's The Stranger", authors: ["Patrick McCarthy"], editionCount: 60 }),
+        work({ workKey: "/works/carey", title: "Camus' The Stranger", authors: ["Gary Carey"], editionCount: 55 }),
+        work({
+          workKey: "/works/bloom",
+          title: "Albert Camus's The Stranger (Bloom's Modern Critical Interpretations)",
+          authors: ["Harold Bloom"],
+          editionCount: 50,
+        }),
+        // As Open Library has it: the novel itself carries a "Criticism and interpretation" subject.
+        work({
+          workKey: "/works/stranger",
+          title: "The Stranger",
+          authors: ["Albert Camus"],
+          subjects: ["Fiction", "Criticism and interpretation"],
+          editionCount: 30,
+        }),
+        work({ workKey: "/works/combat", title: "Camus at Combat", authors: ["Albert Camus"], editionCount: 10 }),
+      ],
+      "The Stranger Camus",
+    );
+    expect(keys.slice(0, 2)).toEqual(["/works/stranger", "/works/combat"]);
+    expect(keys.slice(2).sort()).toEqual(["/works/bloom", "/works/carey", "/works/mccarthy"]);
+  });
+
+  it("demotes a book that names another author's work, even when the query names no author", async () => {
+    const keys = await search(
+      [
+        work({
+          workKey: "/works/parkes",
+          title: "Kazuo Ishiguro's the Remains of the Day",
+          authors: ["Adam Parkes"],
+          firstPublishedYear: 2001,
+          editionCount: 40,
+        }),
+        work({ workKey: "/works/novel", title: "The Remains of the Day", authors: ["Kazuo Ishiguro"], editionCount: 20 }),
+      ],
+      "remains of the day",
+    );
+    expect(keys).toEqual(["/works/novel", "/works/parkes"]);
+  });
+
+  it("catches a bare possessive (\"Camus' The Stranger\") without the query naming the author", async () => {
+    const keys = await search([
+      work({ workKey: "/works/carey", title: "Camus' The Stranger", authors: ["Gary Carey"], editionCount: 55 }),
+      work({ workKey: "/works/stranger", title: "The Stranger", authors: ["Albert Camus"], editionCount: 30 }),
+    ]);
+    expect(keys).toEqual(["/works/stranger", "/works/carey"]);
+  });
+
+  it("leaves a possessive title alone when the possessor is not an author in the results", async () => {
+    const keys = await search(
+      [
+        work({ workKey: "/works/other", title: "Another Book", authors: ["Zed Other"], editionCount: 90 }),
+        work({ workKey: "/works/bridget", title: "Bridget Jones's Diary", authors: ["Helen Fielding"], editionCount: 20 }),
+      ],
+      "bridget jones",
+    );
+    expect(keys).toEqual(["/works/other", "/works/bridget"]);
+  });
+
   it("builds a cover url when Open Library has a cover id, none otherwise", async () => {
     const results = await searchBooks(
       ctx.db,
