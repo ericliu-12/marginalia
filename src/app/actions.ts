@@ -36,7 +36,12 @@ export async function addBookAction(work: OpenLibraryWork, status: Status): Prom
 export async function changeStatusAction(bookId: string, status: Status): Promise<{ ok: boolean }> {
   try {
     const db = appDb();
-    await changeStatus(db, await getSeededUserId(db), bookId, status);
+    // A queue that is down must not stop a Status change; the Book is left for the backfill.
+    const queue = await appQueue().catch((err): null => {
+      console.error(err);
+      return null;
+    });
+    await changeStatus(db, await getSeededUserId(db), bookId, status, queue);
     revalidatePath("/");
     return { ok: true };
   } catch (err) {

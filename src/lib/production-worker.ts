@@ -1,6 +1,6 @@
 import { createDb } from "@/db/client";
 import { descriptionGateway } from "./book-search";
-import { claudeEnricher } from "./claude";
+import { claudeEnricher, claudeJudge } from "./claude";
 import { startWorker } from "./jobs";
 import { voyageEmbedder } from "./voyage";
 
@@ -13,6 +13,7 @@ export async function startProductionWorker(connectionString: string) {
       connectionString,
       db,
       model: claudeEnricher(),
+      judge: claudeJudge(),
       embedder: voyageEmbedder(),
       descriptions: descriptionGateway(),
     });
