@@ -15,7 +15,7 @@ export function LibraryWorkspace({ items, finding }: { items: LibraryItem[]; fin
 
   return (
     <div className="flex min-h-screen flex-col lg:h-screen">
-      <header className="flex items-baseline justify-between px-8 pt-7 pb-5 lg:px-12">
+      <header className="flex flex-wrap items-baseline justify-between gap-y-2 px-8 pt-7 pb-5 lg:px-12">
         <h1 className="text-[1.75rem] leading-none font-medium tracking-[-0.01em] italic">Marginalia</h1>
         <FindingIndicator initial={finding} />
         {!searchOpen && (
