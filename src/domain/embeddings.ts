@@ -47,17 +47,27 @@ export async function embedNote(db: Db, embedder: Embedder, noteId: string): Pro
 
 export type NearestBook = { bookId: string; similarity: number };
 
-// Domain seam: the Books nearest to a Book, most similar first. A Book is represented by its
-// Enrichment and the reader's Notes on it, each its own vector; a Book's score is its best
-// vector pair (cosine similarity). Only vectors from `model` are compared, and only the reader's
-// own Notes.
+// Domain seam: the reader's Finished Books nearest to a Book, most similar first. Only the reader's
+// Finished Books (a completed Read-through, whatever the Status) are candidates: an embedded Book that
+// is in nobody's library, or only in another reader's, or that the reader has not finished, never
+// appears. A Book is represented by its Enrichment and the reader's Notes on it, each its own vector;
+// a Book's score is its best vector pair (cosine similarity). Only vectors from `model` are compared.
 export async function nearestBooks(db: Db, userId: string, bookId: string, model: string, limit = 10): Promise<NearestBook[]> {
   const { rows } = await db.execute<{ book_id: string; similarity: number }>(sql`
-    WITH vectors AS (
-      SELECT book_id, embedding FROM enrichment WHERE embedding IS NOT NULL AND embedding_model = ${model}
+    WITH finished AS (
+      SELECT DISTINCT le.book_id
+      FROM library_entry le JOIN read_through rt ON rt.library_entry_id = le.id
+      WHERE le.user_id = ${userId} AND rt.completed_at IS NOT NULL
+    ),
+    vectors AS (
+      SELECT e.book_id, e.embedding
+      FROM enrichment e JOIN finished f ON f.book_id = e.book_id
+      WHERE e.embedding IS NOT NULL AND e.embedding_model = ${model}
       UNION ALL
       SELECT le.book_id, n.embedding
-      FROM note n JOIN library_entry le ON le.id = n.library_entry_id
+      FROM note n
+      JOIN library_entry le ON le.id = n.library_entry_id
+      JOIN finished f ON f.book_id = le.book_id
       WHERE le.user_id = ${userId} AND n.embedding IS NOT NULL AND n.embedding_model = ${model}
     )
     SELECT other.book_id, max(1 - (other.embedding <=> mine.embedding))::float8 AS similarity

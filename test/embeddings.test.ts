@@ -4,7 +4,8 @@ import { addBook } from "../src/domain/add-book";
 import { backfillEmbeddings, embedEnrichment, embedNote, nearestBooks, type EmbeddingQueue } from "../src/domain/embeddings";
 import { enrichBook } from "../src/domain/enrichment";
 import { addNote, updateNote } from "../src/domain/notes";
-import { enrichment, note } from "../src/db/schema";
+import { book, enrichment, note, user } from "../src/db/schema";
+import { changeStatus } from "../src/domain/library-entry";
 import { fakeEmbedder, fakeEnricher, work } from "./fakes";
 import { useTestDb } from "./harness";
 
@@ -108,6 +109,29 @@ describe("Embeddings", () => {
     expect(fromBattle.map((r) => r.bookId)).toEqual(expect.arrayContaining([sea]));
     expect(fromBattle.find((r) => r.bookId === sea)?.similarity).toBeCloseTo(1);
     expect(fromBattle.filter((r) => r.bookId === sea)).toHaveLength(1);
+  });
+
+  it("only offers the reader's own Finished Books, never an embedded Book from the shared tables", async () => {
+    const embedder = fakeEmbedder(AXES);
+    const me = await enriched("/works/f0", "Mine", { themes: ["solitude"] });
+    const finished = await enriched("/works/f1", "Finished", { themes: ["solitude"] });
+    const backToWant = await enriched("/works/f2", "Moved back to want", { themes: ["solitude"] });
+    await changeStatus(ctx.db, ctx.userId, backToWant, "want");
+    const reading = (await addBook(ctx.db, ctx.userId, work({ workKey: "/works/f3", title: "Reading", authors: ["A"] }), "reading")).bookId;
+    await enrichBook(ctx.db, { model: fakeEnricher() }, reading);
+    // Embedded Books in the shared tables that are in nobody's library.
+    const [orphan] = await ctx.db.insert(book).values({ title: "Orphan", authors: ["O"] }).returning();
+    await ctx.db.insert(enrichment).values({
+      bookId: orphan.id, recognised: true, summary: "Orphaned.", themes: ["solitude"], model: "m", promptVersion: "p", status: "ready",
+    });
+    // Another reader's Finished Book.
+    const [other] = await ctx.db.insert(user).values({ email: "other@example.com" }).returning();
+    const theirs = await addBook(ctx.db, other.id, work({ workKey: "/works/f4", title: "Theirs", authors: ["A"] }), "read");
+    await enrichBook(ctx.db, { model: fakeEnricher({ themes: ["solitude"] }) }, theirs.bookId);
+    for (const b of [me, finished, backToWant, reading, orphan.id, theirs.bookId]) await embedEnrichment(ctx.db, embedder, b);
+
+    const near = await nearestBooks(ctx.db, ctx.userId, me, embedder.model);
+    expect(near.map((r) => r.bookId).sort()).toEqual([finished, backToWant].sort());
   });
 
   it("never compares vectors from different models, or another reader's Notes", async () => {
