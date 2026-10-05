@@ -1,6 +1,5 @@
-import { and, eq, isNotNull, isNull } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull } from "drizzle-orm";
 import type { Db } from "@/db/client";
-import { startConnections, type ConnectionQueue } from "./connections";
 import { libraryEntry, readThrough } from "@/db/schema";
 import type { Status } from "./search";
 
@@ -63,6 +62,30 @@ export async function enterLibrary(tx: Tx, userId: string, bookId: string, statu
   return { entry, firstCompletion };
 }
 
+// Seam to the job queue; the worker runs the Connections job for each queued Book.
+export interface ConnectionQueue {
+  enqueueConnections(job: { userId: string; bookId: string }): Promise<void>;
+}
+
+// Marks the Book's Connections as queued and queues the job. Does nothing without a queue to run it
+// on, or for a Book whose Connections were already generated. A queue that errors must not fail the
+// caller: the Book is left `failed` instead, so the reader is not left waiting on a job that is not coming.
+export async function startConnections(db: Db, queue: Partial<ConnectionQueue> | null | undefined, userId: string, bookId: string): Promise<void> {
+  if (!queue?.enqueueConnections) return;
+  const [entry] = await db
+    .update(libraryEntry)
+    .set({ connectionsStatus: "running" })
+    .where(and(eq(libraryEntry.userId, userId), eq(libraryEntry.bookId, bookId), isNull(libraryEntry.connectionsGeneratedAt)))
+    .returning({ id: libraryEntry.id });
+  if (!entry) return;
+  try {
+    await queue.enqueueConnections({ userId, bookId });
+  } catch (err) {
+    console.error(err);
+    await db.update(libraryEntry).set({ connectionsStatus: "failed" }).where(eq(libraryEntry.id, entry.id));
+  }
+}
+
 // Domain seam: the one place a Status changes for a Book already in the library.
 // Idempotent, except that read -> read is a no-op (it must not record a second pass). The first
 // completed Read-through queues the Book's Connections; later ones do nothing.
@@ -83,22 +106,49 @@ export async function changeStatus(db: Db, userId: string, bookId: string, statu
   return result;
 }
 
-export type FinishedSummary = { lastCompletedAt: number; lastFinishedAt: number | null };
+// The one definition of Finished: the reader's completed Read-throughs (`completed_at` set), whatever
+// the Library Entry's current Status, optionally for one Book. Everything that asks whether a Book is
+// Finished goes through this.
+export function completedPasses(db: Db | Tx, userId: string, bookId?: string) {
+  return db
+    .select({
+      entryId: readThrough.libraryEntryId,
+      bookId: libraryEntry.bookId,
+      finishedAt: readThrough.finishedAt,
+      completedAt: readThrough.completedAt,
+    })
+    .from(readThrough)
+    .innerJoin(libraryEntry, eq(libraryEntry.id, readThrough.libraryEntryId))
+    .where(and(eq(libraryEntry.userId, userId), isNotNull(readThrough.completedAt), bookId ? eq(libraryEntry.bookId, bookId) : undefined));
+}
+
+export async function isFinished(db: Db | Tx, userId: string, bookId: string) {
+  return (await completedPasses(db, userId, bookId).limit(1)).length > 0;
+}
+
+export type FinishedSummary = {
+  lastCompletedAt: number;
+  lastFinishedAt: number | null;
+  firstCompletedAt: number;
+  // Of the passes with a known finish date; null when none has one.
+  firstFinishedAt: number | null;
+};
 
 // Finished Books among the reader's Entries, keyed by Entry id: those with a completed Read-through,
 // whatever the current Status. Finish dates may be unknown (null).
 export async function readFinished(db: Db, userId: string) {
-  const passes = await db
-    .select({ entryId: readThrough.libraryEntryId, finishedAt: readThrough.finishedAt, completedAt: readThrough.completedAt })
-    .from(readThrough)
-    .where(and(eq(readThrough.userId, userId), isNotNull(readThrough.completedAt)));
+  const passes = await completedPasses(db, userId);
   const finished = new Map<string, FinishedSummary>();
   for (const p of passes) {
     const prev = finished.get(p.entryId);
+    const completedAt = p.completedAt!.getTime();
     const finishedAt = p.finishedAt?.getTime() ?? null;
     finished.set(p.entryId, {
-      lastCompletedAt: Math.max(p.completedAt!.getTime(), prev?.lastCompletedAt ?? 0),
+      lastCompletedAt: Math.max(completedAt, prev?.lastCompletedAt ?? 0),
       lastFinishedAt: finishedAt === null ? (prev?.lastFinishedAt ?? null) : Math.max(finishedAt, prev?.lastFinishedAt ?? 0),
+      firstCompletedAt: Math.min(completedAt, prev?.firstCompletedAt ?? Infinity),
+      firstFinishedAt:
+        finishedAt === null ? (prev?.firstFinishedAt ?? null) : Math.min(finishedAt, prev?.firstFinishedAt ?? Infinity),
     });
   }
   return finished;

@@ -1,0 +1,1 @@
+ALTER TYPE "public"."strength" ADD VALUE 'weak';

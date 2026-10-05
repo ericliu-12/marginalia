@@ -1,10 +1,10 @@
 import { eq, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { addBook } from "../src/domain/add-book";
-import { backfillConnections, countFindingConnections, generateConnections, readConnections, startConnections, type ConnectionDeps, type JudgeInput, type JudgedConnection } from "../src/domain/connections";
+import { backfillConnections, countFindingConnections, generateConnections, readConnections, type ConnectionDeps, type JudgeInput, type JudgedConnection } from "../src/domain/connections";
 import { embedEnrichment, embedNote } from "../src/domain/embeddings";
 import { enrichBook } from "../src/domain/enrichment";
-import { changeStatus } from "../src/domain/library-entry";
+import { changeStatus, startConnections } from "../src/domain/library-entry";
 import { addNote } from "../src/domain/notes";
 import { book, connection, connectionRun, enrichment, libraryEntry, note, readThrough } from "../src/db/schema";
 import { fakeEmbedder, fakeEnricher, fakeJudge, work, type FakeJudgeReply } from "./fakes";
@@ -142,7 +142,7 @@ describe("Connections on first finish", () => {
     expect((await entryOf(a)).connectionsGeneratedAt).toBeInstanceOf(Date);
   });
 
-  it("keeps a weak link only when it quotes Notes from both Books, and stores it as moderate", async () => {
+  it("keeps a weak link only when it quotes Notes from both Books, and stores it as weak", async () => {
     const a = await finished("Stoner", "solitude", { notes: ["Alone in a crowded room."] });
     await finished("Lonely", "solitude", { notes: ["Crowded and alone."] });
     await finished("Warlike", "solitude");
@@ -160,7 +160,36 @@ describe("Connections on first finish", () => {
     await run(d, a);
     const rows = await stored();
     expect(rows.map((r) => r.explanation).sort()).toEqual([expect.stringContaining("echoes your note"), "A narrower echo."].sort());
-    expect(rows.every((r) => r.strength === "moderate")).toBe(true);
+    expect(Object.fromEntries(rows.map((r) => [r.explanation.slice(0, 10), r.strength]))).toEqual({ "Your note ": "weak", "A narrower": "moderate" });
+  });
+
+  it("ranks a weak link below every moderate one when the cap bites, and shows it last", async () => {
+    const a = await finished("Hub", "solitude", { notes: ["Alone in a crowded room."] });
+    const weakBook = await finished("W0", "solitude", { notes: ["Crowded and alone."] });
+    for (const t of ["M1", "M2", "M3", "M4", "M5"]) await finished(t, "solitude");
+    const { deps: d } = deps((input) => ({
+      connections: input.candidates.map((c) =>
+        c.title === "W0"
+          ? link({ candidateId: c.id, strength: "weak", explanation: `Your note on Hub, "${input.book.notes[0].body}", echoes your note on W0, "${c.notes[0].body}".` })
+          : link({ candidateId: c.id, strength: "moderate", explanation: `Link to ${c.title}.` }),
+      ),
+    }));
+    await run(d, a);
+    expect((await stored()).map((r) => r.strength)).toEqual(["moderate", "moderate", "moderate", "moderate", "moderate"]);
+    expect((await readConnections(ctx.db, ctx.userId, weakBook)).cards).toEqual([]);
+
+    // With room to spare, the weak link is kept and listed after the moderate ones.
+    await ctx.db.delete(connection);
+    await ctx.db.update(libraryEntry).set({ connectionsGeneratedAt: null }).where(eq(libraryEntry.bookId, a));
+    const roomy = deps((input) => ({
+      connections: input.candidates.filter((c) => ["W0", "M1"].includes(c.title)).map((c) =>
+        c.title === "W0"
+          ? link({ candidateId: c.id, strength: "weak", explanation: `Your note on Hub, "${input.book.notes[0].body}", echoes your note on W0, "${c.notes[0].body}".` })
+          : link({ candidateId: c.id, strength: "moderate", explanation: `Link to ${c.title}.` }),
+      ),
+    }));
+    await run(roomy.deps, a);
+    expect((await readConnections(ctx.db, ctx.userId, a)).cards.map((c) => c.strength)).toEqual(["moderate", "weak"]);
   });
 
   it("stores at most five per run, strongest first and then by similarity", async () => {

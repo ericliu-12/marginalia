@@ -13,6 +13,8 @@ const TYPE: Record<ConnectionCard["type"], { label: string; swatch: string }> = 
   context: { label: "Context", swatch: "bg-context" },
 };
 
+const STRENGTH_LABEL: Record<ConnectionCard["strength"], string> = { strong: "Strong", moderate: "Moderate", weak: "Weak" };
+
 // The Book's Connections: each other Book it links to and why. Quiet while there is nothing to say.
 export function ConnectionsSection({ bookId }: { bookId: string }) {
   const [view, setView] = useState<ConnectionsView | null | undefined>(undefined);
@@ -56,7 +58,7 @@ export function ConnectionsSection({ bookId }: { bookId: string }) {
               <p className="text-[1.05rem] leading-snug font-medium">{c.otherTitle}</p>
               <p className="mt-0.5 flex items-center gap-2 font-sans text-[0.8rem] text-ink-2">
                 <span aria-hidden className={`inline-block h-2.5 w-2.5 rounded-[2px] ${TYPE[c.type].swatch}`} />
-                {TYPE[c.type].label} · {c.strength === "strong" ? "Strong" : "Moderate"}
+                {TYPE[c.type].label} · {STRENGTH_LABEL[c.strength]}
               </p>
               <p className="mt-2 max-w-[60ch]">{c.explanation}</p>
               {c.grounding === "enrichment" && <p className="mt-1 font-sans text-xs text-ink-3 italic">Not drawn from your notes</p>}

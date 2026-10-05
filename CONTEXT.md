@@ -33,7 +33,7 @@ A Book with at least one completed Read-through in the reader's Library Entry, r
 _Avoid_: Read Book (Status `read` is only the current Status)
 
 **Strength**:
-How strong a Connection is: strong or moderate. Weaker links are never stored. Strength orders a Book's Connections and weights Clusters.
+How strong a Connection is: strong, moderate or weak. A weak link is stored only when its explanation quotes Notes from both Books; otherwise it is dropped. Strength orders a Book's Connections and weights Clusters (strong 2, moderate 1, weak 0.5).
 _Avoid_: Score, weight, confidence
 
 **Connection Type**:

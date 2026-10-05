@@ -23,7 +23,7 @@ const embedding = (name: string) => vector(name, { dimensions: EMBEDDING_DIMENSI
 export const statusEnum = pgEnum("status", ["want", "reading", "read"]);
 export const connectionsStatusEnum = pgEnum("connections_status", ["idle", "running", "failed"]);
 export const connectionTypeEnum = pgEnum("connection_type", ["thematic", "contrast", "context"]);
-export const strengthEnum = pgEnum("strength", ["strong", "moderate"]);
+export const strengthEnum = pgEnum("strength", ["strong", "moderate", "weak"]);
 export const groundingEnum = pgEnum("grounding", ["notes", "enrichment"]);
 export const enrichmentStatusEnum = pgEnum("enrichment_status", ["pending", "ready", "failed"]);
 

@@ -2,6 +2,7 @@ import { and, eq, isNull, ne, or, sql } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import type { Db } from "@/db/client";
 import { enrichment, note } from "@/db/schema";
+import { completedPasses } from "./library-entry";
 
 // Seam to the embeddings provider (Voyage); tests supply a fake. `document` when storing, `query`
 // when searching. Returns one vector per text, in order. Throws on a failed answer.
@@ -55,9 +56,7 @@ export type NearestBook = { bookId: string; similarity: number };
 export async function nearestBooks(db: Db, userId: string, bookId: string, model: string, limit = 10): Promise<NearestBook[]> {
   const { rows } = await db.execute<{ book_id: string; similarity: number }>(sql`
     WITH finished AS (
-      SELECT DISTINCT le.book_id
-      FROM library_entry le JOIN read_through rt ON rt.library_entry_id = le.id
-      WHERE le.user_id = ${userId} AND rt.completed_at IS NOT NULL
+      SELECT DISTINCT book_id FROM (${completedPasses(db, userId)}) passes
     ),
     vectors AS (
       SELECT e.book_id, e.embedding

@@ -1,13 +1,17 @@
-import { and, asc, desc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
-import { book, connection, connectionRun, enrichment, libraryEntry, note, readThrough } from "@/db/schema";
+import { book, connection, connectionRun, enrichment, libraryEntry, note } from "@/db/schema";
 import type { DescriptionGateway } from "./description";
 import { embedEnrichment, embedNote, nearestBooks, type Embedder } from "./embeddings";
 import { enrichBook, type EnrichmentModel } from "./enrichment";
-import { findEntry } from "./library-entry";
+import { findEntry, isFinished, readFinished, startConnections, type ConnectionQueue } from "./library-entry";
 
 export type ConnectionType = "thematic" | "contrast" | "context";
-export type JudgedStrength = "strong" | "moderate" | "weak";
+export type Strength = "strong" | "moderate" | "weak";
+// What each Strength counts for when Connections are grouped into Clusters.
+export const CLUSTER_WEIGHT: Record<Strength, number> = { strong: 2, moderate: 1, weak: 0.5 };
+// Strongest first; ties are broken by similarity.
+const STRENGTH_RANK: Record<Strength, number> = { strong: 0, moderate: 1, weak: 2 };
 
 // What the judge sees for one Book. Note ids are short handles for this call only.
 export type JudgeNote = { id: string; body: string };
@@ -18,7 +22,7 @@ export type JudgeInput = { book: JudgeBook; candidates: JudgeCandidate[] };
 export type JudgedConnection = {
   candidateId: string;
   type: ConnectionType;
-  strength: JudgedStrength;
+  strength: Strength;
   explanation: string;
   quotedNoteIds: string[];
 };
@@ -34,10 +38,7 @@ export interface ConnectionJudge {
 
 export type ConnectionJob = { userId: string; bookId: string };
 
-// Seam to the job queue; the worker runs `generateConnections` for each queued Book.
-export interface ConnectionQueue {
-  enqueueConnections(job: ConnectionJob): Promise<void>;
-}
+export type { ConnectionQueue };
 
 // Starting defaults from the pipeline-tuning prototype.
 export const CANDIDATE_COUNT = 12;
@@ -60,15 +61,6 @@ function withinBudget<T extends { body: string }>(notes: T[], budget: number): T
 const normalise = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 const QUOTED = /["“]([^"”]{8,})["”]/g;
 
-async function isFinished(db: Db, entryId: string) {
-  const [pass] = await db
-    .select({ id: readThrough.id })
-    .from(readThrough)
-    .where(and(eq(readThrough.libraryEntryId, entryId), isNotNull(readThrough.completedAt)))
-    .limit(1);
-  return !!pass;
-}
-
 export type ConnectionDeps = {
   judge: ConnectionJudge;
   embedder: Embedder;
@@ -84,7 +76,7 @@ export type ConnectionDeps = {
 // retries; a Book that is no longer in the library, or not Finished, is a no-op.
 export async function generateConnections(db: Db, deps: ConnectionDeps, { userId, bookId }: ConnectionJob): Promise<void> {
   const entry = await findEntry(db, userId, bookId);
-  if (!entry || !(await isFinished(db, entry.id))) return;
+  if (!entry || !(await isFinished(db, userId, bookId))) return;
   await db.update(libraryEntry).set({ connectionsStatus: "running" }).where(eq(libraryEntry.id, entry.id));
   try {
     await run(db, deps, userId, entry.id, bookId);
@@ -207,7 +199,7 @@ async function run(db: Db, deps: ConnectionDeps, userId: string, entryId: string
     }
     if (misquoted) continue;
 
-    // Weak links survive only when they quote Notes from both Books; they are stored as moderate.
+    // Weak links survive only when they quote Notes from both Books, and stay weak.
     const quotedFrom = (id: string) => [...quoted.values()].some((h) => h.bookId === id);
     if (c.strength === "weak" && !(quotedFrom(bookId) && quotedFrom(other.bookId))) continue;
 
@@ -218,7 +210,7 @@ async function run(db: Db, deps: ConnectionDeps, userId: string, entryId: string
       bookAId: a,
       bookBId: b,
       type: c.type,
-      strength: c.strength === "strong" ? "strong" : "moderate",
+      strength: c.strength,
       similarity: other.similarity,
       similarityModel: embedder.model,
       explanation: c.explanation,
@@ -226,7 +218,7 @@ async function run(db: Db, deps: ConnectionDeps, userId: string, entryId: string
       quotedNoteIds: [...quoted.keys()],
       model: judge.model,
       promptVersion: judge.promptVersion,
-      rank: c.strength === "strong" ? 0 : 1,
+      rank: STRENGTH_RANK[c.strength],
     });
   }
   // Strongest first, ties by similarity; the cap keeps the best.
@@ -237,45 +229,32 @@ async function run(db: Db, deps: ConnectionDeps, userId: string, entryId: string
   await finish(top, result);
 }
 
-// Marks the Book's Connections as queued and queues the job. Does nothing without a queue to run it
-// on, or for a Book whose Connections were already generated. A queue that errors must not fail the
-// caller: the Book is left `failed` instead, so the reader is not left waiting on a job that is not coming.
-export async function startConnections(db: Db, queue: Partial<ConnectionQueue> | null | undefined, userId: string, bookId: string): Promise<void> {
-  if (!queue?.enqueueConnections) return;
-  const [entry] = await db
-    .update(libraryEntry)
-    .set({ connectionsStatus: "running" })
-    .where(and(eq(libraryEntry.userId, userId), eq(libraryEntry.bookId, bookId), isNull(libraryEntry.connectionsGeneratedAt)))
-    .returning({ id: libraryEntry.id });
-  if (!entry) return;
-  try {
-    await queue.enqueueConnections({ userId, bookId });
-  } catch (err) {
-    console.error(err);
-    await db.update(libraryEntry).set({ connectionsStatus: "failed" }).where(eq(libraryEntry.id, entry.id));
-  }
-}
-
 // One-off backfill: queues Connections for every Finished Book that has none generated yet, oldest
 // finish first (unknown dates last, then by when it was completed). Returns how many were queued.
 // Jobs for the same Book coalesce, so re-running is safe.
 export async function backfillConnections(db: Db, queue: ConnectionQueue, userId: string): Promise<number> {
-  const rows = await db
-    .select({ bookId: libraryEntry.bookId })
+  const finished = await readFinished(db, userId);
+  const entries = await db
+    .select({ id: libraryEntry.id, bookId: libraryEntry.bookId, createdAt: libraryEntry.createdAt })
     .from(libraryEntry)
-    .innerJoin(readThrough, and(eq(readThrough.libraryEntryId, libraryEntry.id), isNotNull(readThrough.completedAt)))
-    .where(and(eq(libraryEntry.userId, userId), isNull(libraryEntry.connectionsGeneratedAt)))
-    .groupBy(libraryEntry.id)
-    .orderBy(sql`min(${readThrough.finishedAt}) asc nulls last`, sql`min(${readThrough.completedAt}) asc`, asc(libraryEntry.createdAt));
-  for (const { bookId } of rows) await startConnections(db, queue, userId, bookId);
-  return rows.length;
+    .where(and(eq(libraryEntry.userId, userId), isNull(libraryEntry.connectionsGeneratedAt)));
+  const due = entries
+    .flatMap((e) => (finished.has(e.id) ? [{ ...e, ...finished.get(e.id)! }] : []))
+    .sort(
+      (a, b) =>
+        (a.firstFinishedAt ?? Infinity) - (b.firstFinishedAt ?? Infinity) ||
+        a.firstCompletedAt - b.firstCompletedAt ||
+        a.createdAt.getTime() - b.createdAt.getTime(),
+    );
+  for (const { bookId } of due) await startConnections(db, queue, userId, bookId);
+  return due.length;
 }
 
 export type ConnectionCard = {
   otherBookId: string;
   otherTitle: string;
   type: ConnectionType;
-  strength: "strong" | "moderate";
+  strength: Strength;
   explanation: string;
   grounding: "notes" | "enrichment";
 };
@@ -302,7 +281,7 @@ export async function readConnections(db: Db, userId: string, bookId: string): P
         or(eq(connection.bookAId, bookId), eq(connection.bookBId, bookId)),
       ),
     )
-    .orderBy(asc(sql`${connection.strength} = 'moderate'`), desc(connection.similarity));
+    .orderBy(asc(connection.strength), desc(connection.similarity));
   const otherId = (r: (typeof rows)[number]) => (r.bookAId === bookId ? r.bookBId : r.bookAId);
   const others = rows.length
     ? await db
@@ -325,7 +304,7 @@ export async function readConnections(db: Db, userId: string, bookId: string): P
     }),
     status: entry?.connectionsStatus ?? "idle",
     generated: !!entry?.connectionsGeneratedAt,
-    finished: !!entry && (await isFinished(db, entry.id)),
+    finished: !!entry && (await isFinished(db, userId, bookId)),
   };
 }
 

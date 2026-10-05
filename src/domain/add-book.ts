@@ -2,9 +2,8 @@ import { eq } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { book } from "@/db/schema";
 import { ADD_TIME_BUDGET, describeBook, type DescriptionGateway } from "./description";
-import { startConnections, type ConnectionQueue } from "./connections";
 import { namesMatch, type EnrichmentQueue } from "./enrichment";
-import { enterLibrary } from "./library-entry";
+import { enterLibrary, startConnections, type ConnectionQueue } from "./library-entry";
 import { coverUrlFor, type OpenLibraryWork, type Status } from "./search";
 
 export class DuplicateBookError extends Error {
