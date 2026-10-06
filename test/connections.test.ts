@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { addBook } from "../src/domain/add-book";
 import { backfillConnections, countFindingConnections, generateConnections, readConnections, type ConnectionDeps, type JudgeInput, type JudgedConnection } from "../src/domain/connections";
@@ -300,6 +300,53 @@ describe("Connections on first finish", () => {
     await expect(run({ ...deps().deps, enrichment: down, finalAttempt: true }, bookId)).rejects.toThrow("model down");
     // Pending would leave the Book panel waiting with no Try again.
     expect(await readEnrichment(ctx.db, bookId)).toMatchObject({ status: "failed" });
+  });
+
+  describe("Refresh", () => {
+    const refresh = (d: ConnectionDeps, bookId: string) => generateConnections(ctx.db, d, { userId: ctx.userId, bookId, refresh: true });
+    const dismiss = (x: string, y: string) =>
+      ctx.db.update(connection).set({ dismissedAt: new Date() }).where(and(eq(connection.bookAId, [x, y].sort()[0]), eq(connection.bookBId, [x, y].sort()[1])));
+
+    it("judges a pair that already has a Connection again, and updates it in place", async () => {
+      const a = await finished("Stoner");
+      await finished("Lonely");
+      await run(deps((input) => ({ connections: [link({ candidateId: input.candidates[0].id, explanation: "First." })] })).deps, a);
+      const [before] = await stored();
+      const again = deps((input) => ({ connections: [link({ candidateId: input.candidates[0].id, type: "contrast", strength: "moderate", explanation: "Second." })] }));
+      await refresh(again.deps, a);
+      expect(again.judge.inputs[0].candidates.map((c) => c.title)).toEqual(["Lonely"]);
+      expect(await stored()).toEqual([{ ...before, type: "contrast", strength: "moderate", explanation: "Second." }]);
+    });
+
+    it("never deletes a Connection the judge no longer finds", async () => {
+      const a = await finished("Stoner");
+      await finished("Lonely");
+      await run(deps((input) => ({ connections: [link({ candidateId: input.candidates[0].id, explanation: "Kept." })] })).deps, a);
+      await refresh(deps().deps, a);
+      expect((await stored()).map((r) => r.explanation)).toEqual(["Kept."]);
+    });
+
+    it("never judges or revives a dismissed Connection", async () => {
+      const a = await finished("Stoner");
+      const b = await finished("Lonely");
+      await run(deps((input) => ({ connections: [link({ candidateId: input.candidates[0].id, explanation: "Dismissed." })] })).deps, a);
+      await dismiss(a, b);
+      const again = deps((input) => ({ connections: input.candidates.map((c) => link({ candidateId: c.id, explanation: "Back?" })) }));
+      await refresh(again.deps, a);
+      expect(again.judge.inputs).toEqual([]);
+      expect(await stored()).toMatchObject([{ explanation: "Dismissed.", dismissedAt: expect.any(Date) }]);
+    });
+
+    it("does not count a dismissed pair against the cap", async () => {
+      const a = await finished("Hub");
+      const dismissed = await finished("D0");
+      for (const t of ["M1", "M2", "M3", "M4", "M5"]) await finished(t);
+      await run(deps((input) => ({ connections: [link({ candidateId: byTitle(input, "D0").id })] })).deps, a);
+      await dismiss(a, dismissed);
+      await refresh(deps((input) => ({ connections: input.candidates.map((c) => link({ candidateId: c.id, explanation: `Link to ${c.title}.` })) })).deps, a);
+      const live = (await stored()).filter((r) => !r.dismissedAt);
+      expect(live.map((r) => r.explanation).sort()).toEqual(["Link to M1.", "Link to M2.", "Link to M3.", "Link to M4.", "Link to M5."]);
+    });
   });
 
   it("shows a Book's Connections from either side, strongest first, with the other Book's title", async () => {

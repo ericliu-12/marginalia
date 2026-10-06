@@ -9,7 +9,11 @@ const EMBED_RETRY = { retryLimit: RETRIES.embed, retryDelay: 20, retryBackoff: t
 const ENRICH_CONCURRENCY = 3;
 
 const dataOf = (job: Job): object =>
-  job.kind === "enrich" ? { bookId: job.bookId } : job.kind === "embed" ? job.target : { userId: job.userId, bookId: job.bookId };
+  job.kind === "enrich"
+    ? { bookId: job.bookId }
+    : job.kind === "embed"
+      ? job.target
+      : { userId: job.userId, bookId: job.bookId, ...(job.refresh && { refresh: true }) };
 
 async function ensureQueues(boss: PgBoss) {
   // `short`: at most one waiting job per key (a double add or "Try again" coalesces), while one sent
@@ -74,6 +78,11 @@ export async function startWorker(options: WorkerOptions) {
   await work("enrich", ENRICH_CONCURRENCY, ({ bookId }: { bookId: string }) => ({ kind: "enrich", bookId }));
   await work("embed", ENRICH_CONCURRENCY, (target: Extract<Job, { kind: "embed" }>["target"]) => ({ kind: "embed", target }));
   // Serial: a burst of finishes (a backfill) queues rather than running in parallel.
-  await work("connections", 1, ({ userId, bookId }: { userId: string; bookId: string }) => ({ kind: "connections", userId, bookId }));
+  await work("connections", 1, ({ userId, bookId, refresh }: { userId: string; bookId: string; refresh?: boolean }) => ({
+    kind: "connections",
+    userId,
+    bookId,
+    refresh,
+  }));
   return { queue, stop: () => boss.stop({ graceful: true }) };
 }

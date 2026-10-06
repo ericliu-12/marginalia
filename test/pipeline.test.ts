@@ -70,6 +70,24 @@ describe("Pipeline", () => {
     expect((await readConnections(ctx.db, ctx.userId, second.bookId)).cards.map((c) => c.otherBookId)).toEqual([first.bookId]);
   });
 
+  it("runs a requested Refresh after Connections were generated, judging existing pairs again", async () => {
+    const first = await add("first", "read");
+    const second = await add("second", "read");
+    await ctx.jobs.drain(deps());
+    const judge = fakeJudge();
+    await ctx.pipeline.refreshRequested(ctx.userId, first.bookId);
+    expect(await readConnections(ctx.db, ctx.userId, first.bookId)).toMatchObject({ status: "running" });
+    await ctx.jobs.drain(deps({ judge }));
+    expect(judge.inputs.map((i) => i.candidates.map((c) => c.title))).toEqual([["second"]]);
+    expect(await readConnections(ctx.db, ctx.userId, first.bookId)).toMatchObject({ status: "idle", cards: [{ otherBookId: second.bookId }] });
+  });
+
+  it("ignores a Refresh for a Book that is not Finished", async () => {
+    const { bookId } = await add("wanted");
+    await ctx.pipeline.refreshRequested(ctx.userId, bookId);
+    expect(ctx.jobs.sent.filter((j) => j.kind === "connections")).toEqual([]);
+  });
+
   it("adds a Book and saves a Note while the queue is down", async () => {
     ctx.jobs.down = true;
     const { bookId } = await add("a", "read");

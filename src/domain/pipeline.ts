@@ -10,7 +10,7 @@ import { startConnections } from "./library-entry";
 export type Job =
   | { kind: "enrich"; bookId: string }
   | { kind: "embed"; target: EmbeddingTarget }
-  | { kind: "connections"; userId: string; bookId: string };
+  | { kind: "connections"; userId: string; bookId: string; refresh?: boolean };
 
 // Retries after a job's first attempt. Both queues honour them.
 export const RETRIES: Record<Job["kind"], number> = { enrich: 3, embed: 5, connections: 2 };
@@ -48,7 +48,10 @@ export function createPipeline(db: Db, queue: JobQueue) {
     },
     // A Book's first completed Read-through.
     async bookFinished(userId: string, bookId: string) {
-      await startConnections(db, queue, userId, bookId);
+      await startConnections(db, queue, userId, bookId, false);
+    },
+    async refreshRequested(userId: string, bookId: string) {
+      await startConnections(db, queue, userId, bookId, true);
     },
     async noteSaved(noteId: string) {
       await send({ kind: "embed", target: { kind: "note", id: noteId } });
@@ -75,7 +78,7 @@ export async function runJob(db: Db, deps: JobDeps, queue: JobQueue, job: Job, f
     await generateConnections(
       db,
       { judge: deps.judge, embedder: deps.embedder, enrichment: deps.model, descriptions: deps.descriptions, finalAttempt: final },
-      { userId: job.userId, bookId: job.bookId },
+      { userId: job.userId, bookId: job.bookId, refresh: job.refresh },
     );
   }
 }

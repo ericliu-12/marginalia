@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { book, connection, connectionRun, enrichment, libraryEntry, note } from "@/db/schema";
 import type { DescriptionGateway } from "./description";
@@ -38,7 +38,8 @@ export interface ConnectionJudge {
   judge(input: JudgeInput): Promise<JudgeResult>;
 }
 
-export type ConnectionJob = { userId: string; bookId: string };
+// A Refresh judges again the pairs that already have a Connection; a first run leaves them as they are.
+export type ConnectionJob = { userId: string; bookId: string; refresh?: boolean };
 
 // Starting defaults from the pipeline-tuning prototype.
 export const CANDIDATE_COUNT = 12;
@@ -58,6 +59,13 @@ function withinBudget<T extends { body: string }>(notes: T[], budget: number): T
   });
 }
 
+// What a Refresh overwrites on a Connection it finds again.
+const REFRESHED = Object.fromEntries(
+  (["type", "strength", "similarity", "similarityModel", "explanation", "grounding", "quotedNoteIds", "model", "promptVersion"] as const).map(
+    (k) => [k, sql.raw(`excluded.${connection[k].name}`)],
+  ),
+);
+
 const normalise = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 const QUOTED = /["“]([^"”]{8,})["”]/g;
 
@@ -72,21 +80,22 @@ export type ConnectionDeps = {
 };
 
 // Domain seam, run by the worker: find the Connections of a Book among the reader's other Finished
-// Books and store them in one transaction. Zero is a valid result. Throws on failure so the queue
-// retries; a Book that is no longer in the library, or not Finished, is a no-op.
-export async function generateConnections(db: Db, deps: ConnectionDeps, { userId, bookId }: ConnectionJob): Promise<void> {
+// Books and store them in one transaction. Zero is a valid result. A Refresh updates the Connections
+// it finds again in place, never deletes one, and never judges or revives a dismissed one. Throws on
+// failure so the queue retries; a Book that is no longer in the library, or not Finished, is a no-op.
+export async function generateConnections(db: Db, deps: ConnectionDeps, { userId, bookId, refresh = false }: ConnectionJob): Promise<void> {
   const entry = await findEntry(db, userId, bookId);
   if (!entry || !(await isFinished(db, userId, bookId))) return;
   await db.update(libraryEntry).set({ connectionsStatus: "running" }).where(eq(libraryEntry.id, entry.id));
   try {
-    await run(db, deps, userId, entry.id, bookId);
+    await run(db, deps, userId, entry.id, bookId, refresh);
   } catch (err) {
     if (deps.finalAttempt) await db.update(libraryEntry).set({ connectionsStatus: "failed" }).where(eq(libraryEntry.id, entry.id));
     throw err;
   }
 }
 
-async function run(db: Db, deps: ConnectionDeps, userId: string, entryId: string, bookId: string) {
+async function run(db: Db, deps: ConnectionDeps, userId: string, entryId: string, bookId: string, refresh: boolean) {
   const { judge, embedder } = deps;
 
   // The Book's Enrichment and its Notes' vectors are part of this job when nothing else got there first.
@@ -103,11 +112,18 @@ async function run(db: Db, deps: ConnectionDeps, userId: string, entryId: string
     );
   for (const { id } of unembedded) await embedNote(db, embedder, id);
 
-  // Pairs that already have a Connection (from the other Book's run, or dismissed) are not judged again.
+  // Dismissed pairs are never judged again; nor, outside a Refresh, are pairs that already have a
+  // Connection (from the other Book's run).
   const existing = await db
     .select({ a: connection.bookAId, b: connection.bookBId })
     .from(connection)
-    .where(and(eq(connection.userId, userId), or(eq(connection.bookAId, bookId), eq(connection.bookBId, bookId))));
+    .where(
+      and(
+        eq(connection.userId, userId),
+        or(eq(connection.bookAId, bookId), eq(connection.bookBId, bookId)),
+        refresh ? isNotNull(connection.dismissedAt) : undefined,
+      ),
+    );
   const connected = new Set(existing.map((c) => (c.a === bookId ? c.b : c.a)));
   const nearest = (await nearestBooks(db, userId, bookId, embedder.model, CANDIDATE_COUNT + connected.size))
     .filter((n) => !connected.has(n.bookId))
@@ -128,13 +144,14 @@ async function run(db: Db, deps: ConnectionDeps, userId: string, entryId: string
       if (!live.some((e) => e.id === entryId)) return;
       const inLibrary = new Set(live.map((e) => e.bookId));
       const rows = judged.filter((_, i) => inLibrary.has(others[i]));
-      const inserted = rows.length
-        ? await tx
-            .insert(connection)
-            .values(rows)
-            .onConflictDoNothing({ target: [connection.userId, connection.bookAId, connection.bookBId] })
-            .returning({ id: connection.id })
-        : [];
+      const target = [connection.userId, connection.bookAId, connection.bookBId];
+      const store = () => {
+        const insert = tx.insert(connection).values(rows);
+        return refresh
+          ? insert.onConflictDoUpdate({ target, set: REFRESHED, setWhere: isNull(connection.dismissedAt) })
+          : insert.onConflictDoNothing({ target });
+      };
+      const inserted = rows.length ? await store().returning({ id: connection.id }) : [];
       await tx.insert(connectionRun).values({
         userId,
         libraryEntryId: entryId,
