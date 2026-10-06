@@ -8,16 +8,19 @@ import {
   EDGE_WIDTH,
   EDGE_WIDTH_CHOSEN_EXTRA,
   EDGE_WIDTH_FADED,
+  EDGE_WIDTH_HOVER_EXTRA,
   FADED_EDGE,
   FADED_LABEL,
   FADED_NODE,
   INK,
   LABEL_GAP,
   LABEL_MAX_CHARS,
+  LABEL_PLATE,
   LABEL_SIZE,
   MAX_FIT_ZOOM,
-  PAPER,
+  PAPER_PLATE,
   TYPE_COLOR,
+  RING_GAP,
   TYPICAL_EDGE_LENGTH,
   nodeRadius,
 } from "./graph-style";
@@ -97,6 +100,9 @@ function focusFor(graph: GraphView, prepared: ReturnType<typeof prepare>, select
   return { visible, litBooks, litLinks, chosenBookId, chosenLinkId: chosenLink?.id ?? null, labelOrder };
 }
 
+// Camera moves glide, unless the reader asked for less motion.
+const glide = () => (window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 600);
+
 const endId = (end: string | Node) => (typeof end === "string" ? end : end.id);
 
 // The reader's graph, full-bleed. Books are ink dots at their stored places; a selection lights a Book
@@ -106,10 +112,13 @@ export function GraphCanvas({
   selection,
   onSelect,
   panelInset,
+  pointedBookId,
 }: {
   graph: GraphView;
   selection: Selection;
   onSelect: (s: Selection) => void;
+  // A Book the reader has reached from the keyboard list: marked on the canvas as if hovered.
+  pointedBookId: string | null;
   // Pixels of the canvas's right edge covered by the floating panel, so a chosen Book centres in what is left.
   panelInset: number;
 }) {
@@ -119,6 +128,8 @@ export function GraphCanvas({
   const focus = useMemo(() => focusFor(graph, prepared, selection), [graph, prepared, selection]);
   const focusRef = useRef(focus);
   const hoverRef = useRef<string | null>(null);
+  const hoverLinkRef = useRef<string | null>(null);
+  const pointedRef = useRef(pointedBookId);
   const onSelectRef = useRef(onSelect);
   const insetRef = useRef(panelInset);
   useEffect(() => {
@@ -141,6 +152,8 @@ export function GraphCanvas({
       if (cancelled) return;
       const f = (fg = new ForceGraphCtor<Node, Link>(host));
       fgRef.current = f;
+      const pointed = () => hoverRef.current ?? pointedRef.current;
+      const ringed = (id: string) => id === focusRef.current.chosenBookId || id === pointed();
       const isLitBook = (id: string) => !focusRef.current.litBooks || focusRef.current.litBooks.has(id);
       const linkState = (l: Link) => {
         const { litLinks, chosenLinkId } = focusRef.current;
@@ -158,15 +171,17 @@ export function GraphCanvas({
         // Screen pixels: force-graph keeps link widths constant across zoom.
         .linkWidth((l) => {
           const state = linkState(l);
-          return state === "faded" ? EDGE_WIDTH_FADED : EDGE_WIDTH[l.connection.strength] + (state === "chosen" ? EDGE_WIDTH_CHOSEN_EXTRA : 0);
+          if (state === "faded") return EDGE_WIDTH_FADED;
+          const extra = state === "chosen" ? EDGE_WIDTH_CHOSEN_EXTRA : l.id === hoverLinkRef.current ? EDGE_WIDTH_HOVER_EXTRA : 0;
+          return EDGE_WIDTH[l.connection.strength] + extra;
         })
         .linkHoverPrecision(6)
         .nodeCanvasObject((n, ctx, k) => {
           const r = n.radius / k;
           const lit = isLitBook(n.id);
-          if (n.id === focusRef.current.chosenBookId || n.id === hoverRef.current) {
+          if (ringed(n.id)) {
             ctx.beginPath();
-            ctx.arc(n.x!, n.y!, r + 4 / k, 0, Math.PI * 2);
+            ctx.arc(n.x!, n.y!, r + RING_GAP / k, 0, Math.PI * 2);
             ctx.lineWidth = 1.5 / k;
             ctx.strokeStyle = INK;
             ctx.stroke();
@@ -182,16 +197,14 @@ export function GraphCanvas({
           ctx.arc(n.x!, n.y!, (n.radius + 5) / k, 0, Math.PI * 2);
           ctx.fill();
         })
-        // Labels last, over the edges: in priority order, each placed only where it overlaps none
-        // already drawn (a coarse grid keeps the check cheap). Hovered and lit Books always get theirs.
+        // Labels last, over the edges, each on a paper plate so no edge strikes through it: in priority
+        // order, each placed only where it overlaps none already drawn (a coarse grid keeps the check
+        // cheap). The hovered and chosen Books always get theirs, in full.
         .onRenderFramePost((ctx, k) => {
-          const { labelOrder, litBooks } = focusRef.current;
+          const { labelOrder, litBooks, chosenBookId } = focusRef.current;
           ctx.font = font(k);
           ctx.textAlign = "left";
           ctx.textBaseline = "middle";
-          ctx.lineJoin = "round";
-          ctx.lineWidth = 3 / k;
-          ctx.strokeStyle = PAPER;
           const CELL = 48;
           const taken = new Map<string, { x0: number; y0: number; x1: number; y1: number }[]>();
           const cells = (x0: number, y0: number, x1: number, y1: number) => {
@@ -200,36 +213,44 @@ export function GraphCanvas({
               for (let j = Math.floor(y0 / CELL); j <= Math.floor(y1 / CELL); j++) keys.push(`${i}:${j}`);
             return keys;
           };
-          const hovered = hoverRef.current;
-          const order = hovered ? [prepared.byId.get(hovered)!, ...labelOrder] : labelOrder;
-          const drawn = new Set<string>();
-          for (const n of order) {
-            if (!n || drawn.has(n.id)) continue;
-            const lit = !litBooks || litBooks.has(n.id);
-            // Faded Books stay unlabelled unless the reader is close enough to read them anyway.
-            if (!lit && k < 1.6 && n.id !== hovered) continue;
-            let w = widths.get(n.label);
+          const width = (text: string) => {
+            let w = widths.get(text);
             if (w === undefined) {
               ctx.save();
               ctx.setTransform(1, 0, 0, 1, 0, 0);
               ctx.font = font(1);
-              w = ctx.measureText(n.label).width;
+              w = ctx.measureText(text).width;
               ctx.restore();
-              widths.set(n.label, w);
+              widths.set(text, w);
             }
+            return w;
+          };
+          const hovered = pointed();
+          const order = hovered ? [prepared.byId.get(hovered), ...labelOrder] : labelOrder;
+          const drawn = new Set<string>();
+          for (const n of order) {
+            if (!n || drawn.has(n.id)) continue;
+            const lit = !litBooks || litBooks.has(n.id);
+            const must = n.id === hovered || n.id === chosenBookId;
+            // Faded Books stay unlabelled unless the reader is close enough to read them anyway.
+            if (!lit && k < 1.6 && !must) continue;
+            const text = must ? n.book.title : n.label;
+            const w = width(text);
+            const gap = n.radius + LABEL_GAP + (ringed(n.id) ? RING_GAP : 0);
             const s = f.graph2ScreenCoords(n.x!, n.y!);
-            const x0 = s.x + n.radius + LABEL_GAP - 2;
-            const box = { x0, y0: s.y - LABEL_SIZE * 0.7, x1: x0 + w + 4, y1: s.y + LABEL_SIZE * 0.7 };
+            const box = { x0: s.x + gap - LABEL_PLATE, y0: s.y - LABEL_SIZE * 0.7, x1: s.x + gap + w + LABEL_PLATE, y1: s.y + LABEL_SIZE * 0.7 };
             const keys = cells(box.x0, box.y0, box.x1, box.y1);
-            const must = n.id === hovered || n.id === focusRef.current.chosenBookId;
             if (!must && keys.some((key) => taken.get(key)?.some((b) => b.x0 < box.x1 && box.x0 < b.x1 && b.y0 < box.y1 && box.y0 < b.y1)))
               continue;
             for (const key of keys) taken.set(key, [...(taken.get(key) ?? []), box]);
             drawn.add(n.id);
-            const x = n.x! + (n.radius + LABEL_GAP) / k;
-            ctx.strokeText(n.label, x, n.y!);
+            const x = n.x! + gap / k;
+            ctx.fillStyle = PAPER_PLATE;
+            ctx.beginPath();
+            ctx.roundRect(x - LABEL_PLATE / k, n.y! - (LABEL_SIZE * 0.62) / k, (w + 2 * LABEL_PLATE) / k, (LABEL_SIZE * 1.24) / k, 2 / k);
+            ctx.fill();
             ctx.fillStyle = lit ? INK : FADED_LABEL;
-            ctx.fillText(n.label, x, n.y!);
+            ctx.fillText(text, x, n.y!);
           }
         })
         .onNodeHover((n) => {
@@ -237,6 +258,7 @@ export function GraphCanvas({
           host.style.cursor = n ? "pointer" : "";
         })
         .onLinkHover((l) => {
+          hoverLinkRef.current = l?.id ?? null;
           if (!hoverRef.current) host.style.cursor = l ? "pointer" : "";
         })
         .onNodeClick((n) => onSelectRef.current({ kind: "book", bookId: n.id }))
@@ -281,15 +303,40 @@ export function GraphCanvas({
     };
   }, [prepared]);
 
-  // A new selection: swap the focus, redraw, and bring a chosen Book into the uncovered part of the canvas.
+  // A new selection: swap the focus, redraw, and bring the chosen Book or Connection into the part of
+  // the canvas the panel leaves uncovered. Clearing the selection returns the view the reader had.
+  const before = useRef<{ x: number; y: number; zoom: number } | null>(null);
   useEffect(() => {
     focusRef.current = focus;
     const f = fgRef.current;
     if (!f) return;
     f.linkVisibility(f.linkVisibility());
-    const n = focus.chosenBookId ? prepared.byId.get(focus.chosenBookId) : undefined;
-    if (n) f.centerAt(n.x! + insetRef.current / 2 / f.zoom(), n.y!, 600);
+    const chosen = focus.chosenBookId
+      ? [prepared.byId.get(focus.chosenBookId)]
+      : focus.chosenLinkId
+        ? (() => {
+            const l = prepared.links.find((x) => x.id === focus.chosenLinkId)!;
+            return [prepared.byId.get(endId(l.source)), prepared.byId.get(endId(l.target))];
+          })()
+        : [];
+    const at = chosen.filter((n) => n !== undefined);
+    if (at.length) {
+      before.current ??= { ...f.centerAt(), zoom: f.zoom() };
+      const x = at.reduce((sum, n) => sum + n.x!, 0) / at.length;
+      const y = at.reduce((sum, n) => sum + n.y!, 0) / at.length;
+      f.centerAt(x + insetRef.current / 2 / f.zoom(), y, glide());
+    } else if (before.current) {
+      f.centerAt(before.current.x, before.current.y, glide());
+      f.zoom(before.current.zoom, glide());
+      before.current = null;
+    }
   }, [focus, prepared]);
+
+  useEffect(() => {
+    pointedRef.current = pointedBookId;
+    const f = fgRef.current;
+    if (f) f.linkVisibility(f.linkVisibility());
+  }, [pointedBookId]);
 
   return <div ref={el} className="absolute inset-0" aria-hidden />;
 }

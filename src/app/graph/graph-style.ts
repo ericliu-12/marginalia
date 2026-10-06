@@ -6,14 +6,19 @@ import type { ConnectionType, Strength } from "@/domain/connections";
 export const EDGE_WIDTH: Record<Strength, number> = { strong: 4.5, moderate: 2.5, weak: 1.25 };
 // A faded edge, behind a selection.
 export const EDGE_WIDTH_FADED = 1;
-// Added to the chosen Connection's width.
+// Added to the chosen Connection's width, and to one under the pointer.
 export const EDGE_WIDTH_CHOSEN_EXTRA = 2.5;
+export const EDGE_WIDTH_HOVER_EXTRA = 1.5;
 
 // A Book's dot grows with its Connections, slowly, so hubs stand out without swallowing their labels.
 export const nodeRadius = (degree: number) => 3.5 + 1.7 * Math.sqrt(degree);
 
 export const LABEL_SIZE = 13;
 export const LABEL_GAP = 4;
+// Paper showing around a label, so edges pass behind it rather than through it.
+export const LABEL_PLATE = 2;
+// Space between a chosen or hovered Book's dot and the ring around it.
+export const RING_GAP = 4;
 // Long titles are cut at a subtitle, then to this many characters.
 export const LABEL_MAX_CHARS = 32;
 
@@ -28,7 +33,7 @@ export const DRAG = { home: 0.06, link: 0.2, charge: -24, alphaDecay: 0.04, velo
 export const MAX_FIT_ZOOM = 2.4;
 
 export const INK = "#231d17";
-export const PAPER = "#f3ecdd";
+export const PAPER_PLATE = "rgb(243 236 221 / 0.88)";
 export const FADED_NODE = "#d9cfbb";
 export const FADED_EDGE = "#e2d8c5";
 export const FADED_LABEL = "#a89c88";

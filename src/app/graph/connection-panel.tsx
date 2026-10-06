@@ -55,11 +55,11 @@ export function ConnectionPanel({ id, onBack, onOpenBook }: { id: string; onBack
         {c === null && <p className="text-ink-2 italic">This Connection is no longer in your graph.</p>}
         {c && (
           <article>
-            <p className="flex items-center gap-2.5 font-sans text-[0.8rem] font-medium" style={{ color: TYPE_COLOR[c.type] }}>
+            <p className="flex items-center gap-2.5 font-sans text-[0.8rem] font-medium text-ink-2">
               <span aria-hidden className="inline-block w-6 rounded-[2px]" style={{ height: Math.max(2, EDGE_WIDTH[c.strength]), background: TYPE_COLOR[c.type] }} />
               {TYPE_LABEL[c.type]} · {STRENGTH_LABEL[c.strength]}
             </p>
-            <h2 ref={headingRef} tabIndex={-1} className="mt-4 text-[1.6rem] leading-[1.15] font-medium text-balance outline-none">
+            <h2 ref={headingRef} tabIndex={-1} className="mt-4 text-[1.35rem] leading-tight font-medium text-balance outline-none">
               <BookLink title={c.a.title} onOpen={() => onOpenBook(c.a.bookId)} />
               <span className="mx-2 font-normal text-ink-3 italic">and</span>
               <BookLink title={c.b.title} onOpen={() => onOpenBook(c.b.bookId)} />

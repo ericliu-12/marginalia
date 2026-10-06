@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { GraphView } from "@/domain/graph";
 import type { LibraryItem } from "@/domain/library";
 import { BookPanel } from "../book-panel";
@@ -28,13 +28,35 @@ export function GraphWorkspace({ graph, items, finding }: { graph: GraphView; it
   const router = useRouter();
   const wide = useWide();
   const [selection, setSelection] = useState<Selection>(null);
+  const [pointed, setPointed] = useState<string | null>(null);
+  // The keyboard list item that opened the panel, so closing it puts focus back there.
+  const returnTo = useRef<HTMLElement | null>(null);
   const item = selection?.kind === "book" ? items.find((i) => i.bookId === selection.bookId) : undefined;
-  const close = () => setSelection(null);
+  const close = () => {
+    setSelection(null);
+    const back = returnTo.current;
+    returnTo.current = null;
+    if (back?.isConnected) requestAnimationFrame(() => back.focus());
+  };
+  const select = (s: Selection) => (s ? setSelection(s) : close());
+
+  // Escape closes the panel wherever focus is. Forms inside the panel stop their own Escape first.
+  const closeRef = useRef(close);
+  useEffect(() => {
+    closeRef.current = close;
+  });
+  useEffect(() => {
+    if (!selection) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeRef.current();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selection]);
+  const byTitle = [...graph.books].sort((a, b) => a.title.localeCompare(b.title));
 
   return (
     <div className="relative h-screen overflow-hidden">
       {wide && graph.books.length > 0 && (
-        <GraphCanvas graph={graph} selection={selection} onSelect={setSelection} panelInset={selection ? PANEL_INSET : 0} />
+        <GraphCanvas graph={graph} selection={selection} onSelect={select} panelInset={selection ? PANEL_INSET : 0} pointedBookId={pointed} />
       )}
 
       <header className="pointer-events-none absolute inset-x-0 top-0 flex items-baseline gap-8 px-8 pt-7 lg:px-12">
@@ -64,7 +86,7 @@ export function GraphWorkspace({ graph, items, finding }: { graph: GraphView; it
         <div className="pointer-events-none absolute bottom-7 left-12 flex flex-col gap-1.5 font-sans text-[0.8rem] text-ink-2">
           <ul className="flex gap-5" aria-label="Connection types">
             {(["thematic", "contrast", "context"] as const).map((t) => (
-              <li key={t} className="flex items-center gap-2 font-medium" style={{ color: TYPE_COLOR[t] }}>
+              <li key={t} className="flex items-center gap-2 font-medium text-ink-2">
                 <span aria-hidden className="inline-block h-[3px] w-6 rounded-[2px]" style={{ background: TYPE_COLOR[t] }} />
                 {TYPE_LABEL[t]}
               </li>
@@ -74,13 +96,22 @@ export function GraphWorkspace({ graph, items, finding }: { graph: GraphView; it
         </div>
       )}
 
-      {/* The canvas is not readable by assistive tech; the same Books, as a list, open the same panel. */}
+      {/* The canvas is not readable by assistive tech; the same Books, as a list, open the same panel.
+          The Book a list item stands for is ringed and labelled on the canvas while it has focus. */}
       {wide && (
         <nav aria-label="Books in the graph" className="sr-only">
           <ul>
-            {graph.books.map((b) => (
+            {byTitle.map((b) => (
               <li key={b.bookId}>
-                <button type="button" onClick={() => setSelection({ kind: "book", bookId: b.bookId })}>
+                <button
+                  type="button"
+                  onFocus={() => setPointed(b.bookId)}
+                  onBlur={() => setPointed(null)}
+                  onClick={(e) => {
+                    returnTo.current = e.currentTarget;
+                    setSelection({ kind: "book", bookId: b.bookId });
+                  }}
+                >
                   {b.title}, {b.degree} {b.degree === 1 ? "Connection" : "Connections"}
                 </button>
               </li>
