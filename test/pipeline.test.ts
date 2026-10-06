@@ -2,9 +2,10 @@ import { and, eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { addBook } from "../src/domain/add-book";
 import { readConnections } from "../src/domain/connections";
+import { backfillEmbeddings } from "../src/domain/embeddings";
 import { readEnrichment, tryAgain } from "../src/domain/enrichment";
 import { changeStatus } from "../src/domain/library-entry";
-import { addNote } from "../src/domain/notes";
+import { addNote, updateNote } from "../src/domain/notes";
 import { RETRIES, type JobDeps } from "../src/domain/pipeline";
 import { connection, connectionRun, enrichment, note } from "../src/db/schema";
 import { fakeEmbedder, fakeEnricher, fakeJudge, work } from "./fakes";
@@ -171,6 +172,53 @@ describe("Pipeline", () => {
       await ctx.jobs.drain(deps({ judge }));
       expect(judge.inputs).toHaveLength(1);
       expect((await readConnections(ctx.db, ctx.userId, other)).status).toBe("idle");
+    });
+
+    describe("a Note that gave up on its vector", () => {
+      const failingEmbedder = () => {
+        const base = fakeEmbedder(["quiet"]);
+        return { ...base, embed: (texts: string[], t: "document" | "query") => (texts.some((x) => x.includes("late")) ? Promise.reject(new Error("429")) : base.embed(texts, t)) };
+      };
+      const noteRow = async (id: string) => (await ctx.db.select().from(note).where(eq(note.id, id)))[0];
+      async function gaveUp() {
+        const { bookId } = await add("book", "reading");
+        const n = await addNote(ctx.db, ctx.pipeline, ctx.userId, bookId, { body: "A late quiet note." });
+        await ctx.jobs.drain(deps({ embedder: failingEmbedder() }));
+        expect(await noteRow(n.id)).toMatchObject({ embedding: null, embedFailedAt: expect.any(Date) });
+        return { bookId, noteId: n.id };
+      }
+
+      it("is queued again by the embed backfill, which clears the give-up once it has a vector", async () => {
+        const { noteId } = await gaveUp();
+        ctx.jobs.sent.length = 0;
+        await backfillEmbeddings(ctx.db, ctx.jobs, "fake-voyage");
+        expect(ctx.jobs.sent).toContainEqual({ kind: "embed", target: { kind: "note", id: noteId } });
+        await ctx.jobs.drain(deps());
+        expect(await noteRow(noteId)).toMatchObject({ embeddingModel: "fake-voyage", embedFailedAt: null });
+      });
+
+      it("is no longer given up once edited", async () => {
+        const { noteId } = await gaveUp();
+        await updateNote(ctx.db, ctx.pipeline, ctx.userId, noteId, { body: "A quiet note, rewritten." });
+        expect(await noteRow(noteId)).toMatchObject({ embedFailedAt: null });
+      });
+
+      it("is shown to the judge in the next Refresh once it has a vector", async () => {
+        await finishWithNote("other", "Another quiet note.", deps());
+        const { bookId, noteId } = await gaveUp();
+        await changeStatus(ctx.db, ctx.pipeline, ctx.userId, bookId, "read");
+        const first = link((t) => `Like ${t}.`);
+        await ctx.jobs.drain(deps({ judge: first, embedder: failingEmbedder() }));
+        expect(first.inputs[0].book.notes).toEqual([]);
+
+        await backfillEmbeddings(ctx.db, ctx.jobs, "fake-voyage");
+        await ctx.jobs.drain(deps());
+        await ctx.pipeline.refreshRequested(ctx.userId, bookId);
+        const second = link((t) => `Like ${t}.`);
+        await ctx.jobs.drain(deps({ judge: second }));
+        expect(second.inputs[0].book.notes.map((n) => n.body)).toEqual(["A late quiet note."]);
+        expect((await noteRow(noteId)).embedFailedAt).toBeNull();
+      });
     });
 
     it("does not Refresh when the Enrichment that arrives is unrecognised", async () => {
