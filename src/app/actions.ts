@@ -6,7 +6,7 @@ import { getSeededUserId } from "@/db/seed";
 import { addBook, DuplicateBookError } from "@/domain/add-book";
 import { descriptionGateway } from "@/lib/book-search";
 import { readEnrichment, tryAgain, type EnrichmentView } from "@/domain/enrichment";
-import { countFindingConnections, readConnections, type ConnectionsView } from "@/domain/connections";
+import { countFindingConnections, readConnection, readConnections, type ConnectionDetail, type ConnectionsView } from "@/domain/connections";
 import { changeStatus, removeFromLibrary } from "@/domain/library-entry";
 import { appPipeline } from "@/lib/jobs";
 import { addNote, deleteNote, listNotes, updateNote, type Note, type NoteInput } from "@/domain/notes";
@@ -121,6 +121,17 @@ export async function getConnectionsAction(bookId: string): Promise<ConnectionsV
   try {
     const db = appDb();
     return await readConnections(db, await getSeededUserId(db), bookId);
+  } catch (err) {
+    console.error(err);
+    return null;
+  }
+}
+
+// Null when it could not be read; `connection` is null when it is gone (dismissed, or its Book removed).
+export async function getConnectionAction(connectionId: string): Promise<{ connection: ConnectionDetail | null } | null> {
+  try {
+    const db = appDb();
+    return { connection: await readConnection(db, await getSeededUserId(db), connectionId) };
   } catch (err) {
     console.error(err);
     return null;
