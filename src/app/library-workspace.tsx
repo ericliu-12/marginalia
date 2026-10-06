@@ -10,8 +10,8 @@ import { SearchPane } from "./search-pane";
 export function LibraryWorkspace({ items, finding }: { items: LibraryItem[]; finding: number }) {
   const [searchOpen, setSearchOpen] = useState(true);
   const [bookId, setBookId] = useState<string | null>(null);
-  // Bumped when a Book is removed, so search results stop saying it is in the library.
-  const [searchRefresh, setSearchRefresh] = useState(0);
+  // The Book last removed: search says so and fetches again, so its result stops saying it is in the library.
+  const [removed, setRemoved] = useState<{ title: string } | null>(null);
   const openRef = useRef<HTMLButtonElement>(null);
   const book = items.find((i) => i.bookId === bookId);
 
@@ -48,14 +48,14 @@ export function LibraryWorkspace({ items, finding }: { items: LibraryItem[]; fin
                 onBack={() => setBookId(null)}
                 onRemoved={() => {
                   setBookId(null);
-                  setSearchRefresh((n) => n + 1);
+                  setRemoved({ title: book.title });
                 }}
               />
             )}
             {/* Kept mounted while a Book is open so the query and results are still there on return. */}
             <div hidden={!!book} className="h-full">
               <SearchPane
-                refresh={searchRefresh}
+                removed={removed}
                 onClose={() => {
                   setSearchOpen(false);
                   requestAnimationFrame(() => openRef.current?.focus());

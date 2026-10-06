@@ -35,8 +35,12 @@ function saveDraft(bookId: string, draft: Draft) {
   } catch {}
 }
 
-const quietLink =
-  "min-h-11 font-sans text-[0.8rem] font-medium text-ink-3 underline decoration-rule underline-offset-4 transition-colors duration-150 hover:text-ink hover:decoration-ink disabled:text-ink-3/60 lg:min-h-0";
+// The colour is set per kind, never overridden: two text colours on one element resolve by stylesheet order.
+const quietLinkBase =
+  "min-h-11 min-w-11 font-sans text-[0.8rem] font-medium underline decoration-rule underline-offset-4 transition-colors duration-150 hover:decoration-ink lg:min-h-0 lg:min-w-0";
+const quietLink = `${quietLinkBase} text-ink-3 hover:text-ink disabled:text-ink-3/60`;
+// The confirming step of a deletion.
+const dangerLink = `${quietLinkBase} text-contrast hover:decoration-contrast disabled:text-contrast/60`;
 
 // The Book panel for one Library Entry. It does not assume where it lives: the library view docks it
 // in the right pane and the graph view floats it over the canvas, so the host supplies the way out.
@@ -135,17 +139,27 @@ export function BookPanel({
           </ul>
         )}
 
-        <RemoveEntry key={`remove-${item.bookId}`} bookId={item.bookId} onRemoved={onRemoved} />
+        <RemoveEntry key={`remove-${item.bookId}`} bookId={item.bookId} title={item.title} onRemoved={onRemoved} />
       </div>
     </aside>
   );
 }
 
 // Last in the panel and quiet, like deleting a Note: one text action, then an inline confirmation.
-function RemoveEntry({ bookId, onRemoved }: { bookId: string; onRemoved: () => void }) {
+// Focus lands on Keep, the safe choice, and returns to the action when the reader keeps the Book.
+function RemoveEntry({ bookId, title, onRemoved }: { bookId: string; title: string; onRemoved: () => void }) {
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState(false);
   const [pending, start] = useTransition();
+  const keepRef = useRef<HTMLButtonElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const wasConfirming = useRef(false);
+
+  useEffect(() => {
+    if (confirming) keepRef.current?.focus();
+    else if (wasConfirming.current) triggerRef.current?.focus();
+    wasConfirming.current = confirming;
+  }, [confirming]);
 
   function remove() {
     setError(false);
@@ -159,17 +173,27 @@ function RemoveEntry({ bookId, onRemoved }: { bookId: string; onRemoved: () => v
   return (
     <div aria-busy={pending} className="mt-12 border-t border-rule pt-4">
       {confirming ? (
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
-          <p className="w-full font-sans text-[0.8rem] text-ink-2">Remove this book, with its notes and Connections?</p>
-          <button type="button" onClick={remove} disabled={pending} className={`${quietLink} text-contrast hover:text-contrast`}>
+        <div
+          onKeyDown={(e) => {
+            if (e.key === "Escape" && !pending) {
+              e.stopPropagation();
+              setConfirming(false);
+            }
+          }}
+          className="flex flex-wrap items-center gap-x-5 gap-y-1"
+        >
+          <p id={`remove-${bookId}`} className="w-full font-sans text-[0.8rem] text-ink-2">
+            Remove <i className="font-serif text-[0.9rem]">{title}</i> from your library? Its notes, reading history and Connections go with it.
+          </p>
+          <button type="button" onClick={remove} disabled={pending} aria-describedby={`remove-${bookId}`} className={dangerLink}>
             {pending ? "Removing…" : "Yes, remove"}
           </button>
-          <button type="button" onClick={() => setConfirming(false)} disabled={pending} className={quietLink}>
+          <button ref={keepRef} type="button" onClick={() => setConfirming(false)} disabled={pending} className={quietLink}>
             Keep
           </button>
         </div>
       ) : (
-        <button type="button" onClick={() => setConfirming(true)} className={quietLink}>
+        <button ref={triggerRef} type="button" onClick={() => setConfirming(true)} className={quietLink}>
           Remove from library
         </button>
       )}
@@ -495,7 +519,7 @@ function NoteItem({
         {confirming ? (
           <>
             <span className="font-sans text-[0.8rem] text-ink-2">Delete this note?</span>
-            <button type="button" onClick={remove} disabled={pending} className={`${quietLink} text-contrast hover:text-contrast`}>
+            <button type="button" onClick={remove} disabled={pending} className={dangerLink}>
               {pending ? "Deleting…" : "Yes, delete"}
             </button>
             <button type="button" onClick={() => setConfirming(false)} disabled={pending} className={quietLink}>

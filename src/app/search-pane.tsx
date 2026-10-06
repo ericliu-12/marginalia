@@ -10,15 +10,20 @@ const DEBOUNCE_MS = 300;
 
 type Phase = "idle" | "loading" | "done" | "error";
 
-// `refresh` changes when the library changed elsewhere: the results are fetched again and focus returns here.
-export function SearchPane({ onClose, refresh }: { onClose: () => void; refresh: number }) {
+// `removed` is set anew each time a Book is removed elsewhere: search says so until the reader types,
+// fetches the results again, and takes focus back.
+export function SearchPane({ onClose, removed }: { onClose: () => void; removed: { title: string } | null }) {
   const [retry, setRetry] = useState(0);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [phase, setPhase] = useState<Phase>("idle");
+  const [notice, setNotice] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => inputRef.current?.focus(), [refresh]);
+  useEffect(() => {
+    inputRef.current?.focus();
+    setNotice(removed?.title ?? null);
+  }, [removed]);
 
   useEffect(() => {
     const q = query.trim();
@@ -43,7 +48,7 @@ export function SearchPane({ onClose, refresh }: { onClose: () => void; refresh:
       clearTimeout(timer);
       ctrl.abort();
     };
-  }, [query, retry, refresh]);
+  }, [query, retry, removed]);
 
   // Statuses chosen in this pane override what the search response said.
   function markAdded(workKey: string, status: Status) {
@@ -74,13 +79,23 @@ export function SearchPane({ onClose, refresh }: { onClose: () => void; refresh:
           id="book-search"
           type="search"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setNotice(null);
+          }}
           placeholder="Title and author"
           autoComplete="off"
           className="w-full rounded-[3px] border border-rule bg-paper px-3 py-2.5 font-sans text-[0.95rem] text-ink placeholder:text-ink-3 focus-visible:border-thematic focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-thematic/30"
         />
       </div>
 
+      <p role="status" className="px-6 font-sans text-sm text-ink-2 empty:hidden">
+        {notice && (
+          <span className="mb-3 block">
+            Removed <i className="font-serif text-[0.95rem]">{notice}</i> from your library.
+          </span>
+        )}
+      </p>
       <p aria-live="polite" className="sr-only">{phase === "done" ? `${results.length} results` : ""}</p>
       <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-8">
         {phase === "idle" && (
