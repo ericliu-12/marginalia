@@ -487,6 +487,16 @@ function NoteItem({
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState(false);
   const [pending, start] = useTransition();
+  const keepRef = useRef<HTMLButtonElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const wasConfirming = useRef(false);
+
+  // As in removing a Book: focus lands on Keep, and returns to Delete when the reader keeps the Note.
+  useEffect(() => {
+    if (confirming) keepRef.current?.focus();
+    else if (wasConfirming.current) triggerRef.current?.focus();
+    wasConfirming.current = confirming;
+  }, [confirming]);
 
   if (editing) {
     return (
@@ -515,14 +525,22 @@ function NoteItem({
       )}
       <p className="whitespace-pre-wrap">{note.body}</p>
       {!note.quote && note.page != null && <p className="mt-1 font-sans text-xs text-ink-3">p. {note.page}</p>}
-      <div className="mt-1 flex flex-wrap items-center gap-x-5 gap-y-1">
+      <div
+        onKeyDown={(e) => {
+          if (confirming && e.key === "Escape" && !pending) {
+            e.stopPropagation();
+            setConfirming(false);
+          }
+        }}
+        className="mt-1 flex flex-wrap items-center gap-x-5 gap-y-1"
+      >
         {confirming ? (
           <>
-            <span className="font-sans text-[0.8rem] text-ink-2">Delete this note?</span>
-            <button type="button" onClick={remove} disabled={pending} className={dangerLink}>
+            <span id={`delete-${note.id}`} className="font-sans text-[0.8rem] text-ink-2">Delete this note?</span>
+            <button type="button" onClick={remove} disabled={pending} aria-describedby={`delete-${note.id}`} className={dangerLink}>
               {pending ? "Deleting…" : "Yes, delete"}
             </button>
-            <button type="button" onClick={() => setConfirming(false)} disabled={pending} className={quietLink}>
+            <button ref={keepRef} type="button" onClick={() => setConfirming(false)} disabled={pending} className={quietLink}>
               Keep
             </button>
           </>
@@ -531,7 +549,7 @@ function NoteItem({
             <button type="button" onClick={onEdit} className={quietLink}>
               Edit
             </button>
-            <button type="button" onClick={() => setConfirming(true)} className={quietLink}>
+            <button ref={triggerRef} type="button" onClick={() => setConfirming(true)} className={quietLink}>
               Delete
             </button>
           </>
