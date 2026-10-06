@@ -12,11 +12,11 @@ describe("status changes and read-throughs", () => {
   const w = work({ workKey: "/works/stoner", title: "Stoner" });
 
   async function start(status: "want" | "reading" | "read") {
-    const entry = await addBook(ctx.db, ctx.userId, w, status);
+    const entry = await addBook(ctx.db, ctx.pipeline, ctx.userId, w, status);
     return entry.bookId;
   }
   const change = (bookId: string, status: "want" | "reading" | "read") =>
-    changeStatus(ctx.db, ctx.userId, bookId, status);
+    changeStatus(ctx.db, ctx.pipeline, ctx.userId, bookId, status);
   const passes = async () =>
     ctx.db.select().from(readThrough).orderBy(asc(readThrough.createdAt));
   const item = async () => (await readLibrary(ctx.db, ctx.userId))[0];
@@ -89,11 +89,11 @@ describe("status changes and read-throughs", () => {
   });
 
   it("adding a Book directly as read is a first completion; as want or reading it is not", async () => {
-    const first = await addBook(ctx.db, ctx.userId, work({ workKey: "/works/a", title: "A" }), "read");
+    const first = await addBook(ctx.db, ctx.pipeline, ctx.userId, work({ workKey: "/works/a", title: "A" }), "read");
     expect(first.firstCompletion).toBe(true);
     expect(await item()).toMatchObject({ finished: true });
-    const want = await addBook(ctx.db, ctx.userId, work({ workKey: "/works/b", title: "B" }), "want");
-    const reading = await addBook(ctx.db, ctx.userId, work({ workKey: "/works/c", title: "C" }), "reading");
+    const want = await addBook(ctx.db, ctx.pipeline, ctx.userId, work({ workKey: "/works/b", title: "B" }), "want");
+    const reading = await addBook(ctx.db, ctx.pipeline, ctx.userId, work({ workKey: "/works/c", title: "C" }), "reading");
     expect([want.firstCompletion, reading.firstCompletion]).toEqual([false, false]);
   });
 
@@ -122,7 +122,7 @@ describe("status changes and read-throughs", () => {
   it("sorts Read Books with unknown finish dates after dated ones", async () => {
     const dated = await start("reading");
     await change(dated, "read");
-    await addBook(ctx.db, ctx.userId, work({ workKey: "/works/undated", title: "Undated" }), "read");
+    await addBook(ctx.db, ctx.pipeline, ctx.userId, work({ workKey: "/works/undated", title: "Undated" }), "read");
     const titles = (await readLibrary(ctx.db, ctx.userId)).map((i) => i.title);
     expect(titles).toEqual(["Stoner", "Undated"]);
   });

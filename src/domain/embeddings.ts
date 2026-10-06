@@ -3,6 +3,7 @@ import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import type { Db } from "@/db/client";
 import { enrichment, note } from "@/db/schema";
 import { completedPasses } from "./library-entry";
+import type { JobQueue } from "./pipeline";
 
 // Seam to the embeddings provider (Voyage); tests supply a fake. `document` when storing, `query`
 // when searching. Returns one vector per text, in order. Throws on a failed answer.
@@ -12,11 +13,6 @@ export interface Embedder {
 }
 
 export type EmbeddingTarget = { kind: "enrichment" | "note"; id: string };
-
-// Seam to the job queue: `id` is a Book id for an Enrichment and a Note id for a Note.
-export interface EmbeddingQueue {
-  enqueueEmbedding(target: EmbeddingTarget): Promise<void>;
-}
 
 // Domain seam, run by the worker: embed a Book's Enrichment (summary and themes). Unrecognised
 // Enrichment is never embedded; a vector already made by this model is kept.
@@ -81,7 +77,7 @@ export async function nearestBooks(db: Db, userId: string, bookId: string, model
 
 // Queues an embed job for every recognised Enrichment and every Note with no vector, or one from
 // another model. Returns how many were queued; jobs for the same target coalesce, so re-running is safe.
-export async function backfillEmbeddings(db: Db, queue: EmbeddingQueue, model: string): Promise<number> {
+export async function backfillEmbeddings(db: Db, queue: JobQueue, model: string): Promise<number> {
   const stale = (embedding: AnyPgColumn, embeddingModel: AnyPgColumn) =>
     or(isNull(embedding), isNull(embeddingModel), ne(embeddingModel, model));
   const enrichments = await db
@@ -89,7 +85,7 @@ export async function backfillEmbeddings(db: Db, queue: EmbeddingQueue, model: s
     .from(enrichment)
     .where(and(eq(enrichment.recognised, true), eq(enrichment.status, "ready"), stale(enrichment.embedding, enrichment.embeddingModel)));
   const notes = await db.select({ id: note.id }).from(note).where(stale(note.embedding, note.embeddingModel));
-  for (const { id } of enrichments) await queue.enqueueEmbedding({ kind: "enrichment", id });
-  for (const { id } of notes) await queue.enqueueEmbedding({ kind: "note", id });
+  for (const { id } of enrichments) await queue.send({ kind: "embed", target: { kind: "enrichment", id } });
+  for (const { id } of notes) await queue.send({ kind: "embed", target: { kind: "note", id } });
   return enrichments.length + notes.length;
 }

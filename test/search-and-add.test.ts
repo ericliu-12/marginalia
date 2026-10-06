@@ -254,7 +254,7 @@ describe("search ranking", () => {
 
   it("marks works already in the library with their status", async () => {
     const stoner = work({ workKey: "/works/stoner", title: "Stoner", editionCount: 9 });
-    await addBook(ctx.db, ctx.userId, stoner, "reading");
+    await addBook(ctx.db, ctx.pipeline, ctx.userId, stoner, "reading");
     const results = await searchBooks(ctx.db, ctx.userId, fakeGateway([stoner, work({ workKey: "/works/other" })]), "x");
     expect(results.map((r) => r.libraryStatus)).toEqual(["reading", null]);
   });
@@ -278,14 +278,14 @@ describe("add a Book", () => {
   });
 
   it("adds a Book with the chosen Status, visible in the library", async () => {
-    await addBook(ctx.db, ctx.userId, stoner, "want");
+    await addBook(ctx.db, ctx.pipeline, ctx.userId, stoner, "want");
     expect(await readLibrary(ctx.db, ctx.userId)).toEqual([
       expect.objectContaining({ title: "Stoner", authors: ["John Williams"], status: "want" }),
     ]);
   });
 
   it("stores the work key, year, cover and a snapshot with noisy subjects dropped", async () => {
-    await addBook(ctx.db, ctx.userId, stoner, "want");
+    await addBook(ctx.db, ctx.pipeline, ctx.userId, stoner, "want");
     const [row] = await ctx.db.select().from(book);
     expect(row).toMatchObject({
       openLibraryWorkKey: "/works/OL3511459W",
@@ -306,7 +306,7 @@ describe("add a Book", () => {
 
   it("stores the English title and Latin author, keeps the originals, and looks the description up by them", async () => {
     const descriptions = fakeDescriptions({});
-    await addBook(ctx.db, ctx.userId, kafkaOnTheShore, "want", descriptions);
+    await addBook(ctx.db, ctx.pipeline, ctx.userId, kafkaOnTheShore, "want", descriptions);
     const [row] = await ctx.db.select().from(book);
     expect(row).toMatchObject({
       title: "Kafka on the Shore",
@@ -319,7 +319,7 @@ describe("add a Book", () => {
   });
 
   it("stores L'étranger as The Stranger, with the French title kept", async () => {
-    await addBook(ctx.db, ctx.userId, work({ workKey: "/works/OL1230613W", title: "The Stranger", originalTitle: "L’étranger", authors: ["Albert Camus"] }), "read");
+    await addBook(ctx.db, ctx.pipeline, ctx.userId, work({ workKey: "/works/OL1230613W", title: "The Stranger", originalTitle: "L’étranger", authors: ["Albert Camus"] }), "read");
     const [row] = await ctx.db.select().from(book);
     expect(row).toMatchObject({ title: "The Stranger", originalTitle: "L’étranger", authors: ["Albert Camus"] });
     expect((await readLibrary(ctx.db, ctx.userId))[0]).toMatchObject({ title: "The Stranger" });
@@ -329,7 +329,7 @@ describe("add a Book", () => {
     // Open Library lists every contributor of a work as an author, translators included; the Google
     // Books volume found for the description names the real ones.
     const authorsOf = async (w: ReturnType<typeof work>, descriptions: ReturnType<typeof fakeDescriptions> | null) => {
-      await addBook(ctx.db, ctx.userId, w, "read", descriptions);
+      await addBook(ctx.db, ctx.pipeline, ctx.userId, w, "read", descriptions);
       return (await ctx.db.select().from(book))[0].authors;
     };
     const convenience = work({
@@ -375,12 +375,12 @@ describe("add a Book", () => {
   });
 
   it("a Book whose title was not localised has no original title", async () => {
-    await addBook(ctx.db, ctx.userId, stoner, "want");
+    await addBook(ctx.db, ctx.pipeline, ctx.userId, stoner, "want");
     expect((await ctx.db.select().from(book))[0].originalTitle).toBeNull();
   });
 
   it("'Already read' creates one completed Read-through with null dates", async () => {
-    await addBook(ctx.db, ctx.userId, stoner, "read");
+    await addBook(ctx.db, ctx.pipeline, ctx.userId, stoner, "read");
     const rows = await ctx.db.select().from(readThrough);
     expect(rows).toHaveLength(1);
     expect(rows[0].startedAt).toBeNull();
@@ -389,13 +389,13 @@ describe("add a Book", () => {
   });
 
   it("'Want to read' creates no Read-through", async () => {
-    await addBook(ctx.db, ctx.userId, stoner, "want");
+    await addBook(ctx.db, ctx.pipeline, ctx.userId, stoner, "want");
     expect(await ctx.db.select().from(readThrough)).toEqual([]);
   });
 
   it("rejects adding the same work key twice and leaves one Library Entry", async () => {
-    await addBook(ctx.db, ctx.userId, stoner, "want");
-    await expect(addBook(ctx.db, ctx.userId, stoner, "read")).rejects.toBeInstanceOf(DuplicateBookError);
+    await addBook(ctx.db, ctx.pipeline, ctx.userId, stoner, "want");
+    await expect(addBook(ctx.db, ctx.pipeline, ctx.userId, stoner, "read")).rejects.toBeInstanceOf(DuplicateBookError);
     expect(await ctx.db.select().from(book)).toHaveLength(1);
     expect(await ctx.db.select().from(libraryEntry)).toHaveLength(1);
     expect(await ctx.db.select().from(readThrough)).toEqual([]);
@@ -403,15 +403,15 @@ describe("add a Book", () => {
 
   it("rejects concurrent adds of the same work key", async () => {
     const results = await Promise.allSettled([
-      addBook(ctx.db, ctx.userId, stoner, "want"),
-      addBook(ctx.db, ctx.userId, stoner, "want"),
+      addBook(ctx.db, ctx.pipeline, ctx.userId, stoner, "want"),
+      addBook(ctx.db, ctx.pipeline, ctx.userId, stoner, "want"),
     ]);
     expect(results.map((r) => r.status).sort()).toEqual(["fulfilled", "rejected"]);
     expect(await ctx.db.select().from(libraryEntry)).toHaveLength(1);
   });
 
   it("adds with thin metadata: no cover, no year, no authors", async () => {
-    await addBook(ctx.db, ctx.userId, work({ workKey: "/works/thin", title: "Thin", authors: [], firstPublishedYear: null }), "want");
+    await addBook(ctx.db, ctx.pipeline, ctx.userId, work({ workKey: "/works/thin", title: "Thin", authors: [], firstPublishedYear: null }), "want");
     const [row] = await ctx.db
       .select()
       .from(book)

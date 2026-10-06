@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { addBook } from "../src/domain/add-book";
 import { generateConnections, readConnections, type ConnectionDeps, type JudgeInput } from "../src/domain/connections";
 import { embedEnrichment, embedNote } from "../src/domain/embeddings";
@@ -14,24 +14,17 @@ import { useTestDb } from "./harness";
 describe("Removing a Library Entry", () => {
   const ctx = useTestDb();
   const embedder = fakeEmbedder(["solitude"]);
-  const queued: { userId: string; bookId: string }[] = [];
-  const queue = {
-    async enqueueConnections(job: { userId: string; bookId: string }) {
-      queued.push(job);
-    },
-    async enqueueEnrichment() {},
-  };
-  beforeEach(() => void (queued.length = 0));
+  const queued = () => ctx.jobs.sent.flatMap((j) => (j.kind === "connections" ? [{ userId: j.userId, bookId: j.bookId }] : []));
 
   const add = (title: string, status: "want" | "reading" | "read") =>
-    addBook(ctx.db, ctx.userId, work({ workKey: `/works/${title}`, title, authors: ["A"] }), status, null, queue);
+    addBook(ctx.db, ctx.pipeline, ctx.userId, work({ workKey: `/works/${title}`, title, authors: ["A"] }), status);
 
   // A Finished Book, enriched and embedded, with Notes; every one of these is near the others.
   async function finished(title: string, notes: string[] = []) {
     const { bookId } = await add(title, "read");
     await enrichBook(ctx.db, { model: fakeEnricher({ summary: `About ${title}.`, themes: ["solitude"] }) }, bookId);
     await embedEnrichment(ctx.db, embedder, bookId);
-    for (const body of notes) await embedNote(ctx.db, embedder, (await addNote(ctx.db, ctx.userId, bookId, { body })).id);
+    for (const body of notes) await embedNote(ctx.db, embedder, (await addNote(ctx.db, ctx.pipeline, ctx.userId, bookId, { body })).id);
     return bookId;
   }
 
@@ -96,19 +89,19 @@ describe("Removing a Library Entry", () => {
 
   it("lets the same Book be added again, as a fresh Entry whose first completion queues Connections", async () => {
     const { bookId } = await add("Stoner", "reading");
-    await changeStatus(ctx.db, ctx.userId, bookId, "read", queue);
+    await changeStatus(ctx.db, ctx.pipeline, ctx.userId, bookId, "read");
     await ctx.db.update(libraryEntry).set({ connectionsStatus: "idle", connectionsGeneratedAt: new Date() }).where(eq(libraryEntry.bookId, bookId));
     await remove(bookId);
-    queued.length = 0;
+    ctx.jobs.sent.length = 0;
 
     const again = await add("Stoner", "reading");
     expect(again.bookId).toBe(bookId);
     expect(await ctx.db.select().from(book)).toHaveLength(1);
     expect(await readLibrary(ctx.db, ctx.userId)).toMatchObject([{ bookId, status: "reading", finished: false }]);
 
-    const { firstCompletion } = await changeStatus(ctx.db, ctx.userId, bookId, "read", queue);
+    const { firstCompletion } = await changeStatus(ctx.db, ctx.pipeline, ctx.userId, bookId, "read");
     expect(firstCompletion).toBe(true);
-    expect(queued).toEqual([{ userId: ctx.userId, bookId }]);
+    expect(queued()).toEqual([{ userId: ctx.userId, bookId }]);
   });
 
   it("leaves a Connections job queued for a removed Book with nothing to do", async () => {
@@ -150,7 +143,7 @@ describe("Removing a Library Entry", () => {
 
   it("leaves an embed job for a removed Book's Note with nothing to do", async () => {
     const { bookId } = await add("Stoner", "reading");
-    const n = await addNote(ctx.db, ctx.userId, bookId, { body: "On solitude." });
+    const n = await addNote(ctx.db, ctx.pipeline, ctx.userId, bookId, { body: "On solitude." });
     await remove(bookId);
     const calls = embedder.calls.length;
     await embedNote(ctx.db, embedder, n.id);

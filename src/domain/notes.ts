@@ -1,8 +1,8 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { libraryEntry, note } from "@/db/schema";
-import type { EmbeddingQueue } from "./embeddings";
 import { NotInLibraryError, findEntry } from "./library-entry";
+import type { Pipeline } from "./pipeline";
 
 export type Note = {
   id: string;
@@ -38,12 +38,8 @@ function clean(input: NoteInput) {
   return { body, quote: input.quote?.trim() || null, page: input.page ?? null };
 }
 
-// A queue that is down must not lose the reader's Note.
-const queueEmbedding = (queue: EmbeddingQueue | null | undefined, id: string) =>
-  queue?.enqueueEmbedding({ kind: "note", id }).catch((err) => console.error(err));
-
 // Domain seam: Notes attach to the reader's Library Entry for a Book, never to the shared Book.
-export async function addNote(db: Db, userId: string, bookId: string, input: NoteInput, queue?: EmbeddingQueue | null): Promise<Note> {
+export async function addNote(db: Db, pipeline: Pipeline, userId: string, bookId: string, input: NoteInput): Promise<Note> {
   const values = clean(input);
   const entry = await findEntry(db, userId, bookId);
   if (!entry) throw new NotInLibraryError(bookId);
@@ -51,7 +47,7 @@ export async function addNote(db: Db, userId: string, bookId: string, input: Not
     .insert(note)
     .values({ libraryEntryId: entry.id, userId, ...values })
     .returning(columns);
-  await queueEmbedding(queue, created.id);
+  await pipeline.noteSaved(created.id);
   return created;
 }
 
@@ -66,14 +62,14 @@ export async function listNotes(db: Db, userId: string, bookId: string): Promise
 }
 
 // Editing a Note leaves Connections alone: they hold their explanation text and Note ids as written.
-export async function updateNote(db: Db, userId: string, noteId: string, input: NoteInput, queue?: EmbeddingQueue | null): Promise<Note> {
+export async function updateNote(db: Db, pipeline: Pipeline, userId: string, noteId: string, input: NoteInput): Promise<Note> {
   const [updated] = await db
     .update(note)
     .set({ ...clean(input), embedding: null, embeddingModel: null, updatedAt: new Date() })
     .where(and(eq(note.id, noteId), ownedBy(db, userId)))
     .returning(columns);
   if (!updated) throw new NoteNotFoundError(noteId);
-  await queueEmbedding(queue, updated.id);
+  await pipeline.noteSaved(updated.id);
   return updated;
 }
 

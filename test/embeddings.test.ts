@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { addBook } from "../src/domain/add-book";
-import { backfillEmbeddings, embedEnrichment, embedNote, nearestBooks, type EmbeddingQueue } from "../src/domain/embeddings";
+import { backfillEmbeddings, embedEnrichment, embedNote, nearestBooks } from "../src/domain/embeddings";
 import { enrichBook } from "../src/domain/enrichment";
 import { addNote, updateNote } from "../src/domain/notes";
 import { book, enrichment, note, user } from "../src/db/schema";
@@ -15,7 +15,7 @@ describe("Embeddings", () => {
   const ctx = useTestDb();
 
   async function enriched(workKey: string, title: string, reply: Parameters<typeof fakeEnricher>[0] = {}) {
-    const entry = await addBook(ctx.db, ctx.userId, work({ workKey, title, authors: ["A"] }), "read");
+    const entry = await addBook(ctx.db, ctx.pipeline, ctx.userId, work({ workKey, title, authors: ["A"] }), "read");
     await enrichBook(ctx.db, { model: fakeEnricher(reply) }, entry.bookId);
     return entry.bookId;
   }
@@ -40,7 +40,7 @@ describe("Embeddings", () => {
   });
 
   it("does nothing for a Book with no Enrichment, and skips work already embedded by the same model", async () => {
-    const bare = (await addBook(ctx.db, ctx.userId, work({ workKey: "/works/c", title: "C" }), "want")).bookId;
+    const bare = (await addBook(ctx.db, ctx.pipeline, ctx.userId, work({ workKey: "/works/c", title: "C" }), "want")).bookId;
     const id = await enriched("/works/d", "D");
     const embedder = fakeEmbedder(AXES);
     await embedEnrichment(ctx.db, embedder, bare);
@@ -65,26 +65,24 @@ describe("Embeddings", () => {
   });
 
   it("embeds a Note's text and quote; saving a Note queues a re-embed and clears the old vector", async () => {
-    const queued: unknown[] = [];
-    const queue: EmbeddingQueue = { async enqueueEmbedding(t) { queued.push(t); } };
     const id = await enriched("/works/g", "G");
-    const n = await addNote(ctx.db, ctx.userId, id, { body: "Lonely.", quote: "He was alone." }, queue);
-    expect(queued).toEqual([{ kind: "note", id: n.id }]);
+    const n = await addNote(ctx.db, ctx.pipeline, ctx.userId, id, { body: "Lonely.", quote: "He was alone." });
+    expect(ctx.jobs.sent.filter((j) => j.kind === "embed")).toEqual([{ kind: "embed", target: { kind: "note", id: n.id } }]);
 
     const embedder = fakeEmbedder(AXES);
     await embedNote(ctx.db, embedder, n.id);
     expect(embedder.calls).toEqual([{ texts: ["Lonely.\nHe was alone."], inputType: "document" }]);
     expect(await noteRow(n.id)).toMatchObject({ embeddingModel: "fake-voyage" });
 
-    await updateNote(ctx.db, ctx.userId, n.id, { body: "Revised." }, queue);
-    expect(queued).toHaveLength(2);
+    await updateNote(ctx.db, ctx.pipeline, ctx.userId, n.id, { body: "Revised." });
+    expect(ctx.jobs.sent.filter((j) => j.kind === "embed")).toHaveLength(2);
     expect(await noteRow(n.id)).toMatchObject({ embedding: null, embeddingModel: null });
   });
 
   it("embedding a deleted Note is a no-op, and a failed queue does not fail saving the Note", async () => {
     const id = await enriched("/works/h", "H");
-    const down: EmbeddingQueue = { enqueueEmbedding: () => Promise.reject(new Error("queue down")) };
-    const n = await addNote(ctx.db, ctx.userId, id, { body: "Kept" }, down);
+    ctx.jobs.down = true;
+    const n = await addNote(ctx.db, ctx.pipeline, ctx.userId, id, { body: "Kept" });
     expect(n.body).toBe("Kept");
     await ctx.db.delete(note).where(eq(note.id, n.id));
     await embedNote(ctx.db, fakeEmbedder(AXES), n.id);
@@ -97,7 +95,7 @@ describe("Embeddings", () => {
     const battle = await enriched("/works/w", "Battle Book", { summary: "Fighting.", themes: ["war"] });
     const sea = await enriched("/works/z", "Sea Book", { summary: "Waves.", themes: ["sea"] });
     // A Note on the sea Book that is about war: the Book should now also be near the war Book.
-    const seaNote = await addNote(ctx.db, ctx.userId, sea, { body: "This is really about war." });
+    const seaNote = await addNote(ctx.db, ctx.pipeline, ctx.userId, sea, { body: "This is really about war." });
     for (const b of [stoner, lonely, battle, sea]) await embedEnrichment(ctx.db, embedder, b);
     await embedNote(ctx.db, embedder, seaNote.id);
 
@@ -116,8 +114,8 @@ describe("Embeddings", () => {
     const me = await enriched("/works/f0", "Mine", { themes: ["solitude"] });
     const finished = await enriched("/works/f1", "Finished", { themes: ["solitude"] });
     const backToWant = await enriched("/works/f2", "Moved back to want", { themes: ["solitude"] });
-    await changeStatus(ctx.db, ctx.userId, backToWant, "want");
-    const reading = (await addBook(ctx.db, ctx.userId, work({ workKey: "/works/f3", title: "Reading", authors: ["A"] }), "reading")).bookId;
+    await changeStatus(ctx.db, ctx.pipeline, ctx.userId, backToWant, "want");
+    const reading = (await addBook(ctx.db, ctx.pipeline, ctx.userId, work({ workKey: "/works/f3", title: "Reading", authors: ["A"] }), "reading")).bookId;
     await enrichBook(ctx.db, { model: fakeEnricher() }, reading);
     // Embedded Books in the shared tables that are in nobody's library.
     const [orphan] = await ctx.db.insert(book).values({ title: "Orphan", authors: ["O"] }).returning();
@@ -126,7 +124,7 @@ describe("Embeddings", () => {
     });
     // Another reader's Finished Book.
     const [other] = await ctx.db.insert(user).values({ email: "other@example.com" }).returning();
-    const theirs = await addBook(ctx.db, other.id, work({ workKey: "/works/f4", title: "Theirs", authors: ["A"] }), "read");
+    const theirs = await addBook(ctx.db, ctx.pipeline, other.id, work({ workKey: "/works/f4", title: "Theirs", authors: ["A"] }), "read");
     await enrichBook(ctx.db, { model: fakeEnricher({ themes: ["solitude"] }) }, theirs.bookId);
     for (const b of [me, finished, backToWant, reading, orphan.id, theirs.bookId]) await embedEnrichment(ctx.db, embedder, b);
 
@@ -141,7 +139,7 @@ describe("Embeddings", () => {
     await embedEnrichment(ctx.db, fakeEmbedder(AXES, "new"), b);
     expect(await nearestBooks(ctx.db, ctx.userId, a, "old")).toEqual([]);
 
-    const n = await addNote(ctx.db, ctx.userId, b, { body: "war" });
+    const n = await addNote(ctx.db, ctx.pipeline, ctx.userId, b, { body: "war" });
     await embedNote(ctx.db, fakeEmbedder(AXES, "old"), n.id);
     const other = "00000000-0000-0000-0000-000000000000";
     expect(await nearestBooks(ctx.db, other, a, "old")).toEqual([]);
@@ -166,18 +164,18 @@ describe("Embeddings", () => {
     const fresh = await enriched("/works/b2", "Fresh");
     const old = await enriched("/works/b3", "Old");
     await enriched("/works/b4", "Unrecognised", { recognised: false });
-    await addBook(ctx.db, ctx.userId, work({ workKey: "/works/b5", title: "Not enriched" }), "want");
+    await addBook(ctx.db, ctx.pipeline, ctx.userId, work({ workKey: "/works/b5", title: "Not enriched" }), "want");
     await embedEnrichment(ctx.db, fakeEmbedder(AXES, "current"), done);
     await embedEnrichment(ctx.db, fakeEmbedder(AXES, "retired"), old);
-    const doneNote = await addNote(ctx.db, ctx.userId, done, { body: "embedded" });
-    const oldNote = await addNote(ctx.db, ctx.userId, done, { body: "retired" });
-    const freshNote = await addNote(ctx.db, ctx.userId, fresh, { body: "none" });
+    const doneNote = await addNote(ctx.db, ctx.pipeline, ctx.userId, done, { body: "embedded" });
+    const oldNote = await addNote(ctx.db, ctx.pipeline, ctx.userId, done, { body: "retired" });
+    const freshNote = await addNote(ctx.db, ctx.pipeline, ctx.userId, fresh, { body: "none" });
     await embedNote(ctx.db, fakeEmbedder(AXES, "current"), doneNote.id);
     await embedNote(ctx.db, fakeEmbedder(AXES, "retired"), oldNote.id);
 
-    const queued: { kind: string; id: string }[] = [];
-    const queue: EmbeddingQueue = { async enqueueEmbedding(t) { queued.push(t); } };
-    const count = await backfillEmbeddings(ctx.db, queue, "current");
+    ctx.jobs.sent.length = 0;
+    const count = await backfillEmbeddings(ctx.db, ctx.jobs, "current");
+    const queued = ctx.jobs.sent.flatMap((j) => (j.kind === "embed" ? [j.target] : []));
     const key = (t: { kind: string; id: string }) => `${t.kind}:${t.id}`;
     expect(queued.map(key).sort()).toEqual(
       [`enrichment:${fresh}`, `enrichment:${old}`, `note:${oldNote.id}`, `note:${freshNote.id}`].sort(),

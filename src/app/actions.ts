@@ -8,7 +8,7 @@ import { descriptionGateway } from "@/lib/book-search";
 import { readEnrichment, tryAgain, type EnrichmentView } from "@/domain/enrichment";
 import { countFindingConnections, readConnections, type ConnectionsView } from "@/domain/connections";
 import { changeStatus, removeFromLibrary } from "@/domain/library-entry";
-import { appQueue } from "@/lib/jobs";
+import { appPipeline } from "@/lib/jobs";
 import { addNote, deleteNote, listNotes, updateNote, type Note, type NoteInput } from "@/domain/notes";
 import type { OpenLibraryWork, Status } from "@/domain/search";
 
@@ -19,12 +19,7 @@ export type AddResult = { ok: true } | { ok: false; reason: "duplicate" | "faile
 export async function addBookAction(work: OpenLibraryWork, status: Status): Promise<AddResult> {
   try {
     const db = appDb();
-    // A queue that is down must not stop a Book being added; Enrichment is picked up on "Try again".
-    const queue = await appQueue().catch((err): null => {
-      console.error(err);
-      return null;
-    });
-    await addBook(db, await getSeededUserId(db), work, status, descriptionGateway(), queue);
+    await addBook(db, appPipeline(db), await getSeededUserId(db), work, status, descriptionGateway());
     revalidatePath("/");
     return { ok: true };
   } catch (err) {
@@ -37,12 +32,7 @@ export async function addBookAction(work: OpenLibraryWork, status: Status): Prom
 export async function changeStatusAction(bookId: string, status: Status): Promise<{ ok: boolean }> {
   try {
     const db = appDb();
-    // A queue that is down must not stop a Status change; the Book is left for the backfill.
-    const queue = await appQueue().catch((err): null => {
-      console.error(err);
-      return null;
-    });
-    await changeStatus(db, await getSeededUserId(db), bookId, status, queue);
+    await changeStatus(db, appPipeline(db), await getSeededUserId(db), bookId, status);
     revalidatePath("/");
     return { ok: true };
   } catch (err) {
@@ -75,17 +65,10 @@ export async function listNotesAction(bookId: string): Promise<Note[] | null> {
   }
 }
 
-// A queue that is down must not stop a Note being saved.
-const embeddingQueue = () =>
-  appQueue().catch((err): null => {
-    console.error(err);
-    return null;
-  });
-
 export async function addNoteAction(bookId: string, input: NoteInput): Promise<NoteResult> {
   try {
     const db = appDb();
-    return { ok: true, note: await addNote(db, await getSeededUserId(db), bookId, input, await embeddingQueue()) };
+    return { ok: true, note: await addNote(db, appPipeline(db), await getSeededUserId(db), bookId, input) };
   } catch (err) {
     console.error(err);
     return { ok: false };
@@ -95,7 +78,7 @@ export async function addNoteAction(bookId: string, input: NoteInput): Promise<N
 export async function updateNoteAction(noteId: string, input: NoteInput): Promise<NoteResult> {
   try {
     const db = appDb();
-    return { ok: true, note: await updateNote(db, await getSeededUserId(db), noteId, input, await embeddingQueue()) };
+    return { ok: true, note: await updateNote(db, appPipeline(db), await getSeededUserId(db), noteId, input) };
   } catch (err) {
     console.error(err);
     return { ok: false };
@@ -126,8 +109,7 @@ export async function getEnrichmentAction(bookId: string): Promise<{ enrichment:
 export async function tryAgainAction(bookId: string): Promise<{ ok: boolean }> {
   try {
     const db = appDb();
-    await tryAgain(db, await appQueue(), await getSeededUserId(db), bookId);
-    return { ok: true };
+    return { ok: await tryAgain(db, appPipeline(db), await getSeededUserId(db), bookId) };
   } catch (err) {
     console.error(err);
     return { ok: false };

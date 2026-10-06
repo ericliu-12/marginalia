@@ -1,13 +1,11 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { addBook } from "../src/domain/add-book";
-import { authorsMatch, enrichBook, readEnrichment, tryAgain, type EnrichmentQueue } from "../src/domain/enrichment";
+import { authorsMatch, enrichBook, readEnrichment, tryAgain } from "../src/domain/enrichment";
 import { NotInLibraryError } from "../src/domain/library-entry";
 import { book, enrichment } from "../src/db/schema";
 import { fakeDescriptions, fakeEnricher, prose, volume, work } from "./fakes";
 import { useTestDb } from "./harness";
-
-const noQueue: EnrichmentQueue = { async enqueueEnrichment() {} };
 
 describe("Enrichment", () => {
   const ctx = useTestDb();
@@ -15,7 +13,7 @@ describe("Enrichment", () => {
 
   async function addStoner(description?: string) {
     const gw = description ? fakeDescriptions({ volumes: [volume("gb1", { description })] }) : null;
-    await addBook(ctx.db, ctx.userId, stoner, "want", gw, noQueue);
+    await addBook(ctx.db, ctx.pipeline, ctx.userId, stoner, "want", gw);
     const [row] = await ctx.db.select().from(book).where(eq(book.openLibraryWorkKey, stoner.workKey));
     return row;
   }
@@ -67,9 +65,9 @@ describe("Enrichment", () => {
     const b = await addStoner(prose(700));
     const model = fakeEnricher();
     await enrichBook(ctx.db, { model }, b.id);
-    const queued: string[] = [];
-    await tryAgain(ctx.db, { async enqueueEnrichment(id) { queued.push(id); } }, ctx.userId, b.id);
-    expect(queued).toEqual([b.id]);
+    ctx.jobs.sent.length = 0;
+    expect(await tryAgain(ctx.db, ctx.pipeline, ctx.userId, b.id)).toBe(true);
+    expect(ctx.jobs.sent).toEqual([{ kind: "enrich", bookId: b.id }]);
     expect(await readEnrichment(ctx.db, b.id)).toMatchObject({ status: "pending" });
     await enrichBook(ctx.db, { model }, b.id);
     expect(model.inputs).toHaveLength(2);
@@ -80,7 +78,7 @@ describe("Enrichment", () => {
     await enrichBook(ctx.db, { model: fakeEnricher() }, b.id);
     await ctx.db.update(book).set({ description: prose(900) }).where(eq(book.id, b.id));
     const slow = fakeEnricher(async () => {
-      await tryAgain(ctx.db, noQueue, ctx.userId, b.id);
+      await tryAgain(ctx.db, ctx.pipeline, ctx.userId, b.id);
       return {};
     });
     await enrichBook(ctx.db, { model: slow }, b.id);
@@ -92,18 +90,17 @@ describe("Enrichment", () => {
   it("'Try again' reads as failed, not pending, when the job could not be queued", async () => {
     const b = await addStoner(prose(700));
     await enrichBook(ctx.db, { model: fakeEnricher() }, b.id);
-    const down: EnrichmentQueue = { enqueueEnrichment: () => Promise.reject(new Error("queue down")) };
-    await expect(tryAgain(ctx.db, down, ctx.userId, b.id)).rejects.toThrow("queue down");
+    ctx.jobs.down = true;
+    expect(await tryAgain(ctx.db, ctx.pipeline, ctx.userId, b.id)).toBe(false);
     expect(await readEnrichment(ctx.db, b.id)).toMatchObject({ status: "failed" });
   });
 
   it("'Try again' only touches a Book in the reader's library", async () => {
     const b = await addStoner(prose(700));
     await enrichBook(ctx.db, { model: fakeEnricher() }, b.id);
-    const queued: string[] = [];
-    const queue: EnrichmentQueue = { async enqueueEnrichment(id) { queued.push(id); } };
-    await expect(tryAgain(ctx.db, queue, "00000000-0000-0000-0000-000000000000", b.id)).rejects.toThrow(NotInLibraryError);
-    expect(queued).toEqual([]);
+    ctx.jobs.sent.length = 0;
+    await expect(tryAgain(ctx.db, ctx.pipeline, "00000000-0000-0000-0000-000000000000", b.id)).rejects.toThrow(NotInLibraryError);
+    expect(ctx.jobs.sent).toEqual([]);
     expect(await readEnrichment(ctx.db, b.id)).toMatchObject({ status: "ready" });
   });
 
@@ -225,7 +222,7 @@ describe("Enrichment", () => {
     });
     const [a, b] = await Promise.all(
       ["/works/m1", "/works/m2"].map(async (workKey) => {
-        await addBook(ctx.db, ctx.userId, { ...murakami, workKey }, "want", null, noQueue);
+        await addBook(ctx.db, ctx.pipeline, ctx.userId, { ...murakami, workKey }, "want");
         return (await ctx.db.select().from(book).where(eq(book.openLibraryWorkKey, workKey)))[0];
       }),
     );

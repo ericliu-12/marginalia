@@ -11,7 +11,7 @@ describe("add-time description", () => {
   const ctx = useTestDb();
   const stoner = work({ workKey: "/works/stoner", title: "Stoner", authors: ["John Williams"] });
   const add = async (gw: ReturnType<typeof fakeDescriptions>, w = stoner) => {
-    await addBook(ctx.db, ctx.userId, w, "want", gw);
+    await addBook(ctx.db, ctx.pipeline, ctx.userId, w, "want", gw);
     const [row] = await ctx.db.select().from(book).where(eq(book.openLibraryWorkKey, w.workKey));
     return row;
   };
@@ -141,7 +141,7 @@ describe("add-time description", () => {
         started();
         return new Promise(() => {});
       };
-      const added = addBook(ctx.db, ctx.userId, stoner, "want", hung);
+      const added = addBook(ctx.db, ctx.pipeline, ctx.userId, stoner, "want", hung);
       await lookupStarted;
       await vi.advanceTimersByTimeAsync(ADD_TIME_BUDGET.timeoutMs!);
       await added;
@@ -157,7 +157,7 @@ describe("add-time description", () => {
     const second = fakeDescriptions({ volumes: [volume("second", { description: prose(900) })] });
     const { db } = ctx;
     const [other] = await db.execute<{ id: string }>(`INSERT INTO "user" (email) VALUES ('b@example.com') RETURNING id` as never).then((r) => r.rows);
-    await addBook(db, other.id, stoner, "want", second);
+    await addBook(db, ctx.pipeline, other.id, stoner, "want", second);
     expect(second.queries).toEqual([]);
     const [row] = await db.select().from(book).where(eq(book.openLibraryWorkKey, stoner.workKey));
     expect(row.googleBooksVolumeId).toBe("first");

@@ -2,8 +2,9 @@ import { eq } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { book } from "@/db/schema";
 import { ADD_TIME_BUDGET, describeBook, type DescriptionGateway } from "./description";
-import { namesMatch, type EnrichmentQueue } from "./enrichment";
-import { enterLibrary, startConnections, type ConnectionQueue } from "./library-entry";
+import { namesMatch } from "./enrichment";
+import { enterLibrary } from "./library-entry";
+import type { Pipeline } from "./pipeline";
 import { coverUrlFor, type OpenLibraryWork, type Status } from "./search";
 
 export class DuplicateBookError extends Error {
@@ -36,11 +37,11 @@ export function bookAuthors(listed: string[], volumeAuthors: string[] = []): str
 // identified by Open Library work key.
 export async function addBook(
   db: Db,
+  pipeline: Pipeline,
   userId: string,
   work: OpenLibraryWork,
   status: Status,
   descriptions?: DescriptionGateway | null,
-  queue?: (EnrichmentQueue & Partial<ConnectionQueue>) | null,
 ) {
   // A description is fetched once, when the shared Book is first created; a failed or missing lookup
   // never blocks the add. Two requests adding the same new Book can both look it up, and the loser's
@@ -80,10 +81,8 @@ export async function addBook(
     if (isUniqueViolation(err)) throw new DuplicateBookError(work.workKey);
     throw err;
   }
-  // Enrichment is generated once per Book; the job is a no-op when the Book is already enriched.
-  // The Book is added either way, so a queue outage must not fail the add.
-  await queue?.enqueueEnrichment(result.bookId).catch((err) => console.error(err));
+  await pipeline.bookAdded(result.bookId);
   // Adding a Book directly as read is its first completion, so a backfill add finds Connections too.
-  if (result.firstCompletion) await startConnections(db, queue, userId, result.bookId);
+  if (result.firstCompletion) await pipeline.bookFinished(userId, result.bookId);
   return result;
 }

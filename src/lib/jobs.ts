@@ -1,127 +1,79 @@
 import { PgBoss } from "pg-boss";
 import type { Db } from "@/db/client";
-import { generateConnections, type ConnectionJudge, type ConnectionQueue } from "@/domain/connections";
-import { embedEnrichment, embedNote, type Embedder, type EmbeddingQueue, type EmbeddingTarget } from "@/domain/embeddings";
-import { enrichBook, type EnrichmentModel, type EnrichmentQueue } from "@/domain/enrichment";
-import type { DescriptionGateway } from "@/domain/description";
+import { createPipeline, RETRIES, jobKey, runJob, type Job, type JobDeps, type JobQueue } from "@/domain/pipeline";
 
-const ENRICH_QUEUE = "enrich-book";
-const EMBED_QUEUE = "embed";
-const EMBED_RETRY = { retryLimit: 5, retryDelay: 20, retryBackoff: true, retryDelayMax: 300 };
-const ENRICH_RETRIES = 3;
+// pg-boss queue names, and the data each job carries, are kept as they were before the Pipeline so
+// jobs already waiting still run.
+const QUEUE: Record<Job["kind"], string> = { enrich: "enrich-book", embed: "embed", connections: "connections" };
+const EMBED_RETRY = { retryLimit: RETRIES.embed, retryDelay: 20, retryBackoff: true, retryDelayMax: 300 };
 const ENRICH_CONCURRENCY = 3;
-const CONNECTIONS_QUEUE = "connections";
-const CONNECTIONS_RETRIES = 2;
+
+const dataOf = (job: Job): object =>
+  job.kind === "enrich" ? { bookId: job.bookId } : job.kind === "embed" ? job.target : { userId: job.userId, bookId: job.bookId };
 
 async function ensureQueues(boss: PgBoss) {
-  // `short`: at most one waiting job per Book (a double add or "Try again" coalesces), while a
-  // "Try again" during a running job still queues behind it.
-  await boss.createQueue(ENRICH_QUEUE, {
-    policy: "short",
-    retryLimit: ENRICH_RETRIES,
-    retryDelay: 5,
-    retryBackoff: true,
-  });
-  // Same coalescing per target: saving a Note twice in a row embeds it once. Voyage rate limits
-  // (429) need minutes, not seconds, to clear: 20s, 40s, 80s... capped at 5 minutes.
-  await boss.createQueue(EMBED_QUEUE, { policy: "short", ...EMBED_RETRY });
-  // One waiting job per reader's Book. Jobs run one at a time (see startWorker), in the order queued.
-  await boss.createQueue(CONNECTIONS_QUEUE, {
-    policy: "short",
-    retryLimit: CONNECTIONS_RETRIES,
-    retryDelay: 10,
-    retryBackoff: true,
-  });
+  // `short`: at most one waiting job per key (a double add or "Try again" coalesces), while one sent
+  // during a running job still queues behind it.
+  await boss.createQueue(QUEUE.enrich, { policy: "short", retryLimit: RETRIES.enrich, retryDelay: 5, retryBackoff: true });
+  // Voyage rate limits (429) need minutes, not seconds, to clear: 20s, 40s, 80s... capped at 5 minutes.
+  await boss.createQueue(QUEUE.embed, { policy: "short", ...EMBED_RETRY });
+  // Jobs run one at a time (see startWorker), in the order queued.
+  await boss.createQueue(QUEUE.connections, { policy: "short", retryLimit: RETRIES.connections, retryDelay: 10, retryBackoff: true });
   // createQueue leaves an existing queue as it was; keep its retry settings current.
-  await boss.updateQueue(EMBED_QUEUE, EMBED_RETRY);
+  await boss.updateQueue(QUEUE.embed, EMBED_RETRY);
 }
 
-type Queues = EnrichmentQueue & EmbeddingQueue & ConnectionQueue;
-
-function queueFor(boss: PgBoss): Queues {
+function queueFor(boss: PgBoss): JobQueue {
   return {
-    async enqueueEnrichment(bookId) {
-      await boss.send(ENRICH_QUEUE, { bookId }, { singletonKey: bookId });
-    },
-    async enqueueEmbedding(target) {
-      await boss.send(EMBED_QUEUE, target, { singletonKey: `${target.kind}:${target.id}` });
-    },
-    async enqueueConnections(job) {
-      await boss.send(CONNECTIONS_QUEUE, job, { singletonKey: `${job.userId}:${job.bookId}` });
+    async send(job) {
+      await boss.send(QUEUE[job.kind], dataOf(job), { singletonKey: jobKey(job) });
     },
   };
 }
 
-let shared: Promise<Queues> | undefined;
+let shared: Promise<JobQueue> | undefined;
 
-// The web app's producer: sends jobs, never runs them or the queue's maintenance.
-export function appQueue(): Promise<Queues> {
-  shared ??= (async () => {
-    const boss = new PgBoss({ connectionString: process.env.DATABASE_URL!, supervise: false, schedule: false });
-    boss.on("error", (err) => console.error(err));
-    await boss.start();
-    await ensureQueues(boss);
-    return queueFor(boss);
-  })();
-  shared.catch(() => (shared = undefined));
-  return shared;
-}
+// The web app's producer: sends jobs, never runs them or the queue's maintenance. Connects on the
+// first send; a send while pg-boss is unreachable throws, and the next one tries again.
+export const appJobQueue: JobQueue = {
+  async send(job) {
+    shared ??= (async () => {
+      const boss = new PgBoss({ connectionString: process.env.DATABASE_URL!, supervise: false, schedule: false });
+      boss.on("error", (err) => console.error(err));
+      await boss.start();
+      await ensureQueues(boss);
+      return queueFor(boss);
+    })();
+    shared.catch(() => (shared = undefined));
+    await (await shared).send(job);
+  },
+};
 
-export type WorkerOptions = {
+export const appPipeline = (db: Db) => createPipeline(db, appJobQueue);
+
+export type WorkerOptions = JobDeps & {
   connectionString: string;
   db: Db;
-  model: EnrichmentModel;
-  judge: ConnectionJudge;
-  embedder: Embedder;
-  descriptions: DescriptionGateway | null;
   pollingIntervalSeconds?: number;
 };
 
-// The long-running worker: owns queue maintenance and runs Enrichment, embedding and Connections jobs. Returns the queue it
-// serves and a way to stop it.
+// The long-running worker: owns queue maintenance and runs every job. Returns the queue it serves
+// and a way to stop it.
 export async function startWorker(options: WorkerOptions) {
-  const boss = new PgBoss({ connectionString: options.connectionString });
+  const { connectionString, db, pollingIntervalSeconds, ...deps } = options;
+  const boss = new PgBoss({ connectionString });
   boss.on("error", (err) => console.error(err));
   await boss.start();
   await ensureQueues(boss);
   const queue = queueFor(boss);
-  const polling = options.pollingIntervalSeconds && { pollingIntervalSeconds: options.pollingIntervalSeconds };
-  await boss.work(
-    ENRICH_QUEUE,
-    {
-      localConcurrency: ENRICH_CONCURRENCY,
-      includeMetadata: true,
-      ...polling,
-    },
-    async ([job]) => {
-      const { bookId } = job.data as { bookId: string };
-      await enrichBook(
-        options.db,
-        { model: options.model, descriptions: options.descriptions, finalAttempt: job.retryCount >= job.retryLimit },
-        bookId,
-      );
-      // Always queued, and a no-op for an unrecognised or already-embedded Enrichment, so a retry
-      // after a failed enqueue still gets its embedding.
-      await queue.enqueueEmbedding({ kind: "enrichment", id: bookId });
-    },
-  );
-  await boss.work(EMBED_QUEUE, { localConcurrency: ENRICH_CONCURRENCY, ...polling }, async ([job]) => {
-    const { kind, id } = job.data as EmbeddingTarget;
-    await (kind === "note" ? embedNote : embedEnrichment)(options.db, options.embedder, id);
-  });
+  const polling = pollingIntervalSeconds && { pollingIntervalSeconds };
+  const work = (kind: Job["kind"], localConcurrency: number, toJob: (data: never) => Job) =>
+    boss.work(QUEUE[kind], { localConcurrency, includeMetadata: true, ...polling }, async ([job]) => {
+      await runJob(db, deps, queue, toJob(job.data as never), job.retryCount >= job.retryLimit);
+    });
+  await work("enrich", ENRICH_CONCURRENCY, ({ bookId }: { bookId: string }) => ({ kind: "enrich", bookId }));
+  await work("embed", ENRICH_CONCURRENCY, (target: Extract<Job, { kind: "embed" }>["target"]) => ({ kind: "embed", target }));
   // Serial: a burst of finishes (a backfill) queues rather than running in parallel.
-  await boss.work(CONNECTIONS_QUEUE, { localConcurrency: 1, includeMetadata: true, ...polling }, async ([job]) => {
-    await generateConnections(
-      options.db,
-      {
-        judge: options.judge,
-        embedder: options.embedder,
-        enrichment: options.model,
-        descriptions: options.descriptions,
-        finalAttempt: job.retryCount >= job.retryLimit,
-      },
-      job.data as { userId: string; bookId: string },
-    );
-  });
+  await work("connections", 1, ({ userId, bookId }: { userId: string; bookId: string }) => ({ kind: "connections", userId, bookId }));
   return { queue, stop: () => boss.stop({ graceful: true }) };
 }

@@ -18,9 +18,11 @@ import { generateConnections, type JudgeInput, type JudgeResult } from "@/domain
 import type { Embedder } from "@/domain/embeddings";
 import { enrichBook } from "@/domain/enrichment";
 import { addNote } from "@/domain/notes";
+import { createPipeline } from "@/domain/pipeline";
 import type { OpenLibraryWork } from "@/domain/search";
 import { claudeJudge } from "@/lib/claude";
 import { voyageEmbedder } from "@/lib/voyage";
+import { memoryQueue } from "../../test/fakes";
 
 type Fixture = {
   order: string[];
@@ -80,16 +82,18 @@ try {
     },
   };
 
+  // Jobs are sent but never run: each Book's Connections run below, in finish order.
+  const pipeline = createPipeline(db, memoryQueue(db));
   for (const slug of fixture.order) {
     const b = books[slug];
     const work: OpenLibraryWork = { workKey: `/works/${slug}`, title: b.title, authors: [b.author], firstPublishedYear: null, editionCount: 1, coverId: null, subjects: [] };
-    const entry = await addBook(db, user.id, work, "read");
+    const entry = await addBook(db, pipeline, user.id, work, "read");
     // Seat the saved Enrichment through the real Enrichment module (hashes included), so the job does not redo it.
     const saved = { model: "eval", promptVersion: "saved", async enrich() {
       return { ...b.enrichment, author: b.author, firstPublishedYear: null, inputTokens: 0, outputTokens: 0, costUsd: 0 };
     } };
     await enrichBook(db, { model: saved }, entry.bookId);
-    for (const body of b.notes) await addNote(db, user.id, entry.bookId, { body });
+    for (const body of b.notes) await addNote(db, pipeline, user.id, entry.bookId, { body });
     current = slug;
     const unused = { model: "unused", promptVersion: "x", async enrich(): Promise<never> { throw new Error("Enrichment should already be seated"); } };
     await generateConnections(db, { judge, embedder, enrichment: unused }, { userId: user.id, bookId: entry.bookId });

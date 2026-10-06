@@ -5,7 +5,8 @@ import type { DescriptionGateway } from "./description";
 import { embedEnrichment, embedNote, nearestBooks, type Embedder } from "./embeddings";
 import { enrichBook, type EnrichmentModel } from "./enrichment";
 import { displayed } from "./library";
-import { findEntry, isFinished, readFinished, startConnections, type ConnectionQueue } from "./library-entry";
+import { findEntry, isFinished, readFinished } from "./library-entry";
+import type { Pipeline } from "./pipeline";
 
 export type ConnectionType = "thematic" | "contrast" | "context";
 export type Strength = "strong" | "moderate" | "weak";
@@ -38,8 +39,6 @@ export interface ConnectionJudge {
 }
 
 export type ConnectionJob = { userId: string; bookId: string };
-
-export type { ConnectionQueue };
 
 // Starting defaults from the pipeline-tuning prototype.
 export const CANDIDATE_COUNT = 12;
@@ -249,7 +248,7 @@ async function run(db: Db, deps: ConnectionDeps, userId: string, entryId: string
 // One-off backfill: queues Connections for every Finished Book that has none generated yet, oldest
 // finish first (unknown dates last, then by when it was completed). Returns how many were queued.
 // Jobs for the same Book coalesce, so re-running is safe.
-export async function backfillConnections(db: Db, queue: ConnectionQueue, userId: string): Promise<number> {
+export async function backfillConnections(db: Db, pipeline: Pipeline, userId: string): Promise<number> {
   const finished = await readFinished(db, userId);
   const entries = await db
     .select({ id: libraryEntry.id, bookId: libraryEntry.bookId, createdAt: libraryEntry.createdAt })
@@ -263,7 +262,7 @@ export async function backfillConnections(db: Db, queue: ConnectionQueue, userId
         a.firstCompletedAt - b.firstCompletedAt ||
         a.createdAt.getTime() - b.createdAt.getTime(),
     );
-  for (const { bookId } of due) await startConnections(db, queue, userId, bookId);
+  for (const { bookId } of due) await pipeline.bookFinished(userId, bookId);
   return due.length;
 }
 

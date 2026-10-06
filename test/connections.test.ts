@@ -1,10 +1,10 @@
 import { eq, sql } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { addBook } from "../src/domain/add-book";
 import { backfillConnections, countFindingConnections, generateConnections, readConnections, type ConnectionDeps, type JudgeInput, type JudgedConnection } from "../src/domain/connections";
 import { embedEnrichment, embedNote } from "../src/domain/embeddings";
 import { enrichBook, readEnrichment } from "../src/domain/enrichment";
-import { changeStatus, startConnections } from "../src/domain/library-entry";
+import { changeStatus } from "../src/domain/library-entry";
 import { addNote } from "../src/domain/notes";
 import { book, connection, connectionRun, enrichment, libraryEntry, note, readThrough } from "../src/db/schema";
 import { fakeEmbedder, fakeEnricher, fakeJudge, work, type FakeJudgeReply } from "./fakes";
@@ -18,11 +18,11 @@ describe("Connections on first finish", () => {
 
   // A Finished Book, enriched and embedded; `theme` decides which Books are near each other.
   async function finished(title: string, theme = "solitude", opts: { notes?: string[]; recognised?: boolean } = {}) {
-    const entry = await addBook(ctx.db, ctx.userId, work({ workKey: `/works/${title}`, title, authors: ["A"] }), "read");
+    const entry = await addBook(ctx.db, ctx.pipeline, ctx.userId, work({ workKey: `/works/${title}`, title, authors: ["A"] }), "read");
     await enrichBook(ctx.db, { model: fakeEnricher({ summary: `About ${title}.`, themes: [theme], recognised: opts.recognised ?? true }) }, entry.bookId);
     await embedEnrichment(ctx.db, embedder, entry.bookId);
     for (const body of opts.notes ?? []) {
-      const n = await addNote(ctx.db, ctx.userId, entry.bookId, { body });
+      const n = await addNote(ctx.db, ctx.pipeline, ctx.userId, entry.bookId, { body });
       await embedNote(ctx.db, embedder, n.id);
     }
     return entry.bookId;
@@ -79,7 +79,7 @@ describe("Connections on first finish", () => {
     const [orphan] = await ctx.db.insert(book).values({ title: "Orphan", authors: ["O"] }).returning();
     await ctx.db.insert(enrichment).values({ bookId: orphan.id, recognised: true, summary: "x", themes: ["solitude"], model: "m", promptVersion: "p", status: "ready" });
     await embedEnrichment(ctx.db, embedder, orphan.id);
-    const wanted = (await addBook(ctx.db, ctx.userId, work({ workKey: "/works/w", title: "Wanted", authors: ["A"] }), "want")).bookId;
+    const wanted = (await addBook(ctx.db, ctx.pipeline, ctx.userId, work({ workKey: "/works/w", title: "Wanted", authors: ["A"] }), "want")).bookId;
     await enrichBook(ctx.db, { model: fakeEnricher({ themes: ["solitude"] }) }, wanted);
     await embedEnrichment(ctx.db, embedder, wanted);
 
@@ -259,9 +259,9 @@ describe("Connections on first finish", () => {
   });
 
   it("finishes the work the Book still needs first: its Enrichment and its Notes' embeddings", async () => {
-    const entry = await addBook(ctx.db, ctx.userId, work({ workKey: "/works/new", title: "Fresh", authors: ["A"] }), "read");
+    const entry = await addBook(ctx.db, ctx.pipeline, ctx.userId, work({ workKey: "/works/new", title: "Fresh", authors: ["A"] }), "read");
     await finished("Lonely");
-    const n = await addNote(ctx.db, ctx.userId, entry.bookId, { body: "war" });
+    const n = await addNote(ctx.db, ctx.pipeline, ctx.userId, entry.bookId, { body: "war" });
     const enricher = fakeEnricher({ summary: "Fresh.", themes: ["solitude"] });
     const { judge, deps: d } = deps(undefined, { enrichment: enricher });
     await run(d, entry.bookId);
@@ -271,7 +271,7 @@ describe("Connections on first finish", () => {
   });
 
   it("does nothing when the Library Entry is gone or the Book is not Finished", async () => {
-    const wanted = (await addBook(ctx.db, ctx.userId, work({ workKey: "/works/w", title: "Wanted", authors: ["A"] }), "want")).bookId;
+    const wanted = (await addBook(ctx.db, ctx.pipeline, ctx.userId, work({ workKey: "/works/w", title: "Wanted", authors: ["A"] }), "want")).bookId;
     const { judge, deps: d } = deps();
     await run(d, wanted);
     await run(d, "00000000-0000-0000-0000-000000000000");
@@ -294,7 +294,7 @@ describe("Connections on first finish", () => {
   // Known bug: the job's Enrichment attempt has no `finalAttempt`, so it writes `pending` back.
   // Becomes a plain `it` once one module owns the Enrichment status.
   it.fails("leaves an Enrichment that failed for good failed when the job's own Enrichment attempt fails", async () => {
-    const { bookId } = await addBook(ctx.db, ctx.userId, work({ workKey: "/works/stuck", title: "Stuck", authors: ["A"] }), "read");
+    const { bookId } = await addBook(ctx.db, ctx.pipeline, ctx.userId, work({ workKey: "/works/stuck", title: "Stuck", authors: ["A"] }), "read");
     const down = fakeEnricher(() => Promise.reject(new Error("model down")));
     await expect(enrichBook(ctx.db, { model: down, finalAttempt: true }, bookId)).rejects.toThrow("model down");
     expect(await readEnrichment(ctx.db, bookId)).toMatchObject({ status: "failed" });
@@ -316,10 +316,11 @@ describe("Connections on first finish", () => {
     }));
     await run(d, a);
     const fromLonely = await readConnections(ctx.db, ctx.userId, b);
-    expect(fromLonely).toMatchObject({ cards: [{ otherBookId: a, otherTitle: "Stoner", explanation: "Narrower.", grounding: "enrichment" }], status: "idle", generated: false, finished: true });
+    // Lonely's own job is queued but not yet run.
+    expect(fromLonely).toMatchObject({ cards: [{ otherBookId: a, otherTitle: "Stoner", explanation: "Narrower.", grounding: "enrichment" }], status: "running", generated: false, finished: true });
     const fromStoner = await readConnections(ctx.db, ctx.userId, a);
     expect(fromStoner.generated).toBe(true);
-    const wanted = (await addBook(ctx.db, ctx.userId, work({ workKey: "/works/w", title: "Wanted", authors: ["A"] }), "want")).bookId;
+    const wanted = (await addBook(ctx.db, ctx.pipeline, ctx.userId, work({ workKey: "/works/w", title: "Wanted", authors: ["A"] }), "want")).bookId;
     expect(await readConnections(ctx.db, ctx.userId, wanted)).toMatchObject({ cards: [], finished: false });
     expect(fromStoner.cards.map((x) => x.explanation)).toEqual(["Wider.", "Narrower."]);
   });
@@ -327,48 +328,46 @@ describe("Connections on first finish", () => {
 
 describe("Queueing Connections", () => {
   const ctx = useTestDb();
-  const queued: { userId: string; bookId: string }[] = [];
-  const queue = { async enqueueConnections(job: { userId: string; bookId: string }) { queued.push(job); }, async enqueueEnrichment() {} };
+  const queued = () => ctx.jobs.sent.flatMap((j) => (j.kind === "connections" ? [{ userId: j.userId, bookId: j.bookId }] : []));
   const entryOf = async (bookId: string) => (await ctx.db.select().from(libraryEntry).where(eq(libraryEntry.bookId, bookId)))[0];
   const add = (key: string, status: "want" | "reading" | "read") =>
-    addBook(ctx.db, ctx.userId, work({ workKey: `/works/${key}`, title: key, authors: ["A"] }), status, null, queue);
-  beforeEach(() => void (queued.length = 0));
+    addBook(ctx.db, ctx.pipeline, ctx.userId, work({ workKey: `/works/${key}`, title: key, authors: ["A"] }), status);
 
   it("queues Connections on the first completed Read-through, and marks the Book as finding them", async () => {
     const { bookId } = await add("a", "reading");
-    expect(queued).toEqual([]);
-    await changeStatus(ctx.db, ctx.userId, bookId, "read", queue);
-    expect(queued).toEqual([{ userId: ctx.userId, bookId }]);
+    expect(queued()).toEqual([]);
+    await changeStatus(ctx.db, ctx.pipeline, ctx.userId, bookId, "read");
+    expect(queued()).toEqual([{ userId: ctx.userId, bookId }]);
     expect((await entryOf(bookId)).connectionsStatus).toBe("running");
   });
 
   it("queues nothing for later completions, a Book added as want, or one moved back to want", async () => {
     const { bookId } = await add("a", "reading");
-    await changeStatus(ctx.db, ctx.userId, bookId, "read", queue);
-    queued.length = 0;
-    await changeStatus(ctx.db, ctx.userId, bookId, "reading", queue);
-    await changeStatus(ctx.db, ctx.userId, bookId, "read", queue);
-    await changeStatus(ctx.db, ctx.userId, bookId, "want", queue);
+    await changeStatus(ctx.db, ctx.pipeline, ctx.userId, bookId, "read");
+    ctx.jobs.sent.length = 0;
+    await changeStatus(ctx.db, ctx.pipeline, ctx.userId, bookId, "reading");
+    await changeStatus(ctx.db, ctx.pipeline, ctx.userId, bookId, "read");
+    await changeStatus(ctx.db, ctx.pipeline, ctx.userId, bookId, "want");
     await add("b", "want");
-    expect(queued).toEqual([]);
+    expect(queued()).toEqual([]);
   });
 
   it("does not queue again once Connections were generated", async () => {
     const { bookId } = await add("a", "read");
     await ctx.db.update(libraryEntry).set({ connectionsGeneratedAt: new Date() }).where(eq(libraryEntry.bookId, bookId));
-    await startConnections(ctx.db, queue, ctx.userId, bookId);
-    expect(queued).toHaveLength(1);
+    await ctx.pipeline.bookFinished(ctx.userId, bookId);
+    expect(queued()).toHaveLength(1);
   });
 
   it("queues a Book added directly as read", async () => {
     const { bookId } = await add("a", "read");
-    expect(queued).toEqual([{ userId: ctx.userId, bookId }]);
+    expect(queued()).toEqual([{ userId: ctx.userId, bookId }]);
   });
 
   it("still changes Status when the queue is down, leaving the Book failed rather than waiting", async () => {
-    const down = { async enqueueConnections() { throw new Error("queue down"); } };
     const { bookId } = await add("a", "reading");
-    await changeStatus(ctx.db, ctx.userId, bookId, "read", down);
+    ctx.jobs.down = true;
+    await changeStatus(ctx.db, ctx.pipeline, ctx.userId, bookId, "read");
     expect(await entryOf(bookId)).toMatchObject({ status: "read", connectionsStatus: "failed" });
   });
 
@@ -384,10 +383,10 @@ describe("Queueing Connections", () => {
     await finishedAt(later, "2024-06-01");
     await finishedAt(earlier, "2020-01-01");
     await ctx.db.update(libraryEntry).set({ connectionsGeneratedAt: new Date(), connectionsStatus: "idle" }).where(eq(libraryEntry.bookId, done));
-    queued.length = 0;
+    ctx.jobs.sent.length = 0;
 
-    const count = await backfillConnections(ctx.db, queue, ctx.userId);
-    expect(queued.map((j) => j.bookId)).toEqual([earlier, later, undated1, undated2]);
+    const count = await backfillConnections(ctx.db, ctx.pipeline, ctx.userId);
+    expect(queued().map((j) => j.bookId)).toEqual([earlier, later, undated1, undated2]);
     expect(count).toBe(4);
     expect((await entryOf(unfinished)).connectionsStatus).toBe("idle");
     expect(await countFindingConnections(ctx.db, ctx.userId)).toBe(4);

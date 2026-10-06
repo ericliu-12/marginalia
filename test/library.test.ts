@@ -19,10 +19,10 @@ describe("read the library", () => {
   });
 
   it("groups by Status: reading, want, then read ordered by most recently finished", async () => {
-    await addBook(ctx.db, ctx.userId, work({ workKey: "/works/r1", title: "Read first" }), "read");
-    await addBook(ctx.db, ctx.userId, work({ workKey: "/works/w1", title: "Want" }), "want");
-    await addBook(ctx.db, ctx.userId, work({ workKey: "/works/r2", title: "Read second" }), "read");
-    await addBook(ctx.db, ctx.userId, work({ workKey: "/works/p1", title: "Reading" }), "reading");
+    await addBook(ctx.db, ctx.pipeline, ctx.userId, work({ workKey: "/works/r1", title: "Read first" }), "read");
+    await addBook(ctx.db, ctx.pipeline, ctx.userId, work({ workKey: "/works/w1", title: "Want" }), "want");
+    await addBook(ctx.db, ctx.pipeline, ctx.userId, work({ workKey: "/works/r2", title: "Read second" }), "read");
+    await addBook(ctx.db, ctx.pipeline, ctx.userId, work({ workKey: "/works/p1", title: "Reading" }), "reading");
     const titles = (await readLibrary(ctx.db, ctx.userId)).map((i) => i.title);
     expect(titles).toEqual(["Reading", "Want", "Read second", "Read first"]);
   });

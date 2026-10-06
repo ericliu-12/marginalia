@@ -1,6 +1,7 @@
 import { and, asc, eq, isNotNull, isNull, or } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { connection, libraryEntry, readThrough } from "@/db/schema";
+import type { JobQueue, Pipeline } from "./pipeline";
 import type { Status } from "./search";
 
 export class NotInLibraryError extends Error {
@@ -62,16 +63,10 @@ export async function enterLibrary(tx: Tx, userId: string, bookId: string, statu
   return { entry, firstCompletion };
 }
 
-// Seam to the job queue; the worker runs the Connections job for each queued Book.
-export interface ConnectionQueue {
-  enqueueConnections(job: { userId: string; bookId: string }): Promise<void>;
-}
-
-// Marks the Book's Connections as queued and queues the job. Does nothing without a queue to run it
-// on, or for a Book whose Connections were already generated. A queue that errors must not fail the
-// caller: the Book is left `failed` instead, so the reader is not left waiting on a job that is not coming.
-export async function startConnections(db: Db, queue: Partial<ConnectionQueue> | null | undefined, userId: string, bookId: string): Promise<void> {
-  if (!queue?.enqueueConnections) return;
+// Marks the Book's Connections as queued and queues the job. Does nothing for a Book whose
+// Connections were already generated. A queue that errors must not fail the caller: the Book is left
+// `failed` instead, so the reader is not left waiting on a job that is not coming.
+export async function startConnections(db: Db, queue: JobQueue, userId: string, bookId: string): Promise<void> {
   const [entry] = await db
     .update(libraryEntry)
     .set({ connectionsStatus: "running" })
@@ -79,7 +74,7 @@ export async function startConnections(db: Db, queue: Partial<ConnectionQueue> |
     .returning({ id: libraryEntry.id });
   if (!entry) return;
   try {
-    await queue.enqueueConnections({ userId, bookId });
+    await queue.send({ kind: "connections", userId, bookId });
   } catch (err) {
     console.error(err);
     await db.update(libraryEntry).set({ connectionsStatus: "failed" }).where(eq(libraryEntry.id, entry.id));
@@ -89,7 +84,7 @@ export async function startConnections(db: Db, queue: Partial<ConnectionQueue> |
 // Domain seam: the one place a Status changes for a Book already in the library.
 // Idempotent, except that read -> read is a no-op (it must not record a second pass). The first
 // completed Read-through queues the Book's Connections; later ones do nothing.
-export async function changeStatus(db: Db, userId: string, bookId: string, status: Status, queue?: ConnectionQueue | null) {
+export async function changeStatus(db: Db, pipeline: Pipeline, userId: string, bookId: string, status: Status) {
   const result = await db.transaction(async (tx) => {
     const [entry] = await tx
       .select()
@@ -102,7 +97,7 @@ export async function changeStatus(db: Db, userId: string, bookId: string, statu
     if (entry.status !== status) await tx.update(libraryEntry).set({ status }).where(eq(libraryEntry.id, entry.id));
     return { firstCompletion };
   });
-  if (result.firstCompletion) await startConnections(db, queue, userId, bookId);
+  if (result.firstCompletion) await pipeline.bookFinished(userId, bookId);
   return result;
 }
 

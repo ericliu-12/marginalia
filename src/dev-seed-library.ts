@@ -3,7 +3,7 @@ import { getSeededUserId } from "@/db/seed";
 import { addBook, DuplicateBookError } from "@/domain/add-book";
 import { searchBooks } from "@/domain/search";
 import { bookSearchGateway, descriptionGateway } from "@/lib/book-search";
-import { appQueue } from "@/lib/jobs";
+import { appPipeline } from "@/lib/jobs";
 
 // Dev only: fills the library with Books marked Already read, through the real add path, so
 // Enrichment and embeddings are queued for the worker (`pnpm worker`) to run.
@@ -33,7 +33,7 @@ const db = appDb();
 const userId = await getSeededUserId(db);
 const gateway = bookSearchGateway();
 const descriptions = descriptionGateway();
-const queue = await appQueue();
+const pipeline = appPipeline(db);
 
 for (const query of QUERIES) {
   const [top] = await searchBooks(db, userId, gateway, query);
@@ -43,7 +43,7 @@ for (const query of QUERIES) {
   }
   let outcome = "added as Already read";
   try {
-    await addBook(db, userId, top, "read", descriptions, queue);
+    await addBook(db, pipeline, userId, top, "read", descriptions);
   } catch (err) {
     if (!(err instanceof DuplicateBookError)) throw err;
     outcome = "already in the library";

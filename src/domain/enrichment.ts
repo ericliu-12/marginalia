@@ -4,6 +4,7 @@ import type { Db } from "@/db/client";
 import { book, enrichment } from "@/db/schema";
 import { BACKGROUND_BUDGET, describeBook, type DescriptionGateway } from "./description";
 import { NotInLibraryError, findEntry } from "./library-entry";
+import type { Pipeline } from "./pipeline";
 
 export type EnrichmentInput = { title: string; authors: string[]; description: string; subjects: string[] };
 
@@ -24,11 +25,6 @@ export interface EnrichmentModel {
   readonly model: string;
   readonly promptVersion: string;
   enrich(input: EnrichmentInput): Promise<EnrichmentResult>;
-}
-
-// Seam to the job queue; the worker runs `enrichBook` for each queued Book.
-export interface EnrichmentQueue {
-  enqueueEnrichment(bookId: string): Promise<void>;
 }
 
 export type EnrichmentView = {
@@ -187,18 +183,15 @@ export async function readEnrichment(db: Db, bookId: string): Promise<Enrichment
 }
 
 // Domain seam: the reader's "Try again", for a Book in their library. Marks the Enrichment stale so
-// the next run does the work.
-export async function tryAgain(db: Db, queue: EnrichmentQueue, userId: string, bookId: string): Promise<void> {
+// the next run does the work. False when no job could be queued.
+export async function tryAgain(db: Db, pipeline: Pipeline, userId: string, bookId: string): Promise<boolean> {
   if (!(await findEntry(db, userId, bookId))) throw new NotInLibraryError(bookId);
   await db
     .update(enrichment)
     .set({ descriptionHash: null, metadataHash: null, status: "pending" })
     .where(eq(enrichment.bookId, bookId));
-  try {
-    await queue.enqueueEnrichment(bookId);
-  } catch (err) {
-    // No job is coming, so don't leave the reader waiting on one.
-    await db.update(enrichment).set({ status: "failed" }).where(eq(enrichment.bookId, bookId));
-    throw err;
-  }
+  if (await pipeline.enrichmentRetried(bookId)) return true;
+  // No job is coming, so don't leave the reader waiting on one.
+  await db.update(enrichment).set({ status: "failed" }).where(eq(enrichment.bookId, bookId));
+  return false;
 }
