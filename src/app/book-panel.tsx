@@ -60,6 +60,7 @@ export function BookPanel({
   const [editing, setEditing] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const notesHeadingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => headingRef.current?.focus(), [item.bookId]);
 
@@ -107,7 +108,9 @@ export function BookPanel({
           onSaved={(note) => setNotes((ns) => [note, ...(ns ?? [])])}
         />
 
-        <h3 className="mt-9 border-b border-rule pb-2 text-[1.35rem] leading-tight font-medium">Notes</h3>
+        <h3 ref={notesHeadingRef} tabIndex={-1} className="mt-9 border-b border-rule pb-2 text-[1.35rem] leading-tight font-medium outline-none">
+          Notes
+        </h3>
         {loadFailed && (
           <p role="alert" className="pt-4 text-contrast">
             Couldn’t load your notes.{" "}
@@ -133,7 +136,11 @@ export function BookPanel({
                   setNotes((ns) => ns!.map((x) => (x.id === next.id ? next : x)));
                   setEditing(null);
                 }}
-                onDeleted={() => setNotes((ns) => ns!.filter((x) => x.id !== n.id))}
+                onDeleted={() => {
+                  setNotes((ns) => ns!.filter((x) => x.id !== n.id));
+                  // The deleted Note took focus with it; the Notes heading is the nearest stable place.
+                  notesHeadingRef.current?.focus();
+                }}
               />
             ))}
           </ul>
