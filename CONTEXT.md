@@ -32,6 +32,10 @@ _Avoid_: Link, edge, relation
 A Book with at least one completed Read-through in the reader's Library Entry, regardless of its current Status. Only Finished Books take part in Connections and appear in the graph; a Book being re-read, or moved back to want, stays Finished.
 _Avoid_: Read Book (Status `read` is only the current Status)
 
+**Refresh**:
+Regenerating a Finished Book's Connections from its current Notes and Enrichment. It updates the non-dismissed Connections it finds again, adds new ones within the cap, and never deletes a Connection or revives a dismissed one. The reader asks for it, or it happens once on its own when a Book judged without Enrichment gets a recognised one.
+_Avoid_: Regenerate, recompute, rerun
+
 **Strength**:
 How strong a Connection is: strong, moderate or weak. A weak link is stored only when its explanation quotes Notes from both Books; otherwise it is dropped. Strength orders a Book's Connections and weights Clusters (strong 2, moderate 1, weak 0.5).
 _Avoid_: Score, weight, confidence

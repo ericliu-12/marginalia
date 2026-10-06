@@ -1,12 +1,10 @@
 import { and, asc, desc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { book, connection, connectionRun, enrichment, libraryEntry, note } from "@/db/schema";
-import type { DescriptionGateway } from "./description";
-import { embedEnrichment, embedNote, nearestBooks, type Embedder } from "./embeddings";
-import { enrichBook, type EnrichmentModel } from "./enrichment";
+import { embedEnrichment, nearestBooks, type Embedder } from "./embeddings";
 import { displayed } from "./library";
 import { findEntry, isFinished, readFinished } from "./library-entry";
-import type { Pipeline } from "./pipeline";
+import type { JobQueue, Pipeline } from "./pipeline";
 
 export type ConnectionType = "thematic" | "contrast" | "context";
 export type Strength = "strong" | "moderate" | "weak";
@@ -38,8 +36,7 @@ export interface ConnectionJudge {
   judge(input: JudgeInput): Promise<JudgeResult>;
 }
 
-// A Refresh judges again the pairs that already have a Connection; a first run leaves them as they are.
-export type ConnectionJob = { userId: string; bookId: string; refresh?: boolean };
+export type ConnectionJob = { userId: string; bookId: string };
 
 // Starting defaults from the pipeline-tuning prototype.
 export const CANDIDATE_COUNT = 12;
@@ -72,23 +69,105 @@ const QUOTED = /["“]([^"”]{8,})["”]/g;
 export type ConnectionDeps = {
   judge: ConnectionJudge;
   embedder: Embedder;
-  // Used to finish the Book's own Enrichment first, when the worker has not got to it yet.
-  enrichment: EnrichmentModel;
-  descriptions?: DescriptionGateway | null;
   // The queue will not retry after this run, so a failure now is the reader-visible `failed`.
   finalAttempt?: boolean;
 };
 
-// Domain seam, run by the worker: find the Connections of a Book among the reader's other Finished
-// Books and store them in one transaction. Zero is a valid result. A Refresh updates the Connections
-// it finds again in place, never deletes one, and never judges or revives a dismissed one. Throws on
-// failure so the queue retries; a Book that is no longer in the library, or not Finished, is a no-op.
-export async function generateConnections(db: Db, deps: ConnectionDeps, { userId, bookId, refresh = false }: ConnectionJob): Promise<void> {
-  const entry = await findEntry(db, userId, bookId);
-  if (!entry || !(await isFinished(db, userId, bookId))) return;
-  await db.update(libraryEntry).set({ connectionsStatus: "running" }).where(eq(libraryEntry.id, entry.id));
+// This module is the only writer of a Library Entry's Connections status:
+//   running: a run is queued, waiting on the Book's Enrichment or Note vectors, or under way
+//   idle:    nothing is coming (`connectionsGeneratedAt` says whether a run ever succeeded)
+//   failed:  the last run gave up, or could not be queued
+
+// Marks the Book's Connections as queued and queues the job. Outside a Refresh, does nothing for a
+// Book whose Connections were already generated; a Refresh does nothing for a Book that is not
+// Finished. A queue that errors must not fail the caller: the Book is left `failed` instead, so the
+// reader is not left waiting on a job that is not coming.
+export async function startConnections(db: Db, queue: JobQueue, userId: string, bookId: string, refresh: boolean): Promise<void> {
+  if (refresh && !(await isFinished(db, userId, bookId))) return;
+  const [entry] = await db
+    .update(libraryEntry)
+    .set({ connectionsStatus: "running" })
+    .where(
+      and(eq(libraryEntry.userId, userId), eq(libraryEntry.bookId, bookId), refresh ? undefined : isNull(libraryEntry.connectionsGeneratedAt)),
+    )
+    .returning({ id: libraryEntry.id });
+  if (!entry) return;
   try {
-    await run(db, deps, userId, entry.id, bookId, refresh);
+    await queue.send({ kind: "connections", userId, bookId });
+  } catch (err) {
+    console.error(err);
+    await db.update(libraryEntry).set({ connectionsStatus: "failed" }).where(eq(libraryEntry.id, entry.id));
+  }
+}
+
+// Something a waiting run needs has settled (the Book's Enrichment, or one of its Notes' vectors):
+// queues the job again for every Entry still waiting on the Book, or just `entryId`'s. One that can't
+// be queued is left `failed`, not waiting.
+export async function resumeConnections(db: Db, queue: JobQueue, bookId: string, entryId?: string): Promise<void> {
+  const waiting = await db
+    .select({ id: libraryEntry.id, userId: libraryEntry.userId })
+    .from(libraryEntry)
+    .where(and(eq(libraryEntry.bookId, bookId), entryId ? eq(libraryEntry.id, entryId) : undefined, eq(libraryEntry.connectionsStatus, "running")));
+  for (const { id, userId } of waiting) {
+    try {
+      await queue.send({ kind: "connections", userId, bookId });
+    } catch (err) {
+      console.error(err);
+      await db.update(libraryEntry).set({ connectionsStatus: "failed" }).where(eq(libraryEntry.id, id));
+    }
+  }
+}
+
+// One of the Book's Notes has a vector, or has given up on one.
+export async function resumeNoteConnections(db: Db, queue: JobQueue, noteId: string): Promise<void> {
+  const [n] = await db
+    .select({ entryId: note.libraryEntryId, bookId: libraryEntry.bookId })
+    .from(note)
+    .innerJoin(libraryEntry, eq(libraryEntry.id, note.libraryEntryId))
+    .where(eq(note.id, noteId));
+  if (n) await resumeConnections(db, queue, n.bookId, n.entryId);
+}
+
+// The Book's Enrichment is ready: Refreshes, once, each reader whose latest run judged the Book
+// without it. Only a recognised Enrichment reaches the judge, so an unrecognised one changes nothing.
+export async function refreshAfterEnrichment(db: Db, queue: JobQueue, bookId: string): Promise<void> {
+  const [e] = await db.select().from(enrichment).where(eq(enrichment.bookId, bookId));
+  if (e?.status !== "ready" || !e.recognised) return;
+  const latest = await db
+    .selectDistinctOn([connectionRun.libraryEntryId], { userId: libraryEntry.userId, withoutEnrichment: connectionRun.withoutEnrichment })
+    .from(connectionRun)
+    .innerJoin(libraryEntry, eq(libraryEntry.id, connectionRun.libraryEntryId))
+    .where(eq(libraryEntry.bookId, bookId))
+    .orderBy(connectionRun.libraryEntryId, desc(connectionRun.createdAt));
+  for (const r of latest) if (r.withoutEnrichment) await startConnections(db, queue, r.userId, bookId, true);
+}
+
+// A run waits until the Book's Enrichment has settled (ready or failed) and each of its Notes has a
+// vector or has given up on one.
+async function prerequisitesSettled(db: Db, entryId: string, bookId: string) {
+  const [e] = await db.select({ status: enrichment.status }).from(enrichment).where(eq(enrichment.bookId, bookId));
+  if (!e || e.status === "pending") return false;
+  const unsettled = await db
+    .select({ id: note.id })
+    .from(note)
+    .where(and(eq(note.libraryEntryId, entryId), isNull(note.embedding), isNull(note.embedFailedAt)))
+    .limit(1);
+  return unsettled.length === 0;
+}
+
+// Domain seam, run by the worker: find the Connections of a Book among the reader's other Finished
+// Books and store them in one transaction. Zero is a valid result. Runs only while the Book is
+// `running` (queued by a first finish or a Refresh). Once a run has succeeded, later ones are Refreshes: they update the Connections they find again in place, never delete one, and
+// never judge or revive a dismissed one. Waits, still `running`, while the Book's Enrichment or a
+// Note's vector is on its way; the Pipeline queues it again when one settles. Throws on failure so
+// the queue retries; a Book that is no longer in the library, or not Finished, is a no-op.
+export async function generateConnections(db: Db, deps: ConnectionDeps, { userId, bookId }: ConnectionJob): Promise<void> {
+  const entry = await findEntry(db, userId, bookId);
+  // Only a run someone asked for (`running`): a duplicate job left over after one finished does nothing.
+  if (!entry || entry.connectionsStatus !== "running" || !(await isFinished(db, userId, bookId))) return;
+  if (!(await prerequisitesSettled(db, entry.id, bookId))) return;
+  try {
+    await run(db, deps, userId, entry.id, bookId, entry.connectionsGeneratedAt !== null);
   } catch (err) {
     if (deps.finalAttempt) await db.update(libraryEntry).set({ connectionsStatus: "failed" }).where(eq(libraryEntry.id, entry.id));
     throw err;
@@ -98,19 +177,10 @@ export async function generateConnections(db: Db, deps: ConnectionDeps, { userId
 async function run(db: Db, deps: ConnectionDeps, userId: string, entryId: string, bookId: string, refresh: boolean) {
   const { judge, embedder } = deps;
 
-  // The Book's Enrichment and its Notes' vectors are part of this job when nothing else got there first.
-  await enrichBook(db, { model: deps.enrichment, descriptions: deps.descriptions }, bookId);
+  // The Enrichment's vector is part of this job when the embed job has not got there first.
   await embedEnrichment(db, embedder, bookId);
-  const unembedded = await db
-    .select({ id: note.id })
-    .from(note)
-    .where(
-      and(
-        eq(note.libraryEntryId, entryId),
-        or(isNull(note.embedding), isNull(note.embeddingModel), sql`${note.embeddingModel} <> ${embedder.model}`),
-      ),
-    );
-  for (const { id } of unembedded) await embedNote(db, embedder, id);
+  const [ownEnrichment] = await db.select({ status: enrichment.status }).from(enrichment).where(eq(enrichment.bookId, bookId));
+  const withoutEnrichment = ownEnrichment?.status !== "ready";
 
   // Dismissed pairs are never judged again; nor, outside a Refresh, are pairs that already have a
   // Connection (from the other Book's run).
@@ -157,6 +227,7 @@ async function run(db: Db, deps: ConnectionDeps, userId: string, entryId: string
         libraryEntryId: entryId,
         candidateCount: nearest.length,
         connectionCount: inserted.length,
+        withoutEnrichment,
         ...(result && {
           model: judge.model,
           promptVersion: judge.promptVersion,
@@ -181,7 +252,8 @@ async function run(db: Db, deps: ConnectionDeps, userId: string, entryId: string
     .select({ id: note.id, body: note.body, bookId: libraryEntry.bookId })
     .from(note)
     .innerJoin(libraryEntry, eq(libraryEntry.id, note.libraryEntryId))
-    .where(and(eq(libraryEntry.userId, userId), inArray(libraryEntry.bookId, bookIds)))
+    // A Note without a vector (its embedding gave up) is left out.
+    .where(and(eq(libraryEntry.userId, userId), inArray(libraryEntry.bookId, bookIds), isNotNull(note.embedding)))
     .orderBy(asc(note.createdAt), asc(note.id));
 
   // Short ids for this call (n1, n2, ...) map back to the real Note.

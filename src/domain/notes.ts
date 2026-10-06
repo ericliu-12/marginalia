@@ -65,7 +65,7 @@ export async function listNotes(db: Db, userId: string, bookId: string): Promise
 export async function updateNote(db: Db, pipeline: Pipeline, userId: string, noteId: string, input: NoteInput): Promise<Note> {
   const [updated] = await db
     .update(note)
-    .set({ ...clean(input), embedding: null, embeddingModel: null, updatedAt: new Date() })
+    .set({ ...clean(input), embedding: null, embeddingModel: null, embedFailedAt: null, updatedAt: new Date() })
     .where(and(eq(note.id, noteId), ownedBy(db, userId)))
     .returning(columns);
   if (!updated) throw new NoteNotFoundError(noteId);

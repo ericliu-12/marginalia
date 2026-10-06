@@ -4,8 +4,8 @@
 //   pnpm eval
 //
 // Feeds the 19-book set (fixtures/books.json: the reader's real Finished Books, saved Enrichment and
-// Notes) through the real pipeline in finish order: real `generateConnections`, real Claude judge, real
-// Voyage. It runs in a scratch database that it creates and drops, never the dev DB. Costs about $0.20.
+// Notes) through the real pipeline in finish order: the Pipeline's jobs over the in-memory queue, real
+// Claude judge, real Voyage. It runs in a scratch database that it creates and drops, never the dev DB. Costs about $0.20.
 // Compares against fixtures/baseline.json (the p2 prompt, from prototype/pipeline-tuning).
 import fs from "node:fs";
 import { Pool } from "pg";
@@ -14,7 +14,7 @@ import { createDb } from "@/db/client";
 import { runMigrations } from "@/db/migrate";
 import { seedUser } from "@/db/seed";
 import { addBook } from "@/domain/add-book";
-import { generateConnections, type JudgeInput, type JudgeResult } from "@/domain/connections";
+import type { JudgeInput, JudgeResult } from "@/domain/connections";
 import type { Embedder } from "@/domain/embeddings";
 import { enrichBook } from "@/domain/enrichment";
 import { addNote } from "@/domain/notes";
@@ -82,8 +82,10 @@ try {
     },
   };
 
-  // Jobs are sent but never run: each Book's Connections run below, in finish order.
-  const pipeline = createPipeline(db, memoryQueue(db));
+  // Each Book's jobs (its embeddings, then its Connections) are drained before the next Book is added.
+  const jobs = memoryQueue(db);
+  const pipeline = createPipeline(db, jobs);
+  const unused = { model: "unused", promptVersion: "x", async enrich(): Promise<never> { throw new Error("Enrichment should already be seated"); } };
   for (const slug of fixture.order) {
     const b = books[slug];
     const work: OpenLibraryWork = { workKey: `/works/${slug}`, title: b.title, authors: [b.author], firstPublishedYear: null, editionCount: 1, coverId: null, subjects: [] };
@@ -95,8 +97,7 @@ try {
     await enrichBook(db, { model: saved }, entry.bookId);
     for (const body of b.notes) await addNote(db, pipeline, user.id, entry.bookId, { body });
     current = slug;
-    const unused = { model: "unused", promptVersion: "x", async enrich(): Promise<never> { throw new Error("Enrichment should already be seated"); } };
-    await generateConnections(db, { judge, embedder, enrichment: unused }, { userId: user.id, bookId: entry.bookId });
+    await jobs.drain({ model: unused, judge, embedder, descriptions: null });
     console.log(`${b.title}: ${raw.filter((r) => r.slug === slug).length ? "judged" : "no candidates"}`);
   }
 

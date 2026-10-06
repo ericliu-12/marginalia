@@ -137,6 +137,9 @@ export const note = pgTable(
     page: integer("page"),
     embedding: embedding("embedding"),
     embeddingModel: text("embedding_model"),
+    // Set when embedding gave up (retries used up, or the job could not be queued); the backfill tries
+    // again. A Note with neither a vector nor this is still being embedded.
+    embedFailedAt: timestamp("embed_failed_at", { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -183,6 +186,9 @@ export const connectionRun = pgTable("connection_run", {
   inputTokens: integer("input_tokens").notNull().default(0),
   outputTokens: integer("output_tokens").notNull().default(0),
   costUsd: doublePrecision("cost_usd").notNull().default(0),
+  // The Book had no ready Enrichment, so it was judged on its Notes; a recognised Enrichment arriving
+  // later Refreshes it.
+  withoutEnrichment: boolean("without_enrichment").notNull().default(false),
   createdAt: createdAt(),
 });
 

@@ -1,7 +1,7 @@
 import { and, asc, eq, isNotNull, isNull, or } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { connection, libraryEntry, readThrough } from "@/db/schema";
-import type { JobQueue, Pipeline } from "./pipeline";
+import type { Pipeline } from "./pipeline";
 import type { Status } from "./search";
 
 export class NotInLibraryError extends Error {
@@ -61,28 +61,6 @@ export async function enterLibrary(tx: Tx, userId: string, bookId: string, statu
   const [entry] = await tx.insert(libraryEntry).values({ userId, bookId, status }).returning();
   const { firstCompletion } = await recordReadThroughs(tx, entry, status);
   return { entry, firstCompletion };
-}
-
-// Marks the Book's Connections as queued and queues the job. Outside a Refresh, does nothing for a
-// Book whose Connections were already generated; a Refresh does nothing for a Book that is not
-// Finished. A queue that errors must not fail the caller: the Book is left `failed` instead, so the
-// reader is not left waiting on a job that is not coming.
-export async function startConnections(db: Db, queue: JobQueue, userId: string, bookId: string, refresh: boolean): Promise<void> {
-  if (refresh && !(await isFinished(db, userId, bookId))) return;
-  const [entry] = await db
-    .update(libraryEntry)
-    .set({ connectionsStatus: "running" })
-    .where(
-      and(eq(libraryEntry.userId, userId), eq(libraryEntry.bookId, bookId), refresh ? undefined : isNull(libraryEntry.connectionsGeneratedAt)),
-    )
-    .returning({ id: libraryEntry.id });
-  if (!entry) return;
-  try {
-    await queue.send({ kind: "connections", userId, bookId, ...(refresh && { refresh: true }) });
-  } catch (err) {
-    console.error(err);
-    await db.update(libraryEntry).set({ connectionsStatus: "failed" }).where(eq(libraryEntry.id, entry.id));
-  }
 }
 
 // Domain seam: the one place a Status changes for a Book already in the library.

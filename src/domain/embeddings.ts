@@ -28,18 +28,30 @@ export async function embedEnrichment(db: Db, embedder: Embedder, bookId: string
     .where(and(eq(enrichment.bookId, bookId), eq(enrichment.summary, row.summary), eq(enrichment.themes, row.themes ?? [])));
 }
 
-// Domain seam, run by the worker: embed one Note (its text and quoted passage) on its own. A Note
-// that is gone is a no-op.
-export async function embedNote(db: Db, embedder: Embedder, noteId: string): Promise<void> {
+// Domain seam, run by the worker: embed one Note (its text and quoted passage) on its own. Throws on
+// failure so the queue retries; on the final attempt the Note is marked as given up first. A Note that
+// is gone is a no-op.
+export async function embedNote(db: Db, embedder: Embedder, noteId: string, finalAttempt = false): Promise<void> {
   const [row] = await db.select().from(note).where(eq(note.id, noteId));
   if (!row) return;
   if (row.embedding && row.embeddingModel === embedder.model) return;
-  const [vector] = await embedder.embed([[row.body, row.quote].filter(Boolean).join("\n")], "document");
+  let vector: number[];
+  try {
+    [vector] = await embedder.embed([[row.body, row.quote].filter(Boolean).join("\n")], "document");
+  } catch (err) {
+    if (finalAttempt) await noteEmbeddingFailed(db, noteId);
+    throw err;
+  }
   // Not written if the Note was edited while embedding; the edit queued its own job.
   await db
     .update(note)
-    .set({ embedding: vector, embeddingModel: embedder.model })
+    .set({ embedding: vector, embeddingModel: embedder.model, embedFailedAt: null })
     .where(and(eq(note.id, noteId), eq(note.body, row.body), sql`${note.quote} IS NOT DISTINCT FROM ${row.quote}`));
+}
+
+// No vector is coming for the Note: its embedding failed for good, or its job could not be queued.
+export async function noteEmbeddingFailed(db: Db, noteId: string): Promise<void> {
+  await db.update(note).set({ embedFailedAt: new Date() }).where(and(eq(note.id, noteId), isNull(note.embedding)));
 }
 
 export type NearestBook = { bookId: string; similarity: number };

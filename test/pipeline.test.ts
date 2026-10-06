@@ -1,12 +1,12 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { addBook } from "../src/domain/add-book";
 import { readConnections } from "../src/domain/connections";
-import { readEnrichment } from "../src/domain/enrichment";
+import { readEnrichment, tryAgain } from "../src/domain/enrichment";
 import { changeStatus } from "../src/domain/library-entry";
 import { addNote } from "../src/domain/notes";
 import { RETRIES, type JobDeps } from "../src/domain/pipeline";
-import { enrichment, note } from "../src/db/schema";
+import { connection, connectionRun, enrichment, note } from "../src/db/schema";
 import { fakeEmbedder, fakeEnricher, fakeJudge, work } from "./fakes";
 import { useTestDb } from "./harness";
 
@@ -88,9 +88,111 @@ describe("Pipeline", () => {
     expect(ctx.jobs.sent.filter((j) => j.kind === "connections")).toEqual([]);
   });
 
-  it("adds a Book and saves a Note while the queue is down", async () => {
+  it("adds a Book and saves a Note while the queue is down, and the Note stops holding Connections back", async () => {
     ctx.jobs.down = true;
     const { bookId } = await add("a", "read");
-    expect(await addNote(ctx.db, ctx.pipeline, ctx.userId, bookId, { body: "Kept." })).toMatchObject({ body: "Kept." });
+    const n = await addNote(ctx.db, ctx.pipeline, ctx.userId, bookId, { body: "Kept." });
+    expect(n).toMatchObject({ body: "Kept." });
+    expect((await ctx.db.select().from(note).where(eq(note.id, n.id)))[0].embedFailedAt).toBeInstanceOf(Date);
+  });
+
+  describe("Connections behind settled Enrichment and Note vectors", () => {
+    const link = (explanation: (title: string) => string) =>
+      fakeJudge((input) => ({
+        connections: input.candidates.map((c) => ({ candidateId: c.id, type: "thematic" as const, strength: "strong" as const, explanation: explanation(c.title), quotedNoteIds: [] })),
+      }));
+    const finishWithNote = async (key: string, body: string, d: JobDeps) => {
+      const { bookId } = await add(key, "reading");
+      await addNote(ctx.db, ctx.pipeline, ctx.userId, bookId, { body });
+      await ctx.jobs.drain(d);
+      await changeStatus(ctx.db, ctx.pipeline, ctx.userId, bookId, "read");
+      return bookId;
+    };
+    const runs = () => ctx.db.select().from(connectionRun).orderBy(connectionRun.createdAt);
+    const dismiss = (x: string, y: string) => {
+      const [a, b] = [x, y].sort();
+      return ctx.db.update(connection).set({ dismissedAt: new Date() }).where(and(eq(connection.bookAId, a), eq(connection.bookBId, b)));
+    };
+
+    it("waits for the Book's Enrichment and Note vectors, then judges with both", async () => {
+      await add("other", "read");
+      await ctx.jobs.drain(deps());
+      const { bookId } = await add("fresh", "read");
+      await addNote(ctx.db, ctx.pipeline, ctx.userId, bookId, { body: "A quiet note." });
+      const judge = link((t) => `Like ${t}.`);
+      await ctx.jobs.drain(deps({ judge }));
+      expect(judge.inputs).toHaveLength(1);
+      expect(judge.inputs[0].book).toMatchObject({ enrichment: expect.any(String), notes: [{ body: "A quiet note." }] });
+    });
+
+    it("still runs when a Note's embedding fails for good, leaving that Note out", async () => {
+      await add("other", "read");
+      await ctx.jobs.drain(deps());
+      const { bookId } = await add("mixed", "reading");
+      await addNote(ctx.db, ctx.pipeline, ctx.userId, bookId, { body: "A quiet note." });
+      await addNote(ctx.db, ctx.pipeline, ctx.userId, bookId, { body: "A broken note." });
+      const base = fakeEmbedder(["quiet"]);
+      const embedder = { ...base, embed: (texts: string[], t: "document" | "query") => (texts.some((x) => x.includes("broken")) ? Promise.reject(new Error("429")) : base.embed(texts, t)) };
+      await ctx.jobs.drain(deps({ embedder }));
+      await changeStatus(ctx.db, ctx.pipeline, ctx.userId, bookId, "read");
+      const judge = link((t) => `Like ${t}.`);
+      await ctx.jobs.drain(deps({ judge, embedder }));
+      expect(judge.inputs[0].book.notes.map((n) => n.body)).toEqual(["A quiet note."]);
+      expect(await readConnections(ctx.db, ctx.userId, bookId)).toMatchObject({ status: "idle", generated: true, cards: [{ explanation: "Like other." }] });
+    });
+
+    it("judges a Book whose Enrichment failed on its Notes, then Refreshes it once a recognised Enrichment arrives", async () => {
+      const other = await finishWithNote("other", "Another quiet note.", deps());
+      const gone = await finishWithNote("gone", "A third quiet note.", deps());
+      await ctx.jobs.drain(deps());
+      const failing = fakeEnricher(() => Promise.reject(new Error("model down")));
+      const stuck = await finishWithNote("stuck", "A quiet note.", deps({ model: failing }));
+      await ctx.jobs.drain(deps({ model: failing, judge: link((t) => `First take on ${t}.`) }));
+      expect(await readEnrichment(ctx.db, stuck)).toMatchObject({ status: "failed" });
+      expect((await readConnections(ctx.db, ctx.userId, stuck)).cards.map((c) => c.explanation).sort()).toEqual(["First take on gone.", "First take on other."]);
+      expect((await runs()).at(-1)).toMatchObject({ withoutEnrichment: true });
+
+      await dismiss(stuck, gone);
+      expect(await tryAgain(ctx.db, ctx.pipeline, ctx.userId, stuck)).toBe(true);
+      const judge = link((t) => `Second take on ${t}.`);
+      await ctx.jobs.drain(deps({ judge }));
+      expect(judge.inputs).toHaveLength(1);
+      expect(judge.inputs[0].book.enrichment).toEqual(expect.any(String));
+      expect(judge.inputs[0].candidates.map((c) => c.title)).toEqual(["other"]);
+      const rows = (await ctx.db.select().from(connection)).filter((r) => [r.bookAId, r.bookBId].includes(stuck));
+      expect(rows.map((r) => [r.explanation, !!r.dismissedAt]).sort()).toEqual([
+        ["First take on gone.", true],
+        ["Second take on other.", false],
+      ]);
+      expect((await runs()).at(-1)).toMatchObject({ withoutEnrichment: false });
+
+      // Once only: nothing more runs.
+      await ctx.pipeline.bookAdded(stuck);
+      await ctx.jobs.drain(deps({ judge }));
+      expect(judge.inputs).toHaveLength(1);
+      expect((await readConnections(ctx.db, ctx.userId, other)).status).toBe("idle");
+    });
+
+    it("does not Refresh when the Enrichment that arrives is unrecognised", async () => {
+      await finishWithNote("other", "Another quiet note.", deps());
+      const failing = fakeEnricher(() => Promise.reject(new Error("model down")));
+      const stuck = await finishWithNote("stuck", "A quiet note.", deps({ model: failing }));
+      await ctx.jobs.drain(deps({ model: failing }));
+      await tryAgain(ctx.db, ctx.pipeline, ctx.userId, stuck);
+      const judge = link((t) => `Again ${t}.`);
+      await ctx.jobs.drain(deps({ judge, model: fakeEnricher({ recognised: false }) }));
+      expect(judge.inputs).toEqual([]);
+    });
+
+    it("does nothing with a duplicate job left over after a run finished", async () => {
+      await add("other", "read");
+      const { bookId } = await add("fresh", "read");
+      const judge = link((t) => `Like ${t}.`);
+      await ctx.jobs.drain(deps({ judge }));
+      const calls = judge.inputs.length;
+      await ctx.jobs.send({ kind: "connections", userId: ctx.userId, bookId });
+      await ctx.jobs.drain(deps({ judge }));
+      expect(judge.inputs).toHaveLength(calls);
+    });
   });
 });

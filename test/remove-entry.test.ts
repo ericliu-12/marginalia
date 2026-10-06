@@ -29,7 +29,7 @@ describe("Removing a Library Entry", () => {
   }
 
   const remove = (bookId: string) => removeFromLibrary(ctx.db, ctx.userId, bookId);
-  const deps = (judge = fakeJudge()): ConnectionDeps => ({ judge, embedder, enrichment: fakeEnricher() });
+  const deps = (judge = fakeJudge()): ConnectionDeps => ({ judge, embedder });
   const run = (d: ConnectionDeps, bookId: string) => generateConnections(ctx.db, d, { userId: ctx.userId, bookId });
   const linkTo = (title: string) => (input: JudgeInput) => ({
     connections: [

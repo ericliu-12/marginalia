@@ -32,7 +32,7 @@ describe("Connections on first finish", () => {
   const byTitle = (input: JudgeInput, title: string) => input.candidates.find((c) => c.title === title)!;
   function deps(reply?: FakeJudgeReply, extra: Partial<ConnectionDeps> = {}) {
     const judge = fakeJudge(reply);
-    return { judge, deps: { judge, embedder, enrichment: fakeEnricher(), ...extra } satisfies ConnectionDeps };
+    return { judge, deps: { judge, embedder, ...extra } satisfies ConnectionDeps };
   }
   const run = (d: ConnectionDeps, bookId: string) => generateConnections(ctx.db, d, { userId: ctx.userId, bookId });
   const link = (c: Partial<JudgedConnection> & { candidateId: string }): JudgedConnection => ({
@@ -180,7 +180,7 @@ describe("Connections on first finish", () => {
 
     // With room to spare, the weak link is kept and listed after the moderate ones.
     await ctx.db.delete(connection);
-    await ctx.db.update(libraryEntry).set({ connectionsGeneratedAt: null }).where(eq(libraryEntry.bookId, a));
+    await ctx.db.update(libraryEntry).set({ connectionsGeneratedAt: null, connectionsStatus: "running" }).where(eq(libraryEntry.bookId, a));
     const roomy = deps((input) => ({
       connections: input.candidates.filter((c) => ["W0", "M1"].includes(c.title)).map((c) =>
         c.title === "W0"
@@ -258,16 +258,32 @@ describe("Connections on first finish", () => {
     expect((await stored()).map((r) => r.explanation)).toEqual(["First."]);
   });
 
-  it("finishes the work the Book still needs first: its Enrichment and its Notes' embeddings", async () => {
-    const entry = await addBook(ctx.db, ctx.pipeline, ctx.userId, work({ workKey: "/works/new", title: "Fresh", authors: ["A"] }), "read");
+  it("waits, still running, while the Book's Enrichment or a Note's vector is on its way", async () => {
+    const { bookId } = await addBook(ctx.db, ctx.pipeline, ctx.userId, work({ workKey: "/works/new", title: "Fresh", authors: ["A"] }), "read");
     await finished("Lonely");
-    const n = await addNote(ctx.db, ctx.pipeline, ctx.userId, entry.bookId, { body: "war" });
-    const enricher = fakeEnricher({ summary: "Fresh.", themes: ["solitude"] });
-    const { judge, deps: d } = deps(undefined, { enrichment: enricher });
-    await run(d, entry.bookId);
-    expect(enricher.inputs.map((i) => i.title)).toEqual(["Fresh"]);
-    expect((await ctx.db.select().from(note).where(eq(note.id, n.id)))[0].embeddingModel).toBe("fake-voyage");
-    expect(judge.inputs[0].candidates.map((c) => c.title)).toEqual(["Lonely"]);
+    const { judge, deps: d } = deps();
+    await run(d, bookId);
+    expect(judge.inputs).toEqual([]);
+
+    await enrichBook(ctx.db, { model: fakeEnricher({ themes: ["solitude"] }) }, bookId);
+    const n = await addNote(ctx.db, ctx.pipeline, ctx.userId, bookId, { body: "solitude" });
+    await run(d, bookId);
+    expect(judge.inputs).toEqual([]);
+    expect(await entryOf(bookId)).toMatchObject({ connectionsStatus: "running", connectionsGeneratedAt: null });
+
+    await embedNote(ctx.db, embedder, n.id);
+    await run(d, bookId);
+    expect(judge.inputs.map((i) => i.book.notes.map((x) => x.body))).toEqual([["solitude"]]);
+  });
+
+  it("does not wait on a Note whose embedding gave up, and leaves it out of what the judge sees", async () => {
+    const a = await finished("Stoner", "solitude", { notes: ["Embedded solitude."] });
+    await finished("Lonely");
+    const n = await addNote(ctx.db, ctx.pipeline, ctx.userId, a, { body: "Never embedded." });
+    await expect(embedNote(ctx.db, { ...embedder, embed: () => Promise.reject(new Error("429")) }, n.id, true)).rejects.toThrow("429");
+    const { judge, deps: d } = deps();
+    await run(d, a);
+    expect(judge.inputs[0].book.notes.map((x) => x.body)).toEqual(["Embedded solitude."]);
   });
 
   it("does nothing when the Library Entry is gone or the Book is not Finished", async () => {
@@ -291,19 +307,27 @@ describe("Connections on first finish", () => {
     expect(await stored()).toEqual([]);
   });
 
-  it("leaves an Enrichment that failed for good failed when the job's own Enrichment attempt fails", async () => {
+  it("judges a Book whose Enrichment failed for good on its Notes, leaves the Enrichment failed, and records it", async () => {
     const { bookId } = await addBook(ctx.db, ctx.pipeline, ctx.userId, work({ workKey: "/works/stuck", title: "Stuck", authors: ["A"] }), "read");
     const down = fakeEnricher(() => Promise.reject(new Error("model down")));
     await expect(enrichBook(ctx.db, { model: down, finalAttempt: true }, bookId)).rejects.toThrow("model down");
-    expect(await readEnrichment(ctx.db, bookId)).toMatchObject({ status: "failed" });
+    await embedNote(ctx.db, embedder, (await addNote(ctx.db, ctx.pipeline, ctx.userId, bookId, { body: "A solitude note." })).id);
+    await finished("Lonely");
 
-    await expect(run({ ...deps().deps, enrichment: down, finalAttempt: true }, bookId)).rejects.toThrow("model down");
+    const { judge, deps: d } = deps();
+    await run(d, bookId);
+    expect(judge.inputs[0].book).toMatchObject({ enrichment: null, notes: [{ body: "A solitude note." }] });
     // Pending would leave the Book panel waiting with no Try again.
     expect(await readEnrichment(ctx.db, bookId)).toMatchObject({ status: "failed" });
+    expect(await ctx.db.select({ withoutEnrichment: connectionRun.withoutEnrichment }).from(connectionRun)).toEqual([{ withoutEnrichment: true }]);
   });
 
   describe("Refresh", () => {
-    const refresh = (d: ConnectionDeps, bookId: string) => generateConnections(ctx.db, d, { userId: ctx.userId, bookId, refresh: true });
+    // Every run after the first is a Refresh.
+    const refresh = async (d: ConnectionDeps, bookId: string) => {
+      await ctx.pipeline.refreshRequested(ctx.userId, bookId);
+      await run(d, bookId);
+    };
     const dismiss = (x: string, y: string) =>
       ctx.db.update(connection).set({ dismissedAt: new Date() }).where(and(eq(connection.bookAId, [x, y].sort()[0]), eq(connection.bookBId, [x, y].sort()[1])));
 
