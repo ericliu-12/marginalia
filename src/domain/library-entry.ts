@@ -1,6 +1,6 @@
-import { and, asc, eq, isNotNull, isNull } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull, or } from "drizzle-orm";
 import type { Db } from "@/db/client";
-import { libraryEntry, readThrough } from "@/db/schema";
+import { connection, libraryEntry, readThrough } from "@/db/schema";
 import type { Status } from "./search";
 
 export class NotInLibraryError extends Error {
@@ -104,6 +104,27 @@ export async function changeStatus(db: Db, userId: string, bookId: string, statu
   });
   if (result.firstCompletion) await startConnections(db, queue, userId, bookId);
   return result;
+}
+
+// Domain seam: takes a Book out of the reader's library. Notes, Read-throughs and Connections runs go
+// with the Library Entry; the reader's Connections involving the Book are deleted here, since the Book
+// is shared and never cascades. The Book and its Enrichment stay, so adding it again is cheap.
+// Idempotent: a Book not in the library is left alone without error.
+export async function removeFromLibrary(db: Db, userId: string, bookId: string): Promise<void> {
+  await db.transaction(async (tx) => {
+    // Locked first, so a Connections job finishing now either lands before this (and its Connections
+    // are deleted below) or sees the Entry gone and stores nothing.
+    const [entry] = await tx
+      .select({ id: libraryEntry.id })
+      .from(libraryEntry)
+      .where(and(eq(libraryEntry.userId, userId), eq(libraryEntry.bookId, bookId)))
+      .for("update");
+    if (!entry) return;
+    await tx
+      .delete(connection)
+      .where(and(eq(connection.userId, userId), or(eq(connection.bookAId, bookId), eq(connection.bookBId, bookId))));
+    await tx.delete(libraryEntry).where(eq(libraryEntry.id, entry.id));
+  });
 }
 
 // The one definition of Finished: the reader's completed Read-throughs (`completed_at` set), whatever

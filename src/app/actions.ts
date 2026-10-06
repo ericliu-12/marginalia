@@ -7,7 +7,7 @@ import { addBook, DuplicateBookError } from "@/domain/add-book";
 import { descriptionGateway } from "@/lib/book-search";
 import { readEnrichment, tryAgain, type EnrichmentView } from "@/domain/enrichment";
 import { countFindingConnections, readConnections, type ConnectionsView } from "@/domain/connections";
-import { changeStatus } from "@/domain/library-entry";
+import { changeStatus, removeFromLibrary } from "@/domain/library-entry";
 import { appQueue } from "@/lib/jobs";
 import { addNote, deleteNote, listNotes, updateNote, type Note, type NoteInput } from "@/domain/notes";
 import type { OpenLibraryWork, Status } from "@/domain/search";
@@ -51,7 +51,19 @@ export async function changeStatusAction(bookId: string, status: Status): Promis
   }
 }
 
-export type NoteResult = { ok: true; note: Note } | { ok: false };
+export async function removeFromLibraryAction(bookId: string): Promise<{ ok: boolean }> {
+  try {
+    const db = appDb();
+    await removeFromLibrary(db, await getSeededUserId(db), bookId);
+    revalidatePath("/");
+    return { ok: true };
+  } catch (err) {
+    console.error(err);
+    return { ok: false };
+  }
+}
+
+export type NoteResult ={ ok: true; note: Note } | { ok: false };
 
 export async function listNotesAction(bookId: string): Promise<Note[] | null> {
   try {

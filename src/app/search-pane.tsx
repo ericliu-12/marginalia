@@ -10,14 +10,15 @@ const DEBOUNCE_MS = 300;
 
 type Phase = "idle" | "loading" | "done" | "error";
 
-export function SearchPane({ onClose }: { onClose: () => void }) {
+// `refresh` changes when the library changed elsewhere: the results are fetched again and focus returns here.
+export function SearchPane({ onClose, refresh = 0 }: { onClose: () => void; refresh?: number }) {
   const [retry, setRetry] = useState(0);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [phase, setPhase] = useState<Phase>("idle");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => inputRef.current?.focus(), []);
+  useEffect(() => inputRef.current?.focus(), [refresh]);
 
   useEffect(() => {
     const q = query.trim();
@@ -42,7 +43,7 @@ export function SearchPane({ onClose }: { onClose: () => void }) {
       clearTimeout(timer);
       ctrl.abort();
     };
-  }, [query, retry]);
+  }, [query, retry, refresh]);
 
   // Statuses chosen in this pane override what the search response said.
   function markAdded(workKey: string, status: Status) {

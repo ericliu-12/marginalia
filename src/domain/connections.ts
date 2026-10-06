@@ -113,8 +113,20 @@ async function run(db: Db, deps: ConnectionDeps, userId: string, entryId: string
     .filter((n) => !connected.has(n.bookId))
     .slice(0, CANDIDATE_COUNT);
 
-  const finish = (rows: (typeof connection.$inferInsert)[], result?: JudgeResult) =>
+  const finish = (judged: (typeof connection.$inferInsert)[], result?: JudgeResult) =>
     db.transaction(async (tx) => {
+      // The reader may have removed this Book, or one it links to, while the job ran: store nothing
+      // for a removed Book. The lock holds removal off until this commits; `key share` does not
+      // conflict with the status update below, nor with other jobs taking the same lock.
+      const others = judged.map((r) => (r.bookAId === bookId ? r.bookBId : r.bookAId));
+      const live = await tx
+        .select({ bookId: libraryEntry.bookId })
+        .from(libraryEntry)
+        .where(and(eq(libraryEntry.userId, userId), inArray(libraryEntry.bookId, [bookId, ...others])))
+        .for("key share");
+      const inLibrary = new Set(live.map((e) => e.bookId));
+      if (!inLibrary.has(bookId)) return;
+      const rows = judged.filter((_, i) => inLibrary.has(others[i]));
       const inserted = rows.length
         ? await tx
             .insert(connection)

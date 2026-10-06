@@ -9,6 +9,7 @@ import {
   deleteNoteAction,
   getEnrichmentAction,
   listNotesAction,
+  removeFromLibraryAction,
   tryAgainAction,
   updateNoteAction,
 } from "./actions";
@@ -43,10 +44,12 @@ export function BookPanel({
   item,
   backLabel,
   onBack,
+  onRemoved,
 }: {
   item: LibraryItem;
   backLabel: string;
   onBack: () => void;
+  onRemoved: () => void;
 }) {
   const [notes, setNotes] = useState<Note[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -131,8 +134,51 @@ export function BookPanel({
             ))}
           </ul>
         )}
+
+        <RemoveEntry key={`remove-${item.bookId}`} bookId={item.bookId} onRemoved={onRemoved} />
       </div>
     </aside>
+  );
+}
+
+// Last in the panel and quiet, like deleting a Note: one text action, then an inline confirmation.
+function RemoveEntry({ bookId, onRemoved }: { bookId: string; onRemoved: () => void }) {
+  const [confirming, setConfirming] = useState(false);
+  const [error, setError] = useState(false);
+  const [pending, start] = useTransition();
+
+  function remove() {
+    setError(false);
+    start(async () => {
+      const res = await removeFromLibraryAction(bookId);
+      if (res.ok) onRemoved();
+      else setError(true);
+    });
+  }
+
+  return (
+    <div aria-busy={pending} className="mt-12 border-t border-rule pt-4">
+      {confirming ? (
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+          <p className="w-full font-sans text-[0.8rem] text-ink-2">Remove this book, with its notes and Connections?</p>
+          <button type="button" onClick={remove} disabled={pending} className={`${quietLink} text-contrast hover:text-contrast`}>
+            {pending ? "Removing…" : "Yes, remove"}
+          </button>
+          <button type="button" onClick={() => setConfirming(false)} disabled={pending} className={quietLink}>
+            Keep
+          </button>
+        </div>
+      ) : (
+        <button type="button" onClick={() => setConfirming(true)} className={quietLink}>
+          Remove from library
+        </button>
+      )}
+      {error && (
+        <p role="alert" className="mt-1 font-sans text-sm text-contrast">
+          Couldn’t remove this book. Try again.
+        </p>
+      )}
+    </div>
   );
 }
 
