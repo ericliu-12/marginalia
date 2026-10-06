@@ -291,9 +291,7 @@ describe("Connections on first finish", () => {
     expect(await stored()).toEqual([]);
   });
 
-  // Known bug: the job's Enrichment attempt has no `finalAttempt`, so it writes `pending` back.
-  // Becomes a plain `it` once one module owns the Enrichment status.
-  it.fails("leaves an Enrichment that failed for good failed when the job's own Enrichment attempt fails", async () => {
+  it("leaves an Enrichment that failed for good failed when the job's own Enrichment attempt fails", async () => {
     const { bookId } = await addBook(ctx.db, ctx.pipeline, ctx.userId, work({ workKey: "/works/stuck", title: "Stuck", authors: ["A"] }), "read");
     const down = fakeEnricher(() => Promise.reject(new Error("model down")));
     await expect(enrichBook(ctx.db, { model: down, finalAttempt: true }, bookId)).rejects.toThrow("model down");

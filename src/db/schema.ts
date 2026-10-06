@@ -71,13 +71,17 @@ export const enrichment = pgTable(
     embedding: embedding("embedding"),
     // Which model made `embedding`; vectors from different models are never compared.
     embeddingModel: text("embedding_model"),
-    // Inputs the current row was generated from; null means stale ("Try again" clears them).
+    // Inputs the last successful run saw; null until one has run.
     descriptionHash: text("description_hash"),
     metadataHash: text("metadata_hash"),
+    // Set by "Try again": the next run does the work whatever the hashes say. Cleared by the run
+    // that handled it, so one that lands mid-run survives it.
+    requestedAt: timestamp("requested_at", { withTimezone: true }),
     believedAuthor: text("believed_author"),
     believedFirstPublishedYear: integer("believed_first_published_year"),
-    model: text("model").notNull(),
-    promptVersion: text("prompt_version").notNull(),
+    // Of the last run; null until one has run.
+    model: text("model"),
+    promptVersion: text("prompt_version"),
     inputTokens: integer("input_tokens").notNull().default(0),
     outputTokens: integer("output_tokens").notNull().default(0),
     costUsd: doublePrecision("cost_usd").notNull().default(0),

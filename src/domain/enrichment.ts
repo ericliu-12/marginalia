@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { book, enrichment } from "@/db/schema";
 import { BACKGROUND_BUDGET, describeBook, type DescriptionGateway } from "./description";
 import { NotInLibraryError, findEntry } from "./library-entry";
-import type { Pipeline } from "./pipeline";
+import type { JobQueue, Pipeline } from "./pipeline";
 
 export type EnrichmentInput = { title: string; authors: string[]; description: string; subjects: string[] };
 
@@ -95,17 +95,24 @@ export type EnrichDeps = {
   finalAttempt?: boolean;
 };
 
+// This module is the only writer of an Enrichment's status:
+//   pending: a job is coming (queued, running, or retrying)
+//   ready:   the last run succeeded
+//   failed:  no job is coming; the reader can "Try again"
+
 // Domain seam, run by the worker: enrich one Book if its description or author/year metadata changed
-// since the last Enrichment (or "Try again" cleared the hashes). Throws on model failure so the queue
-// retries; a Book that no longer exists is a no-op.
+// since the last Enrichment, or "Try again" asked for a run. Throws on model failure so the queue
+// retries; a failure before the final attempt leaves the status as it was. A Book that no longer
+// exists is a no-op.
 export async function enrichBook(db: Db, deps: EnrichDeps, bookId: string): Promise<void> {
   let [b] = await db.select().from(book).where(eq(book.id, bookId));
   if (!b) return;
   const [current] = await db.select().from(enrichment).where(eq(enrichment.bookId, bookId));
 
-  // A Book added without a description gets one fetched here, with full retries. Only on the first run
-  // or a "Try again", so a Book nothing describes is not looked up on every run.
-  if (!b.description && b.openLibraryWorkKey && deps.descriptions && (!current || current.descriptionHash === null)) {
+  const requested = current?.requestedAt ?? null;
+  // A Book added without a description gets one fetched here, with full retries. Only until a run has
+  // succeeded, or on a "Try again", so a Book nothing describes is not looked up on every run.
+  if (!b.description && b.openLibraryWorkKey && deps.descriptions && (!current?.descriptionHash || requested)) {
     const found = await describeBook(
       deps.descriptions,
       { title: b.title, authors: b.authors, workKey: b.openLibraryWorkKey },
@@ -122,7 +129,7 @@ export async function enrichBook(db: Db, deps: EnrichDeps, bookId: string): Prom
 
   const descriptionHash = hash(b.description ?? "");
   const metadataHash = hash(JSON.stringify([b.authors, b.firstPublishedYear]));
-  if (current?.status === "ready" && current.descriptionHash === descriptionHash && current.metadataHash === metadataHash) return;
+  if (current?.status === "ready" && !requested && current.descriptionHash === descriptionHash && current.metadataHash === metadataHash) return;
 
   const { model } = deps;
   const subjects = (b.snapshot as { subjects?: string[] } | null)?.subjects ?? [];
@@ -135,10 +142,6 @@ export async function enrichBook(db: Db, deps: EnrichDeps, bookId: string): Prom
     if (r.firstPublishedYear && b.firstPublishedYear && r.firstPublishedYear !== b.firstPublishedYear) {
       console.warn(`Enrichment year mismatch for "${b.title}": model ${r.firstPublishedYear}, Book ${b.firstPublishedYear}`);
     }
-    // A "Try again" that arrived while this run was in flight cleared the hashes; keep them cleared so
-    // the job it queued still does its work.
-    const [latest] = await db.select({ hash: enrichment.descriptionHash }).from(enrichment).where(eq(enrichment.bookId, bookId));
-    const retryRequested = !!current?.descriptionHash && latest?.hash === null;
     const values = {
       bookId,
       recognised,
@@ -147,8 +150,8 @@ export async function enrichBook(db: Db, deps: EnrichDeps, bookId: string): Prom
       // Any vector was made from the previous summary; it is re-embedded.
       embedding: null,
       embeddingModel: null,
-      descriptionHash: retryRequested ? null : descriptionHash,
-      metadataHash: retryRequested ? null : metadataHash,
+      descriptionHash,
+      metadataHash,
       believedAuthor: r.author,
       believedFirstPublishedYear: r.firstPublishedYear,
       model: model.model,
@@ -160,38 +163,57 @@ export async function enrichBook(db: Db, deps: EnrichDeps, bookId: string): Prom
       attempts: 0,
       lastError: null,
     };
-    await db.insert(enrichment).values(values).onConflictDoUpdate({ target: enrichment.bookId, set: values });
+    await db
+      .insert(enrichment)
+      .values(values)
+      .onConflictDoUpdate({
+        target: enrichment.bookId,
+        // A "Try again" that arrived while this run was in flight stays requested, so the job it
+        // queued still does its work.
+        set: { ...values, requestedAt: sql`case when ${enrichment.requestedAt} is not distinct from ${requested} then null else ${enrichment.requestedAt} end` },
+      });
   } catch (err) {
     const failure = {
-      status: deps.finalAttempt ? ("failed" as const) : ("pending" as const),
       attempts: (current?.attempts ?? 0) + 1,
       lastError: err instanceof Error ? err.message : String(err),
+      ...(deps.finalAttempt && { status: "failed" as const }),
     };
     await db
       .insert(enrichment)
-      .values({ bookId, model: model.model, promptVersion: model.promptVersion, ...failure })
+      .values({ bookId, status: "pending", ...failure })
       .onConflictDoUpdate({ target: enrichment.bookId, set: failure });
     throw err;
   }
 }
 
-// Domain seam: what the Book panel shows. Null when no Enrichment has been started for the Book.
+// Asks for the Book's Enrichment: pending until a job runs, or failed when none could be queued. A
+// `retry` runs whatever the hashes say; otherwise an Enrichment that is already there is left alone.
+// False when no job is coming.
+export async function requestEnrichment(db: Db, queue: JobQueue, bookId: string, retry: boolean): Promise<boolean> {
+  const values = { bookId, status: "pending" as const, ...(retry && { requestedAt: new Date() }) };
+  const insert = db.insert(enrichment).values(values);
+  await (retry ? insert.onConflictDoUpdate({ target: enrichment.bookId, set: values }) : insert.onConflictDoNothing());
+  try {
+    await queue.send({ kind: "enrich", bookId });
+    return true;
+  } catch (err) {
+    console.error(err);
+    // No job is coming, so don't leave the reader waiting on one.
+    await db.update(enrichment).set({ status: "failed" }).where(and(eq(enrichment.bookId, bookId), eq(enrichment.status, "pending")));
+    return false;
+  }
+}
+
+// Domain seam: what the Book panel shows. Null for a Book added before Enrichment existed.
 export async function readEnrichment(db: Db, bookId: string): Promise<EnrichmentView | null> {
   const [row] = await db.select().from(enrichment).where(eq(enrichment.bookId, bookId));
   if (!row) return null;
   return { status: row.status, recognised: row.recognised, summary: row.summary, themes: row.themes };
 }
 
-// Domain seam: the reader's "Try again", for a Book in their library. Marks the Enrichment stale so
-// the next run does the work. False when no job could be queued.
+// Domain seam: the reader's "Try again", for a Book in their library. The next run does the work
+// whatever changed. False when no job could be queued.
 export async function tryAgain(db: Db, pipeline: Pipeline, userId: string, bookId: string): Promise<boolean> {
   if (!(await findEntry(db, userId, bookId))) throw new NotInLibraryError(bookId);
-  await db
-    .update(enrichment)
-    .set({ descriptionHash: null, metadataHash: null, status: "pending" })
-    .where(eq(enrichment.bookId, bookId));
-  if (await pipeline.enrichmentRetried(bookId)) return true;
-  // No job is coming, so don't leave the reader waiting on one.
-  await db.update(enrichment).set({ status: "failed" }).where(eq(enrichment.bookId, bookId));
-  return false;
+  return pipeline.enrichmentRetried(bookId);
 }

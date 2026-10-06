@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { addBook } from "../src/domain/add-book";
 import { authorsMatch, enrichBook, readEnrichment, tryAgain } from "../src/domain/enrichment";
@@ -180,6 +180,35 @@ describe("Enrichment", () => {
       expect(model.inputs).toHaveLength(1);
       expect(model.inputs[0].description).toBe("");
       expect(descriptions.queries).toHaveLength(1);
+    });
+  });
+
+  describe("status", () => {
+    it("reads as pending from the moment a Book is added", async () => {
+      const b = await addStoner();
+      expect(await readEnrichment(ctx.db, b.id)).toMatchObject({ status: "pending" });
+    });
+
+    it("reads as failed, so Try again is offered, when the Book is added while the queue is down", async () => {
+      ctx.jobs.down = true;
+      const b = await addStoner();
+      expect(await readEnrichment(ctx.db, b.id)).toMatchObject({ status: "failed" });
+    });
+
+    it("stays ready when another reader adds the Book, even while the queue is down", async () => {
+      const b = await addStoner(prose(700));
+      await enrichBook(ctx.db, { model: fakeEnricher() }, b.id);
+      const [other] = await ctx.db.execute<{ id: string }>(sql`INSERT INTO "user" (email) VALUES ('b@example.com') RETURNING id`).then((r) => r.rows);
+      ctx.jobs.down = true;
+      await addBook(ctx.db, ctx.pipeline, other.id, stoner, "want");
+      expect(await readEnrichment(ctx.db, b.id)).toMatchObject({ status: "ready" });
+    });
+
+    it("a failed attempt before the last leaves the status as it was", async () => {
+      const b = await addStoner(prose(700));
+      await expect(enrichBook(ctx.db, { model: fakeEnricher(() => Promise.reject(new Error("x"))), finalAttempt: true }, b.id)).rejects.toThrow();
+      await expect(enrichBook(ctx.db, { model: fakeEnricher(() => Promise.reject(new Error("x"))) }, b.id)).rejects.toThrow();
+      expect(await readEnrichment(ctx.db, b.id)).toMatchObject({ status: "failed" });
     });
   });
 

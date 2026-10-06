@@ -50,6 +50,13 @@
       "when": 1791234125602,
       "tag": "0006_confused_miek",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791267930125,
+      "tag": "0007_quiet_terror",
+      "breakpoints": true
     }
   ]
 }

@@ -2,7 +2,7 @@ import type { Db } from "@/db/client";
 import { generateConnections, type ConnectionJudge } from "./connections";
 import type { DescriptionGateway } from "./description";
 import { embedEnrichment, embedNote, type Embedder, type EmbeddingTarget } from "./embeddings";
-import { enrichBook, type EnrichmentModel } from "./enrichment";
+import { enrichBook, requestEnrichment, type EnrichmentModel } from "./enrichment";
 import { startConnections } from "./library-entry";
 
 // The background work, one job at a time: Enrichment for a Book, a vector for an Enrichment or a
@@ -44,7 +44,7 @@ export function createPipeline(db: Db, queue: JobQueue) {
   return {
     // Enrichment is generated once per Book; the job is a no-op when the Book is already enriched.
     async bookAdded(bookId: string) {
-      await send({ kind: "enrich", bookId });
+      await requestEnrichment(db, queue, bookId, false);
     },
     // A Book's first completed Read-through.
     async bookFinished(userId: string, bookId: string) {
@@ -55,13 +55,7 @@ export function createPipeline(db: Db, queue: JobQueue) {
     },
     // The reader's "Try again". False when no job is coming.
     async enrichmentRetried(bookId: string): Promise<boolean> {
-      try {
-        await queue.send({ kind: "enrich", bookId });
-        return true;
-      } catch (err) {
-        console.error(err);
-        return false;
-      }
+      return requestEnrichment(db, queue, bookId, true);
     },
   };
 }
