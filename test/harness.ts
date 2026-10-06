@@ -3,7 +3,7 @@ import { afterAll, beforeEach } from "vitest";
 import { createDb } from "../src/db/client";
 import { seedUser } from "../src/db/seed";
 import { createPipeline, type Pipeline } from "../src/domain/pipeline";
-import { memoryQueue } from "./fakes";
+import { memoryQueue } from "../src/lib/memory-queue";
 
 // Real Postgres, reset to "just the seeded user" before every test, with a fresh in-memory job queue
 // behind the Pipeline: jobs wait until the test drains them.

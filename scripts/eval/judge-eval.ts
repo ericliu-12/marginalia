@@ -21,8 +21,8 @@ import { addNote } from "@/domain/notes";
 import { createPipeline } from "@/domain/pipeline";
 import type { OpenLibraryWork } from "@/domain/search";
 import { claudeJudge } from "@/lib/claude";
+import { memoryQueue } from "@/lib/memory-queue";
 import { voyageEmbedder } from "@/lib/voyage";
-import { memoryQueue } from "../../test/fakes";
 
 type Fixture = {
   order: string[];
