@@ -96,6 +96,8 @@ Operate-mode two-pane desktop layout. The library fills the left, left-aligned t
 
 Flat. Depth comes from the paper tones (raised, sunk) and hairline rules. Covers carry a small soft shadow (`0 1px 2px rgb(35 29 23 / .25)`) so they read as objects.
 
+One deliberate exception: an element floating over the graph canvas (the Book and Connection panels) has no page edge or rule to separate it from what is behind, so it carries a soft lifted shadow (`0 12px 32px -8px rgb(35 29 23 / .18), 0 2px 6px rgb(35 29 23 / .06)`) with its hairline border. Nothing docked or in the page flow does.
+
 ## Shapes
 
 Near-square: 2px for covers, 3px for buttons and inputs. No pills, no circles.

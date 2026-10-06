@@ -1,4 +1,4 @@
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import Graph from "graphology";
 import forceAtlas2 from "graphology-layout-forceatlas2";
 import type { Db } from "@/db/client";
@@ -7,12 +7,14 @@ import { CLUSTER_WEIGHT, STRENGTH_RANK, type ConnectionType, type Strength } fro
 import { displayed } from "./library";
 import { readFinished } from "./library-entry";
 
-// Each Book shows its strongest Connections up to this many; a Connection shows when either of its
-// Books ranks it that high. Selecting a Book shows all of its own.
-export const DISPLAY_CAP = 7;
+// At rest, only Connections this strong show, and each Book shows its strongest of them up to
+// DISPLAY_CAP; a Connection shows when either of its Books ranks it that high. Selecting a Book shows
+// all of its own, weak ones included.
+export const AT_REST_STRENGTHS: readonly Strength[] = ["strong", "moderate"];
+export const DISPLAY_CAP = 3;
 
-// ForceAtlas2 passes: a graph laid out for the first time needs many; one seeded from stored positions
-// only has to settle what changed.
+// ForceAtlas2 passes: a graph laid out for the first time needs many; placing new Books among fixed
+// ones only has to settle those.
 const FRESH_ITERATIONS = 500;
 const SETTLE_ITERATIONS = 100;
 
@@ -33,7 +35,7 @@ export type GraphConnection = {
   b: string;
   type: ConnectionType;
   strength: Strength;
-  // Shown before anything is selected: one of the strongest DISPLAY_CAP of either Book.
+  // Shown at rest: strong enough, and one of the strongest DISPLAY_CAP of either Book.
   featured: boolean;
 };
 
@@ -110,6 +112,7 @@ export async function readGraph(db: Db, userId: string): Promise<GraphView> {
   const featured = new Set<string>();
   for (const list of byBook.values()) {
     list
+      .filter((c) => AT_REST_STRENGTHS.includes(c.strength))
       .sort((p, q) => STRENGTH_RANK[p.strength] - STRENGTH_RANK[q.strength] || q.similarity - p.similarity || (p.id < q.id ? -1 : 1))
       .slice(0, DISPLAY_CAP)
       .forEach((c) => featured.add(c.id));
@@ -131,35 +134,32 @@ export function visibleConnections(graph: GraphView, selectedBookId: string | nu
   return graph.connections.filter((c) => c.featured || c.a === selectedBookId || c.b === selectedBookId);
 }
 
-// Domain seam, run by the worker: lays out the reader's graph with ForceAtlas2 and stores each Finished
-// Book's position. Seeded from the stored positions, so Books already placed stay close to where they
-// were and a new one settles in among its Connections.
+// Domain seam, run by the worker: gives each newly Finished Book a stored position with ForceAtlas2.
+// Books already placed are fixed and never move, so the graph stays a place the reader knows; a new
+// one starts beside the placed Books it connects to and settles in among them. Nothing new, no change.
 export async function layoutGraph(db: Db, userId: string): Promise<void> {
   const { books, connections, at } = await loadGraph(db, userId);
-  if (books.length === 0) return;
+  const unplaced = books.filter((r) => stored(r) === null);
+  if (unplaced.length === 0) return;
 
   const g = new Graph({ type: "undirected" });
-  for (const r of books) g.addNode(r.book.id, { ...at.get(r.book.id)! });
+  for (const r of books) g.addNode(r.book.id, { ...at.get(r.book.id)!, fixed: stored(r) !== null });
   for (const c of connections) g.addEdge(c.bookAId, c.bookBId, { weight: CLUSTER_WEIGHT[c.strength] });
-  const fresh = books.every((r) => stored(r) === null);
   forceAtlas2.assign(g, {
-    iterations: fresh ? FRESH_ITERATIONS : SETTLE_ITERATIONS,
+    iterations: unplaced.length === books.length ? FRESH_ITERATIONS : SETTLE_ITERATIONS,
     getEdgeWeight: "weight",
     settings: { ...forceAtlas2.inferSettings(g), barnesHutOptimize: books.length > 500 },
   });
 
-  const rows = books.map((r) => ({
-    libraryEntryId: r.entry.id,
-    userId,
-    x: g.getNodeAttribute(r.book.id, "x") as number,
-    y: g.getNodeAttribute(r.book.id, "y") as number,
-    updatedAt: new Date(),
-  }));
   await db
     .insert(bookPosition)
-    .values(rows)
-    .onConflictDoUpdate({
-      target: bookPosition.libraryEntryId,
-      set: { x: sql`excluded.x`, y: sql`excluded.y`, updatedAt: sql`excluded.updated_at` },
-    });
+    .values(
+      unplaced.map((r) => ({
+        libraryEntryId: r.entry.id,
+        userId,
+        x: g.getNodeAttribute(r.book.id, "x") as number,
+        y: g.getNodeAttribute(r.book.id, "y") as number,
+      })),
+    )
+    .onConflictDoNothing({ target: bookPosition.libraryEntryId });
 }

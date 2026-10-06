@@ -1,7 +1,7 @@
 import type { ConnectionType, Strength } from "@/domain/connections";
 
 // The graph's tunable look, in one place. Sizes are screen pixels, whatever the zoom.
-// How many Connections each Book shows by default is DISPLAY_CAP in src/domain/graph.ts.
+// Which Connections show at rest (AT_REST_STRENGTHS, DISPLAY_CAP per Book) is set in src/domain/graph.ts.
 
 export const EDGE_WIDTH: Record<Strength, number> = { strong: 4.5, moderate: 2.5, weak: 1.25 };
 // A faded edge, behind a selection.

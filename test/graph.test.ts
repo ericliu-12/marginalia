@@ -78,6 +78,19 @@ describe("Graph", () => {
     expect(shown).toHaveLength(2 * DISPLAY_CAP + 1);
   });
 
+  it("keeps weak Connections out of the graph at rest, even a Book's only one, until one of its Books is selected", async () => {
+    const a = await add("A");
+    const b = await add("B");
+    const c = await add("C");
+    await connect(a, b, "weak");
+    await connect(a, c, "moderate");
+
+    const g = await graph();
+    expect(pairs(g, visibleConnections(g, null))).toEqual(["A–C"]);
+    expect(pairs(g, visibleConnections(g, b))).toEqual(["A–B", "A–C"]);
+    expect(pairs(g, visibleConnections(g, a))).toEqual(["A–B", "A–C"]);
+  });
+
   it("shows all of a selected Book's Connections, and only the default ones besides", async () => {
     const hub = await add("Hub");
     const other = await add("Other");
@@ -105,7 +118,6 @@ describe("Graph", () => {
       descriptions: null,
     });
     const positions = (g: GraphView) => Object.fromEntries(g.books.map((b) => [b.title, { x: b.x, y: b.y }]));
-    const extent = (g: GraphView) => Math.max(...g.books.flatMap((a) => g.books.map((b) => Math.hypot(a.x - b.x, a.y - b.y))));
 
     it("gives every Finished Book a place, before the worker has laid the graph out too", async () => {
       await add("A");
@@ -126,28 +138,22 @@ describe("Graph", () => {
       expect(positions(first)).not.toEqual(positions(provisional));
       expect(positions(await graph())).toEqual(positions(first));
 
-      // Nothing new to place: laying out again leaves every Book where it was.
+      // Nothing new to place: laying out again leaves every Book exactly where it was.
       await ctx.pipeline.refreshRequested(ctx.userId, first.books[0].bookId);
       await ctx.jobs.drain(deps());
-      const again = await graph();
-      for (const b of again.books) {
-        const was = first.books.find((x) => x.bookId === b.bookId)!;
-        expect(Math.hypot(b.x - was.x, b.y - was.y)).toBeLessThan(extent(first) * 0.05);
-      }
+      expect(positions(await graph())).toEqual(positions(first));
     });
 
-    it("places a newly finished Book without moving the Books already there much", async () => {
+    it("places a newly finished Book among its Connections without moving a Book already placed", async () => {
       for (const t of ["A", "B", "C", "D", "E"]) await add(t);
       await ctx.jobs.drain(deps());
-      const before = await graph();
+      const before = positions(await graph());
       await add("New");
+      const provisional = positions(await graph()).New;
       await ctx.jobs.drain(deps());
-      const after = await graph();
-      expect(after.books.map((b) => b.title)).toContain("New");
-      for (const b of before.books) {
-        const now = after.books.find((x) => x.bookId === b.bookId)!;
-        expect(Math.hypot(now.x - b.x, now.y - b.y)).toBeLessThan(extent(before) * 0.25);
-      }
+      const { New: placed, ...rest } = positions(await graph());
+      expect(rest).toEqual(before);
+      expect(placed).not.toEqual(provisional);
     });
 
     it("lays out a newly finished Book even when finding its Connections fails for good", async () => {
