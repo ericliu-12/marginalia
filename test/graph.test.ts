@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { addBook } from "../src/domain/add-book";
 import { readConnection, type Strength } from "../src/domain/connections";
-import { DISPLAY_CAP, readGraph, visibleConnections, type GraphView } from "../src/domain/graph";
+import { DISPLAY_CAP, LABEL_ROOM, layoutGraph, readGraph, visibleConnections, type GraphView } from "../src/domain/graph";
 import { changeStatus, removeFromLibrary } from "../src/domain/library-entry";
 import type { JobDeps } from "../src/domain/pipeline";
 import { connection, libraryEntry } from "../src/db/schema";
@@ -154,6 +154,36 @@ describe("Graph", () => {
       const { New: placed, ...rest } = positions(await graph());
       expect(rest).toEqual(before);
       expect(placed).not.toEqual(provisional);
+    });
+
+    it("places a new Book clear of every other Book and its label clear of their dots", async () => {
+      // A tight neighbourhood: a hub and five Books all linked to it and to each other.
+      const hub = await add("Hub");
+      const ring = [];
+      for (const t of ["R1", "R2", "R3", "R4", "R5"]) ring.push(await add(t));
+      for (const r of ring) await connect(hub, r);
+      for (let i = 0; i < ring.length; i++) await connect(ring[i], ring[(i + 1) % ring.length], "moderate");
+      await layoutGraph(ctx.db, ctx.userId);
+      const fresh = await add("The Wind-up Bird Chronicle");
+      await connect(fresh, hub);
+      await connect(fresh, ring[0], "moderate");
+      await layoutGraph(ctx.db, ctx.userId);
+
+      const g = await graph();
+      const at = (id: string) => g.books.find((b) => b.bookId === id)!;
+      const lengths = g.connections.map((c) => Math.hypot(at(c.a).x - at(c.b).x, at(c.a).y - at(c.b).y)).sort((p, q) => p - q);
+      const unit = lengths[Math.floor(lengths.length / 2)];
+      const me = at(fresh);
+      const box = {
+        x0: me.x + LABEL_ROOM.gap * unit,
+        x1: me.x + (LABEL_ROOM.gap + me.label.length * LABEL_ROOM.char) * unit,
+        y0: me.y - (LABEL_ROOM.height / 2) * unit,
+        y1: me.y + (LABEL_ROOM.height / 2) * unit,
+      };
+      for (const other of g.books.filter((b) => b.bookId !== fresh)) {
+        expect(Math.hypot(other.x - me.x, other.y - me.y)).toBeGreaterThanOrEqual(LABEL_ROOM.spacing * unit);
+        expect(other.x >= box.x0 && other.x <= box.x1 && other.y >= box.y0 && other.y <= box.y1).toBe(false);
+      }
     });
 
     it("lays out a newly finished Book even when finding its Connections fails for good", async () => {

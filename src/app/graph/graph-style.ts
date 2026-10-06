@@ -19,8 +19,10 @@ export const LABEL_GAP = 4;
 export const LABEL_PLATE = 2;
 // Space between a chosen or hovered Book's dot and the ring around it.
 export const RING_GAP = 4;
-// Long titles are cut at a subtitle, then to this many characters.
-export const LABEL_MAX_CHARS = 32;
+// Labels go to the right of a Book's dot, or failing that to its left, above or below; where none
+// fits, the label is left off. Books keep theirs in this order: the most recently finished few, then
+// those with more Connections. (Label text is cut by labelOf in src/domain/graph.ts.)
+export const RECENT_LABELS = 3;
 
 // The layout is scaled so a typical Connection is this long, which the drag forces below assume.
 export const TYPICAL_EDGE_LENGTH = 70;

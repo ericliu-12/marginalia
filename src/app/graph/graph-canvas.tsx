@@ -14,11 +14,11 @@ import {
   FADED_NODE,
   INK,
   LABEL_GAP,
-  LABEL_MAX_CHARS,
   LABEL_PLATE,
   LABEL_SIZE,
   MAX_FIT_ZOOM,
   PAPER_PLATE,
+  RECENT_LABELS,
   TYPE_COLOR,
   RING_GAP,
   TYPICAL_EDGE_LENGTH,
@@ -39,14 +39,9 @@ type Focus = {
   litLinks: Set<string> | null;
   chosenBookId: string | null;
   chosenLinkId: string | null;
-  // Label priority: the selection and its neighbours first, then by Connections.
+  // Label priority: the selection and its neighbours first, then the graph's own order.
   labelOrder: Node[];
 };
-
-function shortLabel(title: string) {
-  const main = title.split(/:\s/)[0];
-  return main.length > LABEL_MAX_CHARS ? `${main.slice(0, LABEL_MAX_CHARS - 1).trimEnd()}…` : main;
-}
 
 const median = (xs: number[]) => {
   const s = [...xs].sort((a, b) => a - b);
@@ -62,7 +57,7 @@ function prepare(graph: GraphView) {
   const nodes: Node[] = graph.books.map((b) => ({
     id: b.bookId,
     book: b,
-    label: shortLabel(b.title),
+    label: b.label,
     radius: nodeRadius(b.degree),
     homeX: b.x * scale,
     homeY: b.y * scale,
@@ -71,8 +66,21 @@ function prepare(graph: GraphView) {
   }));
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const links: Link[] = graph.connections.map((c, i) => ({ id: c.id, source: c.a, target: c.b, connection: c, rest: lengths[i] * scale }));
-  const byDegree = [...nodes].sort((p, q) => q.book.degree - p.book.degree || (p.id < q.id ? -1 : 1));
-  return { nodes, links, byId, byDegree };
+  // Label priority at rest: the most recently finished few, then by Connections, then most recent.
+  const recent = new Set(
+    [...nodes]
+      .sort((p, q) => q.book.finishedAt - p.book.finishedAt)
+      .slice(0, RECENT_LABELS)
+      .map((n) => n.id),
+  );
+  const byPriority = [...nodes].sort(
+    (p, q) =>
+      Number(recent.has(q.id)) - Number(recent.has(p.id)) ||
+      q.book.degree - p.book.degree ||
+      q.book.finishedAt - p.book.finishedAt ||
+      (p.id < q.id ? -1 : 1),
+  );
+  return { nodes, links, byId, byPriority };
 }
 
 function focusFor(graph: GraphView, prepared: ReturnType<typeof prepare>, selection: Selection): Focus {
@@ -96,13 +104,16 @@ function focusFor(graph: GraphView, prepared: ReturnType<typeof prepare>, select
   }
   const lit = litBooks;
   const labelOrder = lit
-    ? [...prepared.byDegree].sort((p, q) => Number(lit.has(q.id)) - Number(lit.has(p.id)) || Number(q.id === chosenBookId) - Number(p.id === chosenBookId))
-    : prepared.byDegree;
+    ? [...prepared.byPriority].sort((p, q) => Number(lit.has(q.id)) - Number(lit.has(p.id)) || Number(q.id === chosenBookId) - Number(p.id === chosenBookId))
+    : prepared.byPriority;
   return { visible, litBooks, litLinks, chosenBookId, chosenLinkId: chosenLink?.id ?? null, labelOrder };
 }
 
 // Camera moves glide, unless the reader asked for less motion.
 const glide = () => (window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 600);
+
+type Box = { x0: number; y0: number; x1: number; y1: number };
+type Side = "right" | "left" | "above" | "below";
 
 const endId = (end: string | Node) => (typeof end === "string" ? end : end.id);
 
@@ -198,21 +209,25 @@ export function GraphCanvas({
           ctx.arc(n.x!, n.y!, (n.radius + 5) / k, 0, Math.PI * 2);
           ctx.fill();
         })
-        // Labels last, over the edges, each on a paper plate so no edge strikes through it: in priority
-        // order, each placed only where it overlaps none already drawn (a coarse grid keeps the check
-        // cheap). The hovered and chosen Books always get theirs, in full.
+        // Labels last, over the edges, each on a paper plate so no edge strikes through it. In priority
+        // order, each goes to the first side of its dot (right, left, above, below) where it overlaps no
+        // dot and no label already placed, or is left off; a coarse grid keeps the checks cheap. The
+        // hovered and chosen Books always get theirs, in full.
         .onRenderFramePost((ctx, k) => {
           const { labelOrder, litBooks, chosenBookId } = focusRef.current;
           ctx.font = font(k);
-          ctx.textAlign = "left";
           ctx.textBaseline = "middle";
           const CELL = 48;
-          const taken = new Map<string, { x0: number; y0: number; x1: number; y1: number }[]>();
-          const cells = (x0: number, y0: number, x1: number, y1: number) => {
+          const taken = new Map<string, Box[]>();
+          const cells = (b: Box) => {
             const keys = [];
-            for (let i = Math.floor(x0 / CELL); i <= Math.floor(x1 / CELL); i++)
-              for (let j = Math.floor(y0 / CELL); j <= Math.floor(y1 / CELL); j++) keys.push(`${i}:${j}`);
+            for (let i = Math.floor(b.x0 / CELL); i <= Math.floor(b.x1 / CELL); i++)
+              for (let j = Math.floor(b.y0 / CELL); j <= Math.floor(b.y1 / CELL); j++) keys.push(`${i}:${j}`);
             return keys;
+          };
+          const free = (b: Box) => !cells(b).some((key) => taken.get(key)?.some((o) => o.x0 < b.x1 && b.x0 < o.x1 && o.y0 < b.y1 && b.y0 < o.y1));
+          const take = (b: Box) => {
+            for (const key of cells(b)) taken.set(key, [...(taken.get(key) ?? []), b]);
           };
           const width = (text: string) => {
             let w = widths.get(text);
@@ -226,9 +241,17 @@ export function GraphCanvas({
             }
             return w;
           };
+          // Every dot is an obstacle, so no label sits on another Book.
+          const screen = new Map(prepared.nodes.map((n) => [n.id, f.graph2ScreenCoords(n.x!, n.y!)]));
+          for (const n of prepared.nodes) {
+            const s = screen.get(n.id)!;
+            take({ x0: s.x - n.radius, y0: s.y - n.radius, x1: s.x + n.radius, y1: s.y + n.radius });
+          }
+
           const hovered = pointed();
           const order = hovered ? [prepared.byId.get(hovered), ...labelOrder] : labelOrder;
           const drawn = new Set<string>();
+          const H = LABEL_SIZE * 1.24;
           for (const n of order) {
             if (!n || drawn.has(n.id)) continue;
             const lit = !litBooks || litBooks.has(n.id);
@@ -236,22 +259,30 @@ export function GraphCanvas({
             // Faded Books stay unlabelled unless the reader is close enough to read them anyway.
             if (!lit && k < 1.6 && !must) continue;
             const text = must ? n.book.title : n.label;
-            const w = width(text);
+            const w = width(text) + 2 * LABEL_PLATE;
             const gap = n.radius + LABEL_GAP + (ringed(n.id) ? RING_GAP : 0);
-            const s = f.graph2ScreenCoords(n.x!, n.y!);
-            const box = { x0: s.x + gap - LABEL_PLATE, y0: s.y - LABEL_SIZE * 0.7, x1: s.x + gap + w + LABEL_PLATE, y1: s.y + LABEL_SIZE * 0.7 };
-            const keys = cells(box.x0, box.y0, box.x1, box.y1);
-            if (!must && keys.some((key) => taken.get(key)?.some((b) => b.x0 < box.x1 && box.x0 < b.x1 && b.y0 < box.y1 && box.y0 < b.y1)))
-              continue;
-            for (const key of keys) taken.set(key, [...(taken.get(key) ?? []), box]);
+            const s = screen.get(n.id)!;
+            const sides: { side: Side; box: Box }[] = [
+              { side: "right", box: { x0: s.x + gap - LABEL_PLATE, y0: s.y - H / 2, x1: s.x + gap - LABEL_PLATE + w, y1: s.y + H / 2 } },
+              { side: "left", box: { x0: s.x - gap + LABEL_PLATE - w, y0: s.y - H / 2, x1: s.x - gap + LABEL_PLATE, y1: s.y + H / 2 } },
+              { side: "above", box: { x0: s.x - w / 2, y0: s.y - gap - H, x1: s.x + w / 2, y1: s.y - gap } },
+              { side: "below", box: { x0: s.x - w / 2, y0: s.y + gap, x1: s.x + w / 2, y1: s.y + gap + H } },
+            ];
+            const spot = sides.find((c) => free(c.box)) ?? (must ? sides[0] : undefined);
+            if (!spot) continue;
+            take(spot.box);
             drawn.add(n.id);
-            const x = n.x! + gap / k;
+            // Back to graph units for drawing.
+            const p = (sx: number, sy: number) => ({ x: n.x! + (sx - s.x) / k, y: n.y! + (sy - s.y) / k });
+            const corner = p(spot.box.x0, spot.box.y0);
             ctx.fillStyle = PAPER_PLATE;
             ctx.beginPath();
-            ctx.roundRect(x - LABEL_PLATE / k, n.y! - (LABEL_SIZE * 0.62) / k, (w + 2 * LABEL_PLATE) / k, (LABEL_SIZE * 1.24) / k, 2 / k);
+            ctx.roundRect(corner.x, corner.y, w / k, H / k, 2 / k);
             ctx.fill();
+            const mid = p((spot.box.x0 + spot.box.x1) / 2, (spot.box.y0 + spot.box.y1) / 2);
+            ctx.textAlign = "center";
             ctx.fillStyle = lit ? INK : FADED_LABEL;
-            ctx.fillText(text, x, n.y!);
+            ctx.fillText(text, mid.x, mid.y);
           }
         })
         .onNodeHover((n) => {

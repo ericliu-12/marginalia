@@ -18,6 +18,23 @@ export const DISPLAY_CAP = 3;
 const FRESH_ITERATIONS = 500;
 const SETTLE_ITERATIONS = 100;
 
+// A Book's label: its title cut at a subtitle, then to LABEL_MAX_CHARS.
+export const LABEL_MAX_CHARS = 32;
+export function labelOf(title: string) {
+  const main = title.split(/:\s/)[0];
+  return main.length > LABEL_MAX_CHARS ? `${main.slice(0, LABEL_MAX_CHARS - 1).trimEnd()}…` : main;
+}
+
+// Room a new Book is given, in typical Connection lengths (the median, the unit the graph is drawn at):
+// no nearer another Book than `spacing`, and its right-hand label (`gap` from the dot, `char` per
+// character, `height` tall) clear of other Books and their labels. Sized for the zoom a graph of a few
+// dozen Books is shown at.
+export const LABEL_ROOM = { spacing: 0.6, gap: 0.12, char: 0.045, height: 0.16 };
+// Where else a new Book may go when its own spot is crowded: rings this far apart, this many spots each.
+const ROOM_RINGS = 6;
+const ROOM_RING_STEP = 0.35;
+const ROOM_SPOTS = 16;
+
 export type GraphBook = {
   bookId: string;
   title: string;
@@ -25,8 +42,12 @@ export type GraphBook = {
   // Its stored position, or a provisional one near its Connections until the worker lays it out.
   x: number;
   y: number;
+  // What the canvas writes beside it.
+  label: string;
   // How many Connections it has.
   degree: number;
+  // When the reader last finished it (its latest completed Read-through), in ms.
+  finishedAt: number;
 };
 
 export type GraphConnection = {
@@ -65,7 +86,7 @@ async function loadGraph(db: Db, userId: string) {
     books.map((r) => ({ id: r.book.id, stored: stored(r) })),
     connections.map((c) => ({ a: c.bookAId, b: c.bookBId })),
   );
-  return { books, connections, at };
+  return { books, connections, at, finished };
 }
 
 // Stored positions where there are any. A Book without one starts beside the placed Books it connects
@@ -104,7 +125,7 @@ const stored = (r: { x: number | null; y: number | null }) => (r.x === null || r
 // Domain seam: the reader's graph. Finished Books only, at their stored positions, with every
 // non-dismissed Connection between them, each marked whether it shows before anything is selected.
 export async function readGraph(db: Db, userId: string): Promise<GraphView> {
-  const { books, connections, at } = await loadGraph(db, userId);
+  const { books, connections, at, finished } = await loadGraph(db, userId);
 
   // Each Book's Connections, strongest first, then most similar, then by id so ties hold still.
   const byBook = new Map<string, typeof connections>();
@@ -119,12 +140,17 @@ export async function readGraph(db: Db, userId: string): Promise<GraphView> {
   }
 
   return {
-    books: books.map((r) => ({
-      bookId: r.book.id,
-      ...displayed(r.book, r.entry),
-      ...at.get(r.book.id)!,
-      degree: byBook.get(r.book.id)?.length ?? 0,
-    })),
+    books: books.map((r) => {
+      const shown = displayed(r.book, r.entry);
+      return {
+        bookId: r.book.id,
+        ...shown,
+        ...at.get(r.book.id)!,
+        label: labelOf(shown.title),
+        degree: byBook.get(r.book.id)?.length ?? 0,
+        finishedAt: finished.get(r.entry.id)!.lastCompletedAt,
+      };
+    }),
     connections: connections.map((c) => ({ id: c.id, a: c.bookAId, b: c.bookBId, type: c.type, strength: c.strength, featured: featured.has(c.id) })),
   };
 }
@@ -136,7 +162,8 @@ export function visibleConnections(graph: GraphView, selectedBookId: string | nu
 
 // Domain seam, run by the worker: gives each newly Finished Book a stored position with ForceAtlas2.
 // Books already placed are fixed and never move, so the graph stays a place the reader knows; a new
-// one starts beside the placed Books it connects to and settles in among them. Nothing new, no change.
+// one starts beside the placed Books it connects to, settles in among them, and then moves to the
+// nearest spot with room for it and its label. Nothing new, no change.
 export async function layoutGraph(db: Db, userId: string): Promise<void> {
   const { books, connections, at } = await loadGraph(db, userId);
   const unplaced = books.filter((r) => stored(r) === null);
@@ -150,6 +177,10 @@ export async function layoutGraph(db: Db, userId: string): Promise<void> {
     getEdgeWeight: "weight",
     settings: { ...forceAtlas2.inferSettings(g), barnesHutOptimize: books.length > 500 },
   });
+  makeRoom(
+    g,
+    books.map((r) => ({ id: r.book.id, label: labelOf(displayed(r.book, r.entry).title), placed: stored(r) !== null })),
+  );
 
   await db
     .insert(bookPosition)
@@ -162,4 +193,49 @@ export async function layoutGraph(db: Db, userId: string): Promise<void> {
       })),
     )
     .onConflictDoNothing({ target: bookPosition.libraryEntryId });
+}
+
+type Box = { x0: number; y0: number; x1: number; y1: number };
+const overlaps = (p: Box, q: Box) => p.x0 < q.x1 && q.x0 < p.x1 && p.y0 < q.y1 && q.y0 < p.y1;
+
+// Moves each new Book, one at a time, to the first spot near where ForceAtlas2 left it with room for it
+// and its label among the Books already settled; failing that, to the least crowded spot tried.
+function makeRoom(g: Graph, books: { id: string; label: string; placed: boolean }[]) {
+  const point = (id: string): Point => ({ x: g.getNodeAttribute(id, "x"), y: g.getNodeAttribute(id, "y") });
+  const lengths = g.mapEdges((_, __, a, b) => Math.hypot(point(a).x - point(b).x, point(a).y - point(b).y)).sort((p, q) => p - q);
+  const nearest = books.map((b) => Math.min(...books.filter((o) => o.id !== b.id).map((o) => Math.hypot(point(o.id).x - point(b.id).x, point(o.id).y - point(b.id).y))));
+  const unit = lengths.length ? lengths[Math.floor(lengths.length / 2)] : [...nearest].sort((p, q) => p - q)[Math.floor(nearest.length / 2)];
+  if (!(unit > 0) || !Number.isFinite(unit)) return;
+
+  const { spacing, gap, char, height } = LABEL_ROOM;
+  const dot = (p: Point): Box => ({ x0: p.x - gap * unit, y0: p.y - gap * unit, x1: p.x + gap * unit, y1: p.y + gap * unit });
+  const label = (p: Point, text: string): Box => ({
+    x0: p.x + gap * unit,
+    y0: p.y - (height / 2) * unit,
+    x1: p.x + (gap + text.length * char) * unit,
+    y1: p.y + (height / 2) * unit,
+  });
+  const settled = books.filter((b) => b.placed).map((b) => ({ at: point(b.id), label: b.label }));
+  const crowding = (p: Point, text: string) =>
+    settled.reduce((n, o) => {
+      const near = Math.hypot(o.at.x - p.x, o.at.y - p.y) < spacing * unit;
+      const mine = label(p, text);
+      const theirs = label(o.at, o.label);
+      return n + Number(near) + Number(overlaps(mine, dot(o.at)) || overlaps(mine, theirs)) + Number(overlaps(theirs, dot(p)));
+    }, 0);
+
+  for (const b of books.filter((x) => !x.placed)) {
+    const start = point(b.id);
+    let best = { at: start, crowding: crowding(start, b.label) };
+    for (let ring = 1; ring <= ROOM_RINGS && best.crowding > 0; ring++) {
+      for (let i = 0; i < ROOM_SPOTS && best.crowding > 0; i++) {
+        const angle = (i / ROOM_SPOTS) * Math.PI * 2;
+        const at = { x: start.x + Math.cos(angle) * ring * ROOM_RING_STEP * unit, y: start.y + Math.sin(angle) * ring * ROOM_RING_STEP * unit };
+        const c = crowding(at, b.label);
+        if (c < best.crowding) best = { at, crowding: c };
+      }
+    }
+    g.mergeNodeAttributes(b.id, best.at);
+    settled.push({ at: best.at, label: b.label });
+  }
 }
