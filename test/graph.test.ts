@@ -150,6 +150,16 @@ describe("Graph", () => {
       }
     });
 
+    it("lays out a newly finished Book even when finding its Connections fails for good", async () => {
+      for (const t of ["A", "B", "C"]) await add(t);
+      await ctx.jobs.drain(deps());
+      await add("Unlucky");
+      const provisional = positions(await graph()).Unlucky;
+      const down = { ...deps(), judge: { ...fakeJudge(), judge: () => Promise.reject(new Error("overloaded")) } };
+      await ctx.jobs.drain(down);
+      expect(positions(await graph()).Unlucky).not.toEqual(provisional);
+    });
+
     it("drops a removed Book from the graph and its layout", async () => {
       const a = await add("A");
       await add("B");

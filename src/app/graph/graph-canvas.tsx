@@ -28,6 +28,7 @@ import {
 export type Selection = { kind: "book"; bookId: string } | { kind: "connection"; id: string } | null;
 
 type Node = { id: string; book: GraphBook; label: string; radius: number; homeX: number; homeY: number; x?: number; y?: number; vx?: number; vy?: number };
+// force-graph's names: a node is a Book, a link is a Connection.
 type Link = { id: string; source: string | Node; target: string | Node; connection: GraphConnection; rest: number };
 
 // What a selection lights up. Worked out once per selection, so the render callbacks only look things up.

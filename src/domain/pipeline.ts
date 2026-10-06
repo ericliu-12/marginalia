@@ -85,7 +85,7 @@ export function createPipeline(db: Db, queue: JobQueue) {
 // Runs one job, and queues the work that follows it. Throws on failure so the queue retries;
 // `final` is true when it will not. Connections waiting on an Enrichment or a Note's vector are queued
 // again once it settles: done, or failed for good. A Connections job lays the reader's graph out
-// again after it, so a newly Finished Book has a place even when it found nothing.
+// again after it, so a newly Finished Book has a stored place even when it found nothing or failed.
 export async function runJob(db: Db, deps: JobDeps, queue: JobQueue, job: Job, final: boolean): Promise<void> {
   if (job.kind === "enrich") {
     try {
@@ -113,7 +113,12 @@ export async function runJob(db: Db, deps: JobDeps, queue: JobQueue, job: Job, f
   } else if (job.kind === "layout") {
     await layoutGraph(db, job.userId);
   } else {
-    await generateConnections(db, { judge: deps.judge, embedder: deps.embedder, finalAttempt: final }, { userId: job.userId, bookId: job.bookId });
+    try {
+      await generateConnections(db, { judge: deps.judge, embedder: deps.embedder, finalAttempt: final }, { userId: job.userId, bookId: job.bookId });
+    } catch (err) {
+      if (final) await queue.send({ kind: "layout", userId: job.userId });
+      throw err;
+    }
     await queue.send({ kind: "layout", userId: job.userId });
   }
 }

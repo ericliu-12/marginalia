@@ -432,7 +432,7 @@ export type ConnectionDetail = {
   grounding: "notes" | "enrichment";
 };
 
-// Domain seam: one Connection, as the graph shows it when its edge is chosen; its Books titled as the
+// Domain seam: one Connection, as the graph shows it when the reader chooses it; its Books titled as the
 // reader titles them. Null for a dismissed Connection, or one that is not the reader's.
 export async function readConnection(db: Db, userId: string, connectionId: string): Promise<ConnectionDetail | null> {
   const [c] = await db

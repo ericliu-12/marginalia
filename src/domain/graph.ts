@@ -41,8 +41,8 @@ export type GraphView = { books: GraphBook[]; connections: GraphConnection[] };
 
 type Point = { x: number; y: number };
 
-// Finished Books with their Entry and any stored position, and the non-dismissed Connections between
-// them, ordered by Book id so every layout of the same graph starts the same way.
+// Finished Books with their Entry and where each sits (stored, or provisional), and the non-dismissed
+// Connections between them; Books ordered by id so every layout of the same graph starts the same way.
 async function loadGraph(db: Db, userId: string) {
   const finished = await readFinished(db, userId);
   const rows = await db
@@ -51,32 +51,36 @@ async function loadGraph(db: Db, userId: string) {
     .innerJoin(book, eq(book.id, libraryEntry.bookId))
     .leftJoin(bookPosition, eq(bookPosition.libraryEntryId, libraryEntry.id))
     .where(eq(libraryEntry.userId, userId));
-  const nodes = rows.filter((r) => finished.has(r.entry.id)).sort((p, q) => (p.book.id < q.book.id ? -1 : 1));
-  const ids = new Set(nodes.map((r) => r.book.id));
-  const edges = (
+  const books = rows.filter((r) => finished.has(r.entry.id)).sort((p, q) => (p.book.id < q.book.id ? -1 : 1));
+  const ids = new Set(books.map((r) => r.book.id));
+  const connections = (
     await db
       .select()
       .from(connection)
       .where(and(eq(connection.userId, userId), isNull(connection.dismissedAt)))
   ).filter((c) => ids.has(c.bookAId) && ids.has(c.bookBId));
-  return { nodes, edges };
+  const at = place(
+    books.map((r) => ({ id: r.book.id, stored: stored(r) })),
+    connections.map((c) => ({ a: c.bookAId, b: c.bookBId })),
+  );
+  return { books, connections, at };
 }
 
 // Stored positions where there are any. A Book without one starts beside the placed Books it connects
 // to, or else on a ring around the placed graph (a spiral when nothing is placed yet). Deterministic.
-function place(nodes: { id: string; stored: Point | null }[], edges: { a: string; b: string }[]): Map<string, Point> {
+function place(books: { id: string; stored: Point | null }[], pairs: { a: string; b: string }[]): Map<string, Point> {
   const fixed = new Map<string, Point>();
-  for (const n of nodes) if (n.stored) fixed.set(n.id, n.stored);
+  for (const n of books) if (n.stored) fixed.set(n.id, n.stored);
   const at = new Map(fixed);
   const placed = [...fixed.values()];
   const cx = placed.reduce((s, p) => s + p.x, 0) / (placed.length || 1);
   const cy = placed.reduce((s, p) => s + p.y, 0) / (placed.length || 1);
   const radius = Math.max(1, ...placed.map((p) => Math.hypot(p.x - cx, p.y - cy)));
   const GOLDEN = Math.PI * (3 - Math.sqrt(5));
-  nodes.forEach((n, i) => {
+  books.forEach((n, i) => {
     if (at.has(n.id)) return;
     const angle = i * GOLDEN;
-    const near = edges
+    const near = pairs
       .flatMap((e) => (e.a === n.id ? [e.b] : e.b === n.id ? [e.a] : []))
       .map((o) => fixed.get(o))
       .filter((p) => p !== undefined);
@@ -94,20 +98,15 @@ function place(nodes: { id: string; stored: Point | null }[], edges: { a: string
 }
 
 const stored = (r: { x: number | null; y: number | null }) => (r.x === null || r.y === null ? null : { x: r.x, y: r.y });
-const ends = (c: { bookAId: string; bookBId: string }) => ({ a: c.bookAId, b: c.bookBId });
 
 // Domain seam: the reader's graph. Finished Books only, at their stored positions, with every
 // non-dismissed Connection between them, each marked whether it shows before anything is selected.
 export async function readGraph(db: Db, userId: string): Promise<GraphView> {
-  const { nodes, edges } = await loadGraph(db, userId);
-  const at = place(
-    nodes.map((r) => ({ id: r.book.id, stored: stored(r) })),
-    edges.map(ends),
-  );
+  const { books, connections, at } = await loadGraph(db, userId);
 
   // Each Book's Connections, strongest first, then most similar, then by id so ties hold still.
-  const byBook = new Map<string, typeof edges>();
-  for (const c of edges) for (const id of [c.bookAId, c.bookBId]) byBook.set(id, [...(byBook.get(id) ?? []), c]);
+  const byBook = new Map<string, typeof connections>();
+  for (const c of connections) for (const id of [c.bookAId, c.bookBId]) byBook.set(id, [...(byBook.get(id) ?? []), c]);
   const featured = new Set<string>();
   for (const list of byBook.values()) {
     list
@@ -117,13 +116,13 @@ export async function readGraph(db: Db, userId: string): Promise<GraphView> {
   }
 
   return {
-    books: nodes.map((r) => ({
+    books: books.map((r) => ({
       bookId: r.book.id,
       ...displayed(r.book, r.entry),
       ...at.get(r.book.id)!,
       degree: byBook.get(r.book.id)?.length ?? 0,
     })),
-    connections: edges.map((c) => ({ id: c.id, a: c.bookAId, b: c.bookBId, type: c.type, strength: c.strength, featured: featured.has(c.id) })),
+    connections: connections.map((c) => ({ id: c.id, a: c.bookAId, b: c.bookBId, type: c.type, strength: c.strength, featured: featured.has(c.id) })),
   };
 }
 
@@ -136,24 +135,20 @@ export function visibleConnections(graph: GraphView, selectedBookId: string | nu
 // Book's position. Seeded from the stored positions, so Books already placed stay close to where they
 // were and a new one settles in among its Connections.
 export async function layoutGraph(db: Db, userId: string): Promise<void> {
-  const { nodes, edges } = await loadGraph(db, userId);
-  if (nodes.length === 0) return;
-  const at = place(
-    nodes.map((r) => ({ id: r.book.id, stored: stored(r) })),
-    edges.map(ends),
-  );
+  const { books, connections, at } = await loadGraph(db, userId);
+  if (books.length === 0) return;
 
   const g = new Graph({ type: "undirected" });
-  for (const r of nodes) g.addNode(r.book.id, { ...at.get(r.book.id)! });
-  for (const c of edges) g.addEdge(c.bookAId, c.bookBId, { weight: CLUSTER_WEIGHT[c.strength] });
-  const fresh = nodes.every((r) => stored(r) === null);
+  for (const r of books) g.addNode(r.book.id, { ...at.get(r.book.id)! });
+  for (const c of connections) g.addEdge(c.bookAId, c.bookBId, { weight: CLUSTER_WEIGHT[c.strength] });
+  const fresh = books.every((r) => stored(r) === null);
   forceAtlas2.assign(g, {
     iterations: fresh ? FRESH_ITERATIONS : SETTLE_ITERATIONS,
     getEdgeWeight: "weight",
-    settings: { ...forceAtlas2.inferSettings(g), barnesHutOptimize: nodes.length > 500 },
+    settings: { ...forceAtlas2.inferSettings(g), barnesHutOptimize: books.length > 500 },
   });
 
-  const rows = nodes.map((r) => ({
+  const rows = books.map((r) => ({
     libraryEntryId: r.entry.id,
     userId,
     x: g.getNodeAttribute(r.book.id, "x") as number,

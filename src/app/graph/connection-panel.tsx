@@ -5,7 +5,7 @@ import type { ConnectionDetail } from "@/domain/connections";
 import { getConnectionAction } from "../actions";
 import { EDGE_WIDTH, STRENGTH_LABEL, TYPE_COLOR, TYPE_LABEL } from "./graph-style";
 
-// The Connection behind an edge: its two Books, what kind of link it is, and why. Either title opens
+// One Connection, chosen on the graph: its two Books, its Connection Type and Strength, and why. Either title opens
 // that Book. Lives in the same floating panel as the Book panel, with the same way out.
 export function ConnectionPanel({ id, onBack, onOpenBook }: { id: string; onBack: () => void; onOpenBook: (bookId: string) => void }) {
   const [state, setState] = useState<{ id: string; connection: ConnectionDetail | null } | "failed" | undefined>(undefined);
