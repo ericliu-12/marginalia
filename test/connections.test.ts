@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { addBook } from "../src/domain/add-book";
 import { backfillConnections, countFindingConnections, generateConnections, readConnections, type ConnectionDeps, type JudgeInput, type JudgedConnection } from "../src/domain/connections";
 import { embedEnrichment, embedNote } from "../src/domain/embeddings";
-import { enrichBook } from "../src/domain/enrichment";
+import { enrichBook, readEnrichment } from "../src/domain/enrichment";
 import { changeStatus, startConnections } from "../src/domain/library-entry";
 import { addNote } from "../src/domain/notes";
 import { book, connection, connectionRun, enrichment, libraryEntry, note, readThrough } from "../src/db/schema";
@@ -265,6 +265,19 @@ describe("Connections on first finish", () => {
     await expect(run({ ...broken, finalAttempt: true }, a)).rejects.toThrow("overloaded");
     expect(await entryOf(a)).toMatchObject({ connectionsStatus: "failed", connectionsGeneratedAt: null });
     expect(await stored()).toEqual([]);
+  });
+
+  // Known bug: the job's Enrichment attempt has no `finalAttempt`, so it writes `pending` back.
+  // Becomes a plain `it` once one module owns the Enrichment status.
+  it.fails("leaves an Enrichment that failed for good failed when the job's own Enrichment attempt fails", async () => {
+    const { bookId } = await addBook(ctx.db, ctx.userId, work({ workKey: "/works/stuck", title: "Stuck", authors: ["A"] }), "read");
+    const down = fakeEnricher(() => Promise.reject(new Error("model down")));
+    await expect(enrichBook(ctx.db, { model: down, finalAttempt: true }, bookId)).rejects.toThrow("model down");
+    expect(await readEnrichment(ctx.db, bookId)).toMatchObject({ status: "failed" });
+
+    await expect(run({ ...deps().deps, enrichment: down, finalAttempt: true }, bookId)).rejects.toThrow("model down");
+    // Pending would leave the Book panel waiting with no Try again.
+    expect(await readEnrichment(ctx.db, bookId)).toMatchObject({ status: "failed" });
   });
 
   it("shows a Book's Connections from either side, strongest first, with the other Book's title", async () => {
