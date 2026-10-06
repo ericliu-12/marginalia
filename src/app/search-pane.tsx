@@ -11,7 +11,7 @@ const DEBOUNCE_MS = 300;
 type Phase = "idle" | "loading" | "done" | "error";
 
 // `refresh` changes when the library changed elsewhere: the results are fetched again and focus returns here.
-export function SearchPane({ onClose, refresh = 0 }: { onClose: () => void; refresh?: number }) {
+export function SearchPane({ onClose, refresh }: { onClose: () => void; refresh: number }) {
   const [retry, setRetry] = useState(0);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);

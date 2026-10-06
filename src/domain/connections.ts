@@ -119,13 +119,14 @@ async function run(db: Db, deps: ConnectionDeps, userId: string, entryId: string
       // for a removed Book. The lock holds removal off until this commits; `key share` does not
       // conflict with the status update below, nor with other jobs taking the same lock.
       const others = judged.map((r) => (r.bookAId === bookId ? r.bookBId : r.bookAId));
+      // Its own Entry is matched by id: one removed and added again is a different Entry, with its own job.
       const live = await tx
-        .select({ bookId: libraryEntry.bookId })
+        .select({ id: libraryEntry.id, bookId: libraryEntry.bookId })
         .from(libraryEntry)
         .where(and(eq(libraryEntry.userId, userId), inArray(libraryEntry.bookId, [bookId, ...others])))
         .for("key share");
+      if (!live.some((e) => e.id === entryId)) return;
       const inLibrary = new Set(live.map((e) => e.bookId));
-      if (!inLibrary.has(bookId)) return;
       const rows = judged.filter((_, i) => inLibrary.has(others[i]));
       const inserted = rows.length
         ? await tx

@@ -129,6 +129,16 @@ describe("Removing a Library Entry", () => {
     expect(await ctx.db.select().from(connectionRun)).toEqual([]);
   });
 
+  it("stores nothing, quietly, when the Book is removed and added again while its job is running", async () => {
+    const stoner = await finished("Stoner");
+    await finished("Lonely");
+    const inner = fakeJudge(linkTo("Lonely"));
+    const judge = { ...inner, judge: async (input: JudgeInput) => (await remove(stoner), await add("Stoner", "want"), inner.judge(input)) };
+    await run(deps(judge), stoner);
+    expect(await pairs()).toEqual([]);
+    expect(await ctx.db.select().from(connectionRun)).toEqual([]);
+  });
+
   it("drops a Connection to a Book removed while another Book's job is running", async () => {
     const stoner = await finished("Stoner");
     const lonely = await finished("Lonely");

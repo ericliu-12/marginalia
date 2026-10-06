@@ -63,7 +63,7 @@ export async function removeFromLibraryAction(bookId: string): Promise<{ ok: boo
   }
 }
 
-export type NoteResult ={ ok: true; note: Note } | { ok: false };
+export type NoteResult = { ok: true; note: Note } | { ok: false };
 
 export async function listNotesAction(bookId: string): Promise<Note[] | null> {
   try {
