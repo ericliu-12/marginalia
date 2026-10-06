@@ -203,3 +203,15 @@ export const clusterLabel = pgTable("cluster_label", {
   namedMemberBookIds: uuid("named_member_book_ids").array(),
   createdAt: createdAt(),
 });
+
+// Where a Finished Book sits in the reader's graph: its ForceAtlas2 position, computed by the worker
+// and kept so the layout is the same from one session to the next. Goes with the Library Entry.
+export const bookPosition = pgTable("book_position", {
+  libraryEntryId: uuid("library_entry_id")
+    .primaryKey()
+    .references(() => libraryEntry.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => user.id),
+  x: doublePrecision("x").notNull(),
+  y: doublePrecision("y").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});

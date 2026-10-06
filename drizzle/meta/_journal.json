@@ -64,6 +64,13 @@
       "when": 1791268343672,
       "tag": "0008_rapid_solo",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791328627403,
+      "tag": "0009_fantastic_taskmaster",
+      "breakpoints": true
     }
   ]
 }

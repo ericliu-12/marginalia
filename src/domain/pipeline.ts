@@ -10,21 +10,25 @@ import {
 import type { DescriptionGateway } from "./description";
 import { embedEnrichment, embedNote, noteEmbeddingFailed, type Embedder, type EmbeddingTarget } from "./embeddings";
 import { enrichBook, readEnrichment, requestEnrichment, type EnrichmentModel } from "./enrichment";
+import { layoutGraph } from "./graph";
 
 // The background work, one job at a time: Enrichment for a Book, a vector for an Enrichment or a
-// Note (`id` is a Book id for an Enrichment), and Connections for a reader's Book.
+// Note (`id` is a Book id for an Enrichment), Connections for a reader's Book, and the layout of a
+// reader's graph.
 export type Job =
   | { kind: "enrich"; bookId: string }
   | { kind: "embed"; target: EmbeddingTarget }
-  | { kind: "connections"; userId: string; bookId: string };
+  | { kind: "connections"; userId: string; bookId: string }
+  | { kind: "layout"; userId: string };
 
 // Retries after a job's first attempt. Both queues honour them.
-export const RETRIES: Record<Job["kind"], number> = { enrich: 3, embed: 5, connections: 2 };
+export const RETRIES: Record<Job["kind"], number> = { enrich: 3, embed: 5, connections: 2, layout: 2 };
 
 // Jobs with the same key coalesce: at most one waits per key, while one with the key may be running.
 export function jobKey(job: Job): string {
   if (job.kind === "enrich") return job.bookId;
   if (job.kind === "embed") return `${job.target.kind}:${job.target.id}`;
+  if (job.kind === "layout") return job.userId;
   return `${job.userId}:${job.bookId}`;
 }
 
@@ -80,7 +84,8 @@ export function createPipeline(db: Db, queue: JobQueue) {
 
 // Runs one job, and queues the work that follows it. Throws on failure so the queue retries;
 // `final` is true when it will not. Connections waiting on an Enrichment or a Note's vector are queued
-// again once it settles: done, or failed for good.
+// again once it settles: done, or failed for good. A Connections job lays the reader's graph out
+// again after it, so a newly Finished Book has a place even when it found nothing.
 export async function runJob(db: Db, deps: JobDeps, queue: JobQueue, job: Job, final: boolean): Promise<void> {
   if (job.kind === "enrich") {
     try {
@@ -105,7 +110,10 @@ export async function runJob(db: Db, deps: JobDeps, queue: JobQueue, job: Job, f
     await resumeNoteConnections(db, queue, id);
   } else if (job.kind === "embed") {
     await embedEnrichment(db, deps.embedder, job.target.id);
+  } else if (job.kind === "layout") {
+    await layoutGraph(db, job.userId);
   } else {
     await generateConnections(db, { judge: deps.judge, embedder: deps.embedder, finalAttempt: final }, { userId: job.userId, bookId: job.bookId });
+    await queue.send({ kind: "layout", userId: job.userId });
   }
 }

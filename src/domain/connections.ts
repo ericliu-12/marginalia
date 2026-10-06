@@ -11,7 +11,7 @@ export type Strength = "strong" | "moderate" | "weak";
 // What each Strength counts for when Connections are grouped into Clusters.
 export const CLUSTER_WEIGHT: Record<Strength, number> = { strong: 2, moderate: 1, weak: 0.5 };
 // Strongest first; ties are broken by similarity.
-const STRENGTH_RANK: Record<Strength, number> = { strong: 0, moderate: 1, weak: 2 };
+export const STRENGTH_RANK: Record<Strength, number> = { strong: 0, moderate: 1, weak: 2 };
 
 // What the judge sees for one Book. Note ids are short handles for this call only.
 export type JudgeNote = { id: string; body: string };
@@ -420,4 +420,34 @@ export async function countFindingConnections(db: Db, userId: string): Promise<n
     .from(libraryEntry)
     .where(and(eq(libraryEntry.userId, userId), eq(libraryEntry.connectionsStatus, "running")));
   return row.n;
+}
+
+export type ConnectionDetail = {
+  id: string;
+  a: { bookId: string; title: string };
+  b: { bookId: string; title: string };
+  type: ConnectionType;
+  strength: Strength;
+  explanation: string;
+  grounding: "notes" | "enrichment";
+};
+
+// Domain seam: one Connection, as the graph shows it when its edge is chosen; its Books titled as the
+// reader titles them. Null for a dismissed Connection, or one that is not the reader's.
+export async function readConnection(db: Db, userId: string, connectionId: string): Promise<ConnectionDetail | null> {
+  const [c] = await db
+    .select()
+    .from(connection)
+    .where(and(eq(connection.id, connectionId), eq(connection.userId, userId), isNull(connection.dismissedAt)));
+  if (!c) return null;
+  const books = await db
+    .select({ book, entry: libraryEntry })
+    .from(book)
+    .leftJoin(libraryEntry, and(eq(libraryEntry.bookId, book.id), eq(libraryEntry.userId, userId)))
+    .where(inArray(book.id, [c.bookAId, c.bookBId]));
+  const side = (id: string) => {
+    const b = books.find((x) => x.book.id === id)!;
+    return { bookId: id, title: displayed(b.book, b.entry).title };
+  };
+  return { id: c.id, a: side(c.bookAId), b: side(c.bookBId), type: c.type, strength: c.strength, explanation: c.explanation, grounding: c.grounding };
 }
