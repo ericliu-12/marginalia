@@ -215,6 +215,30 @@ describe("Connections on first finish", () => {
     expect((await stored())[0].grounding).toBe("enrichment");
   });
 
+  it("shows the judge each Book's stored title and authors when the reader has overridden neither", async () => {
+    const a = await finished("Stoner");
+    const b = await finished("Lonely");
+    const { judge, deps: d } = deps();
+    await run(d, a);
+    const stored = async (id: string) => (await ctx.db.select({ title: book.title, authors: book.authors }).from(book).where(eq(book.id, id)))[0];
+    expect(judge.inputs[0].book).toMatchObject(await stored(a));
+    expect(judge.inputs[0].candidates).toEqual([expect.objectContaining(await stored(b))]);
+  });
+
+  it("shows the judge and the Connection card the reader's own title and author", async () => {
+    const a = await finished("Stoner");
+    const b = await finished("Lonely");
+    const override = (id: string, titleOverride: string, authorOverride: string) =>
+      ctx.db.update(libraryEntry).set({ titleOverride, authorOverride }).where(eq(libraryEntry.bookId, id));
+    await override(a, "Stoner (NYRB)", "John Williams");
+    await override(b, "The Lonely City", "Olivia Laing");
+    const { judge, deps: d } = deps((input) => ({ connections: [link({ candidateId: input.candidates[0].id })] }));
+    await run(d, a);
+    expect(judge.inputs[0].book).toMatchObject({ title: "Stoner (NYRB)", authors: ["John Williams"] });
+    expect(judge.inputs[0].candidates[0]).toMatchObject({ title: "The Lonely City", authors: ["Olivia Laing"] });
+    expect((await readConnections(ctx.db, ctx.userId, a)).cards[0].otherTitle).toBe("The Lonely City");
+  });
+
   it("passes an unrecognised Book's Enrichment as unavailable", async () => {
     const a = await finished("Obscure", "solitude", { notes: ["Strange and quiet."], recognised: false });
     await finished("Lonely");

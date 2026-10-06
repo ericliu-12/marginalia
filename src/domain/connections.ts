@@ -4,6 +4,7 @@ import { book, connection, connectionRun, enrichment, libraryEntry, note } from 
 import type { DescriptionGateway } from "./description";
 import { embedEnrichment, embedNote, nearestBooks, type Embedder } from "./embeddings";
 import { enrichBook, type EnrichmentModel } from "./enrichment";
+import { displayed } from "./library";
 import { findEntry, isFinished, readFinished, startConnections, type ConnectionQueue } from "./library-entry";
 
 export type ConnectionType = "thematic" | "contrast" | "context";
@@ -154,7 +155,11 @@ async function run(db: Db, deps: ConnectionDeps, userId: string, entryId: string
   if (nearest.length === 0) return finish([]);
 
   const bookIds = [bookId, ...nearest.map((n) => n.bookId)];
-  const books = await db.select().from(book).where(inArray(book.id, bookIds));
+  const books = await db
+    .select({ book, entry: libraryEntry })
+    .from(book)
+    .leftJoin(libraryEntry, and(eq(libraryEntry.bookId, book.id), eq(libraryEntry.userId, userId)))
+    .where(inArray(book.id, bookIds));
   const enrichments = await db.select().from(enrichment).where(inArray(enrichment.bookId, bookIds));
   const notes = await db
     .select({ id: note.id, body: note.body, bookId: libraryEntry.bookId })
@@ -175,11 +180,10 @@ async function run(db: Db, deps: ConnectionDeps, userId: string, entryId: string
       return { id: handle, body: n.body };
     });
   const describe = (id: string, budget: number): JudgeBook => {
-    const b = books.find((x) => x.id === id)!;
+    const b = books.find((x) => x.book.id === id)!;
     const e = enrichments.find((x) => x.bookId === id);
     return {
-      title: b.title,
-      authors: b.authors,
+      ...displayed(b.book, b.entry),
       // An unrecognised Book's Enrichment is empty: the judge is told it has none.
       enrichment: e?.recognised && e.status === "ready" && e.summary ? `${e.summary} Themes: ${(e.themes ?? []).join("; ")}` : null,
       notes: present(id, budget),
@@ -298,17 +302,17 @@ export async function readConnections(db: Db, userId: string, bookId: string): P
   const otherId = (r: (typeof rows)[number]) => (r.bookAId === bookId ? r.bookBId : r.bookAId);
   const others = rows.length
     ? await db
-        .select({ id: book.id, title: book.title, override: libraryEntry.titleOverride })
+        .select({ book, entry: libraryEntry })
         .from(book)
         .leftJoin(libraryEntry, and(eq(libraryEntry.bookId, book.id), eq(libraryEntry.userId, userId)))
         .where(inArray(book.id, rows.map(otherId)))
     : [];
   return {
     cards: rows.map((r) => {
-      const other = others.find((o) => o.id === otherId(r))!;
+      const other = others.find((o) => o.book.id === otherId(r))!;
       return {
-        otherBookId: other.id,
-        otherTitle: other.override ?? other.title,
+        otherBookId: other.book.id,
+        otherTitle: displayed(other.book, other.entry).title,
         type: r.type,
         strength: r.strength,
         explanation: r.explanation,

@@ -18,6 +18,17 @@ export type LibraryItem = {
 
 const STATUS_ORDER: Status[] = ["reading", "want", "read"];
 
+// A Book as this reader sees it: their title and author overrides, where set, over the shared Book's.
+export function displayed(
+  b: { title: string; authors: string[] },
+  entry: { titleOverride: string | null; authorOverride: string | null } | null | undefined,
+) {
+  return {
+    title: entry?.titleOverride ?? b.title,
+    authors: entry?.authorOverride ? [entry.authorOverride] : b.authors,
+  };
+}
+
 // Domain seam: the reader's library, titles and authors as they have overridden them.
 // Ordered Reading, Want to read, then Read; Read by most recently finished, the rest newest first.
 export async function readLibrary(db: Db, userId: string): Promise<LibraryItem[]> {
@@ -43,8 +54,7 @@ export async function readLibrary(db: Db, userId: string): Promise<LibraryItem[]
       const summary = finished.get(entry.id);
       return {
         bookId: b.id,
-        title: entry.titleOverride ?? b.title,
-        authors: entry.authorOverride ? [entry.authorOverride] : b.authors,
+        ...displayed(b, entry),
         coverUrl: b.coverUrl,
         status: entry.status,
         finished: summary !== undefined,
