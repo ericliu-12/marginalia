@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { addBook } from "../src/domain/add-book";
 import { authorsMatch, enrichBook, readEnrichment, tryAgain, type EnrichmentQueue } from "../src/domain/enrichment";
+import { NotInLibraryError } from "../src/domain/library-entry";
 import { book, enrichment } from "../src/db/schema";
 import { fakeDescriptions, fakeEnricher, prose, volume, work } from "./fakes";
 import { useTestDb } from "./harness";
@@ -67,7 +68,7 @@ describe("Enrichment", () => {
     const model = fakeEnricher();
     await enrichBook(ctx.db, { model }, b.id);
     const queued: string[] = [];
-    await tryAgain(ctx.db, { async enqueueEnrichment(id) { queued.push(id); } }, b.id);
+    await tryAgain(ctx.db, { async enqueueEnrichment(id) { queued.push(id); } }, ctx.userId, b.id);
     expect(queued).toEqual([b.id]);
     expect(await readEnrichment(ctx.db, b.id)).toMatchObject({ status: "pending" });
     await enrichBook(ctx.db, { model }, b.id);
@@ -79,7 +80,7 @@ describe("Enrichment", () => {
     await enrichBook(ctx.db, { model: fakeEnricher() }, b.id);
     await ctx.db.update(book).set({ description: prose(900) }).where(eq(book.id, b.id));
     const slow = fakeEnricher(async () => {
-      await tryAgain(ctx.db, noQueue, b.id);
+      await tryAgain(ctx.db, noQueue, ctx.userId, b.id);
       return {};
     });
     await enrichBook(ctx.db, { model: slow }, b.id);
@@ -92,8 +93,18 @@ describe("Enrichment", () => {
     const b = await addStoner(prose(700));
     await enrichBook(ctx.db, { model: fakeEnricher() }, b.id);
     const down: EnrichmentQueue = { enqueueEnrichment: () => Promise.reject(new Error("queue down")) };
-    await expect(tryAgain(ctx.db, down, b.id)).rejects.toThrow("queue down");
+    await expect(tryAgain(ctx.db, down, ctx.userId, b.id)).rejects.toThrow("queue down");
     expect(await readEnrichment(ctx.db, b.id)).toMatchObject({ status: "failed" });
+  });
+
+  it("'Try again' only touches a Book in the reader's library", async () => {
+    const b = await addStoner(prose(700));
+    await enrichBook(ctx.db, { model: fakeEnricher() }, b.id);
+    const queued: string[] = [];
+    const queue: EnrichmentQueue = { async enqueueEnrichment(id) { queued.push(id); } };
+    await expect(tryAgain(ctx.db, queue, "00000000-0000-0000-0000-000000000000", b.id)).rejects.toThrow(NotInLibraryError);
+    expect(queued).toEqual([]);
+    expect(await readEnrichment(ctx.db, b.id)).toMatchObject({ status: "ready" });
   });
 
   it("runs conservatively with no description, and a missing description does not force unrecognised", async () => {

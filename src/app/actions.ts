@@ -125,7 +125,8 @@ export async function getEnrichmentAction(bookId: string): Promise<{ enrichment:
 
 export async function tryAgainAction(bookId: string): Promise<{ ok: boolean }> {
   try {
-    await tryAgain(appDb(), await appQueue(), bookId);
+    const db = appDb();
+    await tryAgain(db, await appQueue(), await getSeededUserId(db), bookId);
     return { ok: true };
   } catch (err) {
     console.error(err);

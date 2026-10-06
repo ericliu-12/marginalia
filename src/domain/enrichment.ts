@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { book, enrichment } from "@/db/schema";
 import { BACKGROUND_BUDGET, describeBook, type DescriptionGateway } from "./description";
+import { NotInLibraryError, findEntry } from "./library-entry";
 
 export type EnrichmentInput = { title: string; authors: string[]; description: string; subjects: string[] };
 
@@ -185,8 +186,10 @@ export async function readEnrichment(db: Db, bookId: string): Promise<Enrichment
   return { status: row.status, recognised: row.recognised, summary: row.summary, themes: row.themes };
 }
 
-// Domain seam: the reader's "Try again". Marks the Enrichment stale so the next run does the work.
-export async function tryAgain(db: Db, queue: EnrichmentQueue, bookId: string): Promise<void> {
+// Domain seam: the reader's "Try again", for a Book in their library. Marks the Enrichment stale so
+// the next run does the work.
+export async function tryAgain(db: Db, queue: EnrichmentQueue, userId: string, bookId: string): Promise<void> {
+  if (!(await findEntry(db, userId, bookId))) throw new NotInLibraryError(bookId);
   await db
     .update(enrichment)
     .set({ descriptionHash: null, metadataHash: null, status: "pending" })

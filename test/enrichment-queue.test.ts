@@ -51,7 +51,7 @@ describe("Enrichment through the queue", () => {
     await until(async () => (await readEnrichment(ctx.db, entry.bookId))?.status === "ready");
     expect(model.inputs.filter((i) => i.title === "Stoner")).toHaveLength(1);
 
-    await tryAgain(ctx.db, queue, entry.bookId);
+    await tryAgain(ctx.db, queue, ctx.userId, entry.bookId);
     await until(async () => model.inputs.filter((i) => i.title === "Stoner").length === 2);
     await until(async () => (await readEnrichment(ctx.db, entry.bookId))?.status === "ready");
   });
