@@ -118,6 +118,7 @@ export function completedPasses(db: Db | Tx, userId: string, bookId?: string) {
     .select({
       entryId: readThrough.libraryEntryId,
       bookId: libraryEntry.bookId,
+      startedAt: readThrough.startedAt,
       finishedAt: readThrough.finishedAt,
       completedAt: readThrough.completedAt,
     })
@@ -136,6 +137,8 @@ export type FinishedSummary = {
   firstCompletedAt: number;
   // Of the passes with a known finish date; null when none has one.
   firstFinishedAt: number | null;
+  // The dates of the latest completed pass: none for a Book added as already read.
+  latestPass: { startedAt: number | null; finishedAt: number | null };
 };
 
 // Finished Books among the reader's Entries, keyed by Entry id: those with a completed Read-through,
@@ -147,12 +150,14 @@ export async function readFinished(db: Db, userId: string) {
     const prev = finished.get(p.entryId);
     const completedAt = p.completedAt!.getTime();
     const finishedAt = p.finishedAt?.getTime() ?? null;
+    const latest = prev === undefined || completedAt >= prev.lastCompletedAt;
     finished.set(p.entryId, {
       lastCompletedAt: Math.max(completedAt, prev?.lastCompletedAt ?? 0),
       lastFinishedAt: finishedAt === null ? (prev?.lastFinishedAt ?? null) : Math.max(finishedAt, prev?.lastFinishedAt ?? 0),
       firstCompletedAt: Math.min(completedAt, prev?.firstCompletedAt ?? Infinity),
       firstFinishedAt:
         finishedAt === null ? (prev?.firstFinishedAt ?? null) : Math.min(finishedAt, prev?.firstFinishedAt ?? Infinity),
+      latestPass: latest ? { startedAt: p.startedAt?.getTime() ?? null, finishedAt } : prev.latestPass,
     });
   }
   return finished;

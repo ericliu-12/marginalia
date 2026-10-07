@@ -45,6 +45,17 @@ describe("Graph", () => {
     expect(g.books.map((b) => b.title).sort()).toEqual(["Back", "Read (mine)", "Reread"]);
   });
 
+  it("carries each Book's latest completed Read-through, dates and all", async () => {
+    const backfilled = await add("Backfilled");
+    const finished = await add("Finished", "reading");
+    await changeStatus(ctx.db, ctx.pipeline, ctx.userId, finished, "read");
+
+    const g = await graph();
+    const pass = (id: string) => g.books.find((b) => b.bookId === id)!.latestPass;
+    expect(pass(backfilled)).toEqual({ startedAt: null, finishedAt: null });
+    expect(pass(finished)).toEqual({ startedAt: expect.any(Number), finishedAt: expect.any(Number) });
+  });
+
   it("sizes each Book by its Connections, leaving dismissed ones out of the graph", async () => {
     const [a, b, c] = [await add("A"), await add("B"), await add("C")];
     await connect(a, b);

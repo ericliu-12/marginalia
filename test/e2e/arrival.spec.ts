@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { finishBook, seedLibrary, settleGraph } from "./database";
+import { finishBook, LIBRARY, readerId, seedLibrary, settleGraph } from "./database";
 
 // The arrival: a Book finished since the graph last showed lands, its panel opens, and its Connections
 // draw in one by one. Each test opens the graph once first, so it has something to remember.
@@ -44,6 +44,22 @@ test("a newly finished Book lands, opens with its words, and its Connections dra
   // The words belong to the arrival: once the panel closes, they are gone.
   await page.keyboard.press("Escape");
   await expect(heading(page)).toHaveCount(0);
+});
+
+test("a Book added as already read, with no dates, is new in the graph rather than just finished", async ({ page }) => {
+  await openGraph(page);
+  await finishBook("Housekeeping", ["Stoner"], undefined, true);
+  await page.reload();
+
+  await expect(heading(page)).toHaveText("Housekeeping");
+  await expect(page.getByText("New in your graph. Here is where it sits among your earlier reading.")).toBeVisible();
+  await expect(page.getByText("You just finished this.")).toHaveCount(0);
+});
+
+test("the graph remembers what it showed under the reader's own id", async ({ page }) => {
+  await openGraph(page);
+  const remembered = await page.evaluate((key) => localStorage.getItem(key), `marginalia:graph-shown:${await readerId()}`);
+  expect(JSON.parse(remembered!)).toHaveLength(LIBRARY.length);
 });
 
 test("a Book with no Connections arrives calmly", async ({ page }) => {

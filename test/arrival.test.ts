@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { arriving, drawOrder } from "@/app/graph/arrival";
+import { arriving, drawOrder, justFinished } from "@/app/graph/arrival";
 import type { GraphConnection } from "@/domain/graph";
 
 const book = (bookId: string, finishedAt: number) => ({ bookId, finishedAt });
@@ -35,5 +35,26 @@ describe("the order Connections draw in", () => {
 
   it("draws a Connection between two arriving Books once", () => {
     expect(drawOrder([connection("bc", "b", "c", "strong")], ["c", "b"], new Set())).toEqual(["bc"]);
+  });
+});
+
+describe("whether an arriving Book was just finished", () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const now = Date.UTC(2026, 9, 7);
+
+  it("is when its latest Read-through came from Reading, however long ago", () => {
+    expect(justFinished({ startedAt: now - 90 * DAY, finishedAt: now - 60 * DAY }, now)).toBe(true);
+  });
+
+  it("is when it was finished within the last 14 days", () => {
+    expect(justFinished({ startedAt: null, finishedAt: now - 14 * DAY }, now)).toBe(true);
+  });
+
+  it("is not when it was finished longer ago than that", () => {
+    expect(justFinished({ startedAt: null, finishedAt: now - 15 * DAY }, now)).toBe(false);
+  });
+
+  it("is not for an Already-read add, which has no dates", () => {
+    expect(justFinished({ startedAt: null, finishedAt: null }, now)).toBe(false);
   });
 });

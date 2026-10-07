@@ -49,6 +49,8 @@ export type GraphBook = {
   degree: number;
   // When the reader last finished it (its latest completed Read-through), in ms.
   finishedAt: number;
+  // That Read-through's own start and finish dates, in ms, where known.
+  latestPass: { startedAt: number | null; finishedAt: number | null };
 };
 
 export type GraphConnection = {
@@ -164,6 +166,7 @@ export async function readGraph(db: Db, userId: string): Promise<GraphView> {
         label: labelOf(shown.title),
         degree: byBook.get(r.book.id)?.length ?? 0,
         finishedAt: finished.get(r.entry.id)!.lastCompletedAt,
+        latestPass: finished.get(r.entry.id)!.latestPass,
       };
     }),
     connections: connections.map((c) => ({ id: c.id, a: c.bookAId, b: c.bookBId, type: c.type, strength: c.strength, featured: featured.has(c.id) })),

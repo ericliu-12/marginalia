@@ -5,6 +5,8 @@ import type { GraphBook, GraphConnection } from "@/domain/graph";
 
 // More than this many new at once (a backfill, a long absence) and they simply appear.
 export const ARRIVAL_MAX = 3;
+// An arriving Book finished within this many days, or read through from Reading, was just finished.
+export const JUST_FINISHED_DAYS = 14;
 
 // The Books arriving: those not among the ones the graph last showed, the most recently finished first.
 // None when the graph remembers nothing it has shown, or in a burst.
@@ -23,4 +25,11 @@ export function drawOrder(connections: GraphConnection[], books: string[], drawn
     .filter((c) => !drawn.has(c.id) && (books.includes(c.a) || books.includes(c.b)))
     .sort((p, q) => owner(p) - owner(q) || STRENGTH_RANK[p.strength] - STRENGTH_RANK[q.strength] || (p.id < q.id ? -1 : 1))
     .map((c) => c.id);
+}
+
+// Whether an arriving Book was just finished, going by its latest completed Read-through: one that came
+// from Reading (it has a start date), or was finished within JUST_FINISHED_DAYS. A Book added as already
+// read has neither, and is only new in the graph.
+export function justFinished(pass: GraphBook["latestPass"], now: number): boolean {
+  return pass.startedAt !== null || (pass.finishedAt !== null && now - pass.finishedAt <= JUST_FINISHED_DAYS * 24 * 60 * 60 * 1000);
 }

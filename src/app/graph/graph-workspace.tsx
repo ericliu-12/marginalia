@@ -9,7 +9,7 @@ import { graphStatusAction } from "../actions";
 import { BookPanel } from "../book-panel";
 import { FindingIndicator, POLL_MS, usePoll } from "../connections";
 import { ViewSwitch } from "../view-switch";
-import { arriving, drawOrder } from "./arrival";
+import { arriving, drawOrder, justFinished } from "./arrival";
 import { ClusterPanel } from "./cluster-panel";
 import { ConnectionPanel } from "./connection-panel";
 import { GraphCanvas, reducedMotion, type Selection } from "./graph-canvas";
@@ -29,24 +29,24 @@ const useWide = () => useSyncExternalStore(subscribe, () => window.matchMedia(WI
 // The floating panel: 27rem, as the library's right pane, inset from the canvas edge.
 const PANEL_INSET = 27 * 17 + 24;
 
-// The Books the graph last showed, kept in this browser, so a Book finished since arrives.
-const SHOWN_KEY = "marginalia:graph-shown";
-function readShown(): string[] | null {
+// The Books the graph last showed the reader, kept in this browser, so a Book finished since arrives.
+const shownKey = (userId: string) => `marginalia:graph-shown:${userId}`;
+function readShown(userId: string): string[] | null {
   try {
-    const raw = localStorage.getItem(SHOWN_KEY);
+    const raw = localStorage.getItem(shownKey(userId));
     return raw ? (JSON.parse(raw) as string[]) : null;
   } catch {
     return null;
   }
 }
-function saveShown(bookIds: string[]) {
+function saveShown(userId: string, bookIds: string[]) {
   try {
-    localStorage.setItem(SHOWN_KEY, JSON.stringify(bookIds));
+    localStorage.setItem(shownKey(userId), JSON.stringify(bookIds));
   } catch {}
 }
 const NONE = new Set<string>();
 
-export function GraphWorkspace({ graph, items, finding }: { graph: GraphView; items: LibraryItem[]; finding: number }) {
+export function GraphWorkspace({ graph, items, finding, userId }: { graph: GraphView; items: LibraryItem[]; finding: number; userId: string }) {
   const router = useRouter();
   const wide = useWide();
   // While background work is about to change the graph (after a dismissal, a removal, a Refresh or a
@@ -125,10 +125,10 @@ export function GraphWorkspace({ graph, items, finding }: { graph: GraphView; it
   // panel open, new Books simply appear. Below lg there is no graph to arrive in, so nothing is seen yet.
   useEffect(() => {
     if (!window.matchMedia(WIDE).matches) return;
-    const books = arriving(readShown(), graph.books);
+    const books = arriving(readShown(userId), graph.books);
     // With a panel open, the arrival waits: the Books are left unremembered, to arrive with the next graph.
     if (books.length > 0 && selectionRef.current) return;
-    saveShown(graph.books.map((b) => b.bookId));
+    saveShown(userId, graph.books.map((b) => b.bookId));
     if (books.length === 0) return;
     setArrival({ books, drawn: new Set() });
     setFresh(books[0]);
@@ -138,7 +138,7 @@ export function GraphWorkspace({ graph, items, finding }: { graph: GraphView; it
     const words = `${new Intl.ListFormat("en").format(titles.filter((t) => t !== undefined))} ${titles.length === 1 ? "is" : "are"} now in your graph`;
     // After a frame, so the status region exists before it is spoken into on a fresh page.
     requestAnimationFrame(() => setSaid(words));
-  }, [graph, wide]);
+  }, [graph, wide, userId]);
   // The arriving Books' Connections still to draw in, in order, of those on show; all at once for less motion.
   const chosenBookId = selection?.kind === "book" ? selection.bookId : null;
   const queue = useMemo(
@@ -292,7 +292,7 @@ export function GraphWorkspace({ graph, items, finding }: { graph: GraphView; it
                   <>
                     {freshBook && (
                       <p className="px-6 pb-4 text-ink-2 italic">
-                        You just finished this.
+                        {justFinished(freshBook.latestPass, Date.now()) ? "You just finished this." : "New in your graph."}
                         {(freshBook.degree > 0 || graph.pending) && " Here is where it sits among your earlier reading."}
                       </p>
                     )}

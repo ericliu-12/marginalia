@@ -2,7 +2,7 @@ import { eq, sql } from "drizzle-orm";
 import { Pool } from "pg";
 import { createDb } from "../../src/db/client";
 import { runMigrations } from "../../src/db/migrate";
-import { seedUser } from "../../src/db/seed";
+import { getSeededUserId, seedUser } from "../../src/db/seed";
 import { book, bookPosition, clusterLabel, connection, enrichment, graphJob, libraryEntry, note, readThrough } from "../../src/db/schema";
 
 // The browser tests' own database on the docker-compose Postgres, apart from the app's and the unit tests'.
@@ -137,15 +137,17 @@ export async function settleGraph() {
 }
 
 // A Book finished since the graph last showed, with its Connections already found: a strong one to each
-// Book in `connectTo`. Placed below the chain unless `at` says otherwise.
-export async function finishBook(title: string, connectTo: Title[] = [], at = { x: 2.5, y: 0.8 }) {
+// Book in `connectTo`. Placed below the chain unless `at` says otherwise. Read through from Reading over
+// the last week, or `alreadyRead`: added from search as already read, with no dates.
+export async function finishBook(title: string, connectTo: Title[] = [], at = { x: 2.5, y: 0.8 }, alreadyRead = false) {
   const { db, pool } = createDb(e2eDatabaseUrl());
   const rows = await db.select({ id: book.id, title: book.title, userId: libraryEntry.userId }).from(book).innerJoin(libraryEntry, eq(libraryEntry.bookId, book.id));
   const userId = rows[0].userId;
   const [row] = await db.insert(book).values({ title, authors: ["A. Writer"] }).returning();
   const [entry] = await db.insert(libraryEntry).values({ userId, bookId: row.id, status: "read", connectionsGeneratedAt: new Date() }).returning();
-  const finished = new Date();
-  await db.insert(readThrough).values({ libraryEntryId: entry.id, userId, finishedAt: finished, completedAt: finished });
+  const now = new Date();
+  const dates = alreadyRead ? {} : { startedAt: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000), finishedAt: now };
+  await db.insert(readThrough).values({ libraryEntryId: entry.id, userId, ...dates, completedAt: now });
   await db.insert(bookPosition).values({ libraryEntryId: entry.id, userId, ...at });
   await db.insert(enrichment).values({ bookId: row.id, status: "ready", recognised: true, summary: `${title}.`, themes: ["memory"] });
   for (const other of connectTo) {
@@ -165,4 +167,12 @@ export async function finishBook(title: string, connectTo: Title[] = [], at = { 
     });
   }
   await pool.end();
+}
+
+// The reader the app serves.
+export async function readerId() {
+  const { db, pool } = createDb(e2eDatabaseUrl());
+  const id = await getSeededUserId(db);
+  await pool.end();
+  return id;
 }
