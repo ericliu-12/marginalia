@@ -34,6 +34,16 @@ test("a dismissed Connection leaves the Book panel and the graph, and stays gone
   await expect(books(page).getByRole("button", { name: "Stoner, 0 Connections" })).toBeAttached();
 });
 
+test("Escape keeps a Connection, puts focus back on Dismiss and leaves the panel open", async ({ page }) => {
+  await openStoner(page);
+  await connections(page).getByRole("button", { name: "Dismiss" }).click();
+  await expect(connections(page).getByRole("button", { name: "Keep" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(connections(page).getByRole("button", { name: "Dismiss" })).toBeFocused();
+  await expect(page.getByRole("heading", { level: 2 })).toHaveText("Stoner");
+  await expect(connections(page).getByRole("button", { name: "The Remains of the Day", exact: true })).toBeVisible();
+});
+
 test("Refresh connections queues a run, and the panel shows it finding Connections", async ({ page }) => {
   await openStoner(page);
   await connections(page).getByRole("button", { name: "Refresh connections" }).click();

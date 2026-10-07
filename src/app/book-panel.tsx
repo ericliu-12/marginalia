@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import type { LibraryItem } from "@/domain/library";
 import type { EnrichmentView } from "@/domain/enrichment";
 import type { Note } from "@/domain/notes";
@@ -14,6 +14,8 @@ import {
   updateNoteAction,
 } from "./actions";
 import { ConnectionsSection } from "./connections";
+import { useInlineConfirm } from "./use-inline-confirm";
+import { POLL_MS, usePoll } from "./use-poll";
 import { Cover } from "./cover";
 import { dangerLink, quietLink } from "./quiet-link";
 
@@ -158,52 +160,27 @@ export function BookPanel({
 // Last in the panel and quiet, like deleting a Note: one text action, then an inline confirmation.
 // Focus lands on Keep, the safe choice, and returns to the action when the reader keeps the Book.
 function RemoveEntry({ bookId, title, onRemoved }: { bookId: string; title: string; onRemoved: () => void }) {
-  const [confirming, setConfirming] = useState(false);
-  const [error, setError] = useState(false);
-  const [pending, start] = useTransition();
-  const keepRef = useRef<HTMLButtonElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const wasConfirming = useRef(false);
-
-  useEffect(() => {
-    if (confirming) keepRef.current?.focus();
-    else if (wasConfirming.current) triggerRef.current?.focus();
-    wasConfirming.current = confirming;
-  }, [confirming]);
-
-  function remove() {
-    setError(false);
-    start(async () => {
-      const res = await removeFromLibraryAction(bookId);
-      if (res.ok) onRemoved();
-      else setError(true);
-    });
-  }
+  const { confirming, pending, error, keepRef, triggerRef, ask, keep, confirm, onKeyDown } = useInlineConfirm(
+    () => removeFromLibraryAction(bookId),
+    onRemoved,
+  );
 
   return (
     <div aria-busy={pending} className="mt-12 border-t border-rule pt-4">
       {confirming ? (
-        <div
-          onKeyDown={(e) => {
-            if (e.key === "Escape" && !pending) {
-              e.stopPropagation();
-              setConfirming(false);
-            }
-          }}
-          className="flex flex-wrap items-center gap-x-5 gap-y-1"
-        >
+        <div onKeyDown={onKeyDown} className="flex flex-wrap items-center gap-x-5 gap-y-1">
           <p id={`remove-${bookId}`} className="w-full font-sans text-[0.8rem] text-ink-2">
             Remove <i className="font-serif text-[0.9rem]">{title}</i> from your library? Its notes, reading history and Connections go with it.
           </p>
-          <button type="button" onClick={remove} disabled={pending} aria-describedby={`remove-${bookId}`} className={dangerLink}>
+          <button type="button" onClick={confirm} disabled={pending} aria-describedby={`remove-${bookId}`} className={dangerLink}>
             {pending ? "Removing…" : "Yes, remove"}
           </button>
-          <button ref={keepRef} type="button" onClick={() => setConfirming(false)} disabled={pending} className={quietLink}>
+          <button ref={keepRef} type="button" onClick={keep} disabled={pending} className={quietLink}>
             Keep
           </button>
         </div>
       ) : (
-        <button ref={triggerRef} type="button" onClick={() => setConfirming(true)} className={quietLink}>
+        <button ref={triggerRef} type="button" onClick={ask} className={quietLink}>
           Remove from library
         </button>
       )}
@@ -216,9 +193,6 @@ function RemoveEntry({ bookId, title, onRemoved }: { bookId: string; title: stri
   );
 }
 
-// While the worker is still reading up on a Book, check back now and then.
-const ENRICHMENT_POLL_MS = 4000;
-
 // What Marginalia knows about the Book: its summary and themes, or a quiet line when it does not
 // recognise the Book and the reader's Notes carry the weight instead.
 function About({ bookId, noteCount }: { bookId: string; noteCount: number | null }) {
@@ -226,21 +200,16 @@ function About({ bookId, noteCount }: { bookId: string; noteCount: number | null
   const [retryFailed, setRetryFailed] = useState(false);
   const [pending, start] = useTransition();
 
+  // While the worker is still reading up on the Book, check back now and then.
   const waiting = enrichment === undefined || enrichment === null || enrichment.status === "pending";
-  useEffect(() => {
-    let live = true;
-    const load = () =>
+  const load = useCallback(
+    () =>
       getEnrichmentAction(bookId).then((res) => {
-        if (live && res) setEnrichment(res.enrichment);
-      });
-    load();
-    if (!waiting) return () => void (live = false);
-    const timer = setInterval(load, ENRICHMENT_POLL_MS);
-    return () => {
-      live = false;
-      clearInterval(timer);
-    };
-  }, [bookId, waiting]);
+        if (res) setEnrichment(res.enrichment);
+      }),
+    [bookId],
+  );
+  usePoll(load, POLL_MS, waiting);
 
   function retry() {
     setRetryFailed(false);
@@ -494,19 +463,11 @@ function NoteItem({
   onChanged: (n: Note) => void;
   onDeleted: () => void;
 }) {
-  const [confirming, setConfirming] = useState(false);
-  const [error, setError] = useState(false);
-  const [pending, start] = useTransition();
-  const keepRef = useRef<HTMLButtonElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const wasConfirming = useRef(false);
-
   // As in removing a Book: focus lands on Keep, and returns to Delete when the reader keeps the Note.
-  useEffect(() => {
-    if (confirming) keepRef.current?.focus();
-    else if (wasConfirming.current) triggerRef.current?.focus();
-    wasConfirming.current = confirming;
-  }, [confirming]);
+  const { confirming, pending, error, keepRef, triggerRef, ask, keep, confirm, onKeyDown } = useInlineConfirm(
+    () => deleteNoteAction(note.id),
+    onDeleted,
+  );
 
   if (editing) {
     return (
@@ -514,15 +475,6 @@ function NoteItem({
         <NoteForm note={note} onSaved={onChanged} onCancel={onCancel} />
       </li>
     );
-  }
-
-  function remove() {
-    setError(false);
-    start(async () => {
-      const res = await deleteNoteAction(note.id);
-      if (res.ok) onDeleted();
-      else setError(true);
-    });
   }
 
   return (
@@ -535,22 +487,14 @@ function NoteItem({
       )}
       <p className="whitespace-pre-wrap">{note.body}</p>
       {!note.quote && note.page != null && <p className="mt-1 font-sans text-xs text-ink-3">p. {note.page}</p>}
-      <div
-        onKeyDown={(e) => {
-          if (confirming && e.key === "Escape" && !pending) {
-            e.stopPropagation();
-            setConfirming(false);
-          }
-        }}
-        className="mt-1 flex flex-wrap items-center gap-x-5 gap-y-1"
-      >
+      <div onKeyDown={onKeyDown} className="mt-1 flex flex-wrap items-center gap-x-5 gap-y-1">
         {confirming ? (
           <>
             <span id={`delete-${note.id}`} className="font-sans text-[0.8rem] text-ink-2">Delete this note?</span>
-            <button type="button" onClick={remove} disabled={pending} aria-describedby={`delete-${note.id}`} className={dangerLink}>
+            <button type="button" onClick={confirm} disabled={pending} aria-describedby={`delete-${note.id}`} className={dangerLink}>
               {pending ? "Deleting…" : "Yes, delete"}
             </button>
-            <button ref={keepRef} type="button" onClick={() => setConfirming(false)} disabled={pending} className={quietLink}>
+            <button ref={keepRef} type="button" onClick={keep} disabled={pending} className={quietLink}>
               Keep
             </button>
           </>
@@ -559,7 +503,7 @@ function NoteItem({
             <button type="button" onClick={onEdit} className={quietLink}>
               Edit
             </button>
-            <button ref={triggerRef} type="button" onClick={() => setConfirming(true)} className={quietLink}>
+            <button ref={triggerRef} type="button" onClick={ask} className={quietLink}>
               Delete
             </button>
           </>

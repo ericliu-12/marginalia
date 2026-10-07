@@ -1,45 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useRef, useState, useTransition } from "react";
 import type { ConnectionCard, ConnectionsView } from "@/domain/connections";
 import { countFindingConnectionsAction, dismissConnectionAction, getConnectionsAction, refreshConnectionsAction } from "./actions";
 import { dangerLink, quietLink } from "./quiet-link";
-
-// While Connections are being found, check back now and then. The graph waits on its background work the same way.
-export const POLL_MS = 4000;
-
-// Calls `fn` now and then every `ms` after the previous call settles, so requests never overlap.
-// Pauses while the tab is hidden and checks again as soon as it is shown.
-export function usePoll(fn: () => Promise<unknown>, ms: number, enabled: boolean) {
-  useEffect(() => {
-    if (!enabled) return;
-    let live = true;
-    let busy = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const tick = async () => {
-      clearTimeout(timer);
-      if (busy || document.hidden) return;
-      busy = true;
-      try {
-        await fn();
-      } catch {
-        // the next tick tries again
-      }
-      busy = false;
-      if (live) timer = setTimeout(tick, ms);
-    };
-    const onVisible = () => {
-      if (!document.hidden) void tick();
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    void tick();
-    return () => {
-      live = false;
-      clearTimeout(timer);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
-  }, [fn, ms, enabled]);
-}
+import { useInlineConfirm } from "./use-inline-confirm";
+import { POLL_MS, usePoll } from "./use-poll";
 
 const TYPE: Record<ConnectionCard["type"], { label: string; swatch: string }> = {
   thematic: { label: "Thematic", swatch: "bg-thematic" },
@@ -198,37 +164,15 @@ export function DismissConnection({
   className?: string;
   onDismissed: () => void;
 }) {
-  const [confirming, setConfirming] = useState(false);
-  const [error, setError] = useState(false);
-  const [pending, start] = useTransition();
-  const keepRef = useRef<HTMLButtonElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const wasConfirming = useRef(false);
-
-  useEffect(() => {
-    if (confirming) keepRef.current?.focus();
-    else if (wasConfirming.current) triggerRef.current?.focus();
-    wasConfirming.current = confirming;
-  }, [confirming]);
-
-  function dismiss() {
-    setError(false);
-    start(async () => {
-      const res = await dismissConnectionAction(connectionId);
-      if (res.ok) onDismissed();
-      else setError(true);
-    });
-  }
+  const { confirming, pending, error, keepRef, triggerRef, ask, keep, confirm, onKeyDown } = useInlineConfirm(
+    () => dismissConnectionAction(connectionId),
+    onDismissed,
+  );
 
   return (
     <div
       aria-busy={pending}
-      onKeyDown={(e) => {
-        if (confirming && e.key === "Escape" && !pending) {
-          e.stopPropagation();
-          setConfirming(false);
-        }
-      }}
+      onKeyDown={onKeyDown}
       className={`${className ?? ""} ${confirming ? "flex w-full flex-wrap items-center gap-x-5 gap-y-1 pt-1" : ""}`}
     >
       {confirming ? (
@@ -236,15 +180,15 @@ export function DismissConnection({
           <span id={`dismiss-${connectionId}`} className="w-full font-sans text-[0.8rem] text-ink-2">
             Dismiss this Connection? It won’t come back.
           </span>
-          <button type="button" onClick={dismiss} disabled={pending} aria-describedby={`dismiss-${connectionId}`} className={dangerLink}>
+          <button type="button" onClick={confirm} disabled={pending} aria-describedby={`dismiss-${connectionId}`} className={dangerLink}>
             {pending ? "Dismissing…" : "Yes, dismiss"}
           </button>
-          <button ref={keepRef} type="button" onClick={() => setConfirming(false)} disabled={pending} className={quietLink}>
+          <button ref={keepRef} type="button" onClick={keep} disabled={pending} className={quietLink}>
             Keep
           </button>
         </>
       ) : (
-        <button ref={triggerRef} type="button" onClick={() => setConfirming(true)} aria-label={label} className={quietLink}>
+        <button ref={triggerRef} type="button" onClick={ask} aria-label={label} className={quietLink}>
           Dismiss
         </button>
       )}
