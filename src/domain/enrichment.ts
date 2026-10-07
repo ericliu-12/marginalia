@@ -34,6 +34,12 @@ export type EnrichmentView = {
   themes: string[] | null;
 };
 
+// Ready and recognised: the only Enrichment that is embedded or shown to the judge.
+export const isRecognised = <T extends { status: EnrichmentView["status"]; recognised: boolean }>(e: T | undefined): e is T =>
+  e?.status === "ready" && e.recognised;
+// The same, as a condition on the enrichment table.
+export const recognisedEnrichment = and(eq(enrichment.status, "ready"), eq(enrichment.recognised, true));
+
 const hash = (s: string) => createHash("sha256").update(s).digest("hex");
 
 export const normName = (s: string) =>

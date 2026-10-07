@@ -2,6 +2,7 @@ import { and, asc, desc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle
 import type { Db } from "@/db/client";
 import { book, connection, connectionRun, enrichment, libraryEntry, note } from "@/db/schema";
 import { embedEnrichment, nearestBooks, type Embedder } from "./embeddings";
+import { isRecognised } from "./enrichment";
 import { displayed } from "./library";
 import { byStrength, otherBook, pairOf } from "./connection-pair";
 import { completedPasses, findEntry, isFinished, readFinished } from "./library-entry";
@@ -131,7 +132,7 @@ export async function resumeNoteConnections(db: Db, queue: JobQueue, noteId: str
 // without it. Only a recognised Enrichment reaches the judge, so an unrecognised one changes nothing.
 export async function refreshAfterEnrichment(db: Db, queue: JobQueue, bookId: string): Promise<void> {
   const [e] = await db.select().from(enrichment).where(eq(enrichment.bookId, bookId));
-  if (e?.status !== "ready" || !e.recognised) return;
+  if (!isRecognised(e)) return;
   const latest = await db
     .selectDistinctOn([connectionRun.libraryEntryId], { userId: libraryEntry.userId, withoutEnrichment: connectionRun.withoutEnrichment })
     .from(connectionRun)
@@ -279,7 +280,7 @@ async function run(db: Db, deps: ConnectionDeps, userId: string, entryId: string
     return {
       ...displayed(b.book, b.entry),
       // An unrecognised Book's Enrichment is empty: the judge is told it has none.
-      enrichment: e?.recognised && e.status === "ready" && e.summary ? `${e.summary} Themes: ${(e.themes ?? []).join("; ")}` : null,
+      enrichment: isRecognised(e) && e.summary ? `${e.summary} Themes: ${(e.themes ?? []).join("; ")}` : null,
       notes: present(id, budget),
     };
   };

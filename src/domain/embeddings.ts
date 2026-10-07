@@ -2,6 +2,7 @@ import { and, eq, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import type { Db } from "@/db/client";
 import { enrichment, libraryEntry, note } from "@/db/schema";
+import { isRecognised, recognisedEnrichment } from "./enrichment";
 import { completedPasses } from "./library-entry";
 import type { JobQueue } from "./pipeline";
 
@@ -18,7 +19,7 @@ export type EmbeddingTarget = { kind: "enrichment" | "note"; id: string };
 // Enrichment is never embedded; a vector already made by this model is kept.
 export async function embedEnrichment(db: Db, embedder: Embedder, bookId: string): Promise<void> {
   const [row] = await db.select().from(enrichment).where(eq(enrichment.bookId, bookId));
-  if (!row?.recognised || row.status !== "ready" || !row.summary) return;
+  if (!isRecognised(row) || !row.summary) return;
   if (row.embedding && row.embeddingModel === embedder.model) return;
   const [vector] = await embedder.embed([`${row.summary}\n${(row.themes ?? []).join("; ")}`], "document");
   // Not written if the Enrichment was regenerated while embedding; its own job embeds the new one.
@@ -125,7 +126,7 @@ export async function backfillEmbeddings(db: Db, queue: JobQueue, model: string)
   const enrichments = await db
     .select({ id: enrichment.bookId })
     .from(enrichment)
-    .where(and(eq(enrichment.recognised, true), eq(enrichment.status, "ready"), stale(enrichment.embedding, enrichment.embeddingModel)));
+    .where(and(recognisedEnrichment, stale(enrichment.embedding, enrichment.embeddingModel)));
   const notes = await db.select({ id: note.id }).from(note).where(stale(note.embedding, note.embeddingModel));
   for (const { id } of enrichments) await queue.send({ kind: "embed", target: { kind: "enrichment", id } });
   for (const { id } of notes) await queue.send({ kind: "embed", target: { kind: "note", id } });
