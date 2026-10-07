@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type ForceGraph from "force-graph";
+import { joins, otherBook, touches } from "@/domain/connection-pair";
 import { visibleConnections, type GraphBook, type GraphCluster, type GraphConnection, type GraphView } from "@/domain/graph";
 import {
   ARRIVAL_FRAME,
@@ -109,9 +110,9 @@ function focusFor(graph: GraphView, prepared: ReturnType<typeof prepare>, select
     litBooks = new Set([chosenBookId]);
     litLinks = new Set();
     for (const c of graph.connections) {
-      if (c.a !== chosenBookId && c.b !== chosenBookId) continue;
+      if (!touches(c, chosenBookId)) continue;
       litLinks.add(c.id);
-      litBooks.add(c.a === chosenBookId ? c.b : c.a);
+      litBooks.add(otherBook(c, chosenBookId));
     }
   } else if (chosenLink) {
     visible.add(chosenLink.id);
@@ -131,7 +132,7 @@ function focusFor(graph: GraphView, prepared: ReturnType<typeof prepare>, select
   const trailLinks = new Set<string>();
   for (let i = 1; i < trail.length; i++) {
     const [x, y] = [trail[i - 1], trail[i]];
-    const c = graph.connections.find((c) => (c.a === x && c.b === y) || (c.a === y && c.b === x));
+    const c = graph.connections.find((c) => joins(c, x, y));
     if (c) trailLinks.add(c.id);
   }
   if (litBooks && litLinks) {

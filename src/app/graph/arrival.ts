@@ -1,4 +1,4 @@
-import { STRENGTH_RANK } from "@/domain/connections";
+import { byStrength } from "@/domain/connection-pair";
 import type { GraphBook, GraphConnection } from "@/domain/graph";
 
 // The arrival: a Book the graph has not shown before lands, and its Connections draw in one by one.
@@ -23,7 +23,7 @@ export function drawOrder(connections: GraphConnection[], books: string[], drawn
   const owner = (c: GraphConnection) => Math.min(...[c.a, c.b].map((id) => books.indexOf(id)).filter((i) => i >= 0));
   return connections
     .filter((c) => !drawn.has(c.id) && (books.includes(c.a) || books.includes(c.b)))
-    .sort((p, q) => owner(p) - owner(q) || STRENGTH_RANK[p.strength] - STRENGTH_RANK[q.strength] || (p.id < q.id ? -1 : 1))
+    .sort((p, q) => owner(p) - owner(q) || byStrength(p, q))
     .map((c) => c.id);
 }
 

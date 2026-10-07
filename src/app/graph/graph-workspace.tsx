@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { otherBook } from "@/domain/connection-pair";
 import { visibleConnections, type GraphView } from "@/domain/graph";
 import type { LibraryItem } from "@/domain/library";
 import { graphStatusAction } from "../actions";
@@ -307,7 +308,7 @@ export function GraphWorkspace({
               // Following from a Connection starts the trail at its other Book, so the way back is kept.
               onOpenBook={(bookId) => {
                 const c = graph.connections.find((x) => x.id === selection.id);
-                followTo(c ? [c.a === bookId ? c.b : c.a] : trail, bookId);
+                followTo(c ? [otherBook(c, bookId)] : trail, bookId);
               }}
             />
           ) : (

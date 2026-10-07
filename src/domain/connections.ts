@@ -3,7 +3,8 @@ import type { Db } from "@/db/client";
 import { book, connection, connectionRun, enrichment, libraryEntry, note } from "@/db/schema";
 import { embedEnrichment, nearestBooks, type Embedder } from "./embeddings";
 import { displayed } from "./library";
-import { findEntry, isFinished, readFinished } from "./library-entry";
+import { byStrength, otherBook, pairOf } from "./connection-pair";
+import { completedPasses, findEntry, isFinished, readFinished } from "./library-entry";
 import type { JobQueue, Pipeline } from "./pipeline";
 
 export type ConnectionType = "thematic" | "contrast" | "context";
@@ -196,7 +197,7 @@ async function run(db: Db, deps: ConnectionDeps, userId: string, entryId: string
         refresh ? isNotNull(connection.dismissedAt) : undefined,
       ),
     );
-  const connected = new Set(existing.map((c) => (c.a === bookId ? c.b : c.a)));
+  const connected = new Set(existing.map((c) => otherBook(c, bookId)));
   const nearest = (await nearestBooks(db, userId, bookId, embedder.model, CANDIDATE_COUNT + connected.size))
     .filter((n) => !connected.has(n.bookId))
     .slice(0, CANDIDATE_COUNT);
@@ -206,7 +207,7 @@ async function run(db: Db, deps: ConnectionDeps, userId: string, entryId: string
       // The reader may have removed this Book, or one it links to, while the job ran: store nothing
       // for a removed Book. The lock holds removal off until this commits; `key share` does not
       // conflict with the status update below, nor with other jobs taking the same lock.
-      const others = judged.map((r) => (r.bookAId === bookId ? r.bookBId : r.bookAId));
+      const others = judged.map((r) => otherBook({ a: r.bookAId, b: r.bookBId }, bookId));
       // Its own Entry is matched by id: one removed and added again is a different Entry, with its own job.
       const live = await tx
         .select({ id: libraryEntry.id, bookId: libraryEntry.bookId })
@@ -311,7 +312,7 @@ async function run(db: Db, deps: ConnectionDeps, userId: string, entryId: string
     if (c.strength === "weak" && !(quotedFrom(bookId) && quotedFrom(other.bookId))) continue;
 
     seen.add(c.candidateId);
-    const [a, b] = bookId < other.bookId ? [bookId, other.bookId] : [other.bookId, bookId];
+    const { a, b } = pairOf(bookId, other.bookId);
     rows.push({
       userId,
       bookAId: a,
@@ -379,6 +380,28 @@ export type ConnectionsView = {
   leftOut: { notes: number; enrichment: boolean };
 };
 
+type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
+
+// The reader's live Connections: not dismissed, and between Finished Books. In pair order, so a
+// graph built from them is the same on every run.
+export async function readLiveConnections(db: Db | Tx, userId: string) {
+  const finished = new Set((await completedPasses(db, userId)).map((p) => p.bookId));
+  const rows = await db
+    .select({
+      id: connection.id,
+      a: connection.bookAId,
+      b: connection.bookBId,
+      type: connection.type,
+      strength: connection.strength,
+      similarity: connection.similarity,
+      explanation: connection.explanation,
+    })
+    .from(connection)
+    .where(and(eq(connection.userId, userId), isNull(connection.dismissedAt)))
+    .orderBy(asc(connection.bookAId), asc(connection.bookBId));
+  return rows.filter((c) => finished.has(c.a) && finished.has(c.b));
+}
+
 // Domain seam: what the Book panel shows. Strongest first, then most similar. Dismissed ones are hidden.
 export async function readConnections(db: Db, userId: string, bookId: string): Promise<ConnectionsView> {
   const entry = await findEntry(db, userId, bookId);
@@ -392,8 +415,8 @@ export async function readConnections(db: Db, userId: string, bookId: string): P
         or(eq(connection.bookAId, bookId), eq(connection.bookBId, bookId)),
       ),
     )
-    .orderBy(asc(connection.strength), desc(connection.similarity));
-  const otherId = (r: (typeof rows)[number]) => (r.bookAId === bookId ? r.bookBId : r.bookAId);
+    .then((rs) => rs.sort(byStrength));
+  const otherId = (r: (typeof rows)[number]) => otherBook({ a: r.bookAId, b: r.bookBId }, bookId);
   const others = rows.length
     ? await db
         .select({ book, entry: libraryEntry })

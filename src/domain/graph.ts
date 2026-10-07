@@ -1,11 +1,12 @@
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import Graph from "graphology";
 import forceAtlas2 from "graphology-layout-forceatlas2";
 import type { Db } from "@/db/client";
-import { book, bookPosition, connection, libraryEntry } from "@/db/schema";
+import { book, bookPosition, libraryEntry } from "@/db/schema";
 import { readClusters } from "./clusters";
 import { readGraphStatus } from "./graph-job";
-import { CLUSTER_WEIGHT, STRENGTH_RANK, type ConnectionType, type Strength } from "./connections";
+import { byStrength, otherBook, touches, type Pair } from "./connection-pair";
+import { CLUSTER_WEIGHT, readLiveConnections, type ConnectionType, type Strength } from "./connections";
 import { displayed } from "./library";
 import { readFinished } from "./library-entry";
 
@@ -92,23 +93,17 @@ async function loadGraph(db: Db, userId: string) {
     .leftJoin(bookPosition, eq(bookPosition.libraryEntryId, libraryEntry.id))
     .where(eq(libraryEntry.userId, userId));
   const books = rows.filter((r) => finished.has(r.entry.id)).sort((p, q) => (p.book.id < q.book.id ? -1 : 1));
-  const ids = new Set(books.map((r) => r.book.id));
-  const connections = (
-    await db
-      .select()
-      .from(connection)
-      .where(and(eq(connection.userId, userId), isNull(connection.dismissedAt)))
-  ).filter((c) => ids.has(c.bookAId) && ids.has(c.bookBId));
+  const connections = await readLiveConnections(db, userId);
   const at = place(
     books.map((r) => ({ id: r.book.id, stored: stored(r) })),
-    connections.map((c) => ({ a: c.bookAId, b: c.bookBId })),
+    connections,
   );
   return { books, connections, at, finished };
 }
 
 // Stored positions where there are any. A Book without one starts beside the placed Books it connects
 // to, or else on a ring around the placed graph (a spiral when nothing is placed yet). Deterministic.
-function place(books: { id: string; stored: Point | null }[], pairs: { a: string; b: string }[]): Map<string, Point> {
+function place(books: { id: string; stored: Point | null }[], pairs: Pair[]): Map<string, Point> {
   const fixed = new Map<string, Point>();
   for (const n of books) if (n.stored) fixed.set(n.id, n.stored);
   const at = new Map(fixed);
@@ -121,7 +116,8 @@ function place(books: { id: string; stored: Point | null }[], pairs: { a: string
     if (at.has(n.id)) return;
     const angle = i * GOLDEN;
     const near = pairs
-      .flatMap((e) => (e.a === n.id ? [e.b] : e.b === n.id ? [e.a] : []))
+      .filter((e) => touches(e, n.id))
+      .map((e) => otherBook(e, n.id))
       .map((o) => fixed.get(o))
       .filter((p) => p !== undefined);
     if (near.length) {
@@ -147,12 +143,12 @@ export async function readGraph(db: Db, userId: string): Promise<GraphView> {
 
   // Each Book's Connections, strongest first, then most similar, then by id so ties hold still.
   const byBook = new Map<string, typeof connections>();
-  for (const c of connections) for (const id of [c.bookAId, c.bookBId]) byBook.set(id, [...(byBook.get(id) ?? []), c]);
+  for (const c of connections) for (const id of [c.a, c.b]) byBook.set(id, [...(byBook.get(id) ?? []), c]);
   const featured = new Set<string>();
   for (const list of byBook.values()) {
     list
       .filter((c) => AT_REST_STRENGTHS.includes(c.strength))
-      .sort((p, q) => STRENGTH_RANK[p.strength] - STRENGTH_RANK[q.strength] || q.similarity - p.similarity || (p.id < q.id ? -1 : 1))
+      .sort(byStrength)
       .slice(0, DISPLAY_CAP)
       .forEach((c) => featured.add(c.id));
   }
@@ -170,7 +166,7 @@ export async function readGraph(db: Db, userId: string): Promise<GraphView> {
         latestPass: finished.get(r.entry.id)!.latestPass,
       };
     }),
-    connections: connections.map((c) => ({ id: c.id, a: c.bookAId, b: c.bookBId, type: c.type, strength: c.strength, featured: featured.has(c.id) })),
+    connections: connections.map((c) => ({ id: c.id, a: c.a, b: c.b, type: c.type, strength: c.strength, featured: featured.has(c.id) })),
     clusters: await readClusters(db, userId, new Set(books.map((r) => r.book.id))),
     ...(await readGraphStatus(db, userId)),
   };
@@ -178,7 +174,7 @@ export async function readGraph(db: Db, userId: string): Promise<GraphView> {
 
 // The Connections on show: the featured ones, and every one of the selected Book's.
 export function visibleConnections(graph: GraphView, selectedBookId: string | null): GraphConnection[] {
-  return graph.connections.filter((c) => c.featured || c.a === selectedBookId || c.b === selectedBookId);
+  return graph.connections.filter((c) => c.featured || (selectedBookId !== null && touches(c, selectedBookId)));
 }
 
 // Domain seam, run by the worker: gives each newly Finished Book a stored position with ForceAtlas2.
@@ -192,7 +188,7 @@ export async function layoutGraph(db: Db, userId: string): Promise<void> {
 
   const g = new Graph({ type: "undirected" });
   for (const r of books) g.addNode(r.book.id, { ...at.get(r.book.id)!, fixed: stored(r) !== null });
-  for (const c of connections) g.addEdge(c.bookAId, c.bookBId, { weight: CLUSTER_WEIGHT[c.strength] });
+  for (const c of connections) g.addEdge(c.a, c.b, { weight: CLUSTER_WEIGHT[c.strength] });
   forceAtlas2.assign(g, {
     iterations: unplaced.length === books.length ? FRESH_ITERATIONS : SETTLE_ITERATIONS,
     getEdgeWeight: "weight",

@@ -1,9 +1,10 @@
-import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import Graph from "graphology";
 import louvain from "graphology-communities-louvain";
 import type { Db } from "@/db/client";
-import { book, clusterLabel, connection, enrichment, libraryEntry } from "@/db/schema";
-import { CLUSTER_WEIGHT, STRENGTH_RANK } from "./connections";
+import { book, clusterLabel, enrichment, libraryEntry } from "@/db/schema";
+import { byStrength } from "./connection-pair";
+import { CLUSTER_WEIGHT, readLiveConnections } from "./connections";
 import { displayed } from "./library";
 import { completedPasses } from "./library-entry";
 
@@ -35,13 +36,7 @@ function seeded(seed: number) {
 // least MIN_CLUSTER_SIZE, each sorted, largest first.
 async function findClusters(db: Db | Tx, userId: string): Promise<string[][]> {
   const finished = new Set((await completedPasses(db, userId)).map((p) => p.bookId));
-  const connections = (
-    await db
-      .select({ a: connection.bookAId, b: connection.bookBId, strength: connection.strength })
-      .from(connection)
-      .where(and(eq(connection.userId, userId), isNull(connection.dismissedAt)))
-      .orderBy(asc(connection.bookAId), asc(connection.bookBId))
-  ).filter((c) => finished.has(c.a) && finished.has(c.b));
+  const connections = await readLiveConnections(db, userId);
 
   const g = new Graph({ type: "undirected" });
   for (const id of [...finished].sort()) g.addNode(id);
@@ -199,18 +194,15 @@ async function namingInput(db: Db, userId: string, members: string[], previousNa
     .where(inArray(book.id, members))
     .orderBy(asc(book.id));
   const title = new Map(rows.map((r) => [r.id, displayed(r, r.entry).title]));
-  const connections = (
-    await db
-      .select()
-      .from(connection)
-      .where(and(eq(connection.userId, userId), isNull(connection.dismissedAt), inArray(connection.bookAId, members), inArray(connection.bookBId, members)))
-  )
-    .sort((p, q) => STRENGTH_RANK[p.strength] - STRENGTH_RANK[q.strength] || q.similarity - p.similarity || (p.id < q.id ? -1 : 1))
+  const among = new Set(members);
+  const connections = (await readLiveConnections(db, userId))
+    .filter((c) => among.has(c.a) && among.has(c.b))
+    .sort(byStrength)
     .slice(0, NAMING_CONNECTIONS);
   return {
     previousName,
     books: rows.map((r) => ({ ...displayed(r, r.entry), themes: r.recognised ? (r.themes ?? []) : [] })),
-    connections: connections.map((c) => ({ a: title.get(c.bookAId)!, b: title.get(c.bookBId)!, explanation: c.explanation })),
+    connections: connections.map((c) => ({ a: title.get(c.a)!, b: title.get(c.b)!, explanation: c.explanation })),
   };
 }
 
