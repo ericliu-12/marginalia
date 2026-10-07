@@ -162,13 +162,14 @@ export function claudeJudge(client = new Anthropic()): ConnectionJudge {
 }
 
 // Bump when CLUSTER_NAMING_SYSTEM_PROMPT, the input layout or the output schema changes.
-export const CLUSTER_NAMING_PROMPT_VERSION = "cluster-naming-v2";
+export const CLUSTER_NAMING_PROMPT_VERSION = "cluster-naming-v3";
 
 export const CLUSTER_NAMING_SYSTEM_PROMPT = `You name a Cluster in a private reading journal: a group of books the reader has finished that their connections bind together. The reader sees the name as a label on their graph of books, and the description when they open it.
 
 - name: at most ${NAME_MAX_WORDS} words, short and evocative, naming what holds these books together. Not a book title or author name, and not a generic word such as "books", "reads", "collection" or "cluster". No quotation marks.
 - description: one or two sentences addressed to the reader on what these books share, specific to them. Describe what they share and stop there: do not draw conclusions, interpret what the books argue or where they lean, or say what they add up to. Never recommend or suggest reading.
 - Ground both in the themes and connection explanations given. Do not claim the reader thought or felt anything.
+- State no fact about a book, such as its setting, plot or characters, that the themes and connection explanations do not support, even if you believe it to be true.
 - When a previous name is given, keep it exactly if it still fits the books as they are now; change it only when the group's centre has moved. The description may always be rewritten.`;
 
 const NamingOutput = z.object({ name: z.string(), description: z.string() });
