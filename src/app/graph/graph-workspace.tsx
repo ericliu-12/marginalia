@@ -58,7 +58,9 @@ export function GraphWorkspace({ graph, items, finding }: { graph: GraphView; it
   const labelOf = new Map(graph.books.map((b) => [b.bookId, b.label]));
   const followTo = (from: string[], bookId: string) => {
     const next = follow(from, bookId);
-    setSaid(next.length <= from.length ? `Back to ${labelOf.get(bookId)} on your trail` : "");
+    // Emptied first, so the same words said twice are still announced.
+    setSaid("");
+    if (next.length <= from.length) requestAnimationFrame(() => setSaid(`Back to ${labelOf.get(bookId)} on your trail`));
     goTo(next);
   };
 
