@@ -8,7 +8,6 @@ import type { LibraryItem } from "@/domain/library";
 import { graphStatusAction } from "../actions";
 import { BookPanel } from "../book-panel";
 import { FindingIndicator, POLL_MS, usePoll } from "../connections";
-import { quietLink } from "../quiet-link";
 import { ViewSwitch } from "../view-switch";
 import { arriving, drawOrder, justFinished } from "./arrival";
 import { ClusterPanel } from "./cluster-panel";
@@ -211,31 +210,26 @@ export function GraphWorkspace({
           .
         </p>
       )}
-      {/* No placeholder Books: the two ways in. Both lead to the library, which opens with search ready
-          for Books already read. */}
+      {/* No placeholder Books: both ways in lead to the library, which opens with search ready. */}
       {wide && graph.books.length === 0 && (
-        <div className="absolute inset-x-12 top-28 max-w-[40ch]">
-          <p className="text-xl text-ink-2 italic">Your graph begins with a finished Book.</p>
-          <p className="mt-4 flex items-baseline gap-2.5 text-ink-3">
-            <Link href="/" className={quietLink}>
-              Go to your library
-            </Link>
-            <span aria-hidden>·</span>
-            <Link href="/" className={quietLink}>
-              Add books you’ve read
-            </Link>
-          </p>
-        </div>
+        <p className="absolute inset-x-12 top-28 max-w-[40ch] text-xl text-ink-2 italic">
+          Your graph begins with a finished Book. Mark one finished, or add the ones you’ve already read, in{" "}
+          <Link href="/" className="text-ink underline decoration-rule underline-offset-4">
+            your library
+          </Link>
+          .
+        </p>
       )}
-      {/* A first Book: its themes, never drawn as Connections, in the place the legend will take. */}
-      {wide && graph.books.length === 1 && (
+      {/* Until the first Connection, in the place the legend will take: a lone Book's themes (never drawn
+          as Connections), and what is coming. */}
+      {wide && graph.books.length > 0 && graph.connections.length === 0 && (
         <div className="pointer-events-none absolute bottom-7 left-12 flex max-w-[52ch] flex-col gap-1.5">
-          {loneThemes.length > 0 && (
+          {graph.books.length === 1 && loneThemes.length > 0 && (
             <p className="font-sans text-[0.8rem] leading-relaxed font-medium text-ink-2">
               Themes of <i className="font-serif text-[0.95rem] font-normal">{graph.books[0].label}</i>: {loneThemes.join(" · ")}
             </p>
           )}
-          <p className="text-ink-2 italic">Connections appear as you finish more Books.</p>
+          <p className="text-ink-2 italic">{finding > 0 ? "Finding Connections…" : "Connections appear as you finish more Books."}</p>
         </div>
       )}
 

@@ -170,6 +170,14 @@ export async function finishBook(title: string, connectTo: Title[] = [], at = { 
   await pool.end();
 }
 
+// The Book's Connections are being found.
+export async function markFinding(title: string) {
+  const { db, pool } = createDb(e2eDatabaseUrl());
+  const [row] = await db.select({ id: book.id }).from(book).where(eq(book.title, title));
+  await db.update(libraryEntry).set({ connectionsStatus: "running" }).where(eq(libraryEntry.bookId, row.id));
+  await pool.end();
+}
+
 // The reader the app serves.
 export async function readerId() {
   const { db, pool } = createDb(e2eDatabaseUrl());
