@@ -3,6 +3,7 @@ import Graph from "graphology";
 import forceAtlas2 from "graphology-layout-forceatlas2";
 import type { Db } from "@/db/client";
 import { book, bookPosition, connection, libraryEntry } from "@/db/schema";
+import { readClusters } from "./clusters";
 import { CLUSTER_WEIGHT, STRENGTH_RANK, type ConnectionType, type Strength } from "./connections";
 import { displayed } from "./library";
 import { readFinished } from "./library-entry";
@@ -60,7 +61,10 @@ export type GraphConnection = {
   featured: boolean;
 };
 
-export type GraphView = { books: GraphBook[]; connections: GraphConnection[] };
+// A Cluster as last computed by the worker, with the Books in it.
+export type GraphCluster = { id: string; bookIds: string[] };
+
+export type GraphView = { books: GraphBook[]; connections: GraphConnection[]; clusters: GraphCluster[] };
 
 type Point = { x: number; y: number };
 
@@ -123,7 +127,8 @@ function place(books: { id: string; stored: Point | null }[], pairs: { a: string
 const stored = (r: { x: number | null; y: number | null }) => (r.x === null || r.y === null ? null : { x: r.x, y: r.y });
 
 // Domain seam: the reader's graph. Finished Books only, at their stored positions, with every
-// non-dismissed Connection between them, each marked whether it shows before anything is selected.
+// non-dismissed Connection between them, each marked whether it shows before anything is selected,
+// and their Clusters.
 export async function readGraph(db: Db, userId: string): Promise<GraphView> {
   const { books, connections, at, finished } = await loadGraph(db, userId);
 
@@ -152,6 +157,7 @@ export async function readGraph(db: Db, userId: string): Promise<GraphView> {
       };
     }),
     connections: connections.map((c) => ({ id: c.id, a: c.bookAId, b: c.bookBId, type: c.type, strength: c.strength, featured: featured.has(c.id) })),
+    clusters: await readClusters(db, userId, new Set(books.map((r) => r.book.id))),
   };
 }
 

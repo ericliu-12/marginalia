@@ -1,6 +1,7 @@
 import { and, asc, eq, isNotNull, isNull, or } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { connection, libraryEntry, readThrough } from "@/db/schema";
+import { leaveClusters } from "./clusters";
 import type { Pipeline } from "./pipeline";
 import type { Status } from "./search";
 
@@ -85,10 +86,11 @@ export async function changeStatus(db: Db, pipeline: Pipeline, userId: string, b
 
 // Domain seam: takes a Book out of the reader's library. Notes, Read-throughs and Connections runs go
 // with the Library Entry; the reader's Connections involving the Book are deleted here, since the Book
-// is shared and never cascades. The Book and its Enrichment stay, so adding it again is cheap.
+// is shared and never cascades. The Book leaves its Clusters at once (so it never counts toward a
+// rename) and the Clusters are recomputed. The Book and its Enrichment stay, so adding it again is cheap.
 // Idempotent: a Book not in the library is left alone without error.
-export async function removeFromLibrary(db: Db, userId: string, bookId: string): Promise<void> {
-  await db.transaction(async (tx) => {
+export async function removeFromLibrary(db: Db, pipeline: Pipeline, userId: string, bookId: string): Promise<void> {
+  const removed = await db.transaction(async (tx) => {
     // Locked first, so a Connections job finishing now either lands before this (and its Connections
     // are deleted below) or sees the Entry gone and stores nothing.
     const [entry] = await tx
@@ -96,12 +98,15 @@ export async function removeFromLibrary(db: Db, userId: string, bookId: string):
       .from(libraryEntry)
       .where(and(eq(libraryEntry.userId, userId), eq(libraryEntry.bookId, bookId)))
       .for("update");
-    if (!entry) return;
+    if (!entry) return false;
     await tx
       .delete(connection)
       .where(and(eq(connection.userId, userId), or(eq(connection.bookAId, bookId), eq(connection.bookBId, bookId))));
+    await leaveClusters(tx, userId, bookId);
     await tx.delete(libraryEntry).where(eq(libraryEntry.id, entry.id));
+    return true;
   });
+  if (removed) await pipeline.connectionsChanged(userId);
 }
 
 // The one definition of Finished: the reader's completed Read-throughs (`completed_at` set), whatever

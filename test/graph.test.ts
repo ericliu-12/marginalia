@@ -200,7 +200,7 @@ describe("Graph", () => {
       const a = await add("A");
       await add("B");
       await ctx.jobs.drain(deps());
-      await removeFromLibrary(ctx.db, ctx.userId, a);
+      await removeFromLibrary(ctx.db, ctx.pipeline, ctx.userId, a);
       const g = await graph();
       expect(g.books.map((b) => b.title)).toEqual(["B"]);
       expect(g.connections).toEqual([]);

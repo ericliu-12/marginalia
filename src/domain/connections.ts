@@ -451,3 +451,15 @@ export async function readConnection(db: Db, userId: string, connectionId: strin
   };
   return { id: c.id, a: side(c.bookAId), b: side(c.bookBId), type: c.type, strength: c.strength, explanation: c.explanation, grounding: c.grounding };
 }
+
+// Domain seam: the reader dismisses a Connection. It leaves the graph and the Book panel, is never
+// judged or revived again, and the reader's Clusters are recomputed. A Connection already dismissed,
+// or not the reader's, is left alone.
+export async function dismissConnection(db: Db, pipeline: Pipeline, userId: string, connectionId: string): Promise<void> {
+  const dismissed = await db
+    .update(connection)
+    .set({ dismissedAt: new Date() })
+    .where(and(eq(connection.id, connectionId), eq(connection.userId, userId), isNull(connection.dismissedAt)))
+    .returning({ id: connection.id });
+  if (dismissed.length) await pipeline.connectionsChanged(userId);
+}

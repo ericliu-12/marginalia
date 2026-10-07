@@ -44,7 +44,7 @@ export async function changeStatusAction(bookId: string, status: Status): Promis
 export async function removeFromLibraryAction(bookId: string): Promise<{ ok: boolean }> {
   try {
     const db = appDb();
-    await removeFromLibrary(db, await getSeededUserId(db), bookId);
+    await removeFromLibrary(db, appPipeline(db), await getSeededUserId(db), bookId);
     revalidatePath("/");
     return { ok: true };
   } catch (err) {

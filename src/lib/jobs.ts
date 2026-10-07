@@ -4,7 +4,7 @@ import { createPipeline, RETRIES, jobKey, runJob, type Job, type JobDeps, type J
 
 // pg-boss queue names, and the data each job carries, are kept as they were before the Pipeline so
 // jobs already waiting still run.
-const QUEUE: Record<Job["kind"], string> = { enrich: "enrich-book", embed: "embed", connections: "connections", layout: "layout" };
+const QUEUE: Record<Job["kind"], string> = { enrich: "enrich-book", embed: "embed", connections: "connections", graph: "layout" };
 const EMBED_RETRY = { retryLimit: RETRIES.embed, retryDelay: 20, retryBackoff: true, retryDelayMax: 300 };
 const ENRICH_CONCURRENCY = 3;
 
@@ -13,7 +13,7 @@ const dataOf = (job: Job): object =>
     ? { bookId: job.bookId }
     : job.kind === "embed"
       ? job.target
-      : job.kind === "layout"
+      : job.kind === "graph"
         ? { userId: job.userId }
         : { userId: job.userId, bookId: job.bookId };
 
@@ -25,8 +25,9 @@ async function ensureQueues(boss: PgBoss) {
   await boss.createQueue(QUEUE.embed, { policy: "short", ...EMBED_RETRY });
   // Jobs run one at a time (see startWorker), in the order queued.
   await boss.createQueue(QUEUE.connections, { policy: "short", retryLimit: RETRIES.connections, retryDelay: 10, retryBackoff: true });
-  // One waiting layout per reader: a burst of Connections jobs lays the graph out once more, not once each.
-  await boss.createQueue(QUEUE.layout, { policy: "short", retryLimit: RETRIES.layout, retryDelay: 10 });
+  // One waiting graph job per reader: a burst of Connections jobs, removals or dismissals recomputes
+  // Clusters and lays the graph out once more, not once each.
+  await boss.createQueue(QUEUE.graph, { policy: "short", retryLimit: RETRIES.graph, retryDelay: 10 });
   // createQueue leaves an existing queue as it was; keep its retry settings current.
   await boss.updateQueue(QUEUE.embed, EMBED_RETRY);
 }
@@ -83,6 +84,6 @@ export async function startWorker(options: WorkerOptions) {
   await work("embed", ENRICH_CONCURRENCY, (target: Extract<Job, { kind: "embed" }>["target"]) => ({ kind: "embed", target }));
   // Serial: a burst of finishes (a backfill) queues rather than running in parallel.
   await work("connections", 1, ({ userId, bookId }: { userId: string; bookId: string }) => ({ kind: "connections", userId, bookId }));
-  await work("layout", 1, ({ userId }: { userId: string }) => ({ kind: "layout", userId }));
+  await work("graph", 1, ({ userId }: { userId: string }) => ({ kind: "graph", userId }));
   return { queue, stop: () => boss.stop({ graceful: true }) };
 }
