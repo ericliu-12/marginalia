@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { appDb } from "@/db/client";
 import { getSeededUserId } from "@/db/seed";
-import { addBook, DuplicateBookError } from "@/domain/add-book";
+import { addBook, addManualBook, DuplicateBookError, InvalidBookError, type ManualBookInput } from "@/domain/add-book";
+import { editBook } from "@/domain/edit-book";
+import { findLookalike, type Lookalike } from "@/domain/lookalike";
 import { descriptionGateway } from "@/lib/book-search";
 import { readEntryEnrichment, tryAgain, type EnrichmentView } from "@/domain/enrichment";
 import { countFindingConnections, dismissConnection, readConnection, readConnections, type ConnectionDetail, type ConnectionsView } from "@/domain/connections";
@@ -25,6 +27,46 @@ export async function addBookAction(work: OpenLibraryWork, status: Status): Prom
     return { ok: true };
   } catch (err) {
     if (err instanceof DuplicateBookError) return { ok: false, reason: "duplicate" };
+    console.error(err);
+    return { ok: false, reason: "failed" };
+  }
+}
+
+export type ManualAddResult = { ok: true; bookId: string } | { ok: false; reason: "invalid" | "failed" };
+
+export async function addManualBookAction(input: ManualBookInput, status: Status): Promise<ManualAddResult> {
+  try {
+    const db = appDb();
+    const { bookId } = await addManualBook(db, appPipeline(db), await getSeededUserId(db), input, status);
+    revalidatePath("/");
+    return { ok: true, bookId };
+  } catch (err) {
+    if (err instanceof InvalidBookError) return { ok: false, reason: "invalid" };
+    console.error(err);
+    return { ok: false, reason: "failed" };
+  }
+}
+
+// Null when there is no lookalike, or it could not be checked: the warning is advisory.
+export async function findLookalikeAction(title: string, author: string): Promise<Lookalike | null> {
+  try {
+    const db = appDb();
+    return await findLookalike(db, await getSeededUserId(db), { title, author });
+  } catch (err) {
+    console.error(err);
+    return null;
+  }
+}
+
+export async function editBookAction(bookId: string, input: ManualBookInput): Promise<{ ok: true } | { ok: false; reason: "invalid" | "failed" }> {
+  try {
+    const db = appDb();
+    await editBook(db, appPipeline(db), await getSeededUserId(db), bookId, input);
+    revalidatePath("/");
+    revalidatePath("/graph");
+    return { ok: true };
+  } catch (err) {
+    if (err instanceof InvalidBookError) return { ok: false, reason: "invalid" };
     console.error(err);
     return { ok: false, reason: "failed" };
   }

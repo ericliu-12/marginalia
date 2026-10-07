@@ -247,3 +247,13 @@ export async function seedSmallLibrary(titles: string[], linked: [number, number
   await layoutGraph(db, userId);
   await pool.end();
 }
+
+// A Book the reader added by hand, wanted, with Enrichment that did not recognise it.
+export async function manualBook(title: string, author: string, description: string) {
+  const { db, pool } = createDb(e2eDatabaseUrl());
+  const userId = await getSeededUserId(db);
+  const [row] = await db.insert(book).values({ title, authors: [author], description, createdByUserId: userId }).returning();
+  await db.insert(libraryEntry).values({ userId, bookId: row.id, status: "want" });
+  await db.insert(enrichment).values({ bookId: row.id, status: "ready", recognised: false });
+  await pool.end();
+}

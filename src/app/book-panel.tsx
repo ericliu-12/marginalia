@@ -7,6 +7,7 @@ import type { Note } from "@/domain/notes";
 import {
   addNoteAction,
   deleteNoteAction,
+  editBookAction,
   getEnrichmentAction,
   listNotesAction,
   removeFromLibraryAction,
@@ -63,6 +64,9 @@ export function BookPanel({
   const [loadFailed, setLoadFailed] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
+  const [editingBook, setEditingBook] = useState(false);
+  // Saved edits: About starts over after one, as a Manual Book's Enrichment may be running again.
+  const [edits, setEdits] = useState(0);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const notesHeadingRef = useRef<HTMLHeadingElement>(null);
 
@@ -93,18 +97,35 @@ export function BookPanel({
         </button>
       </div>
       {crumbs}
-      <header className="flex items-start gap-4 border-b border-rule px-6 pb-5">
-        <Cover title={item.title} url={item.coverUrl} />
-        <div className="min-w-0">
-          <h2 ref={headingRef} tabIndex={-1} className="text-[1.35rem] leading-tight font-medium outline-none">
-            {item.title}
-          </h2>
-          {item.authors.length > 0 && <p className="font-sans text-sm text-ink-2">{item.authors.join(", ")}</p>}
+      <header className="border-b border-rule px-6 pb-5">
+        <div className="flex items-start gap-4">
+          <Cover title={item.title} url={item.coverUrl} />
+          <div className="min-w-0">
+            <h2 ref={headingRef} tabIndex={-1} className="text-[1.35rem] leading-tight font-medium outline-none">
+              {item.title}
+            </h2>
+            {item.authors.length > 0 && <p className="font-sans text-sm text-ink-2">{item.authors.join(", ")}</p>}
+            {!editingBook && (
+              <button type="button" onClick={() => setEditingBook(true)} className={`${quietLink} mt-1`}>
+                {item.manual ? "Edit details" : "Edit title or author"}
+              </button>
+            )}
+          </div>
         </div>
+        {editingBook && (
+          <EditBookForm
+            item={item}
+            onDone={(saved) => {
+              setEditingBook(false);
+              if (saved) setEdits((n) => n + 1);
+              headingRef.current?.focus();
+            }}
+          />
+        )}
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-6 pt-5 pb-10">
-        <About key={`about-${item.bookId}`}bookId={item.bookId} noteCount={notes?.length ?? null} />
+        <About key={`about-${item.bookId}-${edits}`} bookId={item.bookId} noteCount={notes?.length ?? null} />
         <ConnectionsSection key={`connections-${item.bookId}`} bookId={item.bookId} onOpenBook={onOpenBook} withheld={withheldConnections} />
 
         <NoteForm
@@ -193,6 +214,118 @@ function RemoveEntry({ bookId, title, onRemoved }: { bookId: string; title: stri
   );
 }
 
+type BookDraft = { title: string; author: string; coverUrl: string; description: string };
+
+// The reader's own title and author for a shared Book, which change only what they see; a Manual Book
+// is theirs, so its cover and description can change too.
+function EditBookForm({ item, onDone }: { item: LibraryItem; onDone: (saved: boolean) => void }) {
+  const [draft, setDraft] = useState<BookDraft>({
+    title: item.title,
+    author: item.authors.join(", "),
+    coverUrl: item.coverUrl ?? "",
+    description: item.description ?? "",
+  });
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const titleRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => titleRef.current?.focus(), []);
+
+  function change(patch: Partial<BookDraft>) {
+    setDraft((d) => ({ ...d, ...patch }));
+    setError(null);
+  }
+
+  function submit() {
+    if (item.manual && (!draft.title.trim() || !draft.author.trim())) return setError("A title and an author are needed.");
+    if (item.manual && draft.coverUrl.trim() && !/^https?:\/\/\S+$/i.test(draft.coverUrl.trim())) {
+      return setError("The cover should be a web address beginning with http:// or https://.");
+    }
+    setError(null);
+    start(async () => {
+      const res = await editBookAction(item.bookId, draft);
+      if (res.ok) onDone(true);
+      else setError("Couldn’t save these changes. Try again.");
+    });
+  }
+
+  const label = "mt-3 block font-sans text-[0.8rem] font-medium text-ink-2";
+  return (
+    <form
+      aria-label={`Edit ${item.title}`}
+      onSubmit={(e) => {
+        e.preventDefault();
+        submit();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          e.stopPropagation();
+          onDone(false);
+        }
+      }}
+      className="mt-4"
+    >
+      <p className="max-w-[40ch] font-sans text-sm text-ink-2">
+        {item.manual
+          ? "You added this book by hand, so it’s yours to change. A new title, author or description means reading up on it again."
+          : "Changes how this book appears for you alone. Clear a field to go back to the original."}
+      </p>
+      <label htmlFor="edit-title" className={label}>
+        Title
+      </label>
+      <input ref={titleRef} id="edit-title" value={draft.title} onChange={(e) => change({ title: e.target.value })} autoComplete="off" className={`${field} mt-1`} />
+      <label htmlFor="edit-author" className={label}>
+        Author
+      </label>
+      <input id="edit-author" value={draft.author} onChange={(e) => change({ author: e.target.value })} autoComplete="off" className={`${field} mt-1`} />
+      {item.manual && (
+        <>
+          <label htmlFor="edit-cover" className={label}>
+            Cover image address
+          </label>
+          <input
+            id="edit-cover"
+            type="url"
+            inputMode="url"
+            placeholder="https://"
+            value={draft.coverUrl}
+            onChange={(e) => change({ coverUrl: e.target.value })}
+            autoComplete="off"
+            className={`${field} mt-1 font-sans text-[0.95rem]`}
+          />
+          <label htmlFor="edit-description" className={label}>
+            Description
+          </label>
+          <textarea
+            id="edit-description"
+            rows={4}
+            value={draft.description}
+            onChange={(e) => change({ description: e.target.value })}
+            className={`${field} mt-1 resize-y`}
+          />
+        </>
+      )}
+      {error && (
+        <p role="alert" className="mt-2 font-sans text-sm text-contrast">
+          {error}
+        </p>
+      )}
+      <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1">
+        <button
+          type="submit"
+          disabled={pending}
+          className="min-h-11 rounded-[3px] bg-ink px-4 py-2 font-sans text-sm font-medium text-paper transition-colors hover:bg-ink-2 disabled:bg-ink-3 lg:min-h-0"
+        >
+          {pending ? "Saving…" : "Save changes"}
+        </button>
+        <button type="button" onClick={() => onDone(false)} disabled={pending} className={quietLink}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
 // What Marginalia knows about the Book: its summary and themes, or a quiet line when it does not
 // recognise the Book and the reader's Notes carry the weight instead.
 function About({ bookId, noteCount }: { bookId: string; noteCount: number | null }) {
@@ -277,7 +410,7 @@ function About({ bookId, noteCount }: { bookId: string; noteCount: number | null
   );
 }
 
-const field =
+export const field =
   "w-full rounded-[3px] border border-rule bg-paper px-3 py-2.5 text-ink placeholder:text-ink-3 focus-visible:border-thematic focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-thematic/30";
 
 function parsePage(raw: string): number | null | "invalid" {
