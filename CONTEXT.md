@@ -48,6 +48,10 @@ _Avoid_: Link type, category
 A group of at least three related Finished Books that emerges from Connections rather than being filed by hand. It has a generated name and a short generated description, and keeps its identity as Books are added. Smaller groups and Books with no Connections are not Clusters.
 _Avoid_: Shelf, collection, folder
 
+**Follow trail**:
+The Books a reader has followed in the graph, one Connection at a time, oldest first, ending at the Book they are on. Following a Book already on it rewinds to that Book, so it never holds a Book twice. It lasts only while the panel is open, and choosing a Book or Connection on the graph starts a new one.
+_Avoid_: Breadcrumbs, history, path, thread
+
 **Enrichment**:
 LLM-generated summary and themes attached to a Book. When the model does not recognise the Book, the Enrichment is empty (recognised or unrecognised); an unrecognised Book connects through its Notes only.
 _Avoid_: Metadata, annotation
