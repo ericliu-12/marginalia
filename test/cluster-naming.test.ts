@@ -55,7 +55,7 @@ describe("Cluster naming", () => {
 
     expect(namer.inputs).toHaveLength(1);
     const input = namer.inputs[0];
-    expect(input.previous).toBeNull();
+    expect(input.previousName).toBeNull();
     expect(input.books).toHaveLength(3);
     expect(input.books.find((x) => x.themes.includes("grief"))).toBeDefined();
     expect(input.connections.map((x) => x.explanation)).toContain("Both dwell on grief.");
@@ -119,7 +119,7 @@ describe("Cluster naming", () => {
     it("renames at 30% change and two Books, showing the call the old name", async () => {
       const namer = await grow(3, 2);
       expect(namer.inputs).toHaveLength(1);
-      expect(namer.inputs[0].previous).toEqual({ name: "Old Name", description: "Old." });
+      expect(namer.inputs[0].previousName).toBe("Old Name");
       expect(namer.inputs[0].books).toHaveLength(5);
       expect((await clusters())[0]).toMatchObject({ name: "New Name", description: "New." });
     });
@@ -152,7 +152,7 @@ describe("Cluster naming", () => {
     await recompute(fakeNamer(() => ({ name: "Old Name" })));
     const more = await books("D E");
     await clique([...first, ...more]);
-    await recompute(fakeNamer((input) => ({ name: input.previous!.name, description: "Still quiet." })));
+    await recompute(fakeNamer((input) => ({ name: input.previousName!, description: "Still quiet." })));
 
     expect((await clusters())[0]).toMatchObject({ name: "Old Name", description: "Still quiet." });
     const [row] = await ctx.db.select().from(clusterLabel);

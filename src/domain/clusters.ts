@@ -146,8 +146,9 @@ export async function readClusters(db: Db, userId: string, books: Set<string>) {
 
 export type NamingBook = { title: string; authors: string[]; themes: string[] };
 export type NamingInput = {
-  // The Cluster's current name and description, which the call may keep; null for a new Cluster.
-  previous: { name: string; description: string | null } | null;
+  // The Cluster's current name, which the call may keep; null for a new Cluster. Its description is
+  // not passed, so facts it stated are never carried into the next one.
+  previousName: string | null;
   books: NamingBook[];
   // Between two of `books`, by title.
   connections: { a: string; b: string; explanation: string }[];
@@ -180,7 +181,7 @@ function needsName(c: { name: string | null; members: string[]; named: string[] 
 
 // The reader's titles and authors for `members`, their Enrichment themes, and the strongest
 // non-dismissed Connections among them.
-async function namingInput(db: Db, userId: string, members: string[], previous: NamingInput["previous"]): Promise<NamingInput> {
+async function namingInput(db: Db, userId: string, members: string[], previousName: string | null): Promise<NamingInput> {
   const rows = await db
     .select({ id: book.id, title: book.title, authors: book.authors, entry: libraryEntry, themes: enrichment.themes, recognised: enrichment.recognised })
     .from(book)
@@ -198,7 +199,7 @@ async function namingInput(db: Db, userId: string, members: string[], previous: 
     .sort((p, q) => STRENGTH_RANK[p.strength] - STRENGTH_RANK[q.strength] || q.similarity - p.similarity || (p.id < q.id ? -1 : 1))
     .slice(0, NAMING_CONNECTIONS);
   return {
-    previous,
+    previousName,
     books: rows.map((r) => ({ ...displayed(r, r.entry), themes: r.recognised ? (r.themes ?? []) : [] })),
     connections: connections.map((c) => ({ a: title.get(c.bookAId)!, b: title.get(c.bookBId)!, explanation: c.explanation })),
   };
@@ -228,13 +229,12 @@ async function nameOne(namer: ClusterNamer, input: NamingInput): Promise<NamingR
 // is named by the job that change queued.
 export async function nameClusters(db: Db, namer: ClusterNamer, userId: string): Promise<void> {
   const rows = await db
-    .select({ id: clusterLabel.id, members: clusterLabel.memberBookIds, named: clusterLabel.namedMemberBookIds, name: clusterLabel.name, description: clusterLabel.description })
+    .select({ id: clusterLabel.id, members: clusterLabel.memberBookIds, named: clusterLabel.namedMemberBookIds, name: clusterLabel.name })
     .from(clusterLabel)
     .where(eq(clusterLabel.userId, userId))
     .orderBy(asc(clusterLabel.createdAt), asc(clusterLabel.id));
   for (const c of rows.filter(needsName)) {
-    const previous = c.name === null ? null : { name: c.name, description: c.description };
-    const r = await nameOne(namer, await namingInput(db, userId, c.members, previous));
+    const r = await nameOne(namer, await namingInput(db, userId, c.members, c.name));
     if (!r) continue;
     await db
       .update(clusterLabel)

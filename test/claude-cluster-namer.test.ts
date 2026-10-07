@@ -4,7 +4,7 @@ import { claudeClusterNamer, CLUSTER_NAMING_PROMPT_VERSION, clusterNamingPrompt 
 import { MODELS } from "../src/lib/models";
 
 const input = {
-  previous: { name: "Quiet Lives", description: "Books about quiet lives." },
+  previousName: "Quiet Lives",
   books: [
     { title: "Stoner", authors: ["John Williams"], themes: ["work", "solitude"] },
     { title: "Lonely", authors: [], themes: [] },
@@ -28,10 +28,10 @@ function clientReplying(parsed_output: unknown) {
 describe("Claude Cluster namer", () => {
   it("lays out the previous name, the Books with their themes, and the Connections", () => {
     const prompt = clusterNamingPrompt(input);
-    expect(prompt).toContain("PREVIOUS NAME: Quiet Lives\nPREVIOUS DESCRIPTION: Books about quiet lives.");
+    expect(prompt).toContain("PREVIOUS NAME: Quiet Lives\n\nBOOKS");
     expect(prompt).toContain("- Stoner by John Williams; themes: work; solitude\n- Lonely by (unknown); themes: (unavailable)");
     expect(prompt).toContain("CONNECTIONS\n- Stoner / Lonely: Both are quiet.");
-    expect(clusterNamingPrompt({ ...input, previous: null })).toContain("PREVIOUS NAME: (none, a new Cluster)\n\nBOOKS");
+    expect(clusterNamingPrompt({ ...input, previousName: null })).toContain("PREVIOUS NAME: (none, a new Cluster)\n\nBOOKS");
   });
 
   it("returns the name and description with tokens and cost, on the naming model", async () => {
