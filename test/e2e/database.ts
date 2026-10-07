@@ -3,6 +3,7 @@ import { Pool } from "pg";
 import { createDb } from "../../src/db/client";
 import { runMigrations } from "../../src/db/migrate";
 import { getSeededUserId, seedUser } from "../../src/db/seed";
+import { layoutGraph } from "../../src/domain/graph";
 import { book, bookPosition, clusterLabel, connection, enrichment, graphJob, libraryEntry, note, readThrough } from "../../src/db/schema";
 
 // The browser tests' own database on the docker-compose Postgres, apart from the app's and the unit tests'.
@@ -184,5 +185,40 @@ export async function wantBook(title: string) {
   const [row] = await db.insert(book).values({ title, authors: ["A. Writer"] }).returning();
   await db.insert(libraryEntry).values({ userId, bookId: row.id, status: "want" });
   await db.insert(enrichment).values({ bookId: row.id, status: "ready", recognised: true, summary: `${title}.`, themes: ["memory"] });
+  await pool.end();
+}
+
+// A small finished library from scratch, in place of LIBRARY: these Books with these themes, a strong
+// Thematic Connection for each pair in `linked` (indexes into `titles`), laid out as the worker would.
+export async function seedSmallLibrary(titles: string[], linked: [number, number][] = [], themes = ["memory", "duty"]) {
+  const { db, pool } = createDb(e2eDatabaseUrl());
+  await db.execute(sql`TRUNCATE "user" CASCADE`);
+  const userId = (await seedUser(db)).id;
+  const ids: string[] = [];
+  for (const [i, title] of titles.entries()) {
+    const [row] = await db.insert(book).values({ title, authors: ["A. Writer"] }).returning();
+    ids.push(row.id);
+    const [entry] = await db.insert(libraryEntry).values({ userId, bookId: row.id, status: "read", connectionsGeneratedAt: new Date() }).returning();
+    const finished = new Date(Date.UTC(2026, 0, 1 + i));
+    await db.insert(readThrough).values({ libraryEntryId: entry.id, userId, finishedAt: finished, completedAt: finished });
+    await db.insert(enrichment).values({ bookId: row.id, status: "ready", recognised: true, summary: `${title}.`, themes });
+  }
+  for (const [i, j] of linked) {
+    const [a, b] = [ids[i], ids[j]].sort();
+    await db.insert(connection).values({
+      userId,
+      bookAId: a,
+      bookBId: b,
+      type: "thematic",
+      strength: "strong",
+      similarity: 0.5,
+      similarityModel: "e2e",
+      explanation: `Why ${titles[i]} meets ${titles[j]}.`,
+      grounding: "enrichment",
+      model: "e2e",
+      promptVersion: "e2e",
+    });
+  }
+  await layoutGraph(db, userId);
   await pool.end();
 }

@@ -18,12 +18,14 @@ import {
   FADED_EDGE,
   FADED_LABEL,
   FADED_NODE,
+  FIT_PADDING,
   INK,
   LABEL_GAP,
   LABEL_PLATE,
   LABEL_SIZE,
   LAND_MS,
   LAND_RING,
+  layoutScale,
   MAX_FIT_ZOOM,
   PAPER_PLATE,
   RECENT_LABELS,
@@ -60,17 +62,12 @@ type Focus = {
   labelOrder: Node[];
 };
 
-const median = (xs: number[]) => {
-  const s = [...xs].sort((a, b) => a - b);
-  return s.length ? s[Math.floor(s.length / 2)] : 0;
-};
-
-// Graph data for force-graph, built once per graph: stored positions scaled so a typical Connection
-// is TYPICAL_EDGE_LENGTH long, an id-to-node map, and each Cluster's Books.
+// Graph data for force-graph, built once per graph: stored positions scaled by layoutScale, an
+// id-to-node map, and each Cluster's Books.
 function prepare(graph: GraphView) {
   const raw = new Map(graph.books.map((b) => [b.bookId, b]));
   const lengths = graph.connections.map((c) => Math.hypot(raw.get(c.a)!.x - raw.get(c.b)!.x, raw.get(c.a)!.y - raw.get(c.b)!.y));
-  const scale = TYPICAL_EDGE_LENGTH / (median(lengths.filter((l) => l > 0)) || TYPICAL_EDGE_LENGTH);
+  const scale = layoutScale(graph.books, graph.connections);
   const nodes: Node[] = graph.books.map((b) => ({
     id: b.bookId,
     book: b,
@@ -589,7 +586,7 @@ export function GraphCanvas({
     if (fitted.current) return true;
     if (!f.getGraphBbox()) return false;
     fitted.current = true;
-    f.zoomToFit(0, 80);
+    f.zoomToFit(0, FIT_PADDING);
     if (f.zoom() > MAX_FIT_ZOOM) f.zoom(MAX_FIT_ZOOM);
     return true;
   };

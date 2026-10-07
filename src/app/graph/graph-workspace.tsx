@@ -8,6 +8,7 @@ import type { LibraryItem } from "@/domain/library";
 import { graphStatusAction } from "../actions";
 import { BookPanel } from "../book-panel";
 import { FindingIndicator, POLL_MS, usePoll } from "../connections";
+import { quietLink } from "../quiet-link";
 import { ViewSwitch } from "../view-switch";
 import { arriving, drawOrder, justFinished } from "./arrival";
 import { ClusterPanel } from "./cluster-panel";
@@ -46,7 +47,20 @@ function saveShown(userId: string, bookIds: string[]) {
 }
 const NONE = new Set<string>();
 
-export function GraphWorkspace({ graph, items, finding, userId }: { graph: GraphView; items: LibraryItem[]; finding: number; userId: string }) {
+export function GraphWorkspace({
+  graph,
+  items,
+  finding,
+  userId,
+  loneThemes,
+}: {
+  graph: GraphView;
+  items: LibraryItem[];
+  finding: number;
+  userId: string;
+  // With a single Finished Book, its Enrichment themes, where it has any.
+  loneThemes: string[];
+}) {
   const router = useRouter();
   const wide = useWide();
   // While background work is about to change the graph (after a dismissal, a removal, a Refresh or a
@@ -197,10 +211,32 @@ export function GraphWorkspace({ graph, items, finding, userId }: { graph: Graph
           .
         </p>
       )}
+      {/* No placeholder Books: the two ways in. Both lead to the library, which opens with search ready
+          for Books already read. */}
       {wide && graph.books.length === 0 && (
-        <p className="absolute inset-x-12 top-28 max-w-[34ch] text-xl text-ink-2 italic">
-          Books you finish appear here, linked by their Connections.
-        </p>
+        <div className="absolute inset-x-12 top-28 max-w-[40ch]">
+          <p className="text-xl text-ink-2 italic">Your graph begins with a finished Book.</p>
+          <p className="mt-4 flex items-baseline gap-2.5 text-ink-3">
+            <Link href="/" className={quietLink}>
+              Go to your library
+            </Link>
+            <span aria-hidden>·</span>
+            <Link href="/" className={quietLink}>
+              Add books you’ve read
+            </Link>
+          </p>
+        </div>
+      )}
+      {/* A first Book: its themes, never drawn as Connections, in the place the legend will take. */}
+      {wide && graph.books.length === 1 && (
+        <div className="pointer-events-none absolute bottom-7 left-12 flex max-w-[52ch] flex-col gap-1.5">
+          {loneThemes.length > 0 && (
+            <p className="font-sans text-[0.8rem] leading-relaxed font-medium text-ink-2">
+              Themes of <i className="font-serif text-[0.95rem] font-normal">{graph.books[0].label}</i>: {loneThemes.join(" · ")}
+            </p>
+          )}
+          <p className="text-ink-2 italic">Connections appear as you finish more Books.</p>
+        </div>
       )}
 
       {wide && graph.connections.length > 0 && (

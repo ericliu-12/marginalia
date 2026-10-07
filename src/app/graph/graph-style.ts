@@ -1,4 +1,5 @@
 import type { ConnectionType, Strength } from "@/domain/connections";
+import type { GraphBook, GraphConnection } from "@/domain/graph";
 
 // The graph's tunable look, in one place. Sizes are screen pixels, whatever the zoom.
 // Which Connections show at rest (AT_REST_STRENGTHS, DISPLAY_CAP per Book) is set in src/domain/graph.ts.
@@ -29,13 +30,32 @@ export const RECENT_LABELS = 3;
 
 // The layout is scaled so a typical Connection is this long, which the drag forces below assume.
 export const TYPICAL_EDGE_LENGTH = 70;
+
+const median = (xs: number[]) => {
+  const s = xs.filter((x) => x > 0).sort((a, b) => a - b);
+  return s.length ? s[Math.floor(s.length / 2)] : 0;
+};
+// How much to scale stored positions by so the median Connection is TYPICAL_EDGE_LENGTH long. A graph
+// with no Connections yet is scaled by how far each Book sits from its nearest other, so Books with
+// nothing between them still stand a Connection's length apart.
+export function layoutScale(books: Pick<GraphBook, "bookId" | "x" | "y">[], connections: Pick<GraphConnection, "a" | "b">[]) {
+  const at = new Map(books.map((b) => [b.bookId, b]));
+  const apart = (p: { x: number; y: number }, q: { x: number; y: number }) => Math.hypot(p.x - q.x, p.y - q.y);
+  const typical = connections.length
+    ? median(connections.map((c) => apart(at.get(c.a)!, at.get(c.b)!)))
+    : median(books.map((b) => Math.min(...books.filter((o) => o !== b).map((o) => apart(b, o)))));
+  return typical > 0 && Number.isFinite(typical) ? TYPICAL_EDGE_LENGTH / typical : 1;
+}
 // Dragging a Book wakes a gentle simulation: its Connections pull, near Books push a little, and every
 // Book is drawn back toward its stored place.
 // The home pull is a steady spring, so a Book always gets back; the others fade as the simulation cools.
 export const DRAG = { home: 0.06, link: 0.2, charge: -24, alphaDecay: 0.04, velocityDecay: 0.5, settleTicks: 200 };
 
-// Fitting a small graph to the screen never zooms in past this.
+// Fitting a small graph to the screen never zooms in past this, so a few Books sit together mid-canvas
+// and the view only loosens to fill the screen as the graph grows.
 export const MAX_FIT_ZOOM = 2.4;
+// Room the fitted graph keeps from the canvas edges, clear of the wordmark above and the legend below.
+export const FIT_PADDING = 112;
 
 export const INK = "#231d17";
 export const PAPER_PLATE = "rgb(243 236 221 / 0.88)";

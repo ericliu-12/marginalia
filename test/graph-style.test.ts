@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CLUSTER_NAME_COLOR, WASH, WASH_ALPHA } from "../src/app/graph/graph-style";
+import { CLUSTER_NAME_COLOR, layoutScale, TYPICAL_EDGE_LENGTH, WASH, WASH_ALPHA } from "../src/app/graph/graph-style";
 import { WASH_COUNT } from "../src/domain/clusters";
 
 const PAPER = "#f3ecdd";
@@ -24,5 +24,23 @@ describe("Graph style", () => {
       const twice = over(over(rgb(PAPER), rgb(tint), WASH_ALPHA.rest), rgb(tint), WASH_ALPHA.rest);
       expect(contrast(rgb(CLUSTER_NAME_COLOR), twice), tint).toBeGreaterThanOrEqual(4.5);
     }
+  });
+
+  it("scales the layout so the median Connection is a typical length", () => {
+    const books = [{ bookId: "a", x: 0, y: 0 }, { bookId: "b", x: 2, y: 0 }, { bookId: "c", x: 2, y: 4 }];
+    const links = [{ a: "a", b: "b" }, { a: "b", b: "c" }, { a: "a", b: "c" }];
+    // Lengths 2, 4 and about 4.47: the median is 4.
+    expect(layoutScale(books, links)).toBeCloseTo(TYPICAL_EDGE_LENGTH / 4);
+  });
+
+  it("without Connections, scales by the median distance from each Book to its nearest other", () => {
+    const books = [{ bookId: "a", x: 0, y: 0 }, { bookId: "b", x: 0.5, y: 0 }, { bookId: "c", x: 0.5, y: 3 }];
+    // Nearest: a 0.5, b 0.5, c 3.
+    expect(layoutScale(books, [])).toBeCloseTo(TYPICAL_EDGE_LENGTH / 0.5);
+  });
+
+  it("leaves a lone Book, or Books all in one place, unscaled", () => {
+    expect(layoutScale([{ bookId: "a", x: 3, y: 1 }], [])).toBe(1);
+    expect(layoutScale([{ bookId: "a", x: 3, y: 1 }, { bookId: "b", x: 3, y: 1 }], [])).toBe(1);
   });
 });
