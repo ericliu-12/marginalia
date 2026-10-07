@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore } from "react";
 import { otherBook } from "@/domain/connection-pair";
 import { visibleConnections, type GraphView } from "@/domain/graph";
 import type { LibraryItem } from "@/domain/library";
@@ -15,7 +15,7 @@ import { ClusterPanel } from "./cluster-panel";
 import { ConnectionPanel } from "./connection-panel";
 import { GraphCanvas, reducedMotion, type Selection } from "./graph-canvas";
 import { DRAW_FIRST_MS, DRAW_STEP_MS, DRAW_UNHURRIED, TYPE_COLOR, TYPE_LABEL } from "./graph-style";
-import { follow, rewind } from "./trail";
+import { CLOSED, panelState } from "./panel-state";
 import { TrailCrumbs } from "./trail-crumbs";
 
 // Matches Tailwind's lg: the graph is a desktop surface.
@@ -82,9 +82,8 @@ export function GraphWorkspace({
     [router, graph.naming],
   );
   usePoll(check, POLL_MS, waiting);
-  const [selection, setSelection] = useState<Selection>(null);
-  // The Books followed from the panel, oldest first. Anything chosen on the canvas starts afresh.
-  const [trail, setTrail] = useState<string[]>([]);
+  // What the panel is on, and the Follow trail that led there.
+  const [{ selection, trail, fresh }, dispatch] = useReducer(panelState, CLOSED);
   // Said to screen readers when following a Book already on the trail quietly rewinds to it.
   const [said, setSaid] = useState("");
   const panelRef = useRef<HTMLDivElement>(null);
@@ -92,38 +91,29 @@ export function GraphWorkspace({
   // The keyboard list item that opened the panel, so closing it puts focus back there.
   const returnTo = useRef<HTMLElement | null>(null);
   // The arrival under way: the Books that landed, the newest first, and which of their Connections have
-  // drawn in. `fresh` is the one whose panel says it was just finished, until the panel closes.
+  // drawn in.
   const [arrival, setArrival] = useState<{ books: string[]; drawn: Set<string> } | null>(null);
-  const [fresh, setFresh] = useState<string | null>(null);
   const item = selection?.kind === "book" ? items.find((i) => i.bookId === selection.bookId) : undefined;
   const close = () => {
-    setFresh(null);
-    setSelection(null);
-    setTrail([]);
+    dispatch({ kind: "close" });
     const back = returnTo.current;
     returnTo.current = null;
     if (back?.isConnected) requestAnimationFrame(() => back.focus());
   };
   const select = (s: Selection) => {
     if (!s) return close();
-    setSelection(s);
-    setTrail(s.kind === "book" ? [s.bookId] : []);
+    dispatch({ kind: "select", selection: s });
   };
   const openFromList = (target: HTMLElement, s: Selection) => {
     returnTo.current = target;
     select(s);
   };
-  const goTo = (next: string[]) => {
-    setTrail(next);
-    setSelection({ kind: "book", bookId: next[next.length - 1] });
-  };
   const labelOf = new Map(graph.books.map((b) => [b.bookId, b.label]));
-  const followTo = (from: string[], bookId: string) => {
-    const next = follow(from, bookId);
+  const followTo = (bookId: string, via?: string) => {
     // Emptied first, so the same words said twice are still announced.
     setSaid("");
-    if (next.length <= from.length) requestAnimationFrame(() => setSaid(`Back to ${labelOf.get(bookId)} on your trail`));
-    goTo(next);
+    if ((via ? [via] : trail).includes(bookId)) requestAnimationFrame(() => setSaid(`Back to ${labelOf.get(bookId)} on your trail`));
+    dispatch({ kind: "follow", bookId, via });
   };
 
   // Escape closes the panel wherever focus is. Forms inside the panel stop their own Escape first.
@@ -145,9 +135,7 @@ export function GraphWorkspace({
     saveShown(userId, graph.books.map((b) => b.bookId));
     if (books.length === 0) return;
     setArrival({ books, drawn: new Set() });
-    setFresh(books[0]);
-    setSelection({ kind: "book", bookId: books[0] });
-    setTrail([books[0]]);
+    dispatch({ kind: "arrive", bookId: books[0] });
     const titles = books.map((id) => graph.books.find((b) => b.bookId === id)?.title);
     const words = `${new Intl.ListFormat("en").format(titles.filter((t) => t !== undefined))} ${titles.length === 1 ? "is" : "are"} now in your graph`;
     // After a frame, so the status region exists before it is spoken into on a fresh page.
@@ -308,7 +296,7 @@ export function GraphWorkspace({
               // Following from a Connection starts the trail at its other Book, so the way back is kept.
               onOpenBook={(bookId) => {
                 const c = graph.connections.find((x) => x.id === selection.id);
-                followTo(c ? [otherBook(c, bookId)] : trail, bookId);
+                followTo(bookId, c && otherBook(c, bookId));
               }}
             />
           ) : (
@@ -318,7 +306,7 @@ export function GraphWorkspace({
                 item={item}
                 backLabel="Back to the graph"
                 onBack={close}
-                onOpenBook={(bookId) => followTo(trail, bookId)}
+                onOpenBook={(bookId) => followTo(bookId)}
                 crumbs={
                   <>
                     {freshBook && (
@@ -330,9 +318,9 @@ export function GraphWorkspace({
                     {trail.length > 1 && (
                       <TrailCrumbs
                         labels={trail.map((id) => labelOf.get(id) ?? "")}
-                        onRewind={(i) => goTo(rewind(trail, i))}
+                        onRewind={(index) => dispatch({ kind: "rewind", index })}
                         onClear={() => {
-                          setTrail([item.bookId]);
+                          dispatch({ kind: "clear" });
                           // The crumbs, and the focused Clear with them, are gone; the Book's heading is next.
                           requestAnimationFrame(() => panelRef.current?.querySelector<HTMLElement>("h2")?.focus());
                         }}
