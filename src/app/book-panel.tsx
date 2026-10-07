@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import type { LibraryItem } from "@/domain/library";
+import type { Status } from "@/domain/search";
 import type { EnrichmentView } from "@/domain/enrichment";
 import type { Note } from "@/domain/notes";
 import {
   addNoteAction,
+  changeStatusAction,
   deleteNoteAction,
   editBookAction,
   getEnrichmentAction,
@@ -14,7 +16,9 @@ import {
   tryAgainAction,
   updateNoteAction,
 } from "./actions";
+import { draftError, invalidProps, withScheme, type BookDraft, type DraftError } from "./book-draft";
 import { ConnectionsSection } from "./connections";
+import { MOVES } from "./library-list";
 import { useInlineConfirm } from "./use-inline-confirm";
 import { POLL_MS, usePoll } from "./use-poll";
 import { Cover } from "./cover";
@@ -67,6 +71,7 @@ export function BookPanel({
   const [editingBook, setEditingBook] = useState(false);
   // Saved edits: About starts over after one, as a Manual Book's Enrichment may be running again.
   const [edits, setEdits] = useState(0);
+  const [saved, setSaved] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const notesHeadingRef = useRef<HTMLHeadingElement>(null);
 
@@ -105,26 +110,40 @@ export function BookPanel({
               {item.title}
             </h2>
             {item.authors.length > 0 && <p className="font-sans text-sm text-ink-2">{item.authors.join(", ")}</p>}
+            <StatusMoves key={item.status} item={item} />
             {!editingBook && (
-              <button type="button" onClick={() => setEditingBook(true)} className={`${quietLink} mt-1`}>
+              <button
+                type="button"
+                onClick={() => {
+                  setSaved(false);
+                  setEditingBook(true);
+                }}
+                className={quietLink}
+              >
                 {item.manual ? "Edit details" : "Edit title or author"}
               </button>
             )}
+            <p role="status" className="font-sans text-sm text-ink-2 empty:hidden">
+              {saved ? "Changes saved." : ""}
+            </p>
           </div>
         </div>
+      </header>
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 pt-5 pb-10">
         {editingBook && (
           <EditBookForm
             item={item}
-            onDone={(saved) => {
+            onDone={(didSave) => {
               setEditingBook(false);
-              if (saved) setEdits((n) => n + 1);
+              if (didSave) {
+                setEdits((n) => n + 1);
+                setSaved(true);
+              }
               headingRef.current?.focus();
             }}
           />
         )}
-      </header>
-
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 pt-5 pb-10">
         <About key={`about-${item.bookId}-${edits}`} bookId={item.bookId} noteCount={notes?.length ?? null} />
         <ConnectionsSection key={`connections-${item.bookId}`} bookId={item.bookId} onOpenBook={onOpenBook} withheld={withheldConnections} />
 
@@ -178,6 +197,43 @@ export function BookPanel({
   );
 }
 
+const STATUS_LABEL: Record<Status, string> = { want: "Want to read", reading: "Reading", read: "Read" };
+
+// Where the Book stands, and the same one-click moves as its library row: "Read again" starts a new
+// Read-through for a finished Book.
+function StatusMoves({ item }: { item: LibraryItem }) {
+  const [pending, start] = useTransition();
+  const [moving, setMoving] = useState<Status | null>(null);
+  const [error, setError] = useState(false);
+
+  function move(to: Status) {
+    setError(false);
+    setMoving(to);
+    start(async () => {
+      const res = await changeStatusAction(item.bookId, to);
+      if (!res.ok) setError(true);
+    });
+  }
+
+  return (
+    <div aria-busy={pending} className="mt-1.5">
+      <div role="group" aria-label={`Status of ${item.title}`} className="flex flex-wrap items-baseline gap-x-4">
+        <span className="font-sans text-sm text-ink-2">{item.reReading ? "Re-reading" : STATUS_LABEL[item.status]}</span>
+        {MOVES[item.status].map(({ label, to }) => (
+          <button key={to} type="button" disabled={pending} onClick={() => move(to)} className={quietLink}>
+            {pending && moving === to ? "Moving…" : label}
+          </button>
+        ))}
+      </div>
+      {error && (
+        <p role="alert" className="font-sans text-sm text-contrast">
+          Couldn’t move this book. Try again.
+        </p>
+      )}
+    </div>
+  );
+}
+
 // Last in the panel and quiet, like deleting a Note: one text action, then an inline confirmation.
 // Focus lands on Keep, the safe choice, and returns to the action when the reader keeps the Book.
 function RemoveEntry({ bookId, title, onRemoved }: { bookId: string; title: string; onRemoved: () => void }) {
@@ -214,10 +270,8 @@ function RemoveEntry({ bookId, title, onRemoved }: { bookId: string; title: stri
   );
 }
 
-type BookDraft = { title: string; author: string; coverUrl: string; description: string };
-
 // The reader's own title and author for a shared Book, which change only what they see; a Manual Book
-// is theirs, so its cover and description can change too.
+// is theirs, so its cover and description can change too. Sits at the top of the panel's body.
 function EditBookForm({ item, onDone }: { item: LibraryItem; onDone: (saved: boolean) => void }) {
   const [draft, setDraft] = useState<BookDraft>({
     title: item.title,
@@ -225,11 +279,16 @@ function EditBookForm({ item, onDone }: { item: LibraryItem; onDone: (saved: boo
     coverUrl: item.coverUrl ?? "",
     description: item.description ?? "",
   });
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<DraftError | null>(null);
   const [pending, start] = useTransition();
-  const titleRef = useRef<HTMLInputElement>(null);
+  const refs = {
+    title: useRef<HTMLInputElement>(null),
+    author: useRef<HTMLInputElement>(null),
+    coverUrl: useRef<HTMLInputElement>(null),
+    description: useRef<HTMLTextAreaElement>(null),
+  };
 
-  useEffect(() => titleRef.current?.focus(), []);
+  useEffect(() => refs.title.current?.focus(), []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function change(patch: Partial<BookDraft>) {
     setDraft((d) => ({ ...d, ...patch }));
@@ -237,21 +296,25 @@ function EditBookForm({ item, onDone }: { item: LibraryItem; onDone: (saved: boo
   }
 
   function submit() {
-    if (item.manual && (!draft.title.trim() || !draft.author.trim())) return setError("A title and an author are needed.");
-    if (item.manual && draft.coverUrl.trim() && !/^https?:\/\/\S+$/i.test(draft.coverUrl.trim())) {
-      return setError("The cover should be a web address beginning with http:// or https://.");
+    const problem = draftError(draft, item.manual);
+    if (problem) {
+      setError(problem);
+      if (problem.field) refs[problem.field].current?.focus();
+      return;
     }
     setError(null);
     start(async () => {
-      const res = await editBookAction(item.bookId, draft);
+      const res = await editBookAction(item.bookId, { ...draft, coverUrl: withScheme(draft.coverUrl) });
       if (res.ok) onDone(true);
-      else setError("Couldn’t save these changes. Try again.");
+      else setError({ field: null, message: "Couldn’t save these changes. Try again." });
     });
   }
 
   const label = "mt-3 block font-sans text-[0.8rem] font-medium text-ink-2";
+  const errorId = `edit-${item.bookId}-error`;
   return (
     <form
+      noValidate
       aria-label={`Edit ${item.title}`}
       onSubmit={(e) => {
         e.preventDefault();
@@ -263,27 +326,28 @@ function EditBookForm({ item, onDone }: { item: LibraryItem; onDone: (saved: boo
           onDone(false);
         }
       }}
-      className="mt-4"
+      className="mb-8 border-b border-rule pb-6"
     >
       <p className="max-w-[40ch] font-sans text-sm text-ink-2">
         {item.manual
           ? "You added this book by hand, so it’s yours to change. A new title, author or description means reading up on it again."
-          : "Changes how this book appears for you alone. Clear a field to go back to the original."}
+          : `Changes how this book appears for you alone. Clear a field to go back to the original${item.original ? `, ${item.original.title} by ${item.original.authors.join(", ")}` : ""}.`}
       </p>
       <label htmlFor="edit-title" className={label}>
         Title
       </label>
-      <input ref={titleRef} id="edit-title" value={draft.title} onChange={(e) => change({ title: e.target.value })} autoComplete="off" className={`${field} mt-1`} />
+      <input ref={refs.title} id="edit-title" value={draft.title} onChange={(e) => change({ title: e.target.value })} autoComplete="off" {...invalidProps(error, "title", errorId)} className={`${field} mt-1 font-sans text-[0.95rem]`} />
       <label htmlFor="edit-author" className={label}>
         Author
       </label>
-      <input id="edit-author" value={draft.author} onChange={(e) => change({ author: e.target.value })} autoComplete="off" className={`${field} mt-1`} />
+      <input ref={refs.author} id="edit-author" value={draft.author} onChange={(e) => change({ author: e.target.value })} autoComplete="off" {...invalidProps(error, "author", errorId)} className={`${field} mt-1 font-sans text-[0.95rem]`} />
       {item.manual && (
         <>
           <label htmlFor="edit-cover" className={label}>
             Cover image address
           </label>
           <input
+            ref={refs.coverUrl}
             id="edit-cover"
             type="url"
             inputMode="url"
@@ -291,12 +355,14 @@ function EditBookForm({ item, onDone }: { item: LibraryItem; onDone: (saved: boo
             value={draft.coverUrl}
             onChange={(e) => change({ coverUrl: e.target.value })}
             autoComplete="off"
+            {...invalidProps(error, "coverUrl", errorId)}
             className={`${field} mt-1 font-sans text-[0.95rem]`}
           />
           <label htmlFor="edit-description" className={label}>
             Description
           </label>
           <textarea
+            ref={refs.description}
             id="edit-description"
             rows={4}
             value={draft.description}
@@ -306,8 +372,8 @@ function EditBookForm({ item, onDone }: { item: LibraryItem; onDone: (saved: boo
         </>
       )}
       {error && (
-        <p role="alert" className="mt-2 font-sans text-sm text-contrast">
-          {error}
+        <p id={errorId} role="alert" className="mt-2 font-sans text-sm text-contrast">
+          {error.message}
         </p>
       )}
       <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1">

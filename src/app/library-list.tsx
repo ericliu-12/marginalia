@@ -6,8 +6,8 @@ import type { Status } from "@/domain/search";
 import { changeStatusAction } from "./actions";
 import { Cover } from "./cover";
 
-// Quiet one-click moves per Status; the full Status control lives in the Book panel.
-const MOVES: Record<Status, { label: string; to: Status }[]> = {
+// Quiet one-click moves per Status, on each row and in the Book panel.
+export const MOVES: Record<Status, { label: string; to: Status }[]> = {
   reading: [
     { label: "Mark finished", to: "read" },
     { label: "Want to read", to: "want" },

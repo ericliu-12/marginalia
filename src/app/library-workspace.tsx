@@ -63,6 +63,7 @@ export function LibraryWorkspace({ items, finding }: { items: LibraryItem[]; fin
               <SearchPane
                 removed={removed}
                 onOpenBook={setBookId}
+                hidden={!!book}
                 onClose={() => {
                   setSearchOpen(false);
                   requestAnimationFrame(() => openRef.current?.focus());

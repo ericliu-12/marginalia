@@ -129,7 +129,15 @@ describe("Manual Books, lookalikes and overrides", () => {
 
       expect(await bookRow(bookId)).toEqual(before);
       expect(enrichJobs()).toEqual([]);
-      expect(await readLibrary(ctx.db, ctx.userId)).toMatchObject([{ title: "Stoner (NYRB)", authors: ["John Edward Williams"], manual: false, description: null }]);
+      expect(await readLibrary(ctx.db, ctx.userId)).toMatchObject([
+        {
+          title: "Stoner (NYRB)",
+          authors: ["John Edward Williams"],
+          original: { title: "Stoner", authors: ["John Williams"] },
+          manual: false,
+          description: null,
+        },
+      ]);
     });
 
     it("are another reader's own: theirs still see the shared values", async () => {
@@ -145,7 +153,7 @@ describe("Manual Books, lookalikes and overrides", () => {
       await edit(bookId, { title: "My Stoner", author: "J. Williams" });
       await edit(bookId, { title: "Stoner", author: "" });
       expect(await ctx.db.select({ t: libraryEntry.titleOverride, a: libraryEntry.authorOverride }).from(libraryEntry)).toEqual([{ t: null, a: null }]);
-      expect(await readLibrary(ctx.db, ctx.userId)).toMatchObject([{ title: "Stoner", authors: ["John Williams"] }]);
+      expect(await readLibrary(ctx.db, ctx.userId)).toMatchObject([{ title: "Stoner", authors: ["John Williams"], original: null }]);
     });
 
     it("need the Book in the reader's library", async () => {

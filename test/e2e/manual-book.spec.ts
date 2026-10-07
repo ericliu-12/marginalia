@@ -28,7 +28,35 @@ test("a Book search can't find is added by hand, and lands in the library", asyn
   await form.getByRole("button", { name: "Want to read" }).click();
 
   await expect(searchPane(page).getByText("Added Notes from a Kitchen to your library.")).toBeVisible();
+  await expect(searchPane(page).getByText("No match", { exact: false })).toHaveCount(0);
   await expect(library(page).getByRole("region", { name: /^Want to read/ }).getByRole("button", { name: "Notes from a Kitchen", exact: true })).toBeVisible();
+
+  // The notice opens the Book just added.
+  await searchPane(page).getByRole("button", { name: "Notes from a Kitchen" }).click();
+  await expect(panelHeading(page)).toHaveText("Notes from a Kitchen");
+});
+
+test("the form says what is wrong in its own words, at the field, and keeps the draft through another search", async ({ page }) => {
+  await seedLibrary();
+  const form = await openManualForm(page, "Kitchen");
+
+  await form.getByRole("button", { name: "Want to read" }).click();
+  await expect(form.getByText("An author is needed.")).toBeVisible();
+  await expect(form.getByLabel("Author", { exact: true })).toBeFocused();
+  await expect(form.getByLabel("Author", { exact: true })).toHaveAttribute("aria-invalid", "true");
+
+  await form.getByLabel("Author", { exact: true }).fill("June Ash");
+  await form.getByRole("button", { name: "Add a cover" }).click();
+  await form.getByLabel("Cover image address").fill("not a url");
+  await form.getByRole("button", { name: "Want to read" }).click();
+  await expect(form.getByText("The cover should be a web address beginning with http:// or https://.")).toBeVisible();
+
+  // Searching again closes the form; bringing it back brings the draft.
+  await page.getByRole("searchbox", { name: "Search by title and author" }).fill("Kitchen notes");
+  await expect(form).toHaveCount(0);
+  await searchPane(page).getByRole("button", { name: "Add it by hand" }).click();
+  await expect(form.getByLabel("Author", { exact: true })).toHaveValue("June Ash");
+  await expect(form.getByLabel("Cover image address")).toHaveValue("not a url");
 });
 
 test("a Book that looks like one in the library is flagged, links to it, and can still be added", async ({ page }) => {
@@ -40,8 +68,18 @@ test("a Book that looks like one in the library is flagged, links to it, and can
   await expect(warning).toBeVisible();
   await expect(form.getByRole("button", { name: "Already read" })).toBeEnabled();
 
+  // The re-read the note points to starts from the Book's panel.
   await form.getByRole("button", { name: "Stoner" }).click();
   await expect(panelHeading(page)).toHaveText("Stoner");
+  const status = page.getByRole("group", { name: "Status of Stoner", exact: true });
+  await expect(status.getByText("Read", { exact: true })).toBeVisible();
+  await status.getByRole("button", { name: "Read again" }).click();
+  await expect(status.getByText("Re-reading", { exact: true })).toBeVisible();
+  await expect(library(page).getByRole("region", { name: /^Reading/ }).getByRole("button", { name: "Stoner", exact: true })).toBeVisible();
+
+  // Back in search, the draft is still there and focus is back on the link that left it.
+  await page.getByRole("button", { name: "Back to search" }).click();
+  await expect(form.getByRole("button", { name: "Stoner" })).toBeFocused();
 });
 
 test("a shared Book's title and author change for the reader alone, and go back when cleared", async ({ page }) => {
@@ -52,14 +90,17 @@ test("a shared Book's title and author change for the reader alone, and go back 
 
   const form = page.getByRole("form", { name: "Edit Stoner" });
   await expect(form.getByText("Changes how this book appears for you alone.", { exact: false })).toBeVisible();
+  await expect(form.getByText("Clear a field to go back to the original.")).toBeVisible();
   await expect(form.getByLabel("Description")).toHaveCount(0);
   await form.getByLabel("Title").fill("Stoner (NYRB)");
   await form.getByRole("button", { name: "Save changes" }).click();
 
   await expect(panelHeading(page)).toHaveText("Stoner (NYRB)");
+  await expect(page.getByRole("status").getByText("Changes saved.")).toBeVisible();
   await expect(library(page).getByRole("button", { name: "Stoner (NYRB)", exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Edit title or author" }).click();
+  await expect(page.getByText("Clear a field to go back to the original, Stoner by John Williams.")).toBeVisible();
   await page.getByRole("form", { name: "Edit Stoner (NYRB)" }).getByLabel("Title").fill("");
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(panelHeading(page)).toHaveText("Stoner");

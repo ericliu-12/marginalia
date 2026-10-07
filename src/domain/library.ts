@@ -17,6 +17,8 @@ export type LibraryItem = {
   // A Manual Book, which the reader edits directly; only a Manual Book's description is carried here.
   manual: boolean;
   description: string | null;
+  // The shared Book's own title and authors, when the reader has overridden either.
+  original: { title: string; authors: string[] } | null;
 };
 
 const STATUS_ORDER: Status[] = ["reading", "want", "read"];
@@ -64,6 +66,7 @@ export async function readLibrary(db: Db, userId: string): Promise<LibraryItem[]
         reReading: isReReading(entry.status, summary),
         manual: b.createdByUserId !== null,
         description: b.createdByUserId !== null ? b.description : null,
+        original: entry.titleOverride || entry.authorOverride ? { title: b.title, authors: b.authors } : null,
       };
     });
 }

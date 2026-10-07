@@ -77,6 +77,7 @@ export async function changeStatusAction(bookId: string, status: Status): Promis
     const db = appDb();
     await changeStatus(db, appPipeline(db), await getSeededUserId(db), bookId, status);
     revalidatePath("/");
+    revalidatePath("/graph");
     return { ok: true };
   } catch (err) {
     console.error(err);

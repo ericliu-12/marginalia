@@ -5,6 +5,7 @@ import type { Lookalike } from "@/domain/lookalike";
 import type { SearchResult, Status } from "@/domain/search";
 import { addBookAction, addManualBookAction, findLookalikeAction } from "./actions";
 import { field } from "./book-panel";
+import { EMPTY_BOOK, draftError, invalidProps, withScheme, type BookDraft, type DraftError } from "./book-draft";
 import { Cover } from "./cover";
 import { quietLink } from "./quiet-link";
 
@@ -17,28 +18,54 @@ const addButton =
   "rounded-[3px] border border-ink/70 px-2.5 py-2.5 lg:py-1 font-sans text-[0.8rem] font-medium text-ink transition-colors duration-150 hover:bg-ink hover:text-paper disabled:border-rule disabled:text-ink-3 disabled:hover:bg-transparent disabled:hover:text-ink-3";
 
 // `removed` is set anew each time a Book is removed elsewhere: search says so until the reader types,
-// fetches the results again, and takes focus back. `onOpenBook` opens a Book already in the library.
+// fetches the results again, and takes focus back. `onOpenBook` opens a Book in the library, which
+// hides the pane (`hidden`); focus goes back where it was when the pane shows again.
 export function SearchPane({
   onClose,
   removed,
   onOpenBook,
+  hidden,
 }: {
   onClose: () => void;
   removed: { title: string } | null;
   onOpenBook: (bookId: string) => void;
+  hidden: boolean;
 }) {
   const [retry, setRetry] = useState(0);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [phase, setPhase] = useState<Phase>("idle");
-  const [notice, setNotice] = useState<{ added: boolean; title: string } | null>(null);
-  // The title the reader is adding by hand, while the form is open.
-  const [manual, setManual] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ title: string; addedBookId?: string } | null>(null);
+  // A Book being added by hand: the draft outlives the form, so searching again or Escape keeps it
+  // for "Add it by hand" to bring back; Cancel discards it.
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualDraft, setManualDraft] = useState<BookDraft | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const returnTo = useRef<HTMLElement | null>(null);
+
+  function openBook(bookId: string) {
+    returnTo.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    onOpenBook(bookId);
+  }
+  useEffect(() => {
+    if (hidden || !returnTo.current) return;
+    (returnTo.current.isConnected ? returnTo.current : inputRef.current)?.focus();
+    returnTo.current = null;
+  }, [hidden]);
+
+  function openManual() {
+    setManualDraft((d) => d ?? { ...EMPTY_BOOK, title: query.trim() });
+    setManualOpen(true);
+  }
+  function closeManual(discard: boolean) {
+    setManualOpen(false);
+    if (discard) setManualDraft(null);
+    inputRef.current?.focus();
+  }
 
   useEffect(() => {
     inputRef.current?.focus();
-    setNotice(removed && { added: false, title: removed.title });
+    setNotice(removed && { title: removed.title });
   }, [removed]);
 
   useEffect(() => {
@@ -98,7 +125,7 @@ export function SearchPane({
           onChange={(e) => {
             setQuery(e.target.value);
             setNotice(null);
-            setManual(null);
+            setManualOpen(false);
           }}
           placeholder="Title and author"
           autoComplete="off"
@@ -109,25 +136,35 @@ export function SearchPane({
       <p role="status" className="px-6 font-sans text-sm text-ink-2 empty:hidden">
         {notice && (
           <span className="mb-3 block">
-            {notice.added ? "Added " : "Removed "}
-            <i className="font-serif text-[0.95rem]">{notice.title}</i> {notice.added ? "to" : "from"} your library.
+            {notice.addedBookId ? (
+              <>
+                Added{" "}
+                <button type="button" onClick={() => openBook(notice.addedBookId!)} className={bookTitleLink}>
+                  {notice.title}
+                </button>{" "}
+                to your library.
+              </>
+            ) : (
+              <>
+                Removed <i className="font-serif text-[0.95rem]">{notice.title}</i> from your library.
+              </>
+            )}
           </span>
         )}
       </p>
-      <p aria-live="polite" className="sr-only">{phase === "done" ? `${results.length} results` : ""}</p>
+      <p aria-live="polite" className="sr-only">{phase === "done" && !manualOpen ? `${results.length} results` : ""}</p>
       <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-8">
-        {manual !== null ? (
+        {manualOpen && manualDraft ? (
           <ManualBookForm
-            initialTitle={manual}
-            onOpenBook={onOpenBook}
-            onCancel={() => {
-              setManual(null);
-              inputRef.current?.focus();
-            }}
-            onAdded={(title) => {
-              setManual(null);
-              setNotice({ added: true, title });
-              inputRef.current?.focus();
+            draft={manualDraft}
+            onChange={setManualDraft}
+            onOpenBook={openBook}
+            onClose={closeManual}
+            onAdded={(title, bookId) => {
+              closeManual(true);
+              // The search that found nothing is done with; what remains is the Book just added.
+              setQuery("");
+              setNotice({ title, addedBookId: bookId });
             }}
           />
         ) : (
@@ -149,7 +186,7 @@ export function SearchPane({
                 <p className="text-ink-2 italic">No match for “{query.trim()}”. Check the spelling, or try the title alone.</p>
                 <p className="mt-3 font-sans text-sm text-ink-2">
                   Not on Open Library?{" "}
-                  <button type="button" onClick={() => setManual(query.trim())} className={quietLink}>
+                  <button type="button" onClick={openManual} className={quietLink}>
                     Add it by hand
                   </button>
                 </p>
@@ -158,13 +195,20 @@ export function SearchPane({
             {results.length > 0 && phase !== "idle" && phase !== "error" && (
               <>
                 <ul aria-busy={phase === "loading"} className={`divide-y divide-rule/60 transition-opacity ${phase === "loading" ? "opacity-60" : ""}`}>
-                  {results.map((r) => (
-                    <Result key={r.workKey} result={r} onAdded={markAdded} onOpenBook={onOpenBook} />
+                  {results.map((r, i) => (
+                    <Result
+                      key={r.workKey}
+                      result={r}
+                      // The full note goes on the first result like a given Book; later ones only point back.
+                      lookalikeAgain={!!r.lookalike && results.slice(0, i).some((p) => !p.libraryStatus && p.lookalike?.bookId === r.lookalike!.bookId)}
+                      onAdded={markAdded}
+                      onOpenBook={openBook}
+                    />
                   ))}
                 </ul>
                 <p className="border-t border-rule/60 pt-4 font-sans text-sm text-ink-2">
                   Not the book you mean?{" "}
-                  <button type="button" onClick={() => setManual(query.trim())} className={quietLink}>
+                  <button type="button" onClick={openManual} className={quietLink}>
                     Add it by hand
                   </button>
                 </p>
@@ -173,22 +217,26 @@ export function SearchPane({
           </>
         )}
       </div>
-      <p className="border-t border-rule px-6 py-3 font-sans text-xs text-ink-3">
-        Results from{" "}
-        <a href="https://openlibrary.org" target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-ink">
-          Open Library
-        </a>
-      </p>
+      {!manualOpen && (
+        <p className="border-t border-rule px-6 py-3 font-sans text-xs text-ink-3">
+          Results from{" "}
+          <a href="https://openlibrary.org" target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-ink">
+            Open Library
+          </a>
+        </p>
+      )}
     </aside>
   );
 }
 
 function Result({
   result: r,
+  lookalikeAgain,
   onAdded,
   onOpenBook,
 }: {
   result: SearchResult;
+  lookalikeAgain: boolean;
   onAdded: (key: string, s: Status) => void;
   onOpenBook: (bookId: string) => void;
 }) {
@@ -223,7 +271,7 @@ function Result({
       <div className="min-w-0 flex-1">
         <p className="text-[1.05rem] leading-snug font-medium">{r.title}</p>
         {meta && <p className="font-sans text-sm text-ink-2">{meta}</p>}
-        {r.lookalike && !r.libraryStatus && <LookalikeNote lookalike={r.lookalike} onOpenBook={onOpenBook} />}
+        {r.lookalike && !r.libraryStatus && <LookalikeNote lookalike={r.lookalike} again={lookalikeAgain} onOpenBook={onOpenBook} />}
         <div className="mt-2.5 min-h-8">
           {r.libraryStatus ? (
             <p ref={statusRef} tabIndex={-1} className="font-sans text-sm text-ink-2 outline-none">
@@ -252,20 +300,38 @@ function Result({
   );
 }
 
+// A Book's title as a way to open it, set in the serif italic titles take inside sans text.
+const bookTitleLink =
+  "font-serif text-[0.95rem] italic underline decoration-rule underline-offset-4 transition-colors hover:decoration-ink";
+
 // Advisory, never blocking: the Book looks like one already in the library, which is where a re-read
-// belongs. The title opens it.
-function LookalikeNote({ lookalike, onOpenBook, className = "mt-1.5" }: { lookalike: Lookalike; onOpenBook: (bookId: string) => void; className?: string }) {
+// belongs (its panel can start one). The title opens it. Said in full once; `again` only points back.
+function LookalikeNote({
+  lookalike,
+  again = false,
+  onOpenBook,
+  className = "mt-1.5",
+}: {
+  lookalike: Lookalike;
+  again?: boolean;
+  onOpenBook: (bookId: string) => void;
+  className?: string;
+}) {
+  const title = (
+    <button type="button" onClick={() => onOpenBook(lookalike.bookId)} className={bookTitleLink}>
+      {lookalike.title}
+    </button>
+  );
   return (
-    <p className={`${className} max-w-[40ch] font-sans text-[0.8rem] leading-normal text-ink-2`}>
-      Looks like{" "}
-      <button
-        type="button"
-        onClick={() => onOpenBook(lookalike.bookId)}
-        className="font-serif text-[0.9rem] italic underline decoration-rule underline-offset-4 transition-colors hover:decoration-ink"
-      >
-        {lookalike.title}
-      </button>
-      , already in your library. Reading it again? Start a new read-through from there instead.
+    <p className={`${className} max-w-[40ch] font-sans text-[0.8rem] leading-normal text-ink`}>
+      {again ? (
+        <span className="text-ink-2">Also like {title}, above.</span>
+      ) : (
+        <>
+          Looks like {title}, already in your library.{" "}
+          <span className="text-ink-2">Reading it again? Start a new read-through from there instead.</span>
+        </>
+      )}
     </p>
   );
 }
@@ -285,55 +351,65 @@ function useLookalike(title: string, author: string) {
   return found;
 }
 
-type ManualDraft = { title: string; author: string; coverUrl: string; description: string };
-
 // A Manual Book: title and author, then the cover and description as quiet reveals, added with the
-// same Status choices as a search result.
+// same Status choices as a search result. Enter adds it as Want to read, the first choice. Escape
+// closes it with the draft kept (`onClose(false)`); Cancel discards it.
 function ManualBookForm({
-  initialTitle,
+  draft,
+  onChange,
   onAdded,
-  onCancel,
+  onClose,
   onOpenBook,
 }: {
-  initialTitle: string;
-  onAdded: (title: string) => void;
-  onCancel: () => void;
+  draft: BookDraft;
+  onChange: (draft: BookDraft) => void;
+  onAdded: (title: string, bookId: string) => void;
+  onClose: (discard: boolean) => void;
   onOpenBook: (bookId: string) => void;
 }) {
-  const [draft, setDraft] = useState<ManualDraft>({ title: initialTitle, author: "", coverUrl: "", description: "" });
-  const [showCover, setShowCover] = useState(false);
-  const [showDescription, setShowDescription] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [showCover, setShowCover] = useState(!!draft.coverUrl);
+  const [showDescription, setShowDescription] = useState(!!draft.description);
+  const [error, setError] = useState<DraftError | null>(null);
   const [adding, setAdding] = useState<Status | null>(null);
   const [pending, start] = useTransition();
-  const titleRef = useRef<HTMLInputElement>(null);
-  const coverRef = useRef<HTMLInputElement>(null);
-  const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  const refs = {
+    title: useRef<HTMLInputElement>(null),
+    author: useRef<HTMLInputElement>(null),
+    coverUrl: useRef<HTMLInputElement>(null),
+    description: useRef<HTMLTextAreaElement>(null),
+  };
   const lookalike = useLookalike(draft.title, draft.author);
 
-  useEffect(() => titleRef.current?.focus(), []);
+  // Into the first field still empty: the title usually comes from the search.
+  useEffect(() => (draft.title.trim() ? refs.author : refs.title).current?.focus(), []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function change(patch: Partial<ManualDraft>) {
-    setDraft((d) => ({ ...d, ...patch }));
+  function change(patch: Partial<BookDraft>) {
+    onChange({ ...draft, ...patch });
     setError(null);
   }
 
   function add(status: Status) {
-    if (!draft.title.trim() || !draft.author.trim()) return setError("A title and an author are needed.");
-    if (draft.coverUrl.trim() && !/^https?:\/\/\S+$/i.test(draft.coverUrl.trim())) {
-      return setError("The cover should be a web address beginning with http:// or https://.");
+    const problem = draftError(draft, true);
+    if (problem) {
+      setError(problem);
+      if (problem.field) refs[problem.field].current?.focus();
+      return;
     }
     setError(null);
     setAdding(status);
     start(async () => {
-      const res = await addManualBookAction(draft, status);
-      if (res.ok) onAdded(draft.title.trim());
-      else setError("Couldn’t add this book. Try again.");
+      const res = await addManualBookAction({ ...draft, coverUrl: withScheme(draft.coverUrl) }, status);
+      if (res.ok) onAdded(draft.title.trim(), res.bookId);
+      else setError({ field: null, message: "Couldn’t add this book. Try again." });
     });
   }
 
+  const label = "mt-3 block font-sans text-[0.8rem] font-medium text-ink-2";
+  const input = `${field} mt-1 font-sans text-[0.95rem]`;
+  const errorId = "manual-error";
   return (
     <form
+      noValidate
       aria-labelledby="manual-heading"
       onSubmit={(e) => {
         e.preventDefault();
@@ -343,31 +419,31 @@ function ManualBookForm({
       onKeyDown={(e) => {
         if (e.key === "Escape") {
           e.stopPropagation();
-          onCancel();
+          onClose(false);
         }
       }}
     >
       <h3 id="manual-heading" className="text-[1.05rem] leading-snug font-medium">
         Add a book by hand
       </h3>
-      <p className="mt-0.5 max-w-[38ch] font-sans text-sm text-ink-2">Only you will see it, and you can change it later.</p>
+      <p className="mt-0.5 max-w-[38ch] font-sans text-sm text-ink-2">It stays in your library alone, and you can change it later.</p>
 
-      <label htmlFor="manual-title" className="mt-4 block font-sans text-[0.8rem] font-medium text-ink-2">
+      <label htmlFor="manual-title" className={label}>
         Title
       </label>
-      <input ref={titleRef} id="manual-title" value={draft.title} onChange={(e) => change({ title: e.target.value })} autoComplete="off" className={`${field} mt-1`} />
-      <label htmlFor="manual-author" className="mt-3 block font-sans text-[0.8rem] font-medium text-ink-2">
+      <input ref={refs.title} id="manual-title" value={draft.title} onChange={(e) => change({ title: e.target.value })} autoComplete="off" {...invalidProps(error, "title", errorId)} className={input} />
+      <label htmlFor="manual-author" className={label}>
         Author
       </label>
-      <input id="manual-author" value={draft.author} onChange={(e) => change({ author: e.target.value })} autoComplete="off" className={`${field} mt-1`} />
+      <input ref={refs.author} id="manual-author" value={draft.author} onChange={(e) => change({ author: e.target.value })} autoComplete="off" {...invalidProps(error, "author", errorId)} className={input} />
 
       {showCover && (
         <>
-          <label htmlFor="manual-cover" className="mt-3 block font-sans text-[0.8rem] font-medium text-ink-2">
+          <label htmlFor="manual-cover" className={label}>
             Cover image address
           </label>
           <input
-            ref={coverRef}
+            ref={refs.coverUrl}
             id="manual-cover"
             type="url"
             inputMode="url"
@@ -375,17 +451,18 @@ function ManualBookForm({
             value={draft.coverUrl}
             onChange={(e) => change({ coverUrl: e.target.value })}
             autoComplete="off"
-            className={`${field} mt-1 font-sans text-[0.95rem]`}
+            {...invalidProps(error, "coverUrl", errorId)}
+            className={input}
           />
         </>
       )}
       {showDescription && (
         <>
-          <label htmlFor="manual-description" className="mt-3 block font-sans text-[0.8rem] font-medium text-ink-2">
+          <label htmlFor="manual-description" className={label}>
             Description
           </label>
           <textarea
-            ref={descriptionRef}
+            ref={refs.description}
             id="manual-description"
             rows={4}
             value={draft.description}
@@ -402,7 +479,7 @@ function ManualBookForm({
               type="button"
               onClick={() => {
                 setShowCover(true);
-                requestAnimationFrame(() => coverRef.current?.focus());
+                requestAnimationFrame(() => refs.coverUrl.current?.focus());
               }}
               className={quietLink}
             >
@@ -414,7 +491,7 @@ function ManualBookForm({
               type="button"
               onClick={() => {
                 setShowDescription(true);
-                requestAnimationFrame(() => descriptionRef.current?.focus());
+                requestAnimationFrame(() => refs.description.current?.focus());
               }}
               className={quietLink}
             >
@@ -426,8 +503,8 @@ function ManualBookForm({
 
       <div aria-live="polite">{lookalike && <LookalikeNote lookalike={lookalike} onOpenBook={onOpenBook} className="mt-4" />}</div>
       {error && (
-        <p role="alert" className="mt-2 font-sans text-sm text-contrast">
-          {error}
+        <p id={errorId} role="alert" className="mt-2 font-sans text-sm text-contrast">
+          {error.message}
         </p>
       )}
       <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
@@ -438,7 +515,7 @@ function ManualBookForm({
             </button>
           ))}
         </div>
-        <button type="button" onClick={onCancel} disabled={pending} className={quietLink}>
+        <button type="button" onClick={() => onClose(true)} disabled={pending} className={quietLink}>
           Cancel
         </button>
       </div>
