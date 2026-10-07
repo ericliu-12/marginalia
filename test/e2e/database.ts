@@ -176,3 +176,13 @@ export async function readerId() {
   await pool.end();
   return id;
 }
+
+// A Book the reader wants to read: in the library, not Finished, so not in the graph.
+export async function wantBook(title: string) {
+  const { db, pool } = createDb(e2eDatabaseUrl());
+  const userId = await getSeededUserId(db);
+  const [row] = await db.insert(book).values({ title, authors: ["A. Writer"] }).returning();
+  await db.insert(libraryEntry).values({ userId, bookId: row.id, status: "want" });
+  await db.insert(enrichment).values({ bookId: row.id, status: "ready", recognised: true, summary: `${title}.`, themes: ["memory"] });
+  await pool.end();
+}

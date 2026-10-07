@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { finishBook, LIBRARY, readerId, seedLibrary, settleGraph } from "./database";
+import { finishBook, LIBRARY, readerId, seedLibrary, settleGraph, wantBook } from "./database";
 
 // The arrival: a Book finished since the graph last showed lands, its panel opens, and its Connections
 // draw in one by one. Each test opens the graph once first, so it has something to remember.
@@ -44,6 +44,21 @@ test("a newly finished Book lands, opens with its words, and its Connections dra
   // The words belong to the arrival: once the panel closes, they are gone.
   await page.keyboard.press("Escape");
   await expect(heading(page)).toHaveCount(0);
+});
+
+test("a Book marked finished straight from Want to read was just finished", async ({ page }) => {
+  await openGraph(page);
+  await wantBook("Housekeeping");
+  await page.goto("/");
+  const row = page.getByRole("listitem").filter({ hasText: "Housekeeping" });
+  await row.hover();
+  await row.getByRole("button", { name: "Mark finished" }).click();
+  // The row moves at once; the finish has landed once its Connections are being found.
+  await expect(page.getByText("1 Book finding Connections")).toBeVisible();
+
+  await page.goto("/graph");
+  await expect(heading(page)).toHaveText("Housekeeping");
+  await expect(page.getByText("You just finished this.", { exact: false })).toBeVisible();
 });
 
 test("a Book added as already read, with no dates, is new in the graph rather than just finished", async ({ page }) => {

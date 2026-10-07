@@ -16,10 +16,11 @@ type Entry = typeof libraryEntry.$inferSelect;
 
 // Records the Read-throughs a move to `status` implies.
 //   -> reading: open a Read-through (start date) unless one is already open
-//   -> read:    close the open one, or record a closed one with unknown dates
+//   -> read:    close the open one, or record a closed one finished today; an Already-read add
+//               (`backfill`) records one with unknown dates
 //   -> want:    drop any open one; completed Read-throughs stay, so the Book stays Finished
 // `firstCompletion` is true only when this completes the Book's first Read-through.
-async function recordReadThroughs(tx: Tx, entry: Entry, status: Status) {
+async function recordReadThroughs(tx: Tx, entry: Entry, status: Status, backfill = false) {
   const userId = entry.userId;
   const [open] = await tx
     .select()
@@ -39,7 +40,7 @@ async function recordReadThroughs(tx: Tx, entry: Entry, status: Status) {
     if (open) {
       await tx.update(readThrough).set({ finishedAt: now, completedAt: now }).where(eq(readThrough.id, open.id));
     } else {
-      await tx.insert(readThrough).values({ libraryEntryId: entry.id, userId, completedAt: now });
+      await tx.insert(readThrough).values({ libraryEntryId: entry.id, userId, finishedAt: backfill ? null : now, completedAt: now });
     }
   } else if (open) {
     await tx.delete(readThrough).where(eq(readThrough.id, open.id));
@@ -60,7 +61,7 @@ export async function findEntry(db: Db | Tx, userId: string, bookId: string) {
 // transaction. Entering as read is a first completion, so a backfill add reports it like a Status change.
 export async function enterLibrary(tx: Tx, userId: string, bookId: string, status: Status) {
   const [entry] = await tx.insert(libraryEntry).values({ userId, bookId, status }).returning();
-  const { firstCompletion } = await recordReadThroughs(tx, entry, status);
+  const { firstCompletion } = await recordReadThroughs(tx, entry, status, true);
   return { entry, firstCompletion };
 }
 

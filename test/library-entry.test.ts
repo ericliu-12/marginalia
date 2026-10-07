@@ -41,9 +41,17 @@ describe("status changes and read-throughs", () => {
     expect(res.firstCompletion).toBe(true);
   });
 
-  it("want to read directly creates a closed Read-through with unknown dates", async () => {
+  it("want to read directly creates a closed Read-through finished today, with no start date", async () => {
     const id = await start("want");
     await change(id, "read");
+    const [p] = await passes();
+    expect(p.startedAt).toBeNull();
+    expect(p.finishedAt).toBeInstanceOf(Date);
+    expect(p.finishedAt).toEqual(p.completedAt);
+  });
+
+  it("an Already-read add records a closed Read-through with unknown dates", async () => {
+    await start("read");
     const [p] = await passes();
     expect(p.startedAt).toBeNull();
     expect(p.finishedAt).toBeNull();
