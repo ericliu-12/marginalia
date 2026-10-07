@@ -7,7 +7,7 @@ import { addBook, DuplicateBookError } from "@/domain/add-book";
 import { descriptionGateway } from "@/lib/book-search";
 import { readEntryEnrichment, tryAgain, type EnrichmentView } from "@/domain/enrichment";
 import { countFindingConnections, dismissConnection, readConnection, readConnections, type ConnectionDetail, type ConnectionsView } from "@/domain/connections";
-import { readGraphStatus, type GraphStatus } from "@/domain/graph";
+import { readGraphStatus, type GraphStatus } from "@/domain/graph-job";
 import { changeStatus, removeFromLibrary } from "@/domain/library-entry";
 import { appPipeline } from "@/lib/jobs";
 import { addNote, deleteNote, listNotes, updateNote, type Note, type NoteInput } from "@/domain/notes";

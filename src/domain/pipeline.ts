@@ -20,7 +20,8 @@ import {
 } from "./embeddings";
 import { enrichBook, enrichmentGaveUp, readEnrichment, requestEnrichment, type EnrichmentModel } from "./enrichment";
 import { nameClusters, recomputeClusters, type ClusterNamer } from "./clusters";
-import { clearGraphMark, layoutGraph, markGraphLaidOut, markGraphQueued, readGraphMark } from "./graph";
+import { layoutGraph } from "./graph";
+import { graphJobGaveUp, requestGraph, requestGraphAfter, runGraphJob } from "./graph-job";
 
 // The background work, one job at a time: Enrichment for a Book, a vector for an Enrichment or a
 // Note (`id` is a Book id for an Enrichment), Connections for a reader's Book, and a reader's graph:
@@ -118,17 +119,6 @@ export function createPipeline(db: Db, queue: JobQueue) {
   };
 }
 
-// Queues the reader's graph job, their graph pending until it settles.
-async function requestGraph(db: Db, queue: JobQueue, userId: string) {
-  const mark = await markGraphQueued(db, userId);
-  try {
-    await queue.send({ kind: "graph", userId });
-  } catch (err) {
-    await clearGraphMark(db, userId, mark);
-    throw err;
-  }
-}
-
 // Runs one attempt at a job, and queues the work that follows it. Throws on failure so the queue
 // retries. Connections waiting on an Enrichment or a Note's vector are queued again once it is done (or,
 // in jobGaveUp, has failed for good). A Connections job is followed by the reader's graph job, so their
@@ -148,17 +138,17 @@ export async function runJob(db: Db, deps: JobDeps, queue: JobQueue, job: Job): 
   } else if (job.kind === "embed") {
     await embedEnrichment(db, deps.embedder, job.target.id);
   } else if (job.kind === "graph") {
-    const mark = await readGraphMark(db, job.userId);
-    await recomputeClusters(db, job.userId);
-    await layoutGraph(db, job.userId);
-    if (mark !== null) await markGraphLaidOut(db, job.userId, mark);
-    await nameClusters(db, deps.namer, job.userId);
-    if (mark !== null) await clearGraphMark(db, job.userId, mark);
+    await runGraphJob(db, job.userId, {
+      layOut: async () => {
+        await recomputeClusters(db, job.userId);
+        await layoutGraph(db, job.userId);
+      },
+      name: () => nameClusters(db, deps.namer, job.userId),
+    });
   } else {
-    // Marked before the run can leave `running`, so the graph never reads as settled in between.
-    await markGraphQueued(db, job.userId);
-    await generateConnections(db, { judge: deps.judge, embedder: deps.embedder }, { userId: job.userId, bookId: job.bookId });
-    await requestGraph(db, queue, job.userId);
+    await requestGraphAfter(db, queue, job.userId, () =>
+      generateConnections(db, { judge: deps.judge, embedder: deps.embedder }, { userId: job.userId, bookId: job.bookId }),
+    );
   }
 }
 
@@ -175,12 +165,8 @@ export async function jobGaveUp(db: Db, queue: JobQueue, job: Job): Promise<void
   } else if (job.kind === "embed") {
     await enrichmentEmbeddingFailed(db, job.target.id);
   } else if (job.kind === "graph") {
-    // Which request it started with is not known here, so the graph stops pending: at worst it
-    // stops checking back before a job queued meanwhile has run.
-    await clearGraphMark(db, job.userId);
+    await graphJobGaveUp(db, job.userId);
   } else {
-    await markGraphQueued(db, job.userId);
-    await connectionsGaveUp(db, job.userId, job.bookId);
-    await requestGraph(db, queue, job.userId);
+    await requestGraphAfter(db, queue, job.userId, () => connectionsGaveUp(db, job.userId, job.bookId));
   }
 }

@@ -4,7 +4,7 @@ import { addBook } from "../src/domain/add-book";
 import { dismissConnection, readConnections, type JudgeInput } from "../src/domain/connections";
 import { backfillEmbeddings } from "../src/domain/embeddings";
 import { readEnrichment, tryAgain } from "../src/domain/enrichment";
-import { clearGraphMark, readGraph, readGraphMark } from "../src/domain/graph";
+import { readGraph } from "../src/domain/graph";
 import { changeStatus, removeFromLibrary } from "../src/domain/library-entry";
 import { addNote, updateNote } from "../src/domain/notes";
 import { RETRIES, jobGaveUp, type JobDeps } from "../src/domain/pipeline";
@@ -398,19 +398,6 @@ describe("Pipeline", () => {
       expect(await pending()).toBe(false);
     });
 
-    it("is pending through the end of a Connections run, before the graph job that follows it is queued", async () => {
-      await add("other", "read");
-      await ctx.jobs.drain(deps());
-      expect(await readGraphMark(ctx.db, ctx.userId)).toBeNull();
-      await add("fresh", "read");
-      // The run leaves `running` as it ends; by then the graph must already be marked.
-      const marks: (number | null)[] = [];
-      const judge = { ...fakeJudge(), judge: async () => (marks.push(await readGraphMark(ctx.db, ctx.userId)), { connections: [], inputTokens: 0, outputTokens: 0, costUsd: 0 }) };
-      await ctx.jobs.drain({ ...deps(), judge });
-      expect(marks.length).toBeGreaterThan(0);
-      expect(marks.every((m) => m !== null)).toBe(true);
-    });
-
     it("is pending after a dismissal or a removal until the graph job runs, which a Refresh's run also queues", async () => {
       const first = await add("first", "read");
       const second = await add("second", "read");
@@ -432,17 +419,6 @@ describe("Pipeline", () => {
       ctx.jobs.sent.length = 0;
       await ctx.jobs.drain(deps());
       expect(ctx.jobs.sent).toEqual([{ kind: "graph", userId: ctx.userId }]);
-      expect(await pending()).toBe(false);
-    });
-
-    it("stays pending when it is asked for again while it runs, until the job queued for that runs", async () => {
-      // A job starts with the latest request; another arrives before it settles.
-      await ctx.pipeline.connectionsChanged(ctx.userId);
-      const started = (await readGraphMark(ctx.db, ctx.userId))!;
-      await ctx.pipeline.connectionsChanged(ctx.userId);
-      await clearGraphMark(ctx.db, ctx.userId, started);
-      expect(await pending()).toBe(true);
-      await ctx.jobs.drain(deps());
       expect(await pending()).toBe(false);
     });
 

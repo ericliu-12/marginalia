@@ -4,7 +4,8 @@ import { createDb } from "../../src/db/client";
 import { runMigrations } from "../../src/db/migrate";
 import { getSeededUserId, seedUser } from "../../src/db/seed";
 import { layoutGraph } from "../../src/domain/graph";
-import { book, bookPosition, clusterLabel, connection, enrichment, graphJob, libraryEntry, note, readThrough } from "../../src/db/schema";
+import { runGraphJob } from "../../src/domain/graph-job";
+import { book, bookPosition, clusterLabel, connection, enrichment, libraryEntry, note, readThrough } from "../../src/db/schema";
 
 // The browser tests' own database on the docker-compose Postgres, apart from the app's and the unit tests'.
 // The web server is handed this database as DATABASE_URL, so creating it goes through Postgres's own
@@ -116,11 +117,20 @@ export async function addCluster(titles: Title[], name: { name: string; descript
   return row.id;
 }
 
+// The worker's graph job, played by hand: a test places the Clusters itself, so the job's steps only
+// wait. `layOutGraph` runs it as far as naming; `settleGraph` lets it finish, or runs it whole.
+let naming: { finish: () => void; job: Promise<void>; pool: Pool } | null = null;
+
 // The graph job has recomputed the Clusters and laid the graph out; only naming is left.
 export async function layOutGraph() {
   const { db, pool } = createDb(e2eDatabaseUrl());
-  await db.update(graphJob).set({ laidOut: true });
-  await pool.end();
+  let finish!: () => void;
+  const named = new Promise<void>((resolve) => (finish = resolve));
+  let reached!: () => void;
+  const laidOut = new Promise<void>((resolve) => (reached = resolve));
+  const job = runGraphJob(db, await getSeededUserId(db), { layOut: async () => {}, name: () => (reached(), named) });
+  await laidOut;
+  naming = { finish, job, pool };
 }
 
 // Naming catches up with a Cluster.
@@ -132,8 +142,15 @@ export async function nameCluster(id: string, name: { name: string; description:
 
 // The graph job settles, as the worker would after it has recomputed and named the Clusters.
 export async function settleGraph() {
+  if (naming) {
+    naming.finish();
+    await naming.job;
+    await naming.pool.end();
+    naming = null;
+    return;
+  }
   const { db, pool } = createDb(e2eDatabaseUrl());
-  await db.delete(graphJob);
+  await runGraphJob(db, await getSeededUserId(db), { layOut: async () => {}, name: async () => {} });
   await pool.end();
 }
 

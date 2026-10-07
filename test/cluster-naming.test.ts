@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import { addBook } from "../src/domain/add-book";
 import { NAMING_ATTEMPTS } from "../src/domain/clusters";
 import type { Strength } from "../src/domain/connections";
-import { readGraph, readGraphMark } from "../src/domain/graph";
+import { readGraph } from "../src/domain/graph";
+import { readGraphStatus, type GraphStatus } from "../src/domain/graph-job";
 import { removeFromLibrary } from "../src/domain/library-entry";
 import type { JobDeps } from "../src/domain/pipeline";
 import { clusterLabel, connection, enrichment } from "../src/db/schema";
@@ -72,10 +73,9 @@ describe("Cluster naming", () => {
 
   it("keeps the graph pending until naming has finished", async () => {
     await clique(await books("A B C"));
-    const seen: (number | null)[] = [];
-    await recompute(fakeNamer(async () => (seen.push(await readGraphMark(ctx.db, ctx.userId)), {})));
-    expect(seen).toHaveLength(1);
-    expect(seen[0]).not.toBeNull();
+    const seen: GraphStatus[] = [];
+    await recompute(fakeNamer(async () => (seen.push(await readGraphStatus(ctx.db, ctx.userId)), {})));
+    expect(seen).toEqual([{ pending: true, naming: true }]);
     expect((await readGraph(ctx.db, ctx.userId)).pending).toBe(false);
   });
 
