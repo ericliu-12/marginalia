@@ -42,3 +42,7 @@ scripts/eval/out/
 
 # Playwright MCP session output
 .playwright-mcp/
+
+# Playwright output
+/test-results/
+/playwright-report/
