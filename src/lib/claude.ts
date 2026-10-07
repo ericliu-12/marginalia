@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
+import { NAME_MAX_WORDS, type ClusterNamer, type NamingInput } from "@/domain/clusters";
 import type { ConnectionJudge, JudgeInput } from "@/domain/connections";
 import type { EnrichmentInput, EnrichmentModel } from "@/domain/enrichment";
 import { MODELS } from "./models";
@@ -152,6 +153,58 @@ export function claudeJudge(client = new Anthropic()): ConnectionJudge {
           explanation: c.explanation,
           quotedNoteIds: c.quoted_note_ids,
         })),
+        inputTokens: input_tokens,
+        outputTokens: output_tokens,
+        costUsd: (input_tokens * price.input + output_tokens * price.output) / 1e6,
+      };
+    },
+  };
+}
+
+// Bump when CLUSTER_NAMING_SYSTEM_PROMPT, the input layout or the output schema changes.
+export const CLUSTER_NAMING_PROMPT_VERSION = "cluster-naming-v1";
+
+export const CLUSTER_NAMING_SYSTEM_PROMPT = `You name a Cluster in a private reading journal: a group of books the reader has finished that their connections bind together. The reader sees the name as a label on their graph of books, and the description when they open it.
+
+- name: at most ${NAME_MAX_WORDS} words, short and evocative, naming what holds these books together. Not a book title or author name, and not a generic word such as "books", "reads", "collection" or "cluster". No quotation marks.
+- description: one or two sentences addressed to the reader on what these books share, specific to them. Describe; never recommend or suggest reading.
+- Ground both in the themes and connection explanations given. Do not claim the reader thought or felt anything.
+- When a previous name is given, keep it exactly if it still fits the books as they are now; change it only when the group's centre has moved. The description may always be rewritten.`;
+
+const NamingOutput = z.object({ name: z.string(), description: z.string() });
+
+export function clusterNamingPrompt({ previous, books, connections }: NamingInput) {
+  const bookLines = books.map((b) => `- ${b.title} by ${b.authors.join(", ") || "(unknown)"}; themes: ${b.themes.join("; ") || "(unavailable)"}`);
+  const connectionLines = connections.map((c) => `- ${c.a} / ${c.b}: ${c.explanation}`);
+  return [
+    `PREVIOUS NAME: ${previous?.name ?? "(none, a new Cluster)"}`,
+    ...(previous?.description ? [`PREVIOUS DESCRIPTION: ${previous.description}`] : []),
+    "",
+    `BOOKS\n${bookLines.join("\n")}`,
+    "",
+    `CONNECTIONS\n${connectionLines.join("\n") || "(none)"}`,
+  ].join("\n");
+}
+
+export function claudeClusterNamer(client = new Anthropic()): ClusterNamer {
+  const model = MODELS.clusterNaming;
+  const price = PRICE[model];
+  if (!price) throw new Error(`No price recorded for ${model}; add it to PRICE in src/lib/claude.ts.`);
+  return {
+    model,
+    promptVersion: CLUSTER_NAMING_PROMPT_VERSION,
+    async name(input) {
+      const res = await client.messages.parse({
+        model,
+        max_tokens: 4000,
+        system: CLUSTER_NAMING_SYSTEM_PROMPT,
+        messages: [{ role: "user", content: clusterNamingPrompt(input) }],
+        output_config: { format: zodOutputFormat(NamingOutput), effort: "low" },
+      });
+      if (!res.parsed_output) throw new Error(`Unparsed Cluster naming output (stop_reason=${res.stop_reason})`);
+      const { input_tokens, output_tokens } = res.usage;
+      return {
+        ...res.parsed_output,
         inputTokens: input_tokens,
         outputTokens: output_tokens,
         costUsd: (input_tokens * price.input + output_tokens * price.output) / 1e6,

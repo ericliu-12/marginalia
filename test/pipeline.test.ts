@@ -9,7 +9,7 @@ import { changeStatus, removeFromLibrary } from "../src/domain/library-entry";
 import { addNote, updateNote } from "../src/domain/notes";
 import { RETRIES, jobGaveUp, type JobDeps } from "../src/domain/pipeline";
 import { connection, connectionRun, enrichment, libraryEntry, note } from "../src/db/schema";
-import { fakeEmbedder, fakeEnricher, fakeJudge, work } from "./fakes";
+import { fakeEmbedder, fakeEnricher, fakeJudge, fakeNamer, work } from "./fakes";
 import { useTestDb } from "./harness";
 
 // The background work as the Pipeline runs it, over the in-memory queue.
@@ -22,6 +22,7 @@ describe("Pipeline", () => {
     })),
     embedder: fakeEmbedder(["quiet"]),
     descriptions: null,
+    namer: fakeNamer(),
     ...over,
   });
   const add = (key: string, status: "want" | "reading" | "read" = "want") =>

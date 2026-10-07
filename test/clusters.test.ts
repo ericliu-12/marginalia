@@ -7,7 +7,7 @@ import { readGraph } from "../src/domain/graph";
 import { removeFromLibrary } from "../src/domain/library-entry";
 import { jobKey, type JobDeps } from "../src/domain/pipeline";
 import { clusterLabel, connection } from "../src/db/schema";
-import { fakeEmbedder, fakeEnricher, fakeJudge, work } from "./fakes";
+import { fakeEmbedder, fakeEnricher, fakeJudge, fakeNamer, work } from "./fakes";
 import { useTestDb } from "./harness";
 
 describe("Clusters", () => {
@@ -57,6 +57,7 @@ describe("Clusters", () => {
     judge: fakeJudge(() => ({ connections: [] })),
     embedder: fakeEmbedder(["quiet"]),
     descriptions: null,
+    namer: fakeNamer(),
   });
 
   it("groups Books bound by Connections into Clusters of three or more; pairs and lone Books stay unclustered", async () => {

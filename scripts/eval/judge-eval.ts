@@ -86,6 +86,8 @@ try {
   const jobs = memoryQueue(db);
   const pipeline = createPipeline(db, jobs);
   const unused = { model: "unused", promptVersion: "x", async enrich(): Promise<never> { throw new Error("Enrichment should already be seated"); } };
+  // Cluster names are not under evaluation; every Cluster gets the same one, at no cost.
+  const namer = { model: "unused", promptVersion: "x", async name() { return { name: "Unnamed", description: "Not named in the eval.", inputTokens: 0, outputTokens: 0, costUsd: 0 }; } };
   for (const slug of fixture.order) {
     const b = books[slug];
     const work: OpenLibraryWork = { workKey: `/works/${slug}`, title: b.title, authors: [b.author], firstPublishedYear: null, editionCount: 1, coverId: null, subjects: [] };
@@ -97,7 +99,7 @@ try {
     await enrichBook(db, { model: saved }, entry.bookId);
     for (const body of b.notes) await addNote(db, pipeline, user.id, entry.bookId, { body });
     current = slug;
-    await jobs.drain({ model: unused, judge, embedder, descriptions: null });
+    await jobs.drain({ model: unused, judge, embedder, descriptions: null, namer });
     console.log(`${b.title}: ${raw.filter((r) => r.slug === slug).length ? "judged" : "no candidates"}`);
   }
 

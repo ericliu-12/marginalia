@@ -2,8 +2,9 @@ import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import Graph from "graphology";
 import louvain from "graphology-communities-louvain";
 import type { Db } from "@/db/client";
-import { clusterLabel, connection } from "@/db/schema";
-import { CLUSTER_WEIGHT } from "./connections";
+import { book, clusterLabel, connection, enrichment, libraryEntry } from "@/db/schema";
+import { CLUSTER_WEIGHT, STRENGTH_RANK } from "./connections";
+import { displayed } from "./library";
 import { completedPasses } from "./library-entry";
 
 // Fewer Books than this are not a Cluster.
@@ -117,26 +118,136 @@ export async function recomputeClusters(db: Db, userId: string): Promise<void> {
 }
 
 // A removed Book leaves the reader's Clusters at once, inside the removal's transaction, so it never
-// counts toward a Cluster's membership (or a rename) while the recompute is on its way.
+// counts toward a Cluster's membership while the recompute is on its way. It stays in the membership
+// at naming time, where it counts as removed toward a rename.
 export async function leaveClusters(tx: Tx, userId: string, bookId: string) {
   await lockClusters(tx, userId);
   await tx
     .update(clusterLabel)
-    .set({
-      memberBookIds: sql`array_remove(${clusterLabel.memberBookIds}, ${bookId}::uuid)`,
-      namedMemberBookIds: sql`array_remove(${clusterLabel.namedMemberBookIds}, ${bookId}::uuid)`,
-    })
+    .set({ memberBookIds: sql`array_remove(${clusterLabel.memberBookIds}, ${bookId}::uuid)` })
     .where(eq(clusterLabel.userId, userId));
 }
 
 // The reader's Clusters as last computed, oldest first, with members limited to `books` (the graph's).
+// One not yet named (its naming failed) shows as "Cluster of N Books".
 export async function readClusters(db: Db, userId: string, books: Set<string>) {
   const rows = await db
-    .select({ id: clusterLabel.id, members: clusterLabel.memberBookIds })
+    .select({ id: clusterLabel.id, members: clusterLabel.memberBookIds, name: clusterLabel.name, description: clusterLabel.description })
     .from(clusterLabel)
     .where(eq(clusterLabel.userId, userId))
     .orderBy(asc(clusterLabel.createdAt), asc(clusterLabel.id));
   return rows
-    .map((r) => ({ id: r.id, bookIds: r.members.filter((b) => books.has(b)) }))
+    .map((r) => {
+      const bookIds = r.members.filter((b) => books.has(b));
+      return { id: r.id, bookIds, name: r.name ?? `Cluster of ${bookIds.length} Books`, description: r.description };
+    })
     .filter((c) => c.bookIds.length >= MIN_CLUSTER_SIZE);
+}
+
+export type NamingBook = { title: string; authors: string[]; themes: string[] };
+export type NamingInput = {
+  // The Cluster's current name and description, which the call may keep; null for a new Cluster.
+  previous: { name: string; description: string | null } | null;
+  books: NamingBook[];
+  // Between two of `books`, by title.
+  connections: { a: string; b: string; explanation: string }[];
+};
+export type NamingResult = { name: string; description: string; inputTokens: number; outputTokens: number; costUsd: number };
+
+// Seam to Claude: a name and description for one Cluster.
+export interface ClusterNamer {
+  model: string;
+  promptVersion: string;
+  name(input: NamingInput): Promise<NamingResult>;
+}
+
+// A named Cluster is named again only once its membership has changed by both this share of its
+// membership at naming time and this many Books, added and removed counted together.
+const RENAME_SHARE = 0.3;
+const RENAME_MIN_BOOKS = 2;
+export const NAME_MAX_WORDS = 4;
+// Attempts per Cluster per graph job; after the last, it keeps what it had until the next job.
+export const NAMING_ATTEMPTS = 3;
+// The strongest Connections among a Cluster's Books that the call sees.
+const NAMING_CONNECTIONS = 40;
+
+function needsName(c: { name: string | null; members: string[]; named: string[] | null }) {
+  if (c.name === null || c.named === null) return true;
+  const [now, then] = [new Set(c.members), new Set(c.named)];
+  const changed = c.members.filter((b) => !then.has(b)).length + c.named.filter((b) => !now.has(b)).length;
+  return changed >= RENAME_MIN_BOOKS && changed >= RENAME_SHARE * c.named.length;
+}
+
+// The reader's titles and authors for `members`, their Enrichment themes, and the strongest
+// non-dismissed Connections among them.
+async function namingInput(db: Db, userId: string, members: string[], previous: NamingInput["previous"]): Promise<NamingInput> {
+  const rows = await db
+    .select({ id: book.id, title: book.title, authors: book.authors, entry: libraryEntry, themes: enrichment.themes, recognised: enrichment.recognised })
+    .from(book)
+    .innerJoin(libraryEntry, and(eq(libraryEntry.bookId, book.id), eq(libraryEntry.userId, userId)))
+    .leftJoin(enrichment, eq(enrichment.bookId, book.id))
+    .where(inArray(book.id, members))
+    .orderBy(asc(book.id));
+  const title = new Map(rows.map((r) => [r.id, displayed(r, r.entry).title]));
+  const connections = (
+    await db
+      .select()
+      .from(connection)
+      .where(and(eq(connection.userId, userId), isNull(connection.dismissedAt), inArray(connection.bookAId, members), inArray(connection.bookBId, members)))
+  )
+    .sort((p, q) => STRENGTH_RANK[p.strength] - STRENGTH_RANK[q.strength] || q.similarity - p.similarity || (p.id < q.id ? -1 : 1))
+    .slice(0, NAMING_CONNECTIONS);
+  return {
+    previous,
+    books: rows.map((r) => ({ ...displayed(r, r.entry), themes: r.recognised ? (r.themes ?? []) : [] })),
+    connections: connections.map((c) => ({ a: title.get(c.bookAId)!, b: title.get(c.bookBId)!, explanation: c.explanation })),
+  };
+}
+
+// One Cluster's name, trying up to NAMING_ATTEMPTS times; a reply that is not a name of at most
+// NAME_MAX_WORDS words with a description counts as a failure. Null when every attempt failed.
+async function nameOne(namer: ClusterNamer, input: NamingInput): Promise<NamingResult | null> {
+  for (let attempt = 1; attempt <= NAMING_ATTEMPTS; attempt++) {
+    try {
+      const r = await namer.name(input);
+      const [name, description] = [r.name.trim(), r.description.trim()];
+      const words = name.split(/\s+/).filter(Boolean).length;
+      if (words === 0 || words > NAME_MAX_WORDS || !description) throw new Error(`Not a Cluster name: ${JSON.stringify(r.name)}`);
+      return { ...r, name, description };
+    } catch (err) {
+      if (attempt === NAMING_ATTEMPTS) console.error(err);
+    }
+  }
+  return null;
+}
+
+// Domain seam, run by the worker after a recompute: names each of the reader's Clusters that is new,
+// or unnamed, or has changed enough since it was named. Never throws for a failed name: that Cluster
+// keeps what it had (a new one shows unnamed) and is tried again after the next recompute. A name is
+// stored only while the Cluster still has the membership it was given for; one that changed meanwhile
+// is named by the job that change queued.
+export async function nameClusters(db: Db, namer: ClusterNamer, userId: string): Promise<void> {
+  const rows = await db
+    .select({ id: clusterLabel.id, members: clusterLabel.memberBookIds, named: clusterLabel.namedMemberBookIds, name: clusterLabel.name, description: clusterLabel.description })
+    .from(clusterLabel)
+    .where(eq(clusterLabel.userId, userId))
+    .orderBy(asc(clusterLabel.createdAt), asc(clusterLabel.id));
+  for (const c of rows.filter(needsName)) {
+    const previous = c.name === null ? null : { name: c.name, description: c.description };
+    const r = await nameOne(namer, await namingInput(db, userId, c.members, previous));
+    if (!r) continue;
+    await db
+      .update(clusterLabel)
+      .set({
+        name: r.name,
+        description: r.description,
+        namedMemberBookIds: c.members,
+        model: namer.model,
+        promptVersion: namer.promptVersion,
+        inputTokens: r.inputTokens,
+        outputTokens: r.outputTokens,
+        costUsd: r.costUsd,
+      })
+      .where(and(eq(clusterLabel.id, c.id), eq(clusterLabel.memberBookIds, c.members)));
+  }
 }

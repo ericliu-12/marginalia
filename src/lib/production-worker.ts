@@ -1,6 +1,6 @@
 import { createDb } from "@/db/client";
 import { descriptionGateway } from "./book-search";
-import { claudeEnricher, claudeJudge } from "./claude";
+import { claudeClusterNamer, claudeEnricher, claudeJudge } from "./claude";
 import { startWorker } from "./jobs";
 import { voyageEmbedder } from "./voyage";
 
@@ -16,6 +16,7 @@ export async function startProductionWorker(connectionString: string) {
       judge: claudeJudge(),
       embedder: voyageEmbedder(),
       descriptions: descriptionGateway(),
+      namer: claudeClusterNamer(),
     });
     return {
       queue: worker.queue,

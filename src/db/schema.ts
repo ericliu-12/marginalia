@@ -201,7 +201,12 @@ export const clusterLabel = pgTable("cluster_label", {
   name: text("name"),
   description: text("description"),
   memberBookIds: uuid("member_book_ids").array().notNull(),
+  // Of the naming call that set `name`; null until one has succeeded.
+  model: text("model"),
   promptVersion: text("prompt_version"),
+  inputTokens: integer("input_tokens").notNull().default(0),
+  outputTokens: integer("output_tokens").notNull().default(0),
+  costUsd: doublePrecision("cost_usd").notNull().default(0),
   // Membership at naming time, for the 30% rename rule.
   namedMemberBookIds: uuid("named_member_book_ids").array(),
   createdAt: createdAt(),

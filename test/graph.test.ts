@@ -6,7 +6,7 @@ import { DISPLAY_CAP, LABEL_ROOM, layoutGraph, readGraph, visibleConnections, ty
 import { changeStatus, removeFromLibrary } from "../src/domain/library-entry";
 import type { JobDeps } from "../src/domain/pipeline";
 import { connection, libraryEntry } from "../src/db/schema";
-import { fakeEmbedder, fakeEnricher, fakeJudge, work } from "./fakes";
+import { fakeEmbedder, fakeEnricher, fakeJudge, fakeNamer, work } from "./fakes";
 import { useTestDb } from "./harness";
 
 describe("Graph", () => {
@@ -116,6 +116,7 @@ describe("Graph", () => {
       })),
       embedder: fakeEmbedder(["quiet"]),
       descriptions: null,
+      namer: fakeNamer(),
     });
     const positions = (g: GraphView) => Object.fromEntries(g.books.map((b) => [b.title, { x: b.x, y: b.y }]));
 

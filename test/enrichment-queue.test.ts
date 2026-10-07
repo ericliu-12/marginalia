@@ -10,7 +10,7 @@ import { startWorker } from "../src/lib/jobs";
 import { backfillConnections } from "../src/domain/connections";
 import { changeStatus, removeFromLibrary } from "../src/domain/library-entry";
 import { addNote } from "../src/domain/notes";
-import { fakeEmbedder, fakeEnricher, fakeJudge, work } from "./fakes";
+import { fakeEmbedder, fakeEnricher, fakeJudge, fakeNamer, work } from "./fakes";
 import { useTestDb } from "./harness";
 
 // The pg-boss adapter: the real queue, running in-process against the test database, with Claude
@@ -36,6 +36,7 @@ describe("Enrichment through the queue", () => {
       embedder,
       judge: { ...judge, judge: async (input) => (await beforeJudging?.(input), judge.judge(input)) },
       descriptions: null,
+      namer: fakeNamer(),
       pollingIntervalSeconds: 0.5,
     });
     queue = worker.queue;

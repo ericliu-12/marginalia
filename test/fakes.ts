@@ -1,3 +1,4 @@
+import type { ClusterNamer, NamingInput, NamingResult } from "../src/domain/clusters";
 import type { ConnectionJudge, JudgeInput, JudgeResult } from "../src/domain/connections";
 import type { Embedder } from "../src/domain/embeddings";
 import { EMBEDDING_DIMENSIONS } from "../src/lib/models";
@@ -123,6 +124,22 @@ export function fakeJudge(reply: FakeJudgeReply = () => ({ connections: [] })): 
     async judge(input) {
       inputs.push(input);
       return { inputTokens: 1000, outputTokens: 200, costUsd: 0.004, ...reply(input) };
+    },
+  };
+}
+
+// Fake Claude for Cluster naming: answers with `reply(input)` (a fixed name by default), records every input.
+export function fakeNamer(
+  reply: (input: NamingInput) => Partial<NamingResult> | Promise<Partial<NamingResult>> = () => ({}),
+): ClusterNamer & { inputs: NamingInput[] } {
+  const inputs: NamingInput[] = [];
+  return {
+    inputs,
+    model: "fake-sonnet",
+    promptVersion: "naming-test-1",
+    async name(input) {
+      inputs.push(input);
+      return { name: "Quiet Lives", description: "Books about quiet lives.", inputTokens: 500, outputTokens: 50, costUsd: 0.0015, ...(await reply(input)) };
     },
   };
 }

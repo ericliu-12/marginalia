@@ -19,7 +19,7 @@ import {
   type EmbeddingTarget,
 } from "./embeddings";
 import { enrichBook, enrichmentGaveUp, readEnrichment, requestEnrichment, type EnrichmentModel } from "./enrichment";
-import { recomputeClusters } from "./clusters";
+import { nameClusters, recomputeClusters, type ClusterNamer } from "./clusters";
 import { clearGraphMark, layoutGraph, markGraphQueued, readGraphMark } from "./graph";
 
 // The background work, one job at a time: Enrichment for a Book, a vector for an Enrichment or a
@@ -57,6 +57,7 @@ export type JobDeps = {
   judge: ConnectionJudge;
   embedder: Embedder;
   descriptions: DescriptionGateway | null;
+  namer: ClusterNamer;
 };
 
 export type Pipeline = ReturnType<typeof createPipeline>;
@@ -131,7 +132,8 @@ async function requestGraph(db: Db, queue: JobQueue, userId: string) {
 // Runs one attempt at a job, and queues the work that follows it. Throws on failure so the queue
 // retries. Connections waiting on an Enrichment or a Note's vector are queued again once it is done (or,
 // in jobGaveUp, has failed for good). A Connections job is followed by the reader's graph job, so their
-// Clusters are current and a newly Finished Book has a stored place even when it found nothing.
+// Clusters are current (and named) and a newly Finished Book has a stored place even when it found
+// nothing; the graph stays pending until all of it is done.
 export async function runJob(db: Db, deps: JobDeps, queue: JobQueue, job: Job): Promise<void> {
   if (job.kind === "enrich") {
     await enrichBook(db, { model: deps.model, descriptions: deps.descriptions }, job.bookId);
@@ -149,6 +151,7 @@ export async function runJob(db: Db, deps: JobDeps, queue: JobQueue, job: Job): 
     const mark = await readGraphMark(db, job.userId);
     await recomputeClusters(db, job.userId);
     await layoutGraph(db, job.userId);
+    await nameClusters(db, deps.namer, job.userId);
     if (mark !== null) await clearGraphMark(db, job.userId, mark);
   } else {
     await generateConnections(db, { judge: deps.judge, embedder: deps.embedder }, { userId: job.userId, bookId: job.bookId });

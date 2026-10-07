@@ -61,8 +61,9 @@ export type GraphConnection = {
   featured: boolean;
 };
 
-// A Cluster as last computed by the worker, with the Books in it.
-export type GraphCluster = { id: string; bookIds: string[] };
+// A Cluster as last computed by the worker, with the Books in it. Its name is "Cluster of N Books"
+// and its description null until it has been named.
+export type GraphCluster = { id: string; bookIds: string[]; name: string; description: string | null };
 
 export type GraphView = {
   books: GraphBook[];
