@@ -300,9 +300,10 @@ function Result({
   );
 }
 
-// A Book's title as a way to open it, set in the serif italic titles take inside sans text.
+// A Book's title as a way to open it, set in the serif italic titles take inside sans text. Its touch
+// target reaches past the line it sits in, without spacing the text out.
 const bookTitleLink =
-  "font-serif text-[0.95rem] italic underline decoration-rule underline-offset-4 transition-colors hover:decoration-ink";
+  "relative font-serif text-[0.95rem] italic underline decoration-rule underline-offset-4 transition-colors hover:decoration-ink after:absolute after:-inset-x-1 after:-inset-y-3 after:content-[''] lg:after:hidden";
 
 // Advisory, never blocking: the Book looks like one already in the library, which is where a re-read
 // belongs (its panel can start one). The title opens it. Said in full once; `again` only points back.
