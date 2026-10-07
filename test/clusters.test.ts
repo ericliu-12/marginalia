@@ -245,6 +245,37 @@ describe("Clusters", () => {
     });
   });
 
+  describe("wash", () => {
+    const washes = async () => {
+      const g = await readGraph(ctx.db, ctx.userId);
+      const title = (id: string) => g.books.find((b) => b.bookId === id)!.title;
+      return Object.fromEntries(g.clusters.map((c) => [c.bookIds.map(title).sort().join(" "), c.wash]));
+    };
+
+    it("gives a new Cluster the wash fewest live Clusters have, and keeps it while the Cluster continues", async () => {
+      const [a, b, c] = await books("A B C");
+      const [d, e, f] = await books("D E F");
+      const [g, h, i] = await books("G H I");
+      await clique([a, b, c]);
+      await clique([d, e, f]);
+      await clique([g, h, i]);
+      await recomputeClusters(ctx.db, ctx.userId);
+      const first = await washes();
+      expect(new Set(Object.values(first)).size).toBe(3);
+
+      // D E F dissolves; a new Cluster forms and takes the wash it left; A B C grows and keeps its own.
+      await dismiss(d, e);
+      await dismiss(e, f);
+      await dismiss(d, f);
+      const [j, k, l] = await books("J K L");
+      await clique([j, k, l]);
+      const m = await add("M");
+      for (const x of [a, b, c]) await connect(m, x);
+      await recomputeClusters(ctx.db, ctx.userId);
+      expect(await washes()).toEqual({ "A B C M": first["A B C"], "G H I": first["G H I"], "J K L": first["D E F"] });
+    });
+  });
+
   describe("recompute", () => {
     const graphJobs = () => ctx.jobs.sent.filter((j) => j.kind === "graph");
 

@@ -9,6 +9,8 @@ import { completedPasses } from "./library-entry";
 
 // Fewer Books than this are not a Cluster.
 export const MIN_CLUSTER_SIZE = 3;
+// How many wash colours the graph has (WASH in src/app/graph/graph-style.ts).
+export const WASH_COUNT = 6;
 // A new Cluster continues an old one when their Books overlap at least this much (Jaccard), or when it
 // holds at least this share of the old one's Books (so a Cluster can grow fast and keep its identity).
 const MATCH_JACCARD = 0.5;
@@ -102,17 +104,24 @@ export async function recomputeClusters(db: Db, userId: string): Promise<void> {
     await lockClusters(tx, userId);
     const next = await findClusters(tx, userId);
     const previous = await tx
-      .select({ id: clusterLabel.id, members: clusterLabel.memberBookIds })
+      .select({ id: clusterLabel.id, members: clusterLabel.memberBookIds, wash: clusterLabel.wash })
       .from(clusterLabel)
       .where(eq(clusterLabel.userId, userId))
       .orderBy(asc(clusterLabel.createdAt), asc(clusterLabel.id));
     const kept = inherit(previous, next);
     const gone = previous.filter((p) => !kept.includes(p.id)).map((p) => p.id);
     if (gone.length) await tx.delete(clusterLabel).where(inArray(clusterLabel.id, gone));
+    // A new Cluster takes the wash fewest live Clusters have, the first such on a tie.
+    const inUse = previous.filter((p) => kept.includes(p.id)).map((p) => p.wash);
     for (const [i, members] of next.entries()) {
       const id = kept[i];
       if (id) await tx.update(clusterLabel).set({ memberBookIds: members }).where(eq(clusterLabel.id, id));
-      else await tx.insert(clusterLabel).values({ userId, memberBookIds: members });
+      else {
+        const uses = (w: number) => inUse.filter((x) => x === w).length;
+        const wash = Array.from({ length: WASH_COUNT }, (_, w) => w).reduce((best, w) => (uses(w) < uses(best) ? w : best));
+        inUse.push(wash);
+        await tx.insert(clusterLabel).values({ userId, memberBookIds: members, wash });
+      }
     }
   });
 }
@@ -132,14 +141,14 @@ export async function leaveClusters(tx: Tx, userId: string, bookId: string) {
 // One not yet named (its naming failed) shows as "Cluster of N Books".
 export async function readClusters(db: Db, userId: string, books: Set<string>) {
   const rows = await db
-    .select({ id: clusterLabel.id, members: clusterLabel.memberBookIds, name: clusterLabel.name, description: clusterLabel.description })
+    .select({ id: clusterLabel.id, members: clusterLabel.memberBookIds, name: clusterLabel.name, description: clusterLabel.description, wash: clusterLabel.wash })
     .from(clusterLabel)
     .where(eq(clusterLabel.userId, userId))
     .orderBy(asc(clusterLabel.createdAt), asc(clusterLabel.id));
   return rows
     .map((r) => {
       const bookIds = r.members.filter((b) => books.has(b));
-      return { id: r.id, bookIds, name: r.name ?? `Cluster of ${bookIds.length} Books`, description: r.description };
+      return { id: r.id, bookIds, name: r.name ?? `Cluster of ${bookIds.length} Books`, description: r.description, named: r.name !== null, wash: r.wash };
     })
     .filter((c) => c.bookIds.length >= MIN_CLUSTER_SIZE);
 }

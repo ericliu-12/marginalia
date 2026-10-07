@@ -74,6 +74,14 @@ describe("Cluster naming", () => {
     expect((await readGraph(ctx.db, ctx.userId)).pending).toBe(false);
   });
 
+  it("shows the new Clusters, unnamed, while naming is on its way", async () => {
+    await clique(await books("A B C"));
+    const seen: Awaited<ReturnType<typeof readGraph>>[] = [];
+    await recompute(fakeNamer(async () => (seen.push(await readGraph(ctx.db, ctx.userId)), {})));
+    expect(seen[0]).toMatchObject({ pending: true, naming: true, clusters: [{ name: "Cluster of 3 Books", named: false }] });
+    expect(await readGraph(ctx.db, ctx.userId)).toMatchObject({ pending: false, naming: false, clusters: [{ named: true }] });
+  });
+
   it("drops a name given for a membership that changed during the call, for the next job to redo", async () => {
     const four = await books("A B C D");
     await clique(four);

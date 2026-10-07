@@ -83,6 +83,8 @@ A private, contemplative reading room. Warm paper, dark ink, a serif voice with 
 - **Ink** (`#231d17`) is text and the primary action fill. **Ink secondary** and **tertiary** carry authors, counts and captions. Ink tertiary is only for text on paper or paper raised (it falls below 4.5:1 on paper sunk).
 - **Rule** (`#d8cdb7`) is the hairline for dividers and pane edges.
 - **Thematic** (blue), **Contrast** (rust) and **Context** (olive) are the three Connection Type hues, reserved for graph and Connection UI. Outside it, thematic is the focus ring, contrast is the error text and caret, context is the "added" check.
+- **Cluster washes** are six pale tints (`#c4ae82`, `#d0a1bb`, `#81bfb6`, `#d6a492`, `#b0abd8`, `#d1a888`), equal in OKLCH lightness and chroma and kept apart from the three Connection Type hues, so no Connection's line sinks into a wash. A Cluster is given its tint when it forms and keeps it for as long as it keeps its identity. They appear only on the graph, as soft pools behind a Cluster's Books, never over text.
+- **Cluster name ink** (`#4a4137`, between ink and ink secondary) holds 4.5:1 even where two washes overlap.
 
 ## Typography
 
@@ -96,7 +98,7 @@ Operate-mode two-pane desktop layout. The library fills the left, left-aligned t
 
 Flat. Depth comes from the paper tones (raised, sunk) and hairline rules. Covers carry a small soft shadow (`0 1px 2px rgb(35 29 23 / .25)`) so they read as objects.
 
-One deliberate exception: an element floating over the graph canvas (the Book and Connection panels) has no page edge or rule to separate it from what is behind, so it carries a soft lifted shadow (`0 12px 32px -8px rgb(35 29 23 / .18), 0 2px 6px rgb(35 29 23 / .06)`) with its hairline border. Nothing docked or in the page flow does.
+One deliberate exception: an element floating over the graph canvas (the Book, Connection and Cluster panels) has no page edge or rule to separate it from what is behind, so it carries a soft lifted shadow (`0 12px 32px -8px rgb(35 29 23 / .18), 0 2px 6px rgb(35 29 23 / .06)`) with its hairline border. Nothing docked or in the page flow does.
 
 ## Shapes
 
@@ -109,6 +111,7 @@ Near-square: 2px for covers, 3px for buttons and inputs. No pills, no circles.
 - **Row actions:** the per-row Status moves in the library (Start reading, Mark finished, Want to read, Read again). On touch devices they stay visible as quiet buttons with 44px targets. On pointer devices they rest as invisible, quiet text links in ink tertiary (underlined, hairline underline), revealed on row hover or keyboard focus within the row; hovering a link darkens it to ink. Rows stay titles-first: actions never compete with the title at rest.
 - **Cover:** the image, or a typeset placeholder on a paper-sunk tone (title in serif, author in small caps-style sans) when there is no cover or it fails to load.
 - **Section header:** serif heading with a hairline below and a quiet count; collapsible sections show a chevron.
+- **Cluster name:** italic serif in Cluster name ink on a soft paper plate, centred above or below its wash, whichever crosses fewer Book labels. It is sized with the zoom (13–18px), turns to ink with a hairline underline on hover, and fades with the rest of the graph behind a selection. Choosing it opens the Cluster panel.
 
 ## Do's and Don'ts
 

@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type ForceGraph from "force-graph";
-import { visibleConnections, type GraphBook, type GraphConnection, type GraphView } from "@/domain/graph";
+import { visibleConnections, type GraphBook, type GraphCluster, type GraphConnection, type GraphView } from "@/domain/graph";
 import {
+  CLUSTER_NAME_CLEAR,
+  CLUSTER_NAME_COLOR,
+  CLUSTER_NAME_OFFSET,
+  CLUSTER_NAME_SIZE,
   DRAG,
   EDGE_WIDTH,
   EDGE_WIDTH_CHOSEN_EXTRA,
@@ -23,10 +27,14 @@ import {
   RING_GAP,
   TRAIL_CASING,
   TYPICAL_EDGE_LENGTH,
+  WASH,
+  WASH_ALPHA,
+  WASH_FADE_MS,
+  WASH_RADIUS,
   nodeRadius,
 } from "./graph-style";
 
-export type Selection = { kind: "book"; bookId: string } | { kind: "connection"; id: string } | null;
+export type Selection = { kind: "book"; bookId: string } | { kind: "connection"; id: string } | { kind: "cluster"; id: string } | null;
 
 type Node = { id: string; book: GraphBook; label: string; radius: number; homeX: number; homeY: number; x?: number; y?: number; vx?: number; vy?: number };
 // force-graph's names: a node is a Book, a link is a Connection.
@@ -43,6 +51,7 @@ type Focus = {
   trailLinks: Set<string>;
   chosenBookId: string | null;
   chosenLinkId: string | null;
+  chosenClusterId: string | null;
   // Label priority: the selection and its neighbours first, then the graph's own order.
   labelOrder: Node[];
 };
@@ -53,7 +62,7 @@ const median = (xs: number[]) => {
 };
 
 // Graph data for force-graph, built once per graph: stored positions scaled so a typical Connection
-// is TYPICAL_EDGE_LENGTH long, and an id-to-node map.
+// is TYPICAL_EDGE_LENGTH long, an id-to-node map, and each Cluster's Books.
 function prepare(graph: GraphView) {
   const raw = new Map(graph.books.map((b) => [b.bookId, b]));
   const lengths = graph.connections.map((c) => Math.hypot(raw.get(c.a)!.x - raw.get(c.b)!.x, raw.get(c.a)!.y - raw.get(c.b)!.y));
@@ -84,12 +93,14 @@ function prepare(graph: GraphView) {
       q.book.finishedAt - p.book.finishedAt ||
       (p.id < q.id ? -1 : 1),
   );
-  return { nodes, links, byId, byPriority };
+  const clusters = graph.clusters.map((cluster) => ({ cluster, nodes: cluster.bookIds.map((id) => byId.get(id)!).filter(Boolean) }));
+  return { nodes, links, byId, byPriority, clusters };
 }
 
 function focusFor(graph: GraphView, prepared: ReturnType<typeof prepare>, selection: Selection, trail: string[]): Focus {
   const chosenBookId = selection?.kind === "book" ? selection.bookId : null;
   const chosenLink = selection?.kind === "connection" ? graph.connections.find((c) => c.id === selection.id) : undefined;
+  const chosenCluster = selection?.kind === "cluster" ? graph.clusters.find((c) => c.id === selection.id) : undefined;
   const visible = new Set(visibleConnections(graph, chosenBookId).map((c) => c.id));
   let litBooks: Set<string> | null = null;
   let litLinks: Set<string> | null = null;
@@ -105,6 +116,15 @@ function focusFor(graph: GraphView, prepared: ReturnType<typeof prepare>, select
     visible.add(chosenLink.id);
     litBooks = new Set([chosenLink.a, chosenLink.b]);
     litLinks = new Set([chosenLink.id]);
+  } else if (chosenCluster) {
+    // A Cluster lights its Books and every Connection among them.
+    litBooks = new Set(chosenCluster.bookIds);
+    litLinks = new Set();
+    for (const c of graph.connections) {
+      if (!litBooks.has(c.a) || !litBooks.has(c.b)) continue;
+      litLinks.add(c.id);
+      visible.add(c.id);
+    }
   }
   // The trail stays lit behind the chosen Book: its Books, and the Connections followed between them.
   const trailLinks = new Set<string>();
@@ -124,19 +144,31 @@ function focusFor(graph: GraphView, prepared: ReturnType<typeof prepare>, select
   const labelOrder = lit
     ? [...prepared.byPriority].sort((p, q) => Number(lit.has(q.id)) - Number(lit.has(p.id)) || Number(q.id === chosenBookId) - Number(p.id === chosenBookId))
     : prepared.byPriority;
-  return { visible, litBooks, litLinks, trailBooks: new Set(trail), trailLinks, chosenBookId, chosenLinkId: chosenLink?.id ?? null, labelOrder };
+  return {
+    visible,
+    litBooks,
+    litLinks,
+    trailBooks: new Set(trail),
+    trailLinks,
+    chosenBookId,
+    chosenLinkId: chosenLink?.id ?? null,
+    chosenClusterId: chosenCluster?.id ?? null,
+    labelOrder,
+  };
 }
 
-// Camera moves glide, unless the reader asked for less motion.
-const glide = () => (window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 600);
+// Camera moves glide, and new Clusters fade in, unless the reader asked for less motion.
+const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const glide = () => (reducedMotion() ? 0 : 600);
 
 type Box = { x0: number; y0: number; x1: number; y1: number };
 type Side = "right" | "left" | "above" | "below";
 
 const endId = (end: string | Node) => (typeof end === "string" ? end : end.id);
 
-// The reader's graph, full-bleed. Books are ink dots at their stored places; a selection lights a Book
-// and its Connections, or one Connection, and fades the rest.
+// The reader's graph, full-bleed. Books are ink dots at their stored places, each Cluster a wash behind
+// its Books with its name beside it; a selection lights a Book and its Connections, one Connection, or
+// a Cluster, and fades the rest. A fresh graph (after background work) keeps the reader's view.
 export function GraphCanvas({
   graph,
   selection,
@@ -157,7 +189,19 @@ export function GraphCanvas({
 }) {
   const el = useRef<HTMLDivElement>(null);
   const fgRef = useRef<ForceGraph<Node, Link> | null>(null);
+  const [ready, setReady] = useState(false);
   const prepared = useMemo(() => prepare(graph), [graph]);
+  const dataRef = useRef(prepared);
+  // Each Cluster's name, placed over the canvas every frame; and its measured size, by name.
+  const nameEls = useRef(new Map<string, HTMLButtonElement>());
+  const nameSizes = useRef(new Map<string, { w: number; h: number }>());
+  // When each Cluster that formed while the graph was open appeared, for its fade-in.
+  const appeared = useRef(new Map<string, number>());
+  // How far into its fade-in a Cluster is, 0 to 1; 1 for one that was there from the start.
+  const faded = (id: string, now: number) => {
+    const since = appeared.current.get(id);
+    return since === undefined ? 1 : Math.min(1, (now - since) / WASH_FADE_MS);
+  };
   const focus = useMemo(() => focusFor(graph, prepared, selection, trail), [graph, prepared, selection, trail]);
   const focusRef = useRef(focus);
   const hoverRef = useRef<string | null>(null);
@@ -170,7 +214,7 @@ export function GraphCanvas({
     insetRef.current = panelInset;
   });
 
-  // One force-graph per graph; selection changes only swap the focus it reads.
+  // One force-graph for the life of the view; a fresh graph swaps its data, a selection the focus it reads.
   useEffect(() => {
     const host = el.current;
     if (!host) return;
@@ -180,11 +224,14 @@ export function GraphCanvas({
     const serif = getComputedStyle(document.documentElement).getPropertyValue("--nf-serif").trim() || "Georgia";
     const font = (k: number) => `500 ${LABEL_SIZE / k}px ${serif}, Georgia, serif`;
     const widths = new Map<string, number>();
+    // Where one Cluster's pools are drawn before they go on the canvas together, so they never add up.
+    const layer = document.createElement("canvas");
 
     void import("force-graph").then(({ default: ForceGraphCtor }) => {
       if (cancelled) return;
       const f = (fg = new ForceGraphCtor<Node, Link>(host));
       fgRef.current = f;
+      const data = () => dataRef.current;
       const pointed = () => hoverRef.current ?? pointedRef.current;
       const ringed = (id: string) => id === focusRef.current.chosenBookId || id === pointed() || focusRef.current.trailBooks.has(id);
       const isLitBook = (id: string) => !focusRef.current.litBooks || focusRef.current.litBooks.has(id);
@@ -198,7 +245,49 @@ export function GraphCanvas({
         .height(host.clientHeight)
         .backgroundColor("rgba(0,0,0,0)")
         .nodeId("id")
-        .graphData({ nodes: prepared.nodes, links: prepared.links })
+        // Washes first, under everything: each Cluster's pools drawn at full tint into the layer, which
+        // goes on the paper at the Cluster's strength. Lighter behind any other selection.
+        .onRenderFramePre((ctx) => {
+          const { chosenClusterId, litBooks } = focusRef.current;
+          const { width, height } = ctx.canvas;
+          if (layer.width !== width || layer.height !== height) Object.assign(layer, { width, height });
+          const lc = layer.getContext("2d")!;
+          const r = WASH_RADIUS * TYPICAL_EDGE_LENGTH;
+          const now = performance.now();
+          for (const { cluster, nodes } of data().clusters) {
+            const alpha = (cluster.id === chosenClusterId ? WASH_ALPHA.chosen : litBooks ? WASH_ALPHA.faded : WASH_ALPHA.rest) * faded(cluster.id, now);
+            if (alpha <= 0 || nodes.length === 0) continue;
+            const tint = WASH[cluster.wash];
+            // Only the part of the canvas this Cluster's pools cover, in device pixels.
+            const m = ctx.getTransform();
+            const xs = nodes.map((n) => m.a * n.x! + m.e);
+            const ys = nodes.map((n) => m.d * n.y! + m.f);
+            const pad = r * m.a;
+            const x0 = Math.max(0, Math.floor(Math.min(...xs) - pad));
+            const y0 = Math.max(0, Math.floor(Math.min(...ys) - pad));
+            const w = Math.min(width, Math.ceil(Math.max(...xs) + pad)) - x0;
+            const h = Math.min(height, Math.ceil(Math.max(...ys) + pad)) - y0;
+            if (w <= 0 || h <= 0) continue;
+            lc.setTransform(1, 0, 0, 1, 0, 0);
+            lc.clearRect(x0, y0, w, h);
+            lc.setTransform(m);
+            for (const n of nodes) {
+              const g = lc.createRadialGradient(n.x!, n.y!, 0, n.x!, n.y!, r);
+              g.addColorStop(0, tint);
+              g.addColorStop(0.45, `${tint}c0`);
+              g.addColorStop(1, `${tint}00`);
+              lc.fillStyle = g;
+              lc.beginPath();
+              lc.arc(n.x!, n.y!, r, 0, Math.PI * 2);
+              lc.fill();
+            }
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.globalAlpha = alpha;
+            ctx.drawImage(layer, x0, y0, w, h, x0, y0, w, h);
+            ctx.restore();
+          }
+        })
         .linkVisibility((l) => focusRef.current.visible.has(l.id))
         .linkColor((l) => (linkState(l) === "faded" ? FADED_EDGE : TYPE_COLOR[l.connection.type]))
         // Screen pixels: force-graph keeps link widths constant across zoom.
@@ -247,7 +336,8 @@ export function GraphCanvas({
         // Labels last, over the edges, each on a paper plate so no edge strikes through it. In priority
         // order, each goes to the first side of its dot (right, left, above, below) where it overlaps no
         // dot and no label already placed, or is left off; a coarse grid keeps the checks cheap. The
-        // hovered and chosen Books always get theirs, in full.
+        // hovered and chosen Books always get theirs, in full. Then each Cluster's name goes above or
+        // below it, whichever crosses fewer of the labels drawn (and names placed before it).
         .onRenderFramePost((ctx, k) => {
           const { labelOrder, litBooks, chosenBookId } = focusRef.current;
           ctx.font = font(k);
@@ -277,14 +367,16 @@ export function GraphCanvas({
             return w;
           };
           // Every dot is an obstacle, so no label sits on another Book.
-          const screen = new Map(prepared.nodes.map((n) => [n.id, f.graph2ScreenCoords(n.x!, n.y!)]));
-          for (const n of prepared.nodes) {
+          const { nodes, byId, clusters } = data();
+          const screen = new Map(nodes.map((n) => [n.id, f.graph2ScreenCoords(n.x!, n.y!)]));
+          for (const n of nodes) {
             const s = screen.get(n.id)!;
             take({ x0: s.x - n.radius, y0: s.y - n.radius, x1: s.x + n.radius, y1: s.y + n.radius });
           }
 
           const hovered = pointed();
-          const order = hovered ? [prepared.byId.get(hovered), ...labelOrder] : labelOrder;
+          const order = hovered ? [byId.get(hovered), ...labelOrder] : labelOrder;
+          const labels: Box[] = [];
           const drawn = new Set<string>();
           const H = LABEL_SIZE * 1.24;
           for (const n of order) {
@@ -306,6 +398,7 @@ export function GraphCanvas({
             const spot = sides.find((c) => free(c.box)) ?? (must ? sides[0] : undefined);
             if (!spot) continue;
             take(spot.box);
+            labels.push(spot.box);
             drawn.add(n.id);
             // Back to graph units for drawing.
             const p = (sx: number, sy: number) => ({ x: n.x! + (sx - s.x) / k, y: n.y! + (sy - s.y) / k });
@@ -318,6 +411,69 @@ export function GraphCanvas({
             ctx.textAlign = "center";
             ctx.fillStyle = lit ? INK : FADED_LABEL;
             ctx.fillText(text, mid.x, mid.y);
+          }
+
+          const now = performance.now();
+          const hit = (b: Box, o: Box) => o.x0 < b.x1 && b.x0 < o.x1 && o.y0 < b.y1 && b.y0 < o.y1;
+          const r = WASH_RADIUS * TYPICAL_EDGE_LENGTH * k;
+          // The side crossing fewer labels (and names) wins; on a tie, the one clear of other Clusters'
+          // washes, then the one over fewer dots.
+          const crowding = (b: Box, mine: Set<string>) => {
+            let near = 0;
+            let dots = 0;
+            for (const n of nodes) {
+              const p = screen.get(n.id)!;
+              if (hit(b, { x0: p.x - n.radius, y0: p.y - n.radius, x1: p.x + n.radius, y1: p.y + n.radius })) dots++;
+              const dx = Math.max(b.x0 - p.x, 0, p.x - b.x1);
+              const dy = Math.max(b.y0 - p.y, 0, p.y - b.y1);
+              if (!mine.has(n.id) && Math.hypot(dx, dy) < r) near++;
+            }
+            return [labels.filter((o) => hit(b, o)).length, near, dots];
+          };
+          const names: Box[] = [];
+          const { chosenClusterId } = focusRef.current;
+          const fontSize = Math.round(Math.min(CLUSTER_NAME_SIZE.max, Math.max(CLUSTER_NAME_SIZE.min, r * CLUSTER_NAME_SIZE.perRadius)) * 2) / 2;
+          // Whether one side's crowding is lower, comparing in order of importance.
+          const fewer = (p: number[], q: number[]) => {
+            for (let i = 0; i < p.length; i++) if (p[i] !== q[i]) return p[i] < q[i];
+            return false;
+          };
+          const uncovered = f.width() - insetRef.current;
+          for (const { cluster, nodes: members } of clusters) {
+            const nameEl = nameEls.current.get(cluster.id);
+            if (!nameEl || members.length === 0) continue;
+            if (nameEl.style.fontSize !== `${fontSize}px`) nameEl.style.fontSize = `${fontSize}px`;
+            const key = `${cluster.id}:${cluster.name}:${fontSize}`;
+            let size = nameSizes.current.get(key);
+            if (!size) nameSizes.current.set(key, (size = { w: nameEl.offsetWidth, h: nameEl.offsetHeight }));
+            // Placed by the Books on screen, and kept on screen itself; with none of them showing, left off.
+            const { top, bottom, side } = CLUSTER_NAME_CLEAR;
+            const [canvasW, canvasH] = [f.width(), f.height()];
+            const pts = members.map((n) => screen.get(n.id)!).filter((p) => p.x >= 0 && p.x <= canvasW && p.y >= 0 && p.y <= canvasH);
+            if (pts.length === 0) {
+              nameEl.style.visibility = "hidden";
+              continue;
+            }
+            const x = Math.min(canvasW - side - size.w / 2, Math.max(side + size.w / 2, pts.reduce((sum, p) => sum + p.x, 0) / pts.length));
+            const gap = r * CLUSTER_NAME_OFFSET + size.h / 2;
+            const at = (y: number): Box => {
+              const cy = Math.min(canvasH - bottom - size.h / 2, Math.max(top + size.h / 2, y));
+              return { x0: x - size.w / 2, y0: cy - size.h / 2, x1: x + size.w / 2, y1: cy + size.h / 2 };
+            };
+            const above = at(Math.min(...pts.map((p) => p.y)) - gap);
+            const below = at(Math.max(...pts.map((p) => p.y)) + gap);
+            const mine = new Set(cluster.bookIds);
+            const box = fewer(crowding(below, mine), crowding(above, mine)) ? below : above;
+            const chosen = cluster.id === chosenClusterId;
+            // Left off where it would sit on another name or under the panel; the chosen name always shows.
+            const off = !chosen && (names.some((o) => hit(box, o)) || box.x1 > uncovered);
+            nameEl.style.visibility = off ? "hidden" : "visible";
+            if (off) continue;
+            labels.push(box);
+            names.push(box);
+            nameEl.toggleAttribute("data-faded", litBooks !== null && !chosen);
+            nameEl.style.transform = `translate(${box.x0}px, ${box.y0}px)`;
+            nameEl.style.opacity = String(faded(cluster.id, now));
           }
         })
         .onNodeHover((n) => {
@@ -342,24 +498,16 @@ export function GraphCanvas({
       charge.strength(DRAG.charge).distanceMax(TYPICAL_EDGE_LENGTH);
       f.d3Force("center", null);
       f.d3Force("home", (() => {
-        for (const n of prepared.nodes) {
+        for (const n of data().nodes) {
           n.vx! += (n.homeX - n.x!) * DRAG.home;
           n.vy! += (n.homeY - n.y!) * DRAG.home;
         }
       }) as never);
-
-      const fit = () => {
-        f.zoomToFit(0, 80);
-        if (f.zoom() > MAX_FIT_ZOOM) f.zoom(MAX_FIT_ZOOM);
-      };
-      // Fit once the canvas has its size, then let drags run the simulation.
-      requestAnimationFrame(() => {
-        if (cancelled) return;
-        fit();
-        f.cooldownTicks(DRAG.settleTicks);
-      });
       ro = new ResizeObserver(() => f.width(host.clientWidth).height(host.clientHeight));
       ro.observe(host);
+      // Names measured in a fallback face are measured again in Newsreader.
+      void document.fonts.ready.then(() => nameSizes.current.clear());
+      setReady(true);
     });
 
     return () => {
@@ -368,9 +516,43 @@ export function GraphCanvas({
       fg?._destructor();
       fgRef.current = null;
     };
-  }, [prepared]);
+  }, []);
 
-  // A new selection: swap the focus, redraw, and bring the chosen Book or Connection into the part of
+  // Each graph in turn: the first is fitted to the screen; a later one, fetched after background work,
+  // keeps the reader's view, and any Cluster it has that the last one lacked fades in.
+  const shown = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    const f = fgRef.current;
+    if (!f) return;
+    const first = shown.current === null;
+    const now = performance.now();
+    const fresh = first || reducedMotion() ? [] : prepared.clusters.filter((c) => !shown.current!.has(c.cluster.id));
+    for (const c of fresh) appeared.current.set(c.cluster.id, now);
+    shown.current = new Set(prepared.clusters.map((c) => c.cluster.id));
+    dataRef.current = prepared;
+    // The stored layout stays put; a drag wakes the simulation, which settles everything back home.
+    f.cooldownTicks(0).graphData({ nodes: prepared.nodes, links: prepared.links });
+    // Redrawn every frame while a Cluster fades in, since nothing else is moving.
+    let fading: ReturnType<typeof setTimeout> | undefined;
+    if (fresh.length) {
+      f.autoPauseRedraw(false);
+      fading = setTimeout(() => f.autoPauseRedraw(true), WASH_FADE_MS + 50);
+    }
+    // Once the canvas has its size, fit the first graph, then let drags run the simulation.
+    const frame = requestAnimationFrame(() => {
+      if (first) {
+        f.zoomToFit(0, 80);
+        if (f.zoom() > MAX_FIT_ZOOM) f.zoom(MAX_FIT_ZOOM);
+      }
+      f.cooldownTicks(DRAG.settleTicks);
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(fading);
+    };
+  }, [ready, prepared]);
+
+  // A new selection: swap the focus, redraw, and bring the chosen Book, Connection or Cluster into the part of
   // the canvas the panel leaves uncovered. Clearing the selection returns the view the reader had.
   // A change to the trail alone only redraws.
   const before = useRef<{ x: number; y: number; zoom: number } | null>(null);
@@ -380,7 +562,7 @@ export function GraphCanvas({
     const f = fgRef.current;
     if (!f) return;
     f.linkVisibility(f.linkVisibility());
-    const key = focus.chosenBookId ?? focus.chosenLinkId;
+    const key = focus.chosenBookId ?? focus.chosenLinkId ?? focus.chosenClusterId;
     if (key === centredOn.current) return;
     centredOn.current = key;
     const chosen = focus.chosenBookId
@@ -390,7 +572,7 @@ export function GraphCanvas({
             const l = prepared.links.find((x) => x.id === focus.chosenLinkId)!;
             return [prepared.byId.get(endId(l.source)), prepared.byId.get(endId(l.target))];
           })()
-        : [];
+        : (prepared.clusters.find((c) => c.cluster.id === focus.chosenClusterId)?.nodes ?? []);
     const at = chosen.filter((n) => n !== undefined);
     if (at.length) {
       before.current ??= { ...f.centerAt(), zoom: f.zoom() };
@@ -402,7 +584,7 @@ export function GraphCanvas({
       f.zoom(before.current.zoom, glide());
       before.current = null;
     }
-  }, [focus, prepared]);
+  }, [focus, prepared, ready]);
 
   useEffect(() => {
     pointedRef.current = pointedBookId;
@@ -410,5 +592,42 @@ export function GraphCanvas({
     if (f) f.linkVisibility(f.linkVisibility());
   }, [pointedBookId]);
 
-  return <div ref={el} className="absolute inset-0" aria-hidden />;
+  return (
+    <>
+      <div ref={el} className="absolute inset-0" aria-hidden />
+      {/* Cluster names, placed by the canvas each frame. The keyboard reaches Clusters through the
+          workspace's list instead. Hidden until first placed. */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+        {graph.clusters.map((c) => (
+          <ClusterName
+            key={c.id}
+            cluster={c}
+            chosen={c.id === focus.chosenClusterId}
+            onSelect={() => onSelect({ kind: "cluster", id: c.id })}
+            nameRef={(node) => {
+              if (node) nameEls.current.set(c.id, node);
+              else nameEls.current.delete(c.id);
+            }}
+          />
+        ))}
+      </div>
+    </>
+  );
+}
+
+function ClusterName({ cluster, chosen, onSelect, nameRef }: { cluster: GraphCluster; chosen: boolean; onSelect: () => void; nameRef: (node: HTMLButtonElement | null) => void }) {
+  return (
+    <button
+      ref={nameRef}
+      type="button"
+      tabIndex={-1}
+      data-cluster-name={cluster.id}
+      data-chosen={chosen || undefined}
+      onClick={onSelect}
+      style={{ "--name": CLUSTER_NAME_COLOR, "--faded": FADED_LABEL, fontSize: CLUSTER_NAME_SIZE.max, visibility: "hidden" } as React.CSSProperties}
+      className="pointer-events-auto absolute top-0 left-0 rounded-[2px] bg-paper/80 px-1.5 py-0.5 font-serif leading-tight font-medium whitespace-nowrap text-(--name) italic decoration-rule decoration-1 underline-offset-[5px] transition-colors duration-150 hover:bg-paper/95 hover:text-ink hover:underline data-chosen:bg-paper/95 data-chosen:text-ink data-faded:bg-transparent data-faded:text-(--faded)"
+    >
+      {cluster.name}
+    </button>
+  );
 }

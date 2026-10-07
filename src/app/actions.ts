@@ -7,6 +7,7 @@ import { addBook, DuplicateBookError } from "@/domain/add-book";
 import { descriptionGateway } from "@/lib/book-search";
 import { readEnrichment, tryAgain, type EnrichmentView } from "@/domain/enrichment";
 import { countFindingConnections, dismissConnection, readConnection, readConnections, type ConnectionDetail, type ConnectionsView } from "@/domain/connections";
+import { readGraphStatus, type GraphStatus } from "@/domain/graph";
 import { changeStatus, removeFromLibrary } from "@/domain/library-entry";
 import { appPipeline } from "@/lib/jobs";
 import { addNote, deleteNote, listNotes, updateNote, type Note, type NoteInput } from "@/domain/notes";
@@ -138,6 +139,17 @@ export async function getConnectionAction(connectionId: string): Promise<{ conne
   }
 }
 
+// Whether the reader's graph is about to change; null when it can't be told.
+export async function graphStatusAction(): Promise<GraphStatus | null> {
+  try {
+    const db = appDb();
+    return await readGraphStatus(db, await getSeededUserId(db));
+  } catch (err) {
+    console.error(err);
+    return null;
+  }
+}
+
 export async function countFindingConnectionsAction(): Promise<number | null> {
   try {
     const db = appDb();
@@ -148,7 +160,8 @@ export async function countFindingConnectionsAction(): Promise<number | null> {
   }
 }
 
-// The graph loses the Connection now. The worker recomputes its Clusters, which show on the next load.
+// The graph loses the Connection now. The worker recomputes its Clusters, which the graph fetches
+// once it settles.
 export async function dismissConnectionAction(connectionId: string): Promise<{ ok: boolean }> {
   try {
     const db = appDb();
@@ -165,6 +178,8 @@ export async function refreshConnectionsAction(bookId: string): Promise<{ ok: bo
   try {
     const db = appDb();
     await appPipeline(db).refreshRequested(await getSeededUserId(db), bookId);
+    // The graph sees the run, and checks back until it settles.
+    revalidatePath("/graph");
     return { ok: true };
   } catch (err) {
     console.error(err);

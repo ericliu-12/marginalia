@@ -48,7 +48,8 @@ test("following a Connection builds a trail; a crumb, or following a Book on it,
 
   await follow(page, "Stoner");
   await expect(trail(page)).toHaveCount(0);
-  await expect(page.locator("p[role=status].sr-only")).toHaveText("Back to Stoner on your trail");
+  // The workspace's own live region, not the Connections section's.
+  await expect(page.getByRole("status").filter({ hasText: "Back to Stoner on your trail" })).toBeAttached();
 });
 
 test("Clear ends the trail and stays on the Book", async ({ page }) => {

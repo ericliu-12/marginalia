@@ -20,7 +20,7 @@ import {
 } from "./embeddings";
 import { enrichBook, enrichmentGaveUp, readEnrichment, requestEnrichment, type EnrichmentModel } from "./enrichment";
 import { nameClusters, recomputeClusters, type ClusterNamer } from "./clusters";
-import { clearGraphMark, layoutGraph, markGraphQueued, readGraphMark } from "./graph";
+import { clearGraphMark, layoutGraph, markGraphLaidOut, markGraphQueued, readGraphMark } from "./graph";
 
 // The background work, one job at a time: Enrichment for a Book, a vector for an Enrichment or a
 // Note (`id` is a Book id for an Enrichment), Connections for a reader's Book, and a reader's graph:
@@ -151,9 +151,12 @@ export async function runJob(db: Db, deps: JobDeps, queue: JobQueue, job: Job): 
     const mark = await readGraphMark(db, job.userId);
     await recomputeClusters(db, job.userId);
     await layoutGraph(db, job.userId);
+    if (mark !== null) await markGraphLaidOut(db, job.userId, mark);
     await nameClusters(db, deps.namer, job.userId);
     if (mark !== null) await clearGraphMark(db, job.userId, mark);
   } else {
+    // Marked before the run can leave `running`, so the graph never reads as settled in between.
+    await markGraphQueued(db, job.userId);
     await generateConnections(db, { judge: deps.judge, embedder: deps.embedder }, { userId: job.userId, bookId: job.bookId });
     await requestGraph(db, queue, job.userId);
   }
@@ -176,6 +179,7 @@ export async function jobGaveUp(db: Db, queue: JobQueue, job: Job): Promise<void
     // stops checking back before a job queued meanwhile has run.
     await clearGraphMark(db, job.userId);
   } else {
+    await markGraphQueued(db, job.userId);
     await connectionsGaveUp(db, job.userId, job.bookId);
     await requestGraph(db, queue, job.userId);
   }

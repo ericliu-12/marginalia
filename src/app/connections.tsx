@@ -5,12 +5,12 @@ import type { ConnectionCard, ConnectionsView } from "@/domain/connections";
 import { countFindingConnectionsAction, dismissConnectionAction, getConnectionsAction, refreshConnectionsAction } from "./actions";
 import { dangerLink, quietLink } from "./quiet-link";
 
-// While Connections are being found, check back now and then.
-const POLL_MS = 4000;
+// While Connections are being found, check back now and then. The graph waits on its background work the same way.
+export const POLL_MS = 4000;
 
 // Calls `fn` now and then every `ms` after the previous call settles, so requests never overlap.
 // Pauses while the tab is hidden and checks again as soon as it is shown.
-function usePoll(fn: () => Promise<unknown>, ms: number, enabled: boolean) {
+export function usePoll(fn: () => Promise<unknown>, ms: number, enabled: boolean) {
   useEffect(() => {
     if (!enabled) return;
     let live = true;

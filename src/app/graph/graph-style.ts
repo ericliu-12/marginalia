@@ -45,3 +45,30 @@ export const FADED_LABEL = "#a89c88";
 export const TYPE_COLOR: Record<ConnectionType, string> = { thematic: "#3e5f8a", contrast: "#a8432f", context: "#6f7a3a" };
 export const TYPE_LABEL: Record<ConnectionType, string> = { thematic: "Thematic", contrast: "Contrast", context: "Context" };
 export const STRENGTH_LABEL: Record<Strength, string> = { strong: "Strong", moderate: "Moderate", weak: "Weak" };
+
+// Cluster washes: soft pools of colour behind each Cluster's Books, under the Connections. Six pale
+// tints kept apart from the Connection Type hues, so no Connection's line sinks into its wash; a
+// Cluster keeps its tint (its stored `wash`) for as long as it keeps its identity. WASH_COUNT in
+// src/domain/clusters.ts is their number.
+// Equal in lightness and chroma (OKLCH 0.76, 0.065), so no Cluster reads stronger than another.
+export const WASH = ["#c4ae82", "#d0a1bb", "#81bfb6", "#d6a492", "#b0abd8", "#d1a888"];
+// How much of its tint a wash lays on the paper where it is fullest: at rest, while its Cluster is
+// chosen, and behind some other selection. A Cluster's pools never add up past this.
+export const WASH_ALPHA = { rest: 0.35, chosen: 0.55, faded: 0.16 };
+// Each pool's radius, as a share of a typical Connection's length.
+export const WASH_RADIUS = 0.65;
+// A Cluster that forms while the graph is open fades in over this long.
+export const WASH_FADE_MS = 600;
+
+// A Cluster's name, centred over it, above or below its wash, on a paper plate (as Book labels are) so
+// no Connection strikes through it. Its colour holds 4.5:1 even without the plate, where two of the
+// darkest washes overlap at rest.
+// Its size follows the wash it names, within these bounds, so a zoomed-out graph's names don't outweigh
+// their Clusters; a name with no room left among the others is left off.
+export const CLUSTER_NAME_SIZE = { min: 13, max: 18, perRadius: 1 / 9 };
+export const CLUSTER_NAME_COLOR = "#4a4137";
+// How far the name sits beyond the Cluster's outermost Book, as a share of a pool's radius.
+export const CLUSTER_NAME_OFFSET = 0.75;
+// Room a name keeps from the canvas edges (the wordmark above, the legend below), so a Cluster the
+// reader has zoomed into still shows its name.
+export const CLUSTER_NAME_CLEAR = { top: 96, bottom: 88, side: 16 };

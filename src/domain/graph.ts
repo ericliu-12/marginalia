@@ -4,7 +4,7 @@ import forceAtlas2 from "graphology-layout-forceatlas2";
 import type { Db } from "@/db/client";
 import { book, bookPosition, connection, graphJob, libraryEntry } from "@/db/schema";
 import { readClusters } from "./clusters";
-import { CLUSTER_WEIGHT, STRENGTH_RANK, type ConnectionType, type Strength } from "./connections";
+import { CLUSTER_WEIGHT, countFindingConnections, STRENGTH_RANK, type ConnectionType, type Strength } from "./connections";
 import { displayed } from "./library";
 import { readFinished } from "./library-entry";
 
@@ -62,15 +62,18 @@ export type GraphConnection = {
 };
 
 // A Cluster as last computed by the worker, with the Books in it. Its name is "Cluster of N Books"
-// and its description null until it has been named.
-export type GraphCluster = { id: string; bookIds: string[]; name: string; description: string | null };
+// and its description null until it has been named. `wash` picks its colour, and stays with it.
+export type GraphCluster = { id: string; bookIds: string[]; name: string; description: string | null; named: boolean; wash: number };
 
 export type GraphView = {
   books: GraphBook[];
   connections: GraphConnection[];
   clusters: GraphCluster[];
-  // The reader's graph job is queued or running: Clusters and positions are about to change.
+  // A Book is finding Connections, or the reader's graph job is queued or running: Connections,
+  // Clusters or positions are about to change.
   pending: boolean;
+  // Pending, but the Clusters and positions are already current: only their names are on the way.
+  naming: boolean;
 };
 
 type Point = { x: number; y: number };
@@ -165,8 +168,18 @@ export async function readGraph(db: Db, userId: string): Promise<GraphView> {
     }),
     connections: connections.map((c) => ({ id: c.id, a: c.bookAId, b: c.bookBId, type: c.type, strength: c.strength, featured: featured.has(c.id) })),
     clusters: await readClusters(db, userId, new Set(books.map((r) => r.book.id))),
-    pending: (await readGraphMark(db, userId)) !== null,
+    ...(await readGraphStatus(db, userId)),
   };
+}
+
+export type GraphStatus = Pick<GraphView, "pending" | "naming">;
+
+// Domain seam: whether the reader's graph is about to change (GraphView's `pending` and `naming`),
+// checked alone while the graph waits for background work to settle.
+export async function readGraphStatus(db: Db, userId: string): Promise<GraphStatus> {
+  const [job] = await db.select({ laidOut: graphJob.laidOut }).from(graphJob).where(eq(graphJob.userId, userId));
+  const finding = (await countFindingConnections(db, userId)) > 0;
+  return { pending: job !== undefined || finding, naming: job?.laidOut === true && !finding };
 }
 
 // The reader's graph job is about to be queued: the graph is pending until it settles. Returns the mark.
@@ -174,7 +187,7 @@ export async function markGraphQueued(db: Db, userId: string): Promise<number> {
   const [row] = await db
     .insert(graphJob)
     .values({ userId })
-    .onConflictDoUpdate({ target: graphJob.userId, set: { request: sql`${graphJob.request} + 1` } })
+    .onConflictDoUpdate({ target: graphJob.userId, set: { request: sql`${graphJob.request} + 1`, laidOut: false } })
     .returning({ request: graphJob.request });
   return row.request;
 }
@@ -183,6 +196,11 @@ export async function markGraphQueued(db: Db, userId: string): Promise<number> {
 export async function readGraphMark(db: Db, userId: string): Promise<number | null> {
   const [row] = await db.select({ request: graphJob.request }).from(graphJob).where(eq(graphJob.userId, userId));
   return row?.request ?? null;
+}
+
+// The graph job has recomputed the Clusters and laid the graph out, for `mark` if no request came in since.
+export async function markGraphLaidOut(db: Db, userId: string, mark: number): Promise<void> {
+  await db.update(graphJob).set({ laidOut: true }).where(and(eq(graphJob.userId, userId), eq(graphJob.request, mark)));
 }
 
 // The graph job settled. Given the mark it started with, a request that came in since stays pending,

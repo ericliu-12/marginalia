@@ -1,0 +1,1 @@
+ALTER TABLE "graph_job" ADD COLUMN "laid_out" boolean DEFAULT false NOT NULL;

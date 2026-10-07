@@ -3,7 +3,7 @@ import { Pool } from "pg";
 import { createDb } from "../../src/db/client";
 import { runMigrations } from "../../src/db/migrate";
 import { seedUser } from "../../src/db/seed";
-import { book, bookPosition, connection, enrichment, libraryEntry, note, readThrough } from "../../src/db/schema";
+import { book, bookPosition, clusterLabel, connection, enrichment, graphJob, libraryEntry, note, readThrough } from "../../src/db/schema";
 
 // The browser tests' own database on the docker-compose Postgres, apart from the app's and the unit tests'.
 // The web server is handed this database as DATABASE_URL, so creating it goes through Postgres's own
@@ -102,5 +102,36 @@ export async function addNoteThatGaveUp(title: Title, body: string) {
   const { db, pool } = createDb(e2eDatabaseUrl());
   const [entry] = await db.select({ id: libraryEntry.id, userId: libraryEntry.userId }).from(libraryEntry).innerJoin(book, eq(book.id, libraryEntry.bookId)).where(eq(book.title, title));
   await db.insert(note).values({ libraryEntryId: entry.id, userId: entry.userId, body, embedFailedAt: new Date() });
+  await pool.end();
+}
+
+// A Cluster of these Books, as the graph job would leave it: named, or not yet (`name` null).
+export async function addCluster(titles: Title[], name: { name: string; description: string } | null) {
+  const { db, pool } = createDb(e2eDatabaseUrl());
+  const rows = await db.select({ id: book.id, title: book.title, userId: libraryEntry.userId }).from(book).innerJoin(libraryEntry, eq(libraryEntry.bookId, book.id));
+  const ids = titles.map((t) => rows.find((r) => r.title === t)!.id);
+  const [row] = await db.insert(clusterLabel).values({ userId: rows[0].userId, memberBookIds: ids, name: name?.name, description: name?.description }).returning();
+  await pool.end();
+  return row.id;
+}
+
+// The graph job has recomputed the Clusters and laid the graph out; only naming is left.
+export async function layOutGraph() {
+  const { db, pool } = createDb(e2eDatabaseUrl());
+  await db.update(graphJob).set({ laidOut: true });
+  await pool.end();
+}
+
+// Naming catches up with a Cluster.
+export async function nameCluster(id: string, name: { name: string; description: string }) {
+  const { db, pool } = createDb(e2eDatabaseUrl());
+  await db.update(clusterLabel).set(name).where(eq(clusterLabel.id, id));
+  await pool.end();
+}
+
+// The graph job settles, as the worker would after it has recomputed and named the Clusters.
+export async function settleGraph() {
+  const { db, pool } = createDb(e2eDatabaseUrl());
+  await db.delete(graphJob);
   await pool.end();
 }

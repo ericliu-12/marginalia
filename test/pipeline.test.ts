@@ -391,10 +391,24 @@ describe("Pipeline", () => {
     it("keeps the graph pending from a Connections run until the graph job that follows it settles", async () => {
       await add("other", "read");
       await add("fresh", "read");
-      expect(await pending()).toBe(false);
+      // Finding its Connections, before the graph job is even queued.
+      expect(await pending()).toBe(true);
       await ctx.jobs.drain(deps());
       expect(ctx.jobs.sent.filter((j) => j.kind === "graph")).not.toHaveLength(0);
       expect(await pending()).toBe(false);
+    });
+
+    it("is pending through the end of a Connections run, before the graph job that follows it is queued", async () => {
+      await add("other", "read");
+      await ctx.jobs.drain(deps());
+      expect(await readGraphMark(ctx.db, ctx.userId)).toBeNull();
+      await add("fresh", "read");
+      // The run leaves `running` as it ends; by then the graph must already be marked.
+      const marks: (number | null)[] = [];
+      const judge = { ...fakeJudge(), judge: async () => (marks.push(await readGraphMark(ctx.db, ctx.userId)), { connections: [], inputTokens: 0, outputTokens: 0, costUsd: 0 }) };
+      await ctx.jobs.drain({ ...deps(), judge });
+      expect(marks.length).toBeGreaterThan(0);
+      expect(marks.every((m) => m !== null)).toBe(true);
     });
 
     it("is pending after a dismissal or a removal until the graph job runs, which a Refresh's run also queues", async () => {

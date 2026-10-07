@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { GraphView } from "@/domain/graph";
 import type { LibraryItem } from "@/domain/library";
+import { graphStatusAction } from "../actions";
 import { BookPanel } from "../book-panel";
-import { FindingIndicator } from "../connections";
+import { FindingIndicator, POLL_MS, usePoll } from "../connections";
 import { ViewSwitch } from "../view-switch";
+import { ClusterPanel } from "./cluster-panel";
 import { ConnectionPanel } from "./connection-panel";
 import { GraphCanvas, type Selection } from "./graph-canvas";
 import { TYPE_COLOR, TYPE_LABEL } from "./graph-style";
@@ -29,6 +31,25 @@ const PANEL_INSET = 27 * 17 + 24;
 export function GraphWorkspace({ graph, items, finding }: { graph: GraphView; items: LibraryItem[]; finding: number }) {
   const router = useRouter();
   const wide = useWide();
+  // While background work is about to change the graph (after a dismissal, a removal, a Refresh or a
+  // Connections run), check back until it settles, then fetch the page again for the fresh graph. The
+  // Clusters and positions come once more before that, as soon as only their names are left to come.
+  const [seen, setSeen] = useState(graph);
+  const [waiting, setWaiting] = useState(graph.pending);
+  if (seen !== graph) {
+    setSeen(graph);
+    setWaiting(graph.pending);
+  }
+  const check = useCallback(
+    () =>
+      graphStatusAction().then((status) => {
+        if (!status) return;
+        if (!status.pending) setWaiting(false);
+        if (!status.pending || (status.naming && !graph.naming)) router.refresh();
+      }),
+    [router, graph.naming],
+  );
+  usePoll(check, POLL_MS, waiting);
   const [selection, setSelection] = useState<Selection>(null);
   // The Books followed from the panel, oldest first. Anything chosen on the canvas starts afresh.
   const [trail, setTrail] = useState<string[]>([]);
@@ -50,6 +71,10 @@ export function GraphWorkspace({ graph, items, finding }: { graph: GraphView; it
     if (!s) return close();
     setSelection(s);
     setTrail(s.kind === "book" ? [s.bookId] : []);
+  };
+  const openFromList = (target: HTMLElement, s: Selection) => {
+    returnTo.current = target;
+    select(s);
   };
   const goTo = (next: string[]) => {
     setTrail(next);
@@ -116,7 +141,9 @@ export function GraphWorkspace({ graph, items, finding }: { graph: GraphView; it
               </li>
             ))}
           </ul>
-          <p className="text-ink-3">Thicker lines are stronger Connections. Select a Book to see all of its own.</p>
+          <p className="text-ink-3">
+            Thicker lines are stronger Connections. Select a Book to see all of its own, or a Cluster’s name to see what its Books share.
+          </p>
         </div>
       )}
 
@@ -131,12 +158,23 @@ export function GraphWorkspace({ graph, items, finding }: { graph: GraphView; it
                   type="button"
                   onFocus={() => setPointed(b.bookId)}
                   onBlur={() => setPointed(null)}
-                  onClick={(e) => {
-                    returnTo.current = e.currentTarget;
-                    select({ kind: "book", bookId: b.bookId });
-                  }}
+                  onClick={(e) => openFromList(e.currentTarget, { kind: "book", bookId: b.bookId })}
                 >
                   {b.title}, {b.degree} {b.degree === 1 ? "Connection" : "Connections"}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
+      {wide && graph.clusters.length > 0 && (
+        <nav aria-label="Clusters in the graph" className="sr-only">
+          <ul>
+            {graph.clusters.map((c) => (
+              <li key={c.id}>
+                <button type="button" onClick={(e) => openFromList(e.currentTarget, { kind: "cluster", id: c.id })}>
+                  {/* An unnamed Cluster's name already counts its Books. */}
+                  {c.named ? `${c.name}, ${c.bookIds.length} Books` : c.name}
                 </button>
               </li>
             ))}
@@ -150,7 +188,16 @@ export function GraphWorkspace({ graph, items, finding }: { graph: GraphView; it
 
       {wide && selection && (
         <div ref={panelRef} className="absolute top-6 right-6 bottom-6 w-[27rem] overflow-hidden rounded-[3px] border border-rule shadow-[0_12px_32px_-8px_rgb(35_29_23/0.18),0_2px_6px_rgb(35_29_23/0.06)]">
-          {selection.kind === "connection" ? (
+          {selection.kind === "cluster" ? (
+            <ClusterPanel
+              key={selection.id}
+              cluster={graph.clusters.find((c) => c.id === selection.id)}
+              books={graph.books}
+              onBack={close}
+              // A Book opened from its Cluster starts a trail of its own.
+              onOpenBook={(bookId) => select({ kind: "book", bookId })}
+            />
+          ) : selection.kind === "connection" ? (
             <ConnectionPanel
               key={selection.id}
               id={selection.id}
