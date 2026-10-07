@@ -32,6 +32,8 @@ export function GraphWorkspace({ graph, items, finding }: { graph: GraphView; it
   const [selection, setSelection] = useState<Selection>(null);
   // The Books followed from the panel, oldest first. Anything chosen on the canvas starts afresh.
   const [trail, setTrail] = useState<string[]>([]);
+  // Said to screen readers when following a Book already on the trail quietly rewinds to it.
+  const [said, setSaid] = useState("");
   const panelRef = useRef<HTMLDivElement>(null);
   const [pointed, setPointed] = useState<string | null>(null);
   // The keyboard list item that opened the panel, so closing it puts focus back there.
@@ -54,6 +56,11 @@ export function GraphWorkspace({ graph, items, finding }: { graph: GraphView; it
     setSelection({ kind: "book", bookId: next[next.length - 1] });
   };
   const labelOf = new Map(graph.books.map((b) => [b.bookId, b.label]));
+  const followTo = (from: string[], bookId: string) => {
+    const next = follow(from, bookId);
+    setSaid(next.length <= from.length ? `Back to ${labelOf.get(bookId)} on your trail` : "");
+    goTo(next);
+  };
 
   // Escape closes the panel wherever focus is. Forms inside the panel stop their own Escape first.
   const closeRef = useRef(close);
@@ -135,10 +142,23 @@ export function GraphWorkspace({ graph, items, finding }: { graph: GraphView; it
         </nav>
       )}
 
+      <p role="status" className="sr-only">
+        {said}
+      </p>
+
       {wide && selection && (
         <div ref={panelRef} className="absolute top-6 right-6 bottom-6 w-[27rem] overflow-hidden rounded-[3px] border border-rule shadow-[0_12px_32px_-8px_rgb(35_29_23/0.18),0_2px_6px_rgb(35_29_23/0.06)]">
           {selection.kind === "connection" ? (
-            <ConnectionPanel key={selection.id} id={selection.id} onBack={close} onOpenBook={(bookId) => goTo(follow(trail, bookId))} />
+            <ConnectionPanel
+              key={selection.id}
+              id={selection.id}
+              onBack={close}
+              // Following from a Connection starts the trail at its other Book, so the way back is kept.
+              onOpenBook={(bookId) => {
+                const c = graph.connections.find((x) => x.id === selection.id);
+                followTo(c ? [c.a === bookId ? c.b : c.a] : trail, bookId);
+              }}
+            />
           ) : (
             item && (
               <BookPanel
@@ -146,7 +166,7 @@ export function GraphWorkspace({ graph, items, finding }: { graph: GraphView; it
                 item={item}
                 backLabel="Back to the graph"
                 onBack={close}
-                onOpenBook={(bookId) => goTo(follow(trail, bookId))}
+                onOpenBook={(bookId) => followTo(trail, bookId)}
                 crumbs={
                   trail.length > 1 && (
                     <TrailCrumbs

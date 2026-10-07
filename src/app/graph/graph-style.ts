@@ -9,8 +9,9 @@ export const EDGE_WIDTH_FADED = 1;
 // Added to the chosen Connection's width, and to one under the pointer.
 export const EDGE_WIDTH_CHOSEN_EXTRA = 2.5;
 export const EDGE_WIDTH_HOVER_EXTRA = 1.5;
-// Added to a Connection on the Follow trail, so the path walked reads through the faded rest.
-export const EDGE_WIDTH_TRAIL_EXTRA = 1.5;
+// A Connection on the Follow trail is cased in ink this wide on each side, and each Book on it ringed,
+// so the path walked reads without touching width, which is Strength.
+export const TRAIL_CASING = 1;
 
 // A Book's dot grows with its Connections, slowly, so hubs stand out without swallowing their labels.
 export const nodeRadius = (degree: number) => 3.5 + 1.7 * Math.sqrt(degree);

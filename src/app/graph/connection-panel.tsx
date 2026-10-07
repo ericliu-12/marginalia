@@ -78,7 +78,7 @@ function BookLink({ title, onOpen }: { title: string; onOpen: () => void }) {
     <button
       type="button"
       onClick={onOpen}
-      className="text-left underline decoration-rule decoration-1 underline-offset-[5px] transition-colors duration-150 hover:decoration-ink"
+      className="text-left underline decoration-rule decoration-1 underline-offset-[5px] transition-colors duration-150 hover:decoration-ink hover:decoration-2"
     >
       {title}
     </button>

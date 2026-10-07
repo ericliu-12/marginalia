@@ -9,7 +9,6 @@ import {
   EDGE_WIDTH_CHOSEN_EXTRA,
   EDGE_WIDTH_FADED,
   EDGE_WIDTH_HOVER_EXTRA,
-  EDGE_WIDTH_TRAIL_EXTRA,
   FADED_EDGE,
   FADED_LABEL,
   FADED_NODE,
@@ -22,6 +21,7 @@ import {
   RECENT_LABELS,
   TYPE_COLOR,
   RING_GAP,
+  TRAIL_CASING,
   TYPICAL_EDGE_LENGTH,
   nodeRadius,
 } from "./graph-style";
@@ -38,7 +38,8 @@ type Focus = {
   // Books and Connections drawn at full strength; null when nothing is selected and everything is.
   litBooks: Set<string> | null;
   litLinks: Set<string> | null;
-  // Connections between consecutive Books on the Follow trail.
+  // The Books on the Follow trail, and the Connections between consecutive ones.
+  trailBooks: Set<string>;
   trailLinks: Set<string>;
   chosenBookId: string | null;
   chosenLinkId: string | null;
@@ -123,7 +124,7 @@ function focusFor(graph: GraphView, prepared: ReturnType<typeof prepare>, select
   const labelOrder = lit
     ? [...prepared.byPriority].sort((p, q) => Number(lit.has(q.id)) - Number(lit.has(p.id)) || Number(q.id === chosenBookId) - Number(p.id === chosenBookId))
     : prepared.byPriority;
-  return { visible, litBooks, litLinks, trailLinks, chosenBookId, chosenLinkId: chosenLink?.id ?? null, labelOrder };
+  return { visible, litBooks, litLinks, trailBooks: new Set(trail), trailLinks, chosenBookId, chosenLinkId: chosenLink?.id ?? null, labelOrder };
 }
 
 // Camera moves glide, unless the reader asked for less motion.
@@ -185,7 +186,7 @@ export function GraphCanvas({
       const f = (fg = new ForceGraphCtor<Node, Link>(host));
       fgRef.current = f;
       const pointed = () => hoverRef.current ?? pointedRef.current;
-      const ringed = (id: string) => id === focusRef.current.chosenBookId || id === pointed();
+      const ringed = (id: string) => id === focusRef.current.chosenBookId || id === pointed() || focusRef.current.trailBooks.has(id);
       const isLitBook = (id: string) => !focusRef.current.litBooks || focusRef.current.litBooks.has(id);
       const linkState = (l: Link) => {
         const { litLinks, chosenLinkId } = focusRef.current;
@@ -204,24 +205,31 @@ export function GraphCanvas({
         .linkWidth((l) => {
           const state = linkState(l);
           if (state === "faded") return EDGE_WIDTH_FADED;
-          const extra =
-            state === "chosen"
-              ? EDGE_WIDTH_CHOSEN_EXTRA
-              : l.id === hoverLinkRef.current
-                ? EDGE_WIDTH_HOVER_EXTRA
-                : focusRef.current.trailLinks.has(l.id)
-                  ? EDGE_WIDTH_TRAIL_EXTRA
-                  : 0;
+          const extra = state === "chosen" ? EDGE_WIDTH_CHOSEN_EXTRA : l.id === hoverLinkRef.current ? EDGE_WIDTH_HOVER_EXTRA : 0;
           return EDGE_WIDTH[l.connection.strength] + extra;
         })
         .linkHoverPrecision(6)
+        // The trail's ink casing, drawn under the Connection's own line.
+        .linkCanvasObjectMode((l) => (focusRef.current.trailLinks.has(l.id) ? "before" : undefined))
+        .linkCanvasObject((l, ctx, k) => {
+          const s = l.source as Node;
+          const t = l.target as Node;
+          ctx.beginPath();
+          ctx.moveTo(s.x!, s.y!);
+          ctx.lineTo(t.x!, t.y!);
+          ctx.lineWidth = (EDGE_WIDTH[l.connection.strength] + 2 * TRAIL_CASING) / k;
+          ctx.strokeStyle = INK;
+          ctx.stroke();
+        })
         .nodeCanvasObject((n, ctx, k) => {
           const r = n.radius / k;
           const lit = isLitBook(n.id);
           if (ringed(n.id)) {
+            // A Book on the trail behind the chosen one gets a lighter ring.
+            const behind = n.id !== focusRef.current.chosenBookId && n.id !== pointed();
             ctx.beginPath();
             ctx.arc(n.x!, n.y!, r + RING_GAP / k, 0, Math.PI * 2);
-            ctx.lineWidth = 1.5 / k;
+            ctx.lineWidth = (behind ? 1 : 1.5) / k;
             ctx.strokeStyle = INK;
             ctx.stroke();
           }
