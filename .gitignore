@@ -45,4 +45,5 @@ scripts/eval/out/
 
 # Playwright output
 /test-results/
+/vitest-results/
 /playwright-report/
