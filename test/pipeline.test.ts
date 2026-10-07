@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { addBook } from "../src/domain/add-book";
-import { readConnections } from "../src/domain/connections";
+import { readConnections, type JudgeInput } from "../src/domain/connections";
 import { backfillEmbeddings } from "../src/domain/embeddings";
 import { readEnrichment, tryAgain } from "../src/domain/enrichment";
 import { changeStatus } from "../src/domain/library-entry";
@@ -81,6 +81,23 @@ describe("Pipeline", () => {
     await ctx.jobs.drain(deps({ judge }));
     expect(judge.inputs.map((i) => i.candidates.map((c) => c.title))).toEqual([["second"]]);
     expect(await readConnections(ctx.db, ctx.userId, first.bookId)).toMatchObject({ status: "idle", cards: [{ otherBookId: second.bookId }] });
+  });
+
+  it("merges a Refresh requested while the Book's Connections job runs into that job", async () => {
+    const first = await add("first", "read");
+    await add("second", "read");
+    await ctx.jobs.drain(deps());
+    await ctx.pipeline.refreshRequested(ctx.userId, first.bookId);
+    ctx.jobs.sent.length = 0;
+    const judge = fakeJudge((input) => ({
+      connections: input.candidates.map((c) => ({ candidateId: c.id, type: "contrast", strength: "strong", explanation: "Again.", quotedNoteIds: [] })),
+    }));
+    // The reader asks again while the judge is still answering.
+    const midRun = { ...judge, judge: async (input: JudgeInput) => (await ctx.pipeline.refreshRequested(ctx.userId, first.bookId), judge.judge(input)) };
+    await ctx.jobs.drain(deps({ judge: midRun }));
+    expect(ctx.jobs.sent.filter((j) => j.kind === "connections")).toHaveLength(1);
+    expect(judge.inputs).toHaveLength(1);
+    expect(await readConnections(ctx.db, ctx.userId, first.bookId)).toMatchObject({ status: "idle", cards: [{ explanation: "Again." }] });
   });
 
   it("ignores a Refresh for a Book that is not Finished", async () => {

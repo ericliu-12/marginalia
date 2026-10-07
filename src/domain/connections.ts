@@ -356,6 +356,7 @@ export async function backfillConnections(db: Db, pipeline: Pipeline, userId: st
 }
 
 export type ConnectionCard = {
+  id: string;
   otherBookId: string;
   otherTitle: string;
   type: ConnectionType;
@@ -399,6 +400,7 @@ export async function readConnections(db: Db, userId: string, bookId: string): P
     cards: rows.map((r) => {
       const other = others.find((o) => o.book.id === otherId(r))!;
       return {
+        id: r.id,
         otherBookId: other.book.id,
         otherTitle: displayed(other.book, other.entry).title,
         type: r.type,

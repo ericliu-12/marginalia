@@ -6,7 +6,7 @@ import { getSeededUserId } from "@/db/seed";
 import { addBook, DuplicateBookError } from "@/domain/add-book";
 import { descriptionGateway } from "@/lib/book-search";
 import { readEnrichment, tryAgain, type EnrichmentView } from "@/domain/enrichment";
-import { countFindingConnections, readConnection, readConnections, type ConnectionDetail, type ConnectionsView } from "@/domain/connections";
+import { countFindingConnections, dismissConnection, readConnection, readConnections, type ConnectionDetail, type ConnectionsView } from "@/domain/connections";
 import { changeStatus, removeFromLibrary } from "@/domain/library-entry";
 import { appPipeline } from "@/lib/jobs";
 import { addNote, deleteNote, listNotes, updateNote, type Note, type NoteInput } from "@/domain/notes";
@@ -145,5 +145,29 @@ export async function countFindingConnectionsAction(): Promise<number | null> {
   } catch (err) {
     console.error(err);
     return null;
+  }
+}
+
+// The graph loses the Connection now. The worker recomputes its Clusters, which show on the next load.
+export async function dismissConnectionAction(connectionId: string): Promise<{ ok: boolean }> {
+  try {
+    const db = appDb();
+    await dismissConnection(db, appPipeline(db), await getSeededUserId(db), connectionId);
+    revalidatePath("/graph");
+    return { ok: true };
+  } catch (err) {
+    console.error(err);
+    return { ok: false };
+  }
+}
+
+export async function refreshConnectionsAction(bookId: string): Promise<{ ok: boolean }> {
+  try {
+    const db = appDb();
+    await appPipeline(db).refreshRequested(await getSeededUserId(db), bookId);
+    return { ok: true };
+  } catch (err) {
+    console.error(err);
+    return { ok: false };
   }
 }

@@ -15,6 +15,7 @@ import {
 } from "./actions";
 import { ConnectionsSection } from "./connections";
 import { Cover } from "./cover";
+import { dangerLink, quietLink } from "./quiet-link";
 
 type Draft = { body: string; quote: string; page: string };
 const EMPTY: Draft = { body: "", quote: "", page: "" };
@@ -34,13 +35,6 @@ function saveDraft(bookId: string, draft: Draft) {
     else localStorage.removeItem(draftKey(bookId));
   } catch {}
 }
-
-// The colour is set per kind, never overridden: two text colours on one element resolve by stylesheet order.
-const quietLinkBase =
-  "min-h-11 min-w-11 font-sans text-[0.8rem] font-medium underline decoration-rule underline-offset-4 transition-colors duration-150 hover:decoration-ink lg:min-h-0 lg:min-w-0";
-const quietLink = `${quietLinkBase} text-ink-3 hover:text-ink disabled:text-ink-3/60`;
-// The confirming step of a deletion.
-const dangerLink = `${quietLinkBase} text-contrast hover:decoration-contrast disabled:text-contrast/60`;
 
 // The Book panel for one Library Entry. It does not assume where it lives: the library view docks it
 // in the right pane and the graph view floats it over the canvas, so the host supplies the way out,

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ConnectionDetail } from "@/domain/connections";
 import { getConnectionAction } from "../actions";
-import { titleLink } from "../connections";
+import { DismissConnection, titleLink } from "../connections";
 import { EDGE_WIDTH, STRENGTH_LABEL, TYPE_COLOR, TYPE_LABEL } from "./graph-style";
 
 // One Connection, chosen on the graph: its two Books, its Connection Type and Strength, and why. Either title opens
@@ -12,6 +12,7 @@ export function ConnectionPanel({ id, onBack, onOpenBook }: { id: string; onBack
   const [state, setState] = useState<{ id: string; connection: ConnectionDetail | null } | "failed" | undefined>(undefined);
   const [retry, setRetry] = useState(0);
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const goneRef = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
     let live = true;
@@ -26,6 +27,7 @@ export function ConnectionPanel({ id, onBack, onOpenBook }: { id: string; onBack
   const c = state && state !== "failed" && state.id === id ? state.connection : undefined;
   useEffect(() => {
     if (c) headingRef.current?.focus();
+    else if (c === null) goneRef.current?.focus();
   }, [c]);
 
   return (
@@ -53,7 +55,11 @@ export function ConnectionPanel({ id, onBack, onOpenBook }: { id: string; onBack
           </p>
         )}
         {state !== "failed" && c === undefined && <p className="text-ink-2 italic">Opening this Connection…</p>}
-        {c === null && <p className="text-ink-2 italic">This Connection is no longer in your graph.</p>}
+        {c === null && (
+          <p ref={goneRef} tabIndex={-1} className="text-ink-2 italic outline-none">
+            This Connection is no longer in your graph.
+          </p>
+        )}
         {c && (
           <article>
             <p className="flex items-center gap-2.5 font-sans text-[0.8rem] font-medium text-ink-2">
@@ -67,6 +73,7 @@ export function ConnectionPanel({ id, onBack, onOpenBook }: { id: string; onBack
             </h2>
             <p className="mt-5 max-w-[60ch] text-[1.0625rem] leading-relaxed">{c.explanation}</p>
             {c.grounding === "enrichment" && <p className="mt-3 font-sans text-[0.8rem] text-ink-2">Not drawn from your notes</p>}
+            <DismissConnection connectionId={c.id} className="mt-8 border-t border-rule pt-4" onDismissed={() => setState({ id, connection: null })} />
           </article>
         )}
       </div>

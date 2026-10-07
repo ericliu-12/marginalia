@@ -1,7 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { addBook } from "../src/domain/add-book";
-import { backfillConnections, countFindingConnections, generateConnections, readConnections, type ConnectionDeps, type JudgeInput, type JudgedConnection } from "../src/domain/connections";
+import { backfillConnections, countFindingConnections, dismissConnection, generateConnections, readConnections, type ConnectionDeps, type JudgeInput, type JudgedConnection } from "../src/domain/connections";
 import { embedEnrichment, embedNote } from "../src/domain/embeddings";
 import { enrichBook, readEnrichment } from "../src/domain/enrichment";
 import { changeStatus } from "../src/domain/library-entry";
@@ -359,6 +359,18 @@ describe("Connections on first finish", () => {
       await refresh(again.deps, a);
       expect(again.judge.inputs).toEqual([]);
       expect(await stored()).toMatchObject([{ explanation: "Dismissed.", dismissedAt: expect.any(Date) }]);
+    });
+
+    it("hides a Connection the reader dismisses from the Book panel on both sides, and a Refresh never brings it back", async () => {
+      const a = await finished("Stoner");
+      const b = await finished("Lonely");
+      await run(deps((input) => ({ connections: [link({ candidateId: input.candidates[0].id })] })).deps, a);
+      const [card] = (await readConnections(ctx.db, ctx.userId, a)).cards;
+      await dismissConnection(ctx.db, ctx.pipeline, ctx.userId, card.id);
+      await refresh(deps((input) => ({ connections: input.candidates.map((c) => link({ candidateId: c.id })) })).deps, a);
+      await refresh(deps((input) => ({ connections: input.candidates.map((c) => link({ candidateId: c.id })) })).deps, b);
+      expect((await readConnections(ctx.db, ctx.userId, a)).cards).toEqual([]);
+      expect((await readConnections(ctx.db, ctx.userId, b)).cards).toEqual([]);
     });
 
     it("does not count a dismissed pair against the cap", async () => {
