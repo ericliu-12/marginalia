@@ -46,6 +46,10 @@ const TYPE: Record<ConnectionCard["type"], { label: string; swatch: string }> = 
   context: { label: "Context", swatch: "bg-context" },
 };
 
+// A Book's title that opens that Book: here, and in the graph's Connection panel.
+export const titleLink =
+  "text-left underline decoration-rule decoration-1 underline-offset-[5px] transition-colors duration-150 hover:decoration-ink hover:decoration-2";
+
 const STRENGTH_LABEL: Record<ConnectionCard["strength"], string> = { strong: "Strong", moderate: "Moderate", weak: "Weak" };
 
 // The Book's Connections: each other Book it links to and why. Quiet while there is nothing to say.
@@ -96,7 +100,7 @@ export function ConnectionsSection({ bookId, onOpenBook }: { bookId: string; onO
                 <button
                   type="button"
                   onClick={() => onOpenBook(c.otherBookId)}
-                  className="text-left underline decoration-rule decoration-1 underline-offset-[5px] transition-colors duration-150 hover:decoration-ink hover:decoration-2"
+                  className={titleLink}
                 >
                   {c.otherTitle}
                 </button>

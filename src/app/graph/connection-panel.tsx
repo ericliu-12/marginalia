@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ConnectionDetail } from "@/domain/connections";
 import { getConnectionAction } from "../actions";
+import { titleLink } from "../connections";
 import { EDGE_WIDTH, STRENGTH_LABEL, TYPE_COLOR, TYPE_LABEL } from "./graph-style";
 
 // One Connection, chosen on the graph: its two Books, its Connection Type and Strength, and why. Either title opens
@@ -78,7 +79,7 @@ function BookLink({ title, onOpen }: { title: string; onOpen: () => void }) {
     <button
       type="button"
       onClick={onOpen}
-      className="text-left underline decoration-rule decoration-1 underline-offset-[5px] transition-colors duration-150 hover:decoration-ink hover:decoration-2"
+      className={titleLink}
     >
       {title}
     </button>

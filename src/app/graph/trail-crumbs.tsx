@@ -43,7 +43,7 @@ export function TrailCrumbs({
                     requestAnimationFrame(() => revealed.current?.focus());
                   }}
                   aria-label={`Show ${last - 2} more on the trail`}
-                  className={`${crumbLink} text-ink-2`}
+                  className={`${crumbLink} min-w-6 justify-center text-ink-2`}
                 >
                   …
                 </button>
