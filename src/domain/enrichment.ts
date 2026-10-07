@@ -214,6 +214,12 @@ export async function readEnrichment(db: Db, bookId: string): Promise<Enrichment
   return { status: row.status, recognised: row.recognised, summary: row.summary, themes: row.themes };
 }
 
+// Domain seam: the Enrichment of a Book in the reader's library, as their Book panel shows it.
+export async function readEntryEnrichment(db: Db, userId: string, bookId: string): Promise<EnrichmentView | null> {
+  if (!(await findEntry(db, userId, bookId))) throw new NotInLibraryError(bookId);
+  return readEnrichment(db, bookId);
+}
+
 // Domain seam: the reader's "Try again", for a Book in their library. The next run does the work
 // whatever changed. False when no job could be queued.
 export async function tryAgain(db: Db, pipeline: Pipeline, userId: string, bookId: string): Promise<boolean> {

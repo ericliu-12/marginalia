@@ -5,7 +5,7 @@ import { appDb } from "@/db/client";
 import { getSeededUserId } from "@/db/seed";
 import { addBook, DuplicateBookError } from "@/domain/add-book";
 import { descriptionGateway } from "@/lib/book-search";
-import { readEnrichment, tryAgain, type EnrichmentView } from "@/domain/enrichment";
+import { readEntryEnrichment, tryAgain, type EnrichmentView } from "@/domain/enrichment";
 import { countFindingConnections, dismissConnection, readConnection, readConnections, type ConnectionDetail, type ConnectionsView } from "@/domain/connections";
 import { readGraphStatus, type GraphStatus } from "@/domain/graph";
 import { changeStatus, removeFromLibrary } from "@/domain/library-entry";
@@ -100,7 +100,8 @@ export async function deleteNoteAction(noteId: string): Promise<{ ok: boolean }>
 // Null when it could not be read (not the same as a Book with no Enrichment yet).
 export async function getEnrichmentAction(bookId: string): Promise<{ enrichment: EnrichmentView | null } | null> {
   try {
-    return { enrichment: await readEnrichment(appDb(), bookId) };
+    const db = appDb();
+    return { enrichment: await readEntryEnrichment(db, await getSeededUserId(db), bookId) };
   } catch (err) {
     console.error(err);
     return null;

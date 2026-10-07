@@ -1,7 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { addBook } from "../src/domain/add-book";
-import { authorsMatch, enrichBook, enrichmentGaveUp, readEnrichment, tryAgain } from "../src/domain/enrichment";
+import { authorsMatch, enrichBook, enrichmentGaveUp, readEnrichment, readEntryEnrichment, tryAgain } from "../src/domain/enrichment";
 import { NotInLibraryError } from "../src/domain/library-entry";
 import { book, enrichment } from "../src/db/schema";
 import { fakeDescriptions, fakeEnricher, prose, volume, work } from "./fakes";
@@ -102,6 +102,13 @@ describe("Enrichment", () => {
     await expect(tryAgain(ctx.db, ctx.pipeline, "00000000-0000-0000-0000-000000000000", b.id)).rejects.toThrow(NotInLibraryError);
     expect(ctx.jobs.sent).toEqual([]);
     expect(await readEnrichment(ctx.db, b.id)).toMatchObject({ status: "ready" });
+  });
+
+  it("is read for the reader only for a Book in their library", async () => {
+    const b = await addStoner(prose(700));
+    await enrichBook(ctx.db, { model: fakeEnricher() }, b.id);
+    expect(await readEntryEnrichment(ctx.db, ctx.userId, b.id)).toMatchObject({ status: "ready", summary: "A quiet novel about a life." });
+    await expect(readEntryEnrichment(ctx.db, "00000000-0000-0000-0000-000000000000", b.id)).rejects.toThrow(NotInLibraryError);
   });
 
   it("runs conservatively with no description, and a missing description does not force unrecognised", async () => {
