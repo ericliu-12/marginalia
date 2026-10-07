@@ -2,6 +2,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { book, libraryEntry, statusEnum } from "@/db/schema";
 import { authorsMatch, normName } from "./enrichment";
+import { lookalikeCheck, type Lookalike } from "./lookalike";
 
 export type Status = (typeof statusEnum.enumValues)[number];
 
@@ -32,6 +33,8 @@ export type SearchResult = OpenLibraryWork & {
   coverUrl: string | null;
   // The reader's Status for this work if it is already in their library.
   libraryStatus: Status | null;
+  // Another Book in the reader's library this work looks like; advisory, and null when it is in the library itself.
+  lookalike: Lookalike | null;
 };
 
 export function coverUrlFor(coverId: number | null) {
@@ -143,10 +146,15 @@ export async function searchBooks(
       ),
     );
   const statusByKey = new Map(owned.map((o) => [o.workKey, o.status]));
+  const lookalike = await lookalikeCheck(db, userId);
 
-  return ranked.map((w) => ({
-    ...w,
-    coverUrl: coverUrlFor(w.coverId),
-    libraryStatus: statusByKey.get(w.workKey) ?? null,
-  }));
+  return ranked.map((w) => {
+    const libraryStatus = statusByKey.get(w.workKey) ?? null;
+    return {
+      ...w,
+      coverUrl: coverUrlFor(w.coverId),
+      libraryStatus,
+      lookalike: libraryStatus ? null : lookalike({ title: w.title, author: w.authors[0] ?? "" }),
+    };
+  });
 }

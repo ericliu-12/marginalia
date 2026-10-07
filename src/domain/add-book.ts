@@ -13,6 +13,22 @@ export class DuplicateBookError extends Error {
   }
 }
 
+export class InvalidBookError extends Error {}
+
+// What the reader types for a Manual Book; the cover and description may be left blank.
+export type ManualBookInput = { title: string; author: string; coverUrl?: string; description?: string };
+
+// A Manual Book's fields as stored: trimmed, blanks as null. A title and an author are required, and a
+// cover must be an http(s) address (it is put in an <img>).
+export function manualBookFields(input: ManualBookInput) {
+  const title = input.title.trim();
+  const author = input.author.trim();
+  const coverUrl = input.coverUrl?.trim() || null;
+  if (!title || !author) throw new InvalidBookError("A Book needs a title and an author");
+  if (coverUrl && !/^https?:\/\/\S+$/i.test(coverUrl)) throw new InvalidBookError("A cover must be an http(s) address");
+  return { title, authors: [author], coverUrl, description: input.description?.trim() || null };
+}
+
 // Open Library subjects are noisy: drop call numbers, award/NYT tags and FAST/URI strings.
 const NOISY_SUBJECT = /^(award|nyt):|\(uri\)|fast \(OCoLC\)|^[A-Za-z]{1,3}\d{2,4}\.[a-z0-9 .]+$/i;
 export function filterSubjects(subjects: string[]) {
@@ -83,6 +99,21 @@ export async function addBook(
   }
   await pipeline.bookAdded(result.bookId);
   // Adding a Book directly as read is its first completion, so a backfill add finds Connections too.
+  if (result.firstCompletion) await pipeline.bookFinished(userId, result.bookId);
+  return result;
+}
+
+// Domain seam: a Book the reader adds by hand because search found no match. It is private to them
+// (`created_by_user_id`), never matched by work key, so adding the same one twice makes two Books.
+// Enrichment works from what they typed.
+export async function addManualBook(db: Db, pipeline: Pipeline, userId: string, input: ManualBookInput, status: Status) {
+  const fields = manualBookFields(input);
+  const result = await db.transaction(async (tx) => {
+    const [row] = await tx.insert(book).values({ ...fields, createdByUserId: userId }).returning({ id: book.id });
+    const { entry, firstCompletion } = await enterLibrary(tx, userId, row.id, status);
+    return { ...entry, firstCompletion };
+  });
+  await pipeline.bookAdded(result.bookId);
   if (result.firstCompletion) await pipeline.bookFinished(userId, result.bookId);
   return result;
 }

@@ -106,6 +106,11 @@ export function createPipeline(db: Db, queue: JobQueue) {
     async enrichmentRetried(bookId: string): Promise<boolean> {
       return requestEnrichment(db, queue, bookId, true);
     },
+    // A Manual Book's title, author or description changed: its Enrichment runs again on what the reader
+    // wrote. Its existing Connections change only through a Refresh.
+    async manualBookEdited(bookId: string) {
+      await requestEnrichment(db, queue, bookId, true);
+    },
     connectionsChanged,
     // A removed Library Entry: its Connections job, if one is waiting or running, is cancelled.
     async entryRemoved(userId: string, bookId: string) {

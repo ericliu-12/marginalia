@@ -1,6 +1,6 @@
 import { and, asc, eq, isNotNull, isNull, or } from "drizzle-orm";
 import type { Db } from "@/db/client";
-import { connection, libraryEntry, readThrough } from "@/db/schema";
+import { book, connection, libraryEntry, readThrough } from "@/db/schema";
 import { leaveClusters } from "./clusters";
 import type { Pipeline } from "./pipeline";
 import type { Status } from "./search";
@@ -89,7 +89,8 @@ export async function changeStatus(db: Db, pipeline: Pipeline, userId: string, b
 // with the Library Entry; the reader's Connections involving the Book are deleted here, since the Book
 // is shared and never cascades. The Book leaves its Clusters at once (so it never counts toward a
 // rename) and the Clusters are recomputed; its Connections job, waiting or running, is cancelled. The
-// Book and its Enrichment stay, so adding it again is cheap.
+// Book and its Enrichment stay, so adding it again is cheap, except a Manual Book: private to the
+// reader, it would be left where nobody can reach it, so it goes too (its Enrichment with it).
 // Idempotent: a Book not in the library is left alone without error.
 export async function removeFromLibrary(db: Db, pipeline: Pipeline, userId: string, bookId: string): Promise<void> {
   const removed = await db.transaction(async (tx) => {
@@ -106,6 +107,7 @@ export async function removeFromLibrary(db: Db, pipeline: Pipeline, userId: stri
       .where(and(eq(connection.userId, userId), or(eq(connection.bookAId, bookId), eq(connection.bookBId, bookId))));
     await leaveClusters(tx, userId, bookId);
     await tx.delete(libraryEntry).where(eq(libraryEntry.id, entry.id));
+    await tx.delete(book).where(and(eq(book.id, bookId), isNotNull(book.createdByUserId)));
     return true;
   });
   if (removed) await pipeline.entryRemoved(userId, bookId);

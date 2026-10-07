@@ -14,6 +14,9 @@ export type LibraryItem = {
   finished: boolean;
   // Finished and currently being read again.
   reReading: boolean;
+  // A Manual Book, which the reader edits directly; only a Manual Book's description is carried here.
+  manual: boolean;
+  description: string | null;
 };
 
 const STATUS_ORDER: Status[] = ["reading", "want", "read"];
@@ -59,6 +62,8 @@ export async function readLibrary(db: Db, userId: string): Promise<LibraryItem[]
         status: entry.status,
         finished: summary !== undefined,
         reReading: isReReading(entry.status, summary),
+        manual: b.createdByUserId !== null,
+        description: b.createdByUserId !== null ? b.description : null,
       };
     });
 }
