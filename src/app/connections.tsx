@@ -86,7 +86,7 @@ export function ConnectionsSection({ bookId, onOpenBook }: { bookId: string; onO
       </section>
     );
   }
-  const { cards, status, finished } = view;
+  const { cards, status, finished, leftOut } = view;
   if (!finished && cards.length === 0) return null;
 
   return (
@@ -136,9 +136,18 @@ export function ConnectionsSection({ bookId, onOpenBook }: { bookId: string; onO
       <p role="status" className="sr-only">
         {said}
       </p>
+      {finished && status !== "running" && <LeftOut leftOut={leftOut} />}
       {finished && status !== "running" && <RefreshConnections bookId={bookId} onRequested={load} />}
     </section>
   );
+}
+
+// What Connections couldn't draw on, just above the Refresh that tries it again.
+function LeftOut({ leftOut: { notes, enrichment } }: { leftOut: ConnectionsView["leftOut"] }) {
+  if (notes === 0 && !enrichment) return null;
+  const yours = notes === 1 ? "one of your notes" : `${notes} of your notes`;
+  const what = enrichment ? (notes > 0 ? `this book’s summary or ${yours}` : "this book’s summary") : yours;
+  return <p className="pt-4 font-sans text-[0.8rem] text-ink-2">Connections can’t draw on {what} yet. Refresh to try again.</p>;
 }
 
 // Last in the section: regenerates the Book's Connections from its current Notes. Afterwards the section

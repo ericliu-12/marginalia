@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { seedLibrary } from "./database";
+import { addNoteThatGaveUp, seedLibrary } from "./database";
 
 // Dismiss and Refresh in the Book panel, on the seeded chain where Stoner's one Connection is The
 // Remains of the Day. No worker runs, so a Refresh stays queued.
@@ -40,4 +40,14 @@ test("Refresh connections queues a run, and the panel shows it finding Connectio
   await expect(connections(page).getByText("Finding Connections…")).toBeVisible();
   await expect(connections(page).getByRole("button", { name: "Refresh connections" })).toHaveCount(0);
   await expect(connections(page).getByRole("button", { name: "The Remains of the Day", exact: true })).toBeVisible();
+});
+
+test("a Note that gave up on its vector is named above Refresh, which tries it again", async ({ page }) => {
+  await addNoteThatGaveUp("Stoner", "A quiet life of work.");
+  await openStoner(page);
+  const leftOut = connections(page).getByText("Connections can’t draw on one of your notes yet. Refresh to try again.");
+  await expect(leftOut).toBeVisible();
+  await connections(page).getByRole("button", { name: "Refresh connections" }).click();
+  await expect(connections(page).getByText("Finding Connections…")).toBeVisible();
+  await expect(leftOut).toHaveCount(0);
 });

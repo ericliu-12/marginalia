@@ -91,8 +91,6 @@ export type EnrichDeps = {
   model: EnrichmentModel;
   // Looks up a missing description; without it a description-less Book is enriched conservatively.
   descriptions?: DescriptionGateway | null;
-  // The queue will not retry after this run, so a failure now is the reader-visible `failed`.
-  finalAttempt?: boolean;
 };
 
 // This module is the only writer of an Enrichment's status:
@@ -102,7 +100,7 @@ export type EnrichDeps = {
 
 // Domain seam, run by the worker: enrich one Book if its description or author/year metadata changed
 // since the last Enrichment, or "Try again" asked for a run. Throws on model failure so the queue
-// retries; a failure before the final attempt leaves the status as it was. A Book that no longer
+// retries; a failure leaves the status as it was (see enrichmentGaveUp). A Book that no longer
 // exists is a no-op.
 export async function enrichBook(db: Db, deps: EnrichDeps, bookId: string): Promise<void> {
   let [b] = await db.select().from(book).where(eq(book.id, bookId));
@@ -176,7 +174,6 @@ export async function enrichBook(db: Db, deps: EnrichDeps, bookId: string): Prom
     const failure = {
       attempts: (current?.attempts ?? 0) + 1,
       lastError: err instanceof Error ? err.message : String(err),
-      ...(deps.finalAttempt && { status: "failed" as const }),
     };
     await db
       .insert(enrichment)
@@ -184,6 +181,12 @@ export async function enrichBook(db: Db, deps: EnrichDeps, bookId: string): Prom
       .onConflictDoUpdate({ target: enrichment.bookId, set: failure });
     throw err;
   }
+}
+
+// The Book's enrich job will not be attempted again: an Enrichment still pending is `failed`, and the
+// reader can "Try again".
+export async function enrichmentGaveUp(db: Db, bookId: string): Promise<void> {
+  await db.update(enrichment).set({ status: "failed" }).where(and(eq(enrichment.bookId, bookId), eq(enrichment.status, "pending")));
 }
 
 // Asks for the Book's Enrichment: pending until a job runs, or failed when none could be queued. A

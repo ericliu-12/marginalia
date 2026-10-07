@@ -1,9 +1,9 @@
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { Pool } from "pg";
 import { createDb } from "../../src/db/client";
 import { runMigrations } from "../../src/db/migrate";
 import { seedUser } from "../../src/db/seed";
-import { book, bookPosition, connection, enrichment, libraryEntry, readThrough } from "../../src/db/schema";
+import { book, bookPosition, connection, enrichment, libraryEntry, note, readThrough } from "../../src/db/schema";
 
 // The browser tests' own database on the docker-compose Postgres, apart from the app's and the unit tests'.
 // The web server is handed this database as DATABASE_URL, so creating it goes through Postgres's own
@@ -94,5 +94,13 @@ export async function seedLibrary() {
       promptVersion: "e2e",
     });
   }
+  await pool.end();
+}
+
+// A Note on the Book that gave up on its vector, so Connections leave it out.
+export async function addNoteThatGaveUp(title: Title, body: string) {
+  const { db, pool } = createDb(e2eDatabaseUrl());
+  const [entry] = await db.select({ id: libraryEntry.id, userId: libraryEntry.userId }).from(libraryEntry).innerJoin(book, eq(book.id, libraryEntry.bookId)).where(eq(book.title, title));
+  await db.insert(note).values({ libraryEntryId: entry.id, userId: entry.userId, body, embedFailedAt: new Date() });
   await pool.end();
 }

@@ -1,7 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { addBook } from "../src/domain/add-book";
-import { authorsMatch, enrichBook, readEnrichment, tryAgain } from "../src/domain/enrichment";
+import { authorsMatch, enrichBook, enrichmentGaveUp, readEnrichment, tryAgain } from "../src/domain/enrichment";
 import { NotInLibraryError } from "../src/domain/library-entry";
 import { book, enrichment } from "../src/db/schema";
 import { fakeDescriptions, fakeEnricher, prose, volume, work } from "./fakes";
@@ -206,7 +206,8 @@ describe("Enrichment", () => {
 
     it("a failed attempt before the last leaves the status as it was", async () => {
       const b = await addStoner(prose(700));
-      await expect(enrichBook(ctx.db, { model: fakeEnricher(() => Promise.reject(new Error("x"))), finalAttempt: true }, b.id)).rejects.toThrow();
+      await expect(enrichBook(ctx.db, { model: fakeEnricher(() => Promise.reject(new Error("x"))) }, b.id)).rejects.toThrow();
+      await enrichmentGaveUp(ctx.db, b.id);
       await expect(enrichBook(ctx.db, { model: fakeEnricher(() => Promise.reject(new Error("x"))) }, b.id)).rejects.toThrow();
       expect(await readEnrichment(ctx.db, b.id)).toMatchObject({ status: "failed" });
     });
@@ -215,20 +216,23 @@ describe("Enrichment", () => {
   describe("failure", () => {
     const boom = () => Promise.reject(new Error("overloaded")) as Promise<never>;
 
-    it("rethrows so the queue retries; the Book reads as pending until the last attempt", async () => {
+    it("rethrows so the queue retries; the Book reads as pending until the job gives up", async () => {
       const b = await addStoner();
       await expect(enrichBook(ctx.db, { model: fakeEnricher(boom) }, b.id)).rejects.toThrow("overloaded");
       expect(await readEnrichment(ctx.db, b.id)).toMatchObject({ status: "pending" });
       expect((await rowFor(b.id)).lastError).toBe("overloaded");
 
-      await expect(enrichBook(ctx.db, { model: fakeEnricher(boom), finalAttempt: true }, b.id)).rejects.toThrow();
+      await expect(enrichBook(ctx.db, { model: fakeEnricher(boom) }, b.id)).rejects.toThrow();
+      expect(await readEnrichment(ctx.db, b.id)).toMatchObject({ status: "pending" });
+      await enrichmentGaveUp(ctx.db, b.id);
       expect(await readEnrichment(ctx.db, b.id)).toMatchObject({ status: "failed" });
       expect((await rowFor(b.id)).attempts).toBe(2);
     });
 
     it("recovers on a later run", async () => {
       const b = await addStoner();
-      await expect(enrichBook(ctx.db, { model: fakeEnricher(boom), finalAttempt: true }, b.id)).rejects.toThrow();
+      await expect(enrichBook(ctx.db, { model: fakeEnricher(boom) }, b.id)).rejects.toThrow();
+      await enrichmentGaveUp(ctx.db, b.id);
       await enrichBook(ctx.db, { model: fakeEnricher() }, b.id);
       expect(await readEnrichment(ctx.db, b.id)).toMatchObject({ status: "ready", recognised: true });
     });

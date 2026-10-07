@@ -1,9 +1,9 @@
 import { and, eq, sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { addBook } from "../src/domain/add-book";
-import { backfillConnections, countFindingConnections, dismissConnection, generateConnections, readConnections, type ConnectionDeps, type JudgeInput, type JudgedConnection } from "../src/domain/connections";
-import { embedEnrichment, embedNote } from "../src/domain/embeddings";
-import { enrichBook, readEnrichment } from "../src/domain/enrichment";
+import { backfillConnections, connectionsGaveUp, countFindingConnections, dismissConnection, generateConnections, readConnections, type ConnectionDeps, type JudgeInput, type JudgedConnection } from "../src/domain/connections";
+import { embedEnrichment, embedNote, noteEmbeddingFailed } from "../src/domain/embeddings";
+import { enrichBook, enrichmentGaveUp, readEnrichment } from "../src/domain/enrichment";
 import { changeStatus } from "../src/domain/library-entry";
 import { addNote } from "../src/domain/notes";
 import { book, connection, connectionRun, enrichment, libraryEntry, note, readThrough } from "../src/db/schema";
@@ -280,7 +280,8 @@ describe("Connections on first finish", () => {
     const a = await finished("Stoner", "solitude", { notes: ["Embedded solitude."] });
     await finished("Lonely");
     const n = await addNote(ctx.db, ctx.pipeline, ctx.userId, a, { body: "Never embedded." });
-    await expect(embedNote(ctx.db, { ...embedder, embed: () => Promise.reject(new Error("429")) }, n.id, true)).rejects.toThrow("429");
+    await expect(embedNote(ctx.db, { ...embedder, embed: () => Promise.reject(new Error("429")) }, n.id)).rejects.toThrow("429");
+    await noteEmbeddingFailed(ctx.db, n.id);
     const { judge, deps: d } = deps();
     await run(d, a);
     expect(judge.inputs[0].book.notes.map((x) => x.body)).toEqual(["Embedded solitude."]);
@@ -296,13 +297,13 @@ describe("Connections on first finish", () => {
     expect(await ctx.db.select().from(connectionRun)).toEqual([]);
   });
 
-  it("leaves a failed run retryable: still running until the final attempt, then failed, never generated", async () => {
+  it("leaves a failed run retryable: still running until the job gives up, then failed, never generated", async () => {
     const a = await finished("Stoner");
     await finished("Lonely");
     const broken = { ...deps().deps, judge: { ...fakeJudge(), judge: () => Promise.reject(new Error("overloaded")) } };
     await expect(run(broken, a)).rejects.toThrow("overloaded");
     expect((await entryOf(a)).connectionsStatus).toBe("running");
-    await expect(run({ ...broken, finalAttempt: true }, a)).rejects.toThrow("overloaded");
+    await connectionsGaveUp(ctx.db, ctx.userId, a);
     expect(await entryOf(a)).toMatchObject({ connectionsStatus: "failed", connectionsGeneratedAt: null });
     expect(await stored()).toEqual([]);
   });
@@ -310,7 +311,8 @@ describe("Connections on first finish", () => {
   it("judges a Book whose Enrichment failed for good on its Notes, leaves the Enrichment failed, and records it", async () => {
     const { bookId } = await addBook(ctx.db, ctx.pipeline, ctx.userId, work({ workKey: "/works/stuck", title: "Stuck", authors: ["A"] }), "read");
     const down = fakeEnricher(() => Promise.reject(new Error("model down")));
-    await expect(enrichBook(ctx.db, { model: down, finalAttempt: true }, bookId)).rejects.toThrow("model down");
+    await expect(enrichBook(ctx.db, { model: down }, bookId)).rejects.toThrow("model down");
+    await enrichmentGaveUp(ctx.db, bookId);
     await embedNote(ctx.db, embedder, (await addNote(ctx.db, ctx.pipeline, ctx.userId, bookId, { body: "A solitude note." })).id);
     await finished("Lonely");
 

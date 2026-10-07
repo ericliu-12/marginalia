@@ -69,14 +69,12 @@ const QUOTED = /["“]([^"”]{8,})["”]/g;
 export type ConnectionDeps = {
   judge: ConnectionJudge;
   embedder: Embedder;
-  // The queue will not retry after this run, so a failure now is the reader-visible `failed`.
-  finalAttempt?: boolean;
 };
 
 // This module is the only writer of a Library Entry's Connections status:
 //   running: a run is queued, waiting on the Book's Enrichment or Note vectors, or under way
 //   idle:    nothing is coming (`connectionsGeneratedAt` says whether a run ever succeeded)
-//   failed:  the last run gave up, or could not be queued
+//   failed:  the job gave up (see connectionsGaveUp), or could not be queued
 
 // Marks the Book's Connections as queued and queues the job. Outside a Refresh, does nothing for a
 // Book whose Connections were already generated; a Refresh does nothing for a Book that is not
@@ -160,18 +158,22 @@ async function prerequisitesSettled(db: Db, entryId: string, bookId: string) {
 // `running` (queued by a first finish or a Refresh). Once a run has succeeded, later ones are Refreshes: they update the Connections they find again in place, never delete one, and
 // never judge or revive a dismissed one. Waits, still `running`, while the Book's Enrichment or a
 // Note's vector is on its way; the Pipeline queues it again when one settles. Throws on failure so
-// the queue retries; a Book that is no longer in the library, or not Finished, is a no-op.
+// the queue retries, still `running`; a Book that is no longer in the library, or not Finished, is a no-op.
 export async function generateConnections(db: Db, deps: ConnectionDeps, { userId, bookId }: ConnectionJob): Promise<void> {
   const entry = await findEntry(db, userId, bookId);
   // Only a run someone asked for (`running`): a duplicate job left over after one finished does nothing.
   if (!entry || entry.connectionsStatus !== "running" || !(await isFinished(db, userId, bookId))) return;
   if (!(await prerequisitesSettled(db, entry.id, bookId))) return;
-  try {
-    await run(db, deps, userId, entry.id, bookId, entry.connectionsGeneratedAt !== null);
-  } catch (err) {
-    if (deps.finalAttempt) await db.update(libraryEntry).set({ connectionsStatus: "failed" }).where(eq(libraryEntry.id, entry.id));
-    throw err;
-  }
+  await run(db, deps, userId, entry.id, bookId, entry.connectionsGeneratedAt !== null);
+}
+
+// The Book's Connections job will not be attempted again: a run still waiting on it is `failed`, and
+// the reader's Refresh tries again.
+export async function connectionsGaveUp(db: Db, userId: string, bookId: string): Promise<void> {
+  await db
+    .update(libraryEntry)
+    .set({ connectionsStatus: "failed" })
+    .where(and(eq(libraryEntry.userId, userId), eq(libraryEntry.bookId, bookId), eq(libraryEntry.connectionsStatus, "running")));
 }
 
 async function run(db: Db, deps: ConnectionDeps, userId: string, entryId: string, bookId: string, refresh: boolean) {
@@ -372,6 +374,9 @@ export type ConnectionsView = {
   generated: boolean;
   // A Book that is not Finished takes no part in Connections, so the panel has nothing to say about them.
   finished: boolean;
+  // What Connections can't draw on, its vector having given up, until a Refresh embeds it again: how
+  // many of the reader's Notes on the Book, and whether its Enrichment.
+  leftOut: { notes: number; enrichment: boolean };
 };
 
 // Domain seam: what the Book panel shows. Strongest first, then most similar. Dismissed ones are hidden.
@@ -412,7 +417,18 @@ export async function readConnections(db: Db, userId: string, bookId: string): P
     status: entry?.connectionsStatus ?? "idle",
     generated: !!entry?.connectionsGeneratedAt,
     finished: !!entry && (await isFinished(db, userId, bookId)),
+    leftOut: await readLeftOut(db, entry?.id, bookId),
   };
+}
+
+async function readLeftOut(db: Db, entryId: string | undefined, bookId: string): Promise<ConnectionsView["leftOut"]> {
+  if (!entryId) return { notes: 0, enrichment: false };
+  const [notes] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(note)
+    .where(and(eq(note.libraryEntryId, entryId), isNotNull(note.embedFailedAt)));
+  const [e] = await db.select({ embedFailedAt: enrichment.embedFailedAt }).from(enrichment).where(eq(enrichment.bookId, bookId));
+  return { notes: notes.n, enrichment: !!e?.embedFailedAt };
 }
 
 // Domain seam: how many of the reader's Books are queued or running, for the quiet indicator.

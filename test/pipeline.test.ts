@@ -1,13 +1,14 @@
 import { and, eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { addBook } from "../src/domain/add-book";
-import { readConnections, type JudgeInput } from "../src/domain/connections";
+import { dismissConnection, readConnections, type JudgeInput } from "../src/domain/connections";
 import { backfillEmbeddings } from "../src/domain/embeddings";
 import { readEnrichment, tryAgain } from "../src/domain/enrichment";
-import { changeStatus } from "../src/domain/library-entry";
+import { clearGraphMark, readGraph, readGraphMark } from "../src/domain/graph";
+import { changeStatus, removeFromLibrary } from "../src/domain/library-entry";
 import { addNote, updateNote } from "../src/domain/notes";
-import { RETRIES, type JobDeps } from "../src/domain/pipeline";
-import { connection, connectionRun, enrichment, note } from "../src/db/schema";
+import { RETRIES, jobGaveUp, type JobDeps } from "../src/domain/pipeline";
+import { connection, connectionRun, enrichment, libraryEntry, note } from "../src/db/schema";
 import { fakeEmbedder, fakeEnricher, fakeJudge, work } from "./fakes";
 import { useTestDb } from "./harness";
 
@@ -258,6 +259,183 @@ describe("Pipeline", () => {
       await ctx.jobs.send({ kind: "connections", userId: ctx.userId, bookId });
       await ctx.jobs.drain(deps({ judge }));
       expect(judge.inputs).toHaveLength(calls);
+    });
+  });
+
+  describe("a job that gives up", () => {
+    const broken = fakeJudge();
+    broken.judge = () => Promise.reject(new Error("overloaded"));
+    const status = async (bookId: string) => (await readConnections(ctx.db, ctx.userId, bookId)).status;
+
+    it("leaves the Book's Connections failed after every attempt, still laid out, and a Refresh runs them again", async () => {
+      await add("other", "read");
+      await ctx.jobs.drain(deps());
+      const { bookId } = await add("fresh", "read");
+      const attempts = { n: 0 };
+      await ctx.jobs.drain(deps({ judge: { ...broken, judge: (i) => (attempts.n++, broken.judge(i)) } }));
+      expect(attempts.n).toBe(RETRIES.connections + 1);
+      expect(await readConnections(ctx.db, ctx.userId, bookId)).toMatchObject({ status: "failed", generated: false, cards: [] });
+      expect((await readGraph(ctx.db, ctx.userId)).books.map((b) => b.title).sort()).toEqual(["fresh", "other"]);
+
+      await ctx.pipeline.refreshRequested(ctx.userId, bookId);
+      expect(await status(bookId)).toBe("running");
+      await ctx.jobs.drain(deps());
+      expect(await readConnections(ctx.db, ctx.userId, bookId)).toMatchObject({ status: "idle", generated: true, cards: [{ otherTitle: "other" }] });
+    });
+
+    // A worker that dies mid-run never finishes its attempt; the queue gives up on the job for it.
+    it("settles what a job that never finished left waiting", async () => {
+      await add("other", "read");
+      await ctx.jobs.drain(deps());
+      const { bookId } = await add("crashed", "reading");
+      const n = await addNote(ctx.db, ctx.pipeline, ctx.userId, bookId, { body: "A quiet note." });
+      await changeStatus(ctx.db, ctx.pipeline, ctx.userId, bookId, "read");
+      expect(await readEnrichment(ctx.db, bookId)).toMatchObject({ status: "pending" });
+
+      await jobGaveUp(ctx.db, ctx.jobs, { kind: "enrich", bookId });
+      await jobGaveUp(ctx.db, ctx.jobs, { kind: "embed", target: { kind: "note", id: n.id } });
+      expect(await readEnrichment(ctx.db, bookId)).toMatchObject({ status: "failed" });
+      expect(await readConnections(ctx.db, ctx.userId, bookId)).toMatchObject({ status: "running", leftOut: { notes: 1, enrichment: false } });
+
+      await jobGaveUp(ctx.db, ctx.jobs, { kind: "connections", userId: ctx.userId, bookId });
+      expect(await status(bookId)).toBe("failed");
+      expect((await readGraph(ctx.db, ctx.userId)).pending).toBe(true);
+      await jobGaveUp(ctx.db, ctx.jobs, { kind: "graph", userId: ctx.userId });
+      expect((await readGraph(ctx.db, ctx.userId)).pending).toBe(false);
+    });
+
+    it("leaves a Note that gave up on its vector out, says so, and a Refresh embeds it again before judging", async () => {
+      await add("other", "read");
+      await ctx.jobs.drain(deps());
+      const { bookId } = await add("noted", "reading");
+      await addNote(ctx.db, ctx.pipeline, ctx.userId, bookId, { body: "A late quiet note." });
+      const base = fakeEmbedder(["quiet"]);
+      const failing = { ...base, embed: (texts: string[], t: "document" | "query") => (texts.some((x) => x.includes("late")) ? Promise.reject(new Error("429")) : base.embed(texts, t)) };
+      await changeStatus(ctx.db, ctx.pipeline, ctx.userId, bookId, "read");
+      await ctx.jobs.drain(deps({ embedder: failing }));
+      expect(await readConnections(ctx.db, ctx.userId, bookId)).toMatchObject({ status: "idle", leftOut: { notes: 1, enrichment: false } });
+
+      await ctx.pipeline.refreshRequested(ctx.userId, bookId);
+      expect(await readConnections(ctx.db, ctx.userId, bookId)).toMatchObject({ status: "running", leftOut: { notes: 0 } });
+      const judge = fakeJudge();
+      await ctx.jobs.drain(deps({ judge }));
+      expect(judge.inputs.map((i) => i.book.notes.map((x) => x.body))).toEqual([["A late quiet note."]]);
+      expect(await readConnections(ctx.db, ctx.userId, bookId)).toMatchObject({ status: "idle", leftOut: { notes: 0 } });
+    });
+
+    it("leaves an Enrichment that gave up on its vector marked, and a Refresh embeds it again", async () => {
+      const { bookId } = await add("about", "read");
+      const down = { ...fakeEmbedder(["quiet"]), embed: () => Promise.reject(new Error("429")) };
+      await ctx.jobs.drain(deps({ embedder: down }));
+      expect(await enrichmentRow(bookId)).toMatchObject({ embedding: null, embedFailedAt: expect.any(Date) });
+      expect(await readConnections(ctx.db, ctx.userId, bookId)).toMatchObject({ status: "failed", leftOut: { notes: 0, enrichment: true } });
+
+      await ctx.pipeline.refreshRequested(ctx.userId, bookId);
+      expect(ctx.jobs.sent.at(-2)).toEqual({ kind: "embed", target: { kind: "enrichment", id: bookId } });
+      await ctx.jobs.drain(deps());
+      expect(await enrichmentRow(bookId)).toMatchObject({ embeddingModel: "fake-voyage", embedFailedAt: null });
+      expect(await readConnections(ctx.db, ctx.userId, bookId)).toMatchObject({ status: "idle", leftOut: { enrichment: false } });
+    });
+
+    it("leaves a Note given up on when the queue is down for its Refresh", async () => {
+      const { bookId } = await add("noted", "reading");
+      const n = await addNote(ctx.db, ctx.pipeline, ctx.userId, bookId, { body: "A quiet note." });
+      await jobGaveUp(ctx.db, ctx.jobs, { kind: "embed", target: { kind: "note", id: n.id } });
+      await changeStatus(ctx.db, ctx.pipeline, ctx.userId, bookId, "read");
+      ctx.jobs.down = true;
+      await ctx.pipeline.refreshRequested(ctx.userId, bookId);
+      expect(await readConnections(ctx.db, ctx.userId, bookId)).toMatchObject({ status: "failed", leftOut: { notes: 1 } });
+    });
+  });
+
+  describe("removing a Library Entry", () => {
+    it("cancels its waiting Connections job, so the judge never sees it", async () => {
+      await add("other", "read");
+      await ctx.jobs.drain(deps());
+      const { bookId } = await add("gone", "read");
+      await removeFromLibrary(ctx.db, ctx.pipeline, ctx.userId, bookId);
+      expect(ctx.jobs.cancelled).toEqual([{ kind: "connections", userId: ctx.userId, bookId }]);
+      const judge = fakeJudge();
+      await ctx.jobs.drain(deps({ judge }));
+      expect(judge.inputs).toEqual([]);
+    });
+
+    it("cancels its running Connections job: a failure then is never retried or given up on", async () => {
+      await add("other", "read");
+      await ctx.jobs.drain(deps());
+      const { bookId } = await add("gone", "read");
+      const judge = fakeJudge();
+      judge.judge = async () => {
+        await removeFromLibrary(ctx.db, ctx.pipeline, ctx.userId, bookId);
+        throw new Error("overloaded");
+      };
+      ctx.jobs.sent.length = 0;
+      await ctx.jobs.drain(deps({ judge }));
+      // Only the removal's graph job: no retry ran, and nothing gave up.
+      expect(ctx.jobs.sent.filter((j) => j.kind === "graph")).toHaveLength(1);
+      expect(await ctx.db.select().from(libraryEntry).where(eq(libraryEntry.bookId, bookId))).toEqual([]);
+    });
+
+    it("still removes the Book when the queue is down", async () => {
+      const { bookId } = await add("gone", "read");
+      ctx.jobs.down = true;
+      await removeFromLibrary(ctx.db, ctx.pipeline, ctx.userId, bookId);
+      expect(await ctx.db.select().from(libraryEntry)).toEqual([]);
+    });
+  });
+
+  describe("the graph job", () => {
+    const pending = async () => (await readGraph(ctx.db, ctx.userId)).pending;
+
+    it("keeps the graph pending from a Connections run until the graph job that follows it settles", async () => {
+      await add("other", "read");
+      await add("fresh", "read");
+      expect(await pending()).toBe(false);
+      await ctx.jobs.drain(deps());
+      expect(ctx.jobs.sent.filter((j) => j.kind === "graph")).not.toHaveLength(0);
+      expect(await pending()).toBe(false);
+    });
+
+    it("is pending after a dismissal or a removal until the graph job runs, which a Refresh's run also queues", async () => {
+      const first = await add("first", "read");
+      const second = await add("second", "read");
+      await add("third", "read");
+      await ctx.jobs.drain(deps());
+
+      const [c] = (await readConnections(ctx.db, ctx.userId, first.bookId)).cards;
+      await dismissConnection(ctx.db, ctx.pipeline, ctx.userId, c.id);
+      expect(await pending()).toBe(true);
+      await ctx.jobs.drain(deps());
+      expect(await pending()).toBe(false);
+
+      await removeFromLibrary(ctx.db, ctx.pipeline, ctx.userId, second.bookId);
+      expect(await pending()).toBe(true);
+      await ctx.jobs.drain(deps());
+      expect(await pending()).toBe(false);
+
+      await ctx.pipeline.refreshRequested(ctx.userId, first.bookId);
+      ctx.jobs.sent.length = 0;
+      await ctx.jobs.drain(deps());
+      expect(ctx.jobs.sent).toEqual([{ kind: "graph", userId: ctx.userId }]);
+      expect(await pending()).toBe(false);
+    });
+
+    it("stays pending when it is asked for again while it runs, until the job queued for that runs", async () => {
+      // A job starts with the latest request; another arrives before it settles.
+      await ctx.pipeline.connectionsChanged(ctx.userId);
+      const started = (await readGraphMark(ctx.db, ctx.userId))!;
+      await ctx.pipeline.connectionsChanged(ctx.userId);
+      await clearGraphMark(ctx.db, ctx.userId, started);
+      expect(await pending()).toBe(true);
+      await ctx.jobs.drain(deps());
+      expect(await pending()).toBe(false);
+    });
+
+    it("is not pending when its job could not be queued", async () => {
+      await ctx.jobs.drain(deps());
+      ctx.jobs.down = true;
+      await ctx.pipeline.connectionsChanged(ctx.userId);
+      expect(await pending()).toBe(false);
     });
   });
 });

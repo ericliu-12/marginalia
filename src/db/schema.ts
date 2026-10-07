@@ -71,6 +71,9 @@ export const enrichment = pgTable(
     embedding: embedding("embedding"),
     // Which model made `embedding`; vectors from different models are never compared.
     embeddingModel: text("embedding_model"),
+    // Set when embedding gave up (the embed job's retries were used up); a Refresh of a reader's
+    // Connections for the Book tries again. Cleared once it has a vector.
+    embedFailedAt: timestamp("embed_failed_at", { withTimezone: true }),
     // Inputs the last successful run saw; null until one has run.
     descriptionHash: text("description_hash"),
     metadataHash: text("metadata_hash"),
@@ -214,4 +217,14 @@ export const bookPosition = pgTable("book_position", {
   x: doublePrecision("x").notNull(),
   y: doublePrecision("y").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Present while the reader's graph job (their Clusters and Book positions) is queued or running, so the
+// graph can tell when what it shows has caught up. `request` counts the requests since the row
+// appeared; a job clears the row only when no request came in while it ran.
+export const graphJob = pgTable("graph_job", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  request: integer("request").notNull().default(1),
 });

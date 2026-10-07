@@ -87,7 +87,8 @@ export async function changeStatus(db: Db, pipeline: Pipeline, userId: string, b
 // Domain seam: takes a Book out of the reader's library. Notes, Read-throughs and Connections runs go
 // with the Library Entry; the reader's Connections involving the Book are deleted here, since the Book
 // is shared and never cascades. The Book leaves its Clusters at once (so it never counts toward a
-// rename) and the Clusters are recomputed. The Book and its Enrichment stay, so adding it again is cheap.
+// rename) and the Clusters are recomputed; its Connections job, waiting or running, is cancelled. The
+// Book and its Enrichment stay, so adding it again is cheap.
 // Idempotent: a Book not in the library is left alone without error.
 export async function removeFromLibrary(db: Db, pipeline: Pipeline, userId: string, bookId: string): Promise<void> {
   const removed = await db.transaction(async (tx) => {
@@ -106,7 +107,7 @@ export async function removeFromLibrary(db: Db, pipeline: Pipeline, userId: stri
     await tx.delete(libraryEntry).where(eq(libraryEntry.id, entry.id));
     return true;
   });
-  if (removed) await pipeline.connectionsChanged(userId);
+  if (removed) await pipeline.entryRemoved(userId, bookId);
 }
 
 // The one definition of Finished: the reader's completed Read-throughs (`completed_at` set), whatever

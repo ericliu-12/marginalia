@@ -3,10 +3,12 @@ import { connection, enrichment, libraryEntry, note } from "../src/db/schema";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { addBook } from "../src/domain/add-book";
 import { readEnrichment, tryAgain } from "../src/domain/enrichment";
+import { PgBoss } from "pg-boss";
 import { createPipeline, RETRIES, type JobQueue, type Pipeline } from "../src/domain/pipeline";
+import type { JudgeInput } from "../src/domain/connections";
 import { startWorker } from "../src/lib/jobs";
 import { backfillConnections } from "../src/domain/connections";
-import { changeStatus } from "../src/domain/library-entry";
+import { changeStatus, removeFromLibrary } from "../src/domain/library-entry";
 import { addNote } from "../src/domain/notes";
 import { fakeEmbedder, fakeEnricher, fakeJudge, work } from "./fakes";
 import { useTestDb } from "./harness";
@@ -20,6 +22,8 @@ describe("Enrichment through the queue", () => {
   const judge = fakeJudge((input) => ({
     connections: input.candidates.map((c) => ({ candidateId: c.id, type: "thematic", strength: "strong", explanation: "Both are quiet.", quotedNoteIds: [] })),
   }));
+  // What the next judge call does first; a test sets it to act mid-run.
+  let beforeJudging: ((input: JudgeInput) => Promise<void>) | undefined;
   let queue: JobQueue;
   let pipeline: Pipeline;
   let stop: () => Promise<void>;
@@ -30,7 +34,7 @@ describe("Enrichment through the queue", () => {
       db: ctx.db,
       model,
       embedder,
-      judge,
+      judge: { ...judge, judge: async (input) => (await beforeJudging?.(input), judge.judge(input)) },
       descriptions: null,
       pollingIntervalSeconds: 0.5,
     });
@@ -106,5 +110,49 @@ describe("Enrichment through the queue", () => {
     expect(await backfillConnections(ctx.db, pipeline, ctx.userId)).toBe(0);
     await new Promise((r) => setTimeout(r, 1500));
     expect(judge.inputs).toHaveLength(calls);
+  });
+
+  it("expires a job whose worker stops checking in, and settles a job it gave up on", async () => {
+    const { rows } = await ctx.db.execute<{ name: string; dead_letter: string; heartbeat_seconds: number }>(
+      sql`SELECT name, dead_letter, heartbeat_seconds FROM pgboss.queue WHERE name IN ('enrich-book', 'embed', 'connections', 'layout') ORDER BY name`,
+    );
+    expect(rows).toEqual(
+      ["connections", "embed", "enrich-book", "layout"].map((name) => ({ name, dead_letter: `${name}-gave-up`, heartbeat_seconds: 30 })),
+    );
+
+    const { bookId } = await addBook(ctx.db, pipeline, ctx.userId, work({ workKey: "/works/g1", title: "g1", authors: ["A"] }), "want");
+    await ctx.db.update(libraryEntry).set({ connectionsStatus: "running" }).where(eq(libraryEntry.bookId, bookId));
+    const boss = new PgBoss(process.env.TEST_DATABASE_URL!);
+    await boss.start();
+    try {
+      await boss.send("connections-gave-up", { userId: ctx.userId, bookId });
+    } finally {
+      await boss.stop({ graceful: false });
+    }
+    await until(async () => (await ctx.db.select().from(libraryEntry).where(eq(libraryEntry.bookId, bookId)))[0].connectionsStatus === "failed");
+  });
+
+  it("cancels a removed Book's running Connections job, so its failure is not retried", async () => {
+    await addBook(ctx.db, pipeline, ctx.userId, work({ workKey: "/works/r1", title: "r1", authors: ["A"] }), "read");
+    await until(async () => (await ctx.db.select().from(libraryEntry))[0].connectionsGeneratedAt !== null);
+    const { bookId } = await addBook(ctx.db, pipeline, ctx.userId, work({ workKey: "/works/r2", title: "r2", authors: ["A"] }), "read");
+    let removed = false;
+    beforeJudging = async () => {
+      beforeJudging = undefined;
+      await removeFromLibrary(ctx.db, pipeline, ctx.userId, bookId);
+      removed = true;
+      throw new Error("overloaded");
+    };
+    await until(async () => removed);
+    // The Book's Connections jobs: the one that was judging, and any queued behind it.
+    const states = async () =>
+      (
+        await ctx.db.execute<{ state: string }>(
+          sql`SELECT state FROM pgboss.job WHERE name = 'connections' AND singleton_key = ${`${ctx.userId}:${bookId}`}`,
+        )
+      ).rows.map((r) => r.state);
+    await until(async () => (await states()).includes("cancelled"));
+    await new Promise((r) => setTimeout(r, 1000));
+    expect((await states()).filter((s) => s !== "completed" && s !== "cancelled")).toEqual([]);
   });
 });

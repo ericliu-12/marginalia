@@ -1,8 +1,8 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import Graph from "graphology";
 import forceAtlas2 from "graphology-layout-forceatlas2";
 import type { Db } from "@/db/client";
-import { book, bookPosition, connection, libraryEntry } from "@/db/schema";
+import { book, bookPosition, connection, graphJob, libraryEntry } from "@/db/schema";
 import { readClusters } from "./clusters";
 import { CLUSTER_WEIGHT, STRENGTH_RANK, type ConnectionType, type Strength } from "./connections";
 import { displayed } from "./library";
@@ -64,7 +64,13 @@ export type GraphConnection = {
 // A Cluster as last computed by the worker, with the Books in it.
 export type GraphCluster = { id: string; bookIds: string[] };
 
-export type GraphView = { books: GraphBook[]; connections: GraphConnection[]; clusters: GraphCluster[] };
+export type GraphView = {
+  books: GraphBook[];
+  connections: GraphConnection[];
+  clusters: GraphCluster[];
+  // The reader's graph job is queued or running: Clusters and positions are about to change.
+  pending: boolean;
+};
 
 type Point = { x: number; y: number };
 
@@ -158,7 +164,30 @@ export async function readGraph(db: Db, userId: string): Promise<GraphView> {
     }),
     connections: connections.map((c) => ({ id: c.id, a: c.bookAId, b: c.bookBId, type: c.type, strength: c.strength, featured: featured.has(c.id) })),
     clusters: await readClusters(db, userId, new Set(books.map((r) => r.book.id))),
+    pending: (await readGraphMark(db, userId)) !== null,
   };
+}
+
+// The reader's graph job is about to be queued: the graph is pending until it settles. Returns the mark.
+export async function markGraphQueued(db: Db, userId: string): Promise<number> {
+  const [row] = await db
+    .insert(graphJob)
+    .values({ userId })
+    .onConflictDoUpdate({ target: graphJob.userId, set: { request: sql`${graphJob.request} + 1` } })
+    .returning({ request: graphJob.request });
+  return row.request;
+}
+
+// The latest request for the reader's graph job, or null when none is pending.
+export async function readGraphMark(db: Db, userId: string): Promise<number | null> {
+  const [row] = await db.select({ request: graphJob.request }).from(graphJob).where(eq(graphJob.userId, userId));
+  return row?.request ?? null;
+}
+
+// The graph job settled. Given the mark it started with, a request that came in since stays pending,
+// since the job queued for it has yet to run; without one, nothing stays pending.
+export async function clearGraphMark(db: Db, userId: string, mark?: number): Promise<void> {
+  await db.delete(graphJob).where(and(eq(graphJob.userId, userId), mark === undefined ? undefined : eq(graphJob.request, mark)));
 }
 
 // The Connections on show: the featured ones, and every one of the selected Book's.

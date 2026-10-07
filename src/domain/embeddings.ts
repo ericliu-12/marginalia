@@ -1,7 +1,7 @@
-import { and, eq, isNull, ne, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import type { Db } from "@/db/client";
-import { enrichment, note } from "@/db/schema";
+import { enrichment, libraryEntry, note } from "@/db/schema";
 import { completedPasses } from "./library-entry";
 import type { JobQueue } from "./pipeline";
 
@@ -24,24 +24,22 @@ export async function embedEnrichment(db: Db, embedder: Embedder, bookId: string
   // Not written if the Enrichment was regenerated while embedding; its own job embeds the new one.
   await db
     .update(enrichment)
-    .set({ embedding: vector, embeddingModel: embedder.model })
+    .set({ embedding: vector, embeddingModel: embedder.model, embedFailedAt: null })
     .where(and(eq(enrichment.bookId, bookId), eq(enrichment.summary, row.summary), eq(enrichment.themes, row.themes ?? [])));
 }
 
+// The embed job for a Book's Enrichment gave up, leaving it with no vector.
+export async function enrichmentEmbeddingFailed(db: Db, bookId: string): Promise<void> {
+  await db.update(enrichment).set({ embedFailedAt: new Date() }).where(and(eq(enrichment.bookId, bookId), isNull(enrichment.embedding)));
+}
+
 // Domain seam, run by the worker: embed one Note (its text and quoted passage) on its own. Throws on
-// failure so the queue retries; on the final attempt the Note is marked as given up first. A Note that
-// is gone is a no-op.
-export async function embedNote(db: Db, embedder: Embedder, noteId: string, finalAttempt = false): Promise<void> {
+// failure so the queue retries. A Note that is gone is a no-op.
+export async function embedNote(db: Db, embedder: Embedder, noteId: string): Promise<void> {
   const [row] = await db.select().from(note).where(eq(note.id, noteId));
   if (!row) return;
   if (row.embedding && row.embeddingModel === embedder.model) return;
-  let vector: number[];
-  try {
-    [vector] = await embedder.embed([[row.body, row.quote].filter(Boolean).join("\n")], "document");
-  } catch (err) {
-    if (finalAttempt) await noteEmbeddingFailed(db, noteId);
-    throw err;
-  }
+  const [vector] = await embedder.embed([[row.body, row.quote].filter(Boolean).join("\n")], "document");
   // Not written if the Note was edited while embedding; the edit queued its own job.
   await db
     .update(note)
@@ -49,9 +47,41 @@ export async function embedNote(db: Db, embedder: Embedder, noteId: string, fina
     .where(and(eq(note.id, noteId), eq(note.body, row.body), sql`${note.quote} IS NOT DISTINCT FROM ${row.quote}`));
 }
 
-// No vector is coming for the Note: its embedding failed for good, or its job could not be queued.
+// No vector is coming for the Note: its embed job gave up, or could not be queued.
 export async function noteEmbeddingFailed(db: Db, noteId: string): Promise<void> {
   await db.update(note).set({ embedFailedAt: new Date() }).where(and(eq(note.id, noteId), isNull(note.embedding)));
+}
+
+// A Refresh tries again: the Book's Enrichment and the reader's Notes on it that gave up on a vector
+// are queued to be embedded again. The Notes count as on their way, so the run waits for them; the run
+// embeds the Enrichment itself. One that can't be queued stays given up.
+export async function retryEmbeddings(db: Db, queue: JobQueue, userId: string, bookId: string): Promise<void> {
+  const entry = db.select({ id: libraryEntry.id }).from(libraryEntry).where(and(eq(libraryEntry.userId, userId), eq(libraryEntry.bookId, bookId)));
+  const notes = await db
+    .update(note)
+    .set({ embedFailedAt: null })
+    .where(and(inArray(note.libraryEntryId, entry), isNotNull(note.embedFailedAt), isNull(note.embedding)))
+    .returning({ id: note.id });
+  for (const { id } of notes) {
+    try {
+      await queue.send({ kind: "embed", target: { kind: "note", id } });
+    } catch (err) {
+      console.error(err);
+      await noteEmbeddingFailed(db, id);
+    }
+  }
+  const [gaveUp] = await db
+    .update(enrichment)
+    .set({ embedFailedAt: null })
+    .where(and(eq(enrichment.bookId, bookId), isNotNull(enrichment.embedFailedAt), isNull(enrichment.embedding)))
+    .returning({ id: enrichment.bookId });
+  if (!gaveUp) return;
+  try {
+    await queue.send({ kind: "embed", target: { kind: "enrichment", id: bookId } });
+  } catch (err) {
+    console.error(err);
+    await enrichmentEmbeddingFailed(db, bookId);
+  }
 }
 
 export type NearestBook = { bookId: string; similarity: number };
