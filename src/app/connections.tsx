@@ -55,7 +55,9 @@ const STRENGTH_LABEL: Record<ConnectionCard["strength"], string> = { strong: "St
 
 // The Book's Connections: each other Book it links to and why. Quiet while there is nothing to say.
 // Each other Book's title opens that Book, as the host decides (in the graph, it is followed).
-export function ConnectionsSection({ bookId, onOpenBook }: { bookId: string; onOpenBook: (bookId: string) => void }) {
+// While the graph draws an arriving Book's Connections in, the ones still `withheld` wait, and each
+// row appears as its line does.
+export function ConnectionsSection({ bookId, onOpenBook, withheld }: { bookId: string; onOpenBook: (bookId: string) => void; withheld?: Set<string> }) {
   const [view, setView] = useState<ConnectionsView | undefined>(undefined);
   const [loadFailed, setLoadFailed] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -99,8 +101,10 @@ export function ConnectionsSection({ bookId, onOpenBook }: { bookId: string; onO
       {status === "idle" && cards.length === 0 && <p className="pt-4 text-ink-2 italic">No Connections yet.</p>}
       {cards.length > 0 && (
         <ul className="divide-y divide-rule/60">
-          {cards.map((c) => (
-            <li key={c.id} className="py-4">
+          {cards
+            .filter((c) => !withheld?.has(c.id))
+            .map((c) => (
+            <li key={c.id} className={`py-4 ${withheld ? "motion-safe:animate-draw-in" : ""}`}>
               <p className="text-[1.05rem] leading-snug font-medium">
                 <button
                   type="button"

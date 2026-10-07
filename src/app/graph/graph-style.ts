@@ -72,3 +72,17 @@ export const CLUSTER_NAME_OFFSET = 0.75;
 // Room a name keeps from the canvas edges (the wordmark above, the legend below), so a Cluster the
 // reader has zoomed into still shows its name.
 export const CLUSTER_NAME_CLEAR = { top: 96, bottom: 88, side: 16 };
+
+// The arrival of a Book the graph has not shown before. Its dot grows in while one hairline ink ring
+// spreads LAND_RING beyond it and fades; then its Connections draw in one at a time, the first
+// DRAW_FIRST_MS after it lands and each next DRAW_STEP_MS later, each line growing out from the new
+// Book over DRAW_MS.
+export const LAND_MS = 900;
+export const LAND_RING = 22;
+export const DRAW_FIRST_MS = 1100;
+export const DRAW_STEP_MS = 1000;
+export const DRAW_MS = 700;
+// After this many, the rest of a long run of Connections draw in twice as fast.
+export const DRAW_UNHURRIED = 3;
+// The view frames an arriving Book with the Books it connects to, keeping this much room at each edge.
+export const ARRIVAL_FRAME = 140;

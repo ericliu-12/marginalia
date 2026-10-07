@@ -15,6 +15,14 @@
   --font-serif: var(--nf-serif), Georgia, serif;
   --font-sans: var(--nf-sans), system-ui, sans-serif;
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  /* A Connection's row in an arriving Book's panel, appearing as its line draws in on the graph. */
+  --animate-draw-in: draw-in 0.7s var(--ease-out-expo) both;
+  @keyframes draw-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+  }
 }
 
 html {

@@ -4,11 +4,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type ForceGraph from "force-graph";
 import { visibleConnections, type GraphBook, type GraphCluster, type GraphConnection, type GraphView } from "@/domain/graph";
 import {
+  ARRIVAL_FRAME,
   CLUSTER_NAME_CLEAR,
   CLUSTER_NAME_COLOR,
   CLUSTER_NAME_OFFSET,
   CLUSTER_NAME_SIZE,
   DRAG,
+  DRAW_MS,
   EDGE_WIDTH,
   EDGE_WIDTH_CHOSEN_EXTRA,
   EDGE_WIDTH_FADED,
@@ -20,6 +22,8 @@ import {
   LABEL_GAP,
   LABEL_PLATE,
   LABEL_SIZE,
+  LAND_MS,
+  LAND_RING,
   MAX_FIT_ZOOM,
   PAPER_PLATE,
   RECENT_LABELS,
@@ -157,8 +161,8 @@ function focusFor(graph: GraphView, prepared: ReturnType<typeof prepare>, select
   };
 }
 
-// Camera moves glide, and new Clusters fade in, unless the reader asked for less motion.
-const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+// Camera moves glide, new Clusters fade in, and new Books arrive, unless the reader asked for less motion.
+export const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const glide = () => (reducedMotion() ? 0 : 600);
 
 type Box = { x0: number; y0: number; x1: number; y1: number };
@@ -166,9 +170,13 @@ type Side = "right" | "left" | "above" | "below";
 
 const endId = (end: string | Node) => (typeof end === "string" ? end : end.id);
 
+// Exponential ease-out: quick to start, settling slowly. `p` runs 0 to 1.
+const easeOut = (p: number) => (p >= 1 ? 1 : 1 - Math.pow(2, -10 * p));
+
 // The reader's graph, full-bleed. Books are ink dots at their stored places, each Cluster a wash behind
 // its Books with its name beside it; a selection lights a Book and its Connections, one Connection, or
 // a Cluster, and fades the rest. A fresh graph (after background work) keeps the reader's view.
+// Arriving Books land, and their Connections held back are left off until each draws in.
 export function GraphCanvas({
   graph,
   selection,
@@ -176,8 +184,14 @@ export function GraphCanvas({
   onSelect,
   panelInset,
   pointedBookId,
+  landing,
+  withheld,
 }: {
   graph: GraphView;
+  // Books arriving: each lands as it first appears here.
+  landing: string[];
+  // Connections not drawn in yet: hidden, and each grows out from its arriving Book once it leaves.
+  withheld: Set<string>;
   selection: Selection;
   // The Books followed to reach the selection, oldest first; drawn as a path.
   trail: string[];
@@ -202,6 +216,14 @@ export function GraphCanvas({
     const since = appeared.current.get(id);
     return since === undefined ? 1 : Math.min(1, (now - since) / WASH_FADE_MS);
   };
+  // When each arriving Book landed, and when each of their Connections began to draw in.
+  const landed = useRef(new Map<string, number>());
+  const drawing = useRef(new Map<string, number>());
+  const withheldRef = useRef(withheld);
+  // Every Connection held back that has not started drawing in, even from before the canvas was ready.
+  const held = useRef(new Set<string>());
+  // Redraws every frame for at least `ms`, while something moves that the simulation does not.
+  const animateFor = useRef<(ms: number) => void>(() => {});
   const focus = useMemo(() => focusFor(graph, prepared, selection, trail), [graph, prepared, selection, trail]);
   const focusRef = useRef(focus);
   const hoverRef = useRef<string | null>(null);
@@ -221,6 +243,8 @@ export function GraphCanvas({
     let fg: ForceGraph<Node, Link> | null = null;
     let ro: ResizeObserver | null = null;
     let cancelled = false;
+    let until = 0;
+    let pause: ReturnType<typeof setTimeout> | undefined;
     const serif = getComputedStyle(document.documentElement).getPropertyValue("--nf-serif").trim() || "Georgia";
     const font = (k: number) => `500 ${LABEL_SIZE / k}px ${serif}, Georgia, serif`;
     const widths = new Map<string, number>();
@@ -231,6 +255,14 @@ export function GraphCanvas({
       if (cancelled) return;
       const f = (fg = new ForceGraphCtor<Node, Link>(host));
       fgRef.current = f;
+      animateFor.current = (ms) => {
+        until = Math.max(until, performance.now() + ms);
+        f.autoPauseRedraw(false);
+        clearTimeout(pause);
+        pause = setTimeout(() => f.autoPauseRedraw(true), until - performance.now() + 50);
+      };
+      // How far into its landing a Book is, and into its drawing-in a Connection, 0 to 1.
+      const progress = (since: number | undefined, ms: number) => (since === undefined ? 1 : Math.min(1, (performance.now() - since) / ms));
       const data = () => dataRef.current;
       const pointed = () => hoverRef.current ?? pointedRef.current;
       const ringed = (id: string) => id === focusRef.current.chosenBookId || id === pointed() || focusRef.current.trailBooks.has(id);
@@ -239,6 +271,13 @@ export function GraphCanvas({
         const { litLinks, chosenLinkId } = focusRef.current;
         if (l.id === chosenLinkId) return "chosen";
         return !litLinks || litLinks.has(l.id) ? "lit" : "faded";
+      };
+      const colorOf = (l: Link) => (linkState(l) === "faded" ? FADED_EDGE : TYPE_COLOR[l.connection.type]);
+      const widthOf = (l: Link) => {
+        const state = linkState(l);
+        if (state === "faded") return EDGE_WIDTH_FADED;
+        const extra = state === "chosen" ? EDGE_WIDTH_CHOSEN_EXTRA : l.id === hoverLinkRef.current ? EDGE_WIDTH_HOVER_EXTRA : 0;
+        return EDGE_WIDTH[l.connection.strength] + extra;
       };
 
       f.width(host.clientWidth)
@@ -288,21 +327,31 @@ export function GraphCanvas({
             ctx.restore();
           }
         })
-        .linkVisibility((l) => focusRef.current.visible.has(l.id))
-        .linkColor((l) => (linkState(l) === "faded" ? FADED_EDGE : TYPE_COLOR[l.connection.type]))
+        .linkVisibility((l) => focusRef.current.visible.has(l.id) && !withheldRef.current.has(l.id))
+        .linkColor(colorOf)
         // Screen pixels: force-graph keeps link widths constant across zoom.
-        .linkWidth((l) => {
-          const state = linkState(l);
-          if (state === "faded") return EDGE_WIDTH_FADED;
-          const extra = state === "chosen" ? EDGE_WIDTH_CHOSEN_EXTRA : l.id === hoverLinkRef.current ? EDGE_WIDTH_HOVER_EXTRA : 0;
-          return EDGE_WIDTH[l.connection.strength] + extra;
-        })
+        .linkWidth(widthOf)
         .linkHoverPrecision(6)
-        // The trail's ink casing, drawn under the Connection's own line.
-        .linkCanvasObjectMode((l) => (focusRef.current.trailLinks.has(l.id) ? "before" : undefined))
+        // A Connection drawing in replaces its line with one growing out from the arriving Book; the
+        // trail's ink casing goes under the Connection's own line.
+        .linkCanvasObjectMode((l) =>
+          progress(drawing.current.get(l.id), DRAW_MS) < 1 ? "replace" : focusRef.current.trailLinks.has(l.id) ? "before" : undefined,
+        )
         .linkCanvasObject((l, ctx, k) => {
           const s = l.source as Node;
           const t = l.target as Node;
+          const grown = progress(drawing.current.get(l.id), DRAW_MS);
+          if (grown < 1) {
+            const [from, to] = landed.current.has(t.id) && !landed.current.has(s.id) ? [t, s] : [s, t];
+            const p = easeOut(grown);
+            ctx.beginPath();
+            ctx.moveTo(from.x!, from.y!);
+            ctx.lineTo(from.x! + (to.x! - from.x!) * p, from.y! + (to.y! - from.y!) * p);
+            ctx.lineWidth = widthOf(l) / k;
+            ctx.strokeStyle = colorOf(l);
+            ctx.stroke();
+            return;
+          }
           ctx.beginPath();
           ctx.moveTo(s.x!, s.y!);
           ctx.lineTo(t.x!, t.y!);
@@ -311,7 +360,20 @@ export function GraphCanvas({
           ctx.stroke();
         })
         .nodeCanvasObject((n, ctx, k) => {
-          const r = n.radius / k;
+          // A landing Book's dot grows in while a hairline ring spreads from it and fades, steadily, so it
+          // is still seen once the camera has arrived.
+          const since = progress(landed.current.get(n.id), LAND_MS);
+          const land = easeOut(since);
+          if (since < 1) {
+            ctx.beginPath();
+            ctx.arc(n.x!, n.y!, (n.radius + RING_GAP + LAND_RING * land) / k, 0, Math.PI * 2);
+            ctx.lineWidth = 1 / k;
+            ctx.strokeStyle = INK;
+            ctx.globalAlpha = 1 - since;
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+          }
+          const r = (n.radius * land) / k;
           const lit = isLitBook(n.id);
           if (ringed(n.id)) {
             // A Book on the trail behind the chosen one gets a lighter ring.
@@ -512,11 +574,25 @@ export function GraphCanvas({
 
     return () => {
       cancelled = true;
+      clearTimeout(pause);
       ro?.disconnect();
       fg?._destructor();
       fgRef.current = null;
     };
   }, []);
+
+  // The first graph is fitted to the screen once, by whichever comes first: the graph, or a move to a
+  // selection made before the canvas was ready (an arrival), which needs the fitted view to move from.
+  // False until force-graph has taken the graph in (it does so a tick after being handed it).
+  const fitted = useRef(false);
+  const fitFirst = (f: ForceGraph<Node, Link>) => {
+    if (fitted.current) return true;
+    if (!f.getGraphBbox()) return false;
+    fitted.current = true;
+    f.zoomToFit(0, 80);
+    if (f.zoom() > MAX_FIT_ZOOM) f.zoom(MAX_FIT_ZOOM);
+    return true;
+  };
 
   // Each graph in turn: the first is fitted to the screen; a later one, fetched after background work,
   // keeps the reader's view, and any Cluster it has that the last one lacked fades in.
@@ -533,57 +609,100 @@ export function GraphCanvas({
     // The stored layout stays put; a drag wakes the simulation, which settles everything back home.
     f.cooldownTicks(0).graphData({ nodes: prepared.nodes, links: prepared.links });
     // Redrawn every frame while a Cluster fades in, since nothing else is moving.
-    let fading: ReturnType<typeof setTimeout> | undefined;
-    if (fresh.length) {
-      f.autoPauseRedraw(false);
-      fading = setTimeout(() => f.autoPauseRedraw(true), WASH_FADE_MS + 50);
-    }
+    if (fresh.length) animateFor.current(WASH_FADE_MS);
     // Once the canvas has its size, fit the first graph, then let drags run the simulation.
-    const frame = requestAnimationFrame(() => {
-      if (first) {
-        f.zoomToFit(0, 80);
-        if (f.zoom() > MAX_FIT_ZOOM) f.zoom(MAX_FIT_ZOOM);
+    let frame = requestAnimationFrame(function settle() {
+      if (first && !fitFirst(f)) {
+        frame = requestAnimationFrame(settle);
+        return;
       }
       f.cooldownTicks(DRAG.settleTicks);
     });
-    return () => {
-      cancelAnimationFrame(frame);
-      clearTimeout(fading);
-    };
+    return () => cancelAnimationFrame(frame);
   }, [ready, prepared]);
+
+  // An arriving Book lands as it first appears; a Connection leaving `withheld` starts drawing in.
+  useEffect(() => {
+    for (const id of withheld) held.current.add(id);
+    withheldRef.current = withheld;
+    const f = fgRef.current;
+    if (!f) return;
+    const now = performance.now();
+    const still = reducedMotion();
+    let moving = 0;
+    for (const id of landing) {
+      if (landed.current.has(id)) continue;
+      landed.current.set(id, still ? -Infinity : now);
+      moving = Math.max(moving, LAND_MS);
+    }
+    for (const id of held.current) {
+      if (withheld.has(id)) continue;
+      held.current.delete(id);
+      if (still) continue;
+      drawing.current.set(id, now);
+      moving = Math.max(moving, DRAW_MS);
+    }
+    f.linkVisibility(f.linkVisibility());
+    if (moving) animateFor.current(moving);
+  }, [ready, landing, withheld]);
 
   // A new selection: swap the focus, redraw, and bring the chosen Book, Connection or Cluster into the part of
   // the canvas the panel leaves uncovered. Clearing the selection returns the view the reader had.
   // A change to the trail alone only redraws.
   const before = useRef<{ x: number; y: number; zoom: number } | null>(null);
   const centredOn = useRef<string | null>(null);
+  // Arriving Books already framed: only the arrival brings the Books a Book connects to into view.
+  const framed = useRef(new Set<string>());
   useEffect(() => {
     focusRef.current = focus;
     const f = fgRef.current;
     if (!f) return;
     f.linkVisibility(f.linkVisibility());
     const key = focus.chosenBookId ?? focus.chosenLinkId ?? focus.chosenClusterId;
-    if (key === centredOn.current) return;
-    centredOn.current = key;
-    const chosen = focus.chosenBookId
-      ? [prepared.byId.get(focus.chosenBookId)]
-      : focus.chosenLinkId
-        ? (() => {
-            const l = prepared.links.find((x) => x.id === focus.chosenLinkId)!;
-            return [prepared.byId.get(endId(l.source)), prepared.byId.get(endId(l.target))];
-          })()
-        : (prepared.clusters.find((c) => c.cluster.id === focus.chosenClusterId)?.nodes ?? []);
-    const at = chosen.filter((n) => n !== undefined);
-    if (at.length) {
-      before.current ??= { ...f.centerAt(), zoom: f.zoom() };
-      const x = at.reduce((sum, n) => sum + n.x!, 0) / at.length;
-      const y = at.reduce((sum, n) => sum + n.y!, 0) / at.length;
-      f.centerAt(x + insetRef.current / 2 / f.zoom(), y, glide());
-    } else if (before.current) {
-      f.centerAt(before.current.x, before.current.y, glide());
-      f.zoom(before.current.zoom, glide());
-      before.current = null;
-    }
+    // On the next frame, once the canvas has its size, moving from the fitted view.
+    let frame = requestAnimationFrame(function move() {
+      if (key === centredOn.current) return;
+      if (!fitFirst(f)) {
+        frame = requestAnimationFrame(move);
+        return;
+      }
+      centredOn.current = key;
+      const chosen = focus.chosenBookId
+        ? [prepared.byId.get(focus.chosenBookId)]
+        : focus.chosenLinkId
+          ? (() => {
+              const l = prepared.links.find((x) => x.id === focus.chosenLinkId)!;
+              return [prepared.byId.get(endId(l.source)), prepared.byId.get(endId(l.target))];
+            })()
+          : (prepared.clusters.find((c) => c.cluster.id === focus.chosenClusterId)?.nodes ?? []);
+      const at = chosen.filter((n) => n !== undefined);
+      const arrived = focus.chosenBookId !== null && landed.current.has(focus.chosenBookId) && !framed.current.has(focus.chosenBookId);
+      if (arrived) {
+        // A Book arriving is framed with the Books it connects to, zooming out if they need the room,
+        // so the reader sees where it sits.
+        const id = focus.chosenBookId!;
+        framed.current.add(id);
+        const ends = prepared.links.filter((l) => endId(l.source) === id || endId(l.target) === id);
+        const others = ends.map((l) => prepared.byId.get(endId(l.source) === id ? endId(l.target) : endId(l.source)));
+        const all = [...at, ...others.filter((n) => n !== undefined)];
+        const [xs, ys] = [all.map((n) => n.x!), all.map((n) => n.y!)];
+        const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+        const zoom = Math.min(f.zoom(), (f.width() - insetRef.current - 2 * ARRIVAL_FRAME) / (x1 - x0 || 1), (f.height() - 2 * ARRIVAL_FRAME) / (y1 - y0 || 1));
+        before.current ??= { ...f.centerAt(), zoom: f.zoom() };
+        f.centerAt((x0 + x1) / 2 + insetRef.current / 2 / zoom, (y0 + y1) / 2, glide());
+        f.zoom(zoom, glide());
+      } else if (at.length) {
+        before.current ??= { ...f.centerAt(), zoom: f.zoom() };
+        const x = at.reduce((sum, n) => sum + n.x!, 0) / at.length;
+        const y = at.reduce((sum, n) => sum + n.y!, 0) / at.length;
+        f.centerAt(x + insetRef.current / 2 / f.zoom(), y, glide());
+      } else if (before.current) {
+        f.centerAt(before.current.x, before.current.y, glide());
+        f.zoom(before.current.zoom, glide());
+        before.current = null;
+      }
+    });
+    return () => cancelAnimationFrame(frame);
   }, [focus, prepared, ready]);
 
   useEffect(() => {
@@ -594,7 +713,8 @@ export function GraphCanvas({
 
   return (
     <>
-      <div ref={el} className="absolute inset-0" aria-hidden />
+      {/* How many Connections are still to draw in, for the browser tests. */}
+      <div ref={el} className="absolute inset-0" aria-hidden data-withheld={withheld.size} />
       {/* Cluster names, placed by the canvas each frame. The keyboard reaches Clusters through the
           workspace's list instead. Hidden until first placed. */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>

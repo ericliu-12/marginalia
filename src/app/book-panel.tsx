@@ -46,6 +46,7 @@ export function BookPanel({
   onRemoved,
   onOpenBook,
   crumbs,
+  withheldConnections,
 }: {
   item: LibraryItem;
   backLabel: string;
@@ -53,6 +54,8 @@ export function BookPanel({
   onRemoved: () => void;
   onOpenBook: (bookId: string) => void;
   crumbs?: ReactNode;
+  // Connections the graph has yet to draw in, kept out of the list until it does.
+  withheldConnections?: Set<string>;
 }) {
   const [notes, setNotes] = useState<Note[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -100,7 +103,7 @@ export function BookPanel({
 
       <div className="min-h-0 flex-1 overflow-y-auto px-6 pt-5 pb-10">
         <About key={`about-${item.bookId}`}bookId={item.bookId} noteCount={notes?.length ?? null} />
-        <ConnectionsSection key={`connections-${item.bookId}`} bookId={item.bookId} onOpenBook={onOpenBook} />
+        <ConnectionsSection key={`connections-${item.bookId}`} bookId={item.bookId} onOpenBook={onOpenBook} withheld={withheldConnections} />
 
         <NoteForm
           key={item.bookId}

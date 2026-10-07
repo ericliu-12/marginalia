@@ -135,3 +135,34 @@ export async function settleGraph() {
   await db.delete(graphJob);
   await pool.end();
 }
+
+// A Book finished since the graph last showed, with its Connections already found: a strong one to each
+// Book in `connectTo`. Placed below the chain unless `at` says otherwise.
+export async function finishBook(title: string, connectTo: Title[] = [], at = { x: 2.5, y: 0.8 }) {
+  const { db, pool } = createDb(e2eDatabaseUrl());
+  const rows = await db.select({ id: book.id, title: book.title, userId: libraryEntry.userId }).from(book).innerJoin(libraryEntry, eq(libraryEntry.bookId, book.id));
+  const userId = rows[0].userId;
+  const [row] = await db.insert(book).values({ title, authors: ["A. Writer"] }).returning();
+  const [entry] = await db.insert(libraryEntry).values({ userId, bookId: row.id, status: "read", connectionsGeneratedAt: new Date() }).returning();
+  const finished = new Date();
+  await db.insert(readThrough).values({ libraryEntryId: entry.id, userId, finishedAt: finished, completedAt: finished });
+  await db.insert(bookPosition).values({ libraryEntryId: entry.id, userId, ...at });
+  await db.insert(enrichment).values({ bookId: row.id, status: "ready", recognised: true, summary: `${title}.`, themes: ["memory"] });
+  for (const other of connectTo) {
+    const [a, b] = [row.id, rows.find((r) => r.title === other)!.id].sort();
+    await db.insert(connection).values({
+      userId,
+      bookAId: a,
+      bookBId: b,
+      type: "thematic",
+      strength: "strong",
+      similarity: 0.5,
+      similarityModel: "e2e",
+      explanation: `Why ${title} meets ${other}.`,
+      grounding: "notes",
+      model: "e2e",
+      promptVersion: "e2e",
+    });
+  }
+  await pool.end();
+}
