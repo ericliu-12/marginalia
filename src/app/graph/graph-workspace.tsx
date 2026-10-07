@@ -11,6 +11,8 @@ import { ViewSwitch } from "../view-switch";
 import { ConnectionPanel } from "./connection-panel";
 import { GraphCanvas, type Selection } from "./graph-canvas";
 import { TYPE_COLOR, TYPE_LABEL } from "./graph-style";
+import { follow, rewind } from "./trail";
+import { TrailCrumbs } from "./trail-crumbs";
 
 // Matches Tailwind's lg: the graph is a desktop surface.
 const WIDE = "(min-width: 1024px)";
@@ -28,17 +30,30 @@ export function GraphWorkspace({ graph, items, finding }: { graph: GraphView; it
   const router = useRouter();
   const wide = useWide();
   const [selection, setSelection] = useState<Selection>(null);
+  // The Books followed from the panel, oldest first. Anything chosen on the canvas starts afresh.
+  const [trail, setTrail] = useState<string[]>([]);
+  const panelRef = useRef<HTMLDivElement>(null);
   const [pointed, setPointed] = useState<string | null>(null);
   // The keyboard list item that opened the panel, so closing it puts focus back there.
   const returnTo = useRef<HTMLElement | null>(null);
   const item = selection?.kind === "book" ? items.find((i) => i.bookId === selection.bookId) : undefined;
   const close = () => {
     setSelection(null);
+    setTrail([]);
     const back = returnTo.current;
     returnTo.current = null;
     if (back?.isConnected) requestAnimationFrame(() => back.focus());
   };
-  const select = (s: Selection) => (s ? setSelection(s) : close());
+  const select = (s: Selection) => {
+    if (!s) return close();
+    setSelection(s);
+    setTrail(s.kind === "book" ? [s.bookId] : []);
+  };
+  const goTo = (next: string[]) => {
+    setTrail(next);
+    setSelection({ kind: "book", bookId: next[next.length - 1] });
+  };
+  const labelOf = new Map(graph.books.map((b) => [b.bookId, b.label]));
 
   // Escape closes the panel wherever focus is. Forms inside the panel stop their own Escape first.
   const closeRef = useRef(close);
@@ -56,7 +71,7 @@ export function GraphWorkspace({ graph, items, finding }: { graph: GraphView; it
   return (
     <div className="relative h-screen overflow-hidden">
       {wide && graph.books.length > 0 && (
-        <GraphCanvas graph={graph} selection={selection} onSelect={select} panelInset={selection ? PANEL_INSET : 0} pointedBookId={pointed} />
+        <GraphCanvas graph={graph} selection={selection} trail={trail} onSelect={select} panelInset={selection ? PANEL_INSET : 0} pointedBookId={pointed} />
       )}
 
       <header className="pointer-events-none absolute inset-x-0 top-0 flex items-baseline gap-8 px-8 pt-7 lg:px-12">
@@ -109,7 +124,7 @@ export function GraphWorkspace({ graph, items, finding }: { graph: GraphView; it
                   onBlur={() => setPointed(null)}
                   onClick={(e) => {
                     returnTo.current = e.currentTarget;
-                    setSelection({ kind: "book", bookId: b.bookId });
+                    select({ kind: "book", bookId: b.bookId });
                   }}
                 >
                   {b.title}, {b.degree} {b.degree === 1 ? "Connection" : "Connections"}
@@ -121,15 +136,30 @@ export function GraphWorkspace({ graph, items, finding }: { graph: GraphView; it
       )}
 
       {wide && selection && (
-        <div className="absolute top-6 right-6 bottom-6 w-[27rem] overflow-hidden rounded-[3px] border border-rule shadow-[0_12px_32px_-8px_rgb(35_29_23/0.18),0_2px_6px_rgb(35_29_23/0.06)]">
+        <div ref={panelRef} className="absolute top-6 right-6 bottom-6 w-[27rem] overflow-hidden rounded-[3px] border border-rule shadow-[0_12px_32px_-8px_rgb(35_29_23/0.18),0_2px_6px_rgb(35_29_23/0.06)]">
           {selection.kind === "connection" ? (
-            <ConnectionPanel key={selection.id} id={selection.id} onBack={close} onOpenBook={(bookId) => setSelection({ kind: "book", bookId })} />
+            <ConnectionPanel key={selection.id} id={selection.id} onBack={close} onOpenBook={(bookId) => goTo(follow(trail, bookId))} />
           ) : (
             item && (
               <BookPanel
+                key={item.bookId}
                 item={item}
                 backLabel="Back to the graph"
                 onBack={close}
+                onOpenBook={(bookId) => goTo(follow(trail, bookId))}
+                crumbs={
+                  trail.length > 1 && (
+                    <TrailCrumbs
+                      labels={trail.map((id) => labelOf.get(id) ?? "")}
+                      onRewind={(i) => goTo(rewind(trail, i))}
+                      onClear={() => {
+                        setTrail([item.bookId]);
+                        // The crumbs, and the focused Clear with them, are gone; the Book's heading is next.
+                        requestAnimationFrame(() => panelRef.current?.querySelector<HTMLElement>("h2")?.focus());
+                      }}
+                    />
+                  )
+                }
                 onRemoved={() => {
                   close();
                   router.refresh();

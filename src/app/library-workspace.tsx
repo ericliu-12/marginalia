@@ -47,8 +47,10 @@ export function LibraryWorkspace({ items, finding }: { items: LibraryItem[]; fin
           <div className="border-t border-rule lg:w-[27rem] lg:shrink-0 lg:border-t-0 lg:border-l">
             {book && (
               <BookPanel
+                key={book.bookId}
                 item={book}
                 backLabel="Back to search"
+                onOpenBook={setBookId}
                 onBack={() => setBookId(null)}
                 onRemoved={() => {
                   setBookId(null);

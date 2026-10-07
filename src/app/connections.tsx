@@ -49,7 +49,8 @@ const TYPE: Record<ConnectionCard["type"], { label: string; swatch: string }> = 
 const STRENGTH_LABEL: Record<ConnectionCard["strength"], string> = { strong: "Strong", moderate: "Moderate", weak: "Weak" };
 
 // The Book's Connections: each other Book it links to and why. Quiet while there is nothing to say.
-export function ConnectionsSection({ bookId }: { bookId: string }) {
+// Each other Book's title opens that Book, as the host decides (in the graph, it is followed).
+export function ConnectionsSection({ bookId, onOpenBook }: { bookId: string; onOpenBook: (bookId: string) => void }) {
   const [view, setView] = useState<ConnectionsView | undefined>(undefined);
   const [loadFailed, setLoadFailed] = useState(false);
 
@@ -91,7 +92,15 @@ export function ConnectionsSection({ bookId }: { bookId: string }) {
         <ul className="divide-y divide-rule/60">
           {cards.map((c) => (
             <li key={c.otherBookId} className="py-4">
-              <p className="text-[1.05rem] leading-snug font-medium">{c.otherTitle}</p>
+              <p className="text-[1.05rem] leading-snug font-medium">
+                <button
+                  type="button"
+                  onClick={() => onOpenBook(c.otherBookId)}
+                  className="text-left underline decoration-rule decoration-1 underline-offset-[5px] transition-colors duration-150 hover:decoration-ink"
+                >
+                  {c.otherTitle}
+                </button>
+              </p>
               <p className="mt-2 max-w-[60ch]">{c.explanation}</p>
               <p className="mt-2 flex items-center gap-2 font-sans text-[0.8rem] text-ink-2">
                 <span aria-hidden className={`inline-block h-2.5 w-2.5 shrink-0 rounded-[2px] ${TYPE[c.type].swatch}`} />

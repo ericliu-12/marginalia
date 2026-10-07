@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import type { LibraryItem } from "@/domain/library";
 import type { EnrichmentView } from "@/domain/enrichment";
 import type { Note } from "@/domain/notes";
@@ -43,17 +43,22 @@ const quietLink = `${quietLinkBase} text-ink-3 hover:text-ink disabled:text-ink-
 const dangerLink = `${quietLinkBase} text-contrast hover:decoration-contrast disabled:text-contrast/60`;
 
 // The Book panel for one Library Entry. It does not assume where it lives: the library view docks it
-// in the right pane and the graph view floats it over the canvas, so the host supplies the way out.
+// in the right pane and the graph view floats it over the canvas, so the host supplies the way out,
+// what a Connection's other Book opens, and anything it shows under the way out (the graph's trail).
 export function BookPanel({
   item,
   backLabel,
   onBack,
   onRemoved,
+  onOpenBook,
+  crumbs,
 }: {
   item: LibraryItem;
   backLabel: string;
   onBack: () => void;
   onRemoved: () => void;
+  onOpenBook: (bookId: string) => void;
+  crumbs?: ReactNode;
 }) {
   const [notes, setNotes] = useState<Note[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -88,6 +93,7 @@ export function BookPanel({
           {backLabel}
         </button>
       </div>
+      {crumbs}
       <header className="flex items-start gap-4 border-b border-rule px-6 pb-5">
         <Cover title={item.title} url={item.coverUrl} />
         <div className="min-w-0">
@@ -100,7 +106,7 @@ export function BookPanel({
 
       <div className="min-h-0 flex-1 overflow-y-auto px-6 pt-5 pb-10">
         <About key={`about-${item.bookId}`}bookId={item.bookId} noteCount={notes?.length ?? null} />
-        <ConnectionsSection key={`connections-${item.bookId}`} bookId={item.bookId} />
+        <ConnectionsSection key={`connections-${item.bookId}`} bookId={item.bookId} onOpenBook={onOpenBook} />
 
         <NoteForm
           key={item.bookId}

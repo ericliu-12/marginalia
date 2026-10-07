@@ -9,6 +9,7 @@ import {
   EDGE_WIDTH_CHOSEN_EXTRA,
   EDGE_WIDTH_FADED,
   EDGE_WIDTH_HOVER_EXTRA,
+  EDGE_WIDTH_TRAIL_EXTRA,
   FADED_EDGE,
   FADED_LABEL,
   FADED_NODE,
@@ -37,6 +38,8 @@ type Focus = {
   // Books and Connections drawn at full strength; null when nothing is selected and everything is.
   litBooks: Set<string> | null;
   litLinks: Set<string> | null;
+  // Connections between consecutive Books on the Follow trail.
+  trailLinks: Set<string>;
   chosenBookId: string | null;
   chosenLinkId: string | null;
   // Label priority: the selection and its neighbours first, then the graph's own order.
@@ -83,7 +86,7 @@ function prepare(graph: GraphView) {
   return { nodes, links, byId, byPriority };
 }
 
-function focusFor(graph: GraphView, prepared: ReturnType<typeof prepare>, selection: Selection): Focus {
+function focusFor(graph: GraphView, prepared: ReturnType<typeof prepare>, selection: Selection, trail: string[]): Focus {
   const chosenBookId = selection?.kind === "book" ? selection.bookId : null;
   const chosenLink = selection?.kind === "connection" ? graph.connections.find((c) => c.id === selection.id) : undefined;
   const visible = new Set(visibleConnections(graph, chosenBookId).map((c) => c.id));
@@ -102,11 +105,25 @@ function focusFor(graph: GraphView, prepared: ReturnType<typeof prepare>, select
     litBooks = new Set([chosenLink.a, chosenLink.b]);
     litLinks = new Set([chosenLink.id]);
   }
+  // The trail stays lit behind the chosen Book: its Books, and the Connections followed between them.
+  const trailLinks = new Set<string>();
+  for (let i = 1; i < trail.length; i++) {
+    const [x, y] = [trail[i - 1], trail[i]];
+    const c = graph.connections.find((c) => (c.a === x && c.b === y) || (c.a === y && c.b === x));
+    if (c) trailLinks.add(c.id);
+  }
+  if (litBooks && litLinks) {
+    for (const id of trail) litBooks.add(id);
+    for (const id of trailLinks) {
+      visible.add(id);
+      litLinks.add(id);
+    }
+  }
   const lit = litBooks;
   const labelOrder = lit
     ? [...prepared.byPriority].sort((p, q) => Number(lit.has(q.id)) - Number(lit.has(p.id)) || Number(q.id === chosenBookId) - Number(p.id === chosenBookId))
     : prepared.byPriority;
-  return { visible, litBooks, litLinks, chosenBookId, chosenLinkId: chosenLink?.id ?? null, labelOrder };
+  return { visible, litBooks, litLinks, trailLinks, chosenBookId, chosenLinkId: chosenLink?.id ?? null, labelOrder };
 }
 
 // Camera moves glide, unless the reader asked for less motion.
@@ -122,12 +139,15 @@ const endId = (end: string | Node) => (typeof end === "string" ? end : end.id);
 export function GraphCanvas({
   graph,
   selection,
+  trail,
   onSelect,
   panelInset,
   pointedBookId,
 }: {
   graph: GraphView;
   selection: Selection;
+  // The Books followed to reach the selection, oldest first; drawn as a path.
+  trail: string[];
   onSelect: (s: Selection) => void;
   // A Book the reader has reached from the keyboard list: marked on the canvas as if hovered.
   pointedBookId: string | null;
@@ -137,7 +157,7 @@ export function GraphCanvas({
   const el = useRef<HTMLDivElement>(null);
   const fgRef = useRef<ForceGraph<Node, Link> | null>(null);
   const prepared = useMemo(() => prepare(graph), [graph]);
-  const focus = useMemo(() => focusFor(graph, prepared, selection), [graph, prepared, selection]);
+  const focus = useMemo(() => focusFor(graph, prepared, selection, trail), [graph, prepared, selection, trail]);
   const focusRef = useRef(focus);
   const hoverRef = useRef<string | null>(null);
   const hoverLinkRef = useRef<string | null>(null);
@@ -184,7 +204,14 @@ export function GraphCanvas({
         .linkWidth((l) => {
           const state = linkState(l);
           if (state === "faded") return EDGE_WIDTH_FADED;
-          const extra = state === "chosen" ? EDGE_WIDTH_CHOSEN_EXTRA : l.id === hoverLinkRef.current ? EDGE_WIDTH_HOVER_EXTRA : 0;
+          const extra =
+            state === "chosen"
+              ? EDGE_WIDTH_CHOSEN_EXTRA
+              : l.id === hoverLinkRef.current
+                ? EDGE_WIDTH_HOVER_EXTRA
+                : focusRef.current.trailLinks.has(l.id)
+                  ? EDGE_WIDTH_TRAIL_EXTRA
+                  : 0;
           return EDGE_WIDTH[l.connection.strength] + extra;
         })
         .linkHoverPrecision(6)
@@ -337,12 +364,17 @@ export function GraphCanvas({
 
   // A new selection: swap the focus, redraw, and bring the chosen Book or Connection into the part of
   // the canvas the panel leaves uncovered. Clearing the selection returns the view the reader had.
+  // A change to the trail alone only redraws.
   const before = useRef<{ x: number; y: number; zoom: number } | null>(null);
+  const centredOn = useRef<string | null>(null);
   useEffect(() => {
     focusRef.current = focus;
     const f = fgRef.current;
     if (!f) return;
     f.linkVisibility(f.linkVisibility());
+    const key = focus.chosenBookId ?? focus.chosenLinkId;
+    if (key === centredOn.current) return;
+    centredOn.current = key;
     const chosen = focus.chosenBookId
       ? [prepared.byId.get(focus.chosenBookId)]
       : focus.chosenLinkId
