@@ -29,6 +29,8 @@ Before committing any UI change, run `pnpm e2e` (Playwright against a production
 
 After any change to the Enrichment or connection-judge prompts, or to the judge's call settings or input layout, run `pnpm eval` (`scripts/eval/judge-eval.ts`, the 19-book set against the stored baseline; about $0.20, scratch database, local `DATABASE_URL` only) and report quote validity, how many Connections quote Notes, and any explanations that got vaguer (read `scripts/eval/out/comparison.md`), before committing. This is not an MVP ticket.
 
+After any change to the Cluster naming prompt, its call settings or input layout, re-name the dev Clusters (local `DATABASE_URL`; clear `named_member_book_ids` so each is due, then run `nameClusters` with `claudeClusterNamer`, so the call still sees the old name; a few cents) and show the user each Cluster's Books, name and description before committing.
+
 ## Git
 
 Before any commit, check the current branch (`git branch --show-current`) and confirm it's the intended one.
