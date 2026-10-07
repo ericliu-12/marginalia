@@ -18,7 +18,12 @@ describe("Clusters", () => {
     ids.set(title, bookId);
     return bookId;
   };
-  const books = (titles: string) => Promise.all(titles.split(" ").map(add));
+  // One at a time, so a test's setup never races itself.
+  const books = async (titles: string) => {
+    const ids = [];
+    for (const t of titles.split(" ")) ids.push(await add(t));
+    return ids;
+  };
 
   // Stored as the judge would leave it; a pair already stored is set to `strength` and undismissed.
   async function connect(x: string, y: string, strength: Strength = "strong") {

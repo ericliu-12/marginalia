@@ -14,7 +14,12 @@ describe("Cluster naming", () => {
   const ctx = useTestDb();
   const add = async (title: string) =>
     (await addBook(ctx.db, ctx.pipeline, ctx.userId, work({ workKey: `/works/${title}`, title, authors: ["A"] }), "read")).bookId;
-  const books = (titles: string) => Promise.all(titles.split(" ").map(add));
+  // One at a time, so a test's setup never races itself.
+  const books = async (titles: string) => {
+    const ids = [];
+    for (const t of titles.split(" ")) ids.push(await add(t));
+    return ids;
+  };
 
   async function connect(x: string, y: string, explanation = "Why.", strength: Strength = "strong") {
     const [a, b] = [x, y].sort();
