@@ -247,6 +247,59 @@ describe("Connections on first finish", () => {
     expect(judge.inputs[0].book.enrichment).toBeNull();
   });
 
+  it("keeps a Connection with an unrecognised Book only when it quotes a Note from that Book", async () => {
+    const a = await finished("Obscure", "solitude", { notes: ["Strange and quiet solitude."], recognised: false });
+    await finished("Lonely", "solitude", { notes: ["The city is a lonely solitude."] });
+    await finished("Alone", "solitude");
+    const { deps: d } = deps((input) => ({
+      connections: [
+        // Quotes only the other Book's Note: dropped.
+        link({ candidateId: byTitle(input, "Lonely").id, explanation: 'Your note on Lonely, "The city is a lonely solitude."' }),
+        // Quotes nothing: dropped.
+        link({ candidateId: byTitle(input, "Alone").id }),
+      ],
+    }));
+    await run(d, a);
+    expect(await stored()).toEqual([]);
+
+    const again = deps((input) => ({
+      connections: [link({ candidateId: byTitle(input, "Lonely").id, explanation: 'Your note on Obscure, "Strange and quiet solitude."' })],
+    }));
+    await ctx.db.update(libraryEntry).set({ connectionsStatus: "running" }).where(eq(libraryEntry.bookId, a));
+    await run(again.deps, a);
+    expect(await stored()).toMatchObject([{ grounding: "notes", explanation: 'Your note on Obscure, "Strange and quiet solitude."' }]);
+  });
+
+  it("holds an unrecognised candidate to the same rule", async () => {
+    await finished("Obscure", "solitude", { notes: ["Strange and quiet solitude."], recognised: false });
+    const a = await finished("Stoner");
+    const { judge, deps: d } = deps((input) => ({ connections: [link({ candidateId: byTitle(input, "Obscure").id })] }));
+    await run(d, a);
+    expect(byTitle(judge.inputs[0], "Obscure").enrichment).toBeNull();
+    expect(await stored()).toEqual([]);
+  });
+
+  it("still holds an unrecognised Book to the rule while it is being enriched again", async () => {
+    const obscure = await finished("Obscure", "solitude", { notes: ["Strange and quiet solitude."], recognised: false });
+    const a = await finished("Stoner");
+    await ctx.db.update(enrichment).set({ status: "pending" }).where(eq(enrichment.bookId, obscure));
+    const { deps: d } = deps((input) => ({ connections: [link({ candidateId: byTitle(input, "Obscure").id })] }));
+    await run(d, a);
+    expect(await stored()).toEqual([]);
+  });
+
+  it("leaves an unrecognised Book with no Notes isolated: never a candidate, never judged", async () => {
+    const lone = await finished("Obscure", "solitude", { recognised: false });
+    const a = await finished("Stoner");
+    await finished("Lonely");
+    const { judge, deps: d } = deps();
+    await run(d, a);
+    expect(judge.inputs[0].candidates.map((c) => c.title)).toEqual(["Lonely"]);
+    await run(d, lone);
+    expect(judge.inputs).toHaveLength(1);
+    expect(await entryOf(lone)).toMatchObject({ connectionsStatus: "idle", connectionsGeneratedAt: expect.any(Date) });
+  });
+
   it("does not judge a pair that already has a Connection, so later runs leave it as it was", async () => {
     const a = await finished("Stoner");
     const b = await finished("Lonely");

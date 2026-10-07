@@ -251,6 +251,9 @@ async function run(db: Db, deps: ConnectionDeps, userId: string, entryId: string
     .leftJoin(libraryEntry, and(eq(libraryEntry.bookId, book.id), eq(libraryEntry.userId, userId)))
     .where(inArray(book.id, bookIds));
   const enrichments = await db.select().from(enrichment).where(inArray(enrichment.bookId, bookIds));
+  // An unrecognised Book connects through its Notes only: its last Enrichment run said so, even while
+  // it is being enriched again.
+  const notesOnly = new Set(enrichments.filter((e) => e.model !== null && !e.recognised).map((e) => e.bookId));
   const notes = await db
     .select({ id: note.id, body: note.body, bookId: libraryEntry.bookId })
     .from(note)
@@ -310,6 +313,7 @@ async function run(db: Db, deps: ConnectionDeps, userId: string, entryId: string
     // Weak links survive only when they quote Notes from both Books, and stay weak.
     const quotedFrom = (id: string) => [...quoted.values()].some((h) => h.bookId === id);
     if (c.strength === "weak" && !(quotedFrom(bookId) && quotedFrom(other.bookId))) continue;
+    if ([bookId, other.bookId].some((id) => notesOnly.has(id) && !quotedFrom(id))) continue;
 
     seen.add(c.candidateId);
     const { a, b } = pairOf(bookId, other.bookId);
