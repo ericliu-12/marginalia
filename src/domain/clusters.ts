@@ -8,8 +8,10 @@ import { completedPasses } from "./library-entry";
 
 // Fewer Books than this are not a Cluster.
 export const MIN_CLUSTER_SIZE = 3;
-// A new Cluster continues an old one when their Books overlap at least this much (Jaccard).
+// A new Cluster continues an old one when their Books overlap at least this much (Jaccard), or when it
+// holds at least this share of the old one's Books (so a Cluster can grow fast and keep its identity).
 const MATCH_JACCARD = 0.5;
+const MATCH_CONTAINMENT = 0.7;
 const RESOLUTION = 1.0;
 const SEED = 17;
 
@@ -68,7 +70,8 @@ const jaccard = (p: Set<string>, q: Set<string>) => {
 // so a merge keeps the larger Cluster's identity and a split gives it to the largest part. A pair must
 // still overlap by MATCH_JACCARD, counting with the previous Cluster every other that mostly went into
 // the new one (a merge), and with the new Cluster every other that mostly came from the previous (a
-// split). A previous Cluster left unmatched is dissolved.
+// split); or the new Cluster must hold MATCH_CONTAINMENT of the previous one's Books. A previous
+// Cluster left unmatched is dissolved.
 function inherit(previous: Previous[], next: string[][]): (string | null)[] {
   const pairs = previous
     .flatMap((p) => next.map((c, i) => ({ p, c, i, shared: overlap(p.members, c) })))
@@ -76,11 +79,12 @@ function inherit(previous: Previous[], next: string[][]): (string | null)[] {
     .sort((x, y) => y.shared - x.shared || y.p.members.length - x.p.members.length || y.c.length - x.c.length);
   const kept: (string | null)[] = next.map(() => null);
   const taken = new Set<string>();
-  for (const { p, c, i } of pairs) {
+  for (const { p, c, i, shared } of pairs) {
     if (taken.has(p.id) || kept[i]) continue;
+    const contained = shared >= MATCH_CONTAINMENT * p.members.length;
     const merged = previous.filter((q) => q === p || overlap(q.members, c) * 2 >= q.members.length);
     const parts = next.filter((d) => d === c || overlap(p.members, d) * 2 >= d.length);
-    if (jaccard(new Set(merged.flatMap((q) => q.members)), new Set(parts.flat())) < MATCH_JACCARD) continue;
+    if (!contained && jaccard(new Set(merged.flatMap((q) => q.members)), new Set(parts.flat())) < MATCH_JACCARD) continue;
     kept[i] = p.id;
     taken.add(p.id);
   }

@@ -124,7 +124,7 @@ describe("Clusters", () => {
       expect(await clusters()).toEqual({ [before!]: "A B C D E" });
     });
 
-    it("gives a Cluster that changed past recognition a new identity", async () => {
+    it("keeps a 3-Book Cluster's identity when it grows to 7 in one recompute", async () => {
       const three = await books("A B C");
       await clique(three);
       await recomputeClusters(ctx.db, ctx.userId);
@@ -133,7 +133,22 @@ describe("Clusters", () => {
       const newcomers = await books("D E F G");
       await clique([...three, ...newcomers]);
       await recomputeClusters(ctx.db, ctx.userId);
-      const after = await idOf("A B C D E F G");
+      expect(await clusters()).toEqual({ [before!]: "A B C D E F G" });
+    });
+
+    it("gives a Cluster that changed past recognition a new identity", async () => {
+      // Half of the old Books stay, among three new ones: under both thresholds.
+      const [a, b, c, d] = await books("A B C D");
+      await clique([a, b, c, d]);
+      await recomputeClusters(ctx.db, ctx.userId);
+      const before = await idOf("A B C D");
+
+      for (const x of [a, b, d]) await dismiss(c, x);
+      for (const x of [a, b]) await dismiss(d, x);
+      const newcomers = await books("E F G");
+      await clique([a, b, ...newcomers]);
+      await recomputeClusters(ctx.db, ctx.userId);
+      const after = await idOf("A B E F G");
       expect(after).toBeDefined();
       expect(after).not.toBe(before);
     });
