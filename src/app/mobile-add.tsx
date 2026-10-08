@@ -23,8 +23,22 @@ const check = (
 
 // The phone's Add a Book: full screen over the shelf, for adding several Books in a row. Each result
 // goes in with one tap as Want to read, Reading or Already read; search stays open with its text
-// selected, so the next Book is typed straight over it. Every add can be undone until Done.
-export function MobileAdd({ finding, onDone, onOpenBook }: { finding: number; onDone: () => void; onOpenBook: (bookId: string) => void }) {
+// selected, so the next Book is typed straight over it. Every add can be undone until Done. A Book
+// opened from here `hidden`s it, keeping the visit for back to return to. `onAddedChange` hears the
+// Statuses of what is added, newest first.
+export function MobileAdd({
+  finding,
+  hidden,
+  onDone,
+  onOpenBook,
+  onAddedChange,
+}: {
+  finding: number;
+  hidden: boolean;
+  onDone: () => void;
+  onOpenBook: (bookId: string) => void;
+  onAddedChange: (statuses: Status[]) => void;
+}) {
   const [query, setQuery] = useState("");
   const { results, phase, retry } = useBookSearch(query);
   // Newest first. Undone ones leave; their search results then offer the choices again, whatever the
@@ -36,8 +50,15 @@ export function MobileAdd({ finding, onDone, onOpenBook }: { finding: number; on
   const [manualDraft, setManualDraft] = useState<BookDraft | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => inputRef.current?.focus(), []);
+  useEffect(() => {
+    if (!hidden) inputRef.current?.focus();
+  }, [hidden]);
+  useEffect(() => {
+    onAddedChange(added.map((a) => a.status));
+  }, [added, onAddedChange]);
 
+  // Called in the tap itself as well as after it lands: iOS raises the keyboard only for focus given
+  // during a gesture.
   function ready() {
     inputRef.current?.focus();
     inputRef.current?.select();
@@ -67,7 +88,13 @@ export function MobileAdd({ finding, onDone, onOpenBook }: { finding: number; on
       role="dialog"
       aria-modal="true"
       aria-labelledby="mobile-add-heading"
-      onKeyDown={(e) => e.key === "Escape" && onDone()}
+      hidden={hidden}
+      onKeyDown={(e) => {
+        if (e.key !== "Escape") return;
+        // In a search with text in it, Escape clears the search, as the field does on its own; then it closes Add.
+        if (e.target === inputRef.current && query) setQuery("");
+        else onDone();
+      }}
       className="fixed inset-0 z-10 flex flex-col bg-paper motion-safe:animate-sheet-up"
     >
       <div className="mx-auto w-full max-w-[40rem] flex-none px-6 pt-[max(1rem,env(safe-area-inset-top))]">
@@ -92,8 +119,6 @@ export function MobileAdd({ finding, onDone, onOpenBook }: { finding: number; on
             setQuery(e.target.value);
             setManualOpen(false);
           }}
-          // The results are already there; Enter puts the keyboard away to show them.
-          onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
           placeholder="Title and author"
           autoComplete="off"
           autoCapitalize="off"
@@ -117,6 +142,7 @@ export function MobileAdd({ finding, onDone, onOpenBook }: { finding: number; on
                 onChange={setManualDraft}
                 onOpenBook={onOpenBook}
                 onClose={closeManual}
+                enterMovesOn
                 onAdded={(title, bookId, status) => {
                   const byline = manualDraft.author.trim();
                   closeManual(true);
@@ -138,8 +164,15 @@ export function MobileAdd({ finding, onDone, onOpenBook }: { finding: number; on
                       <Cover title={a.title} url={a.coverUrl} />
                       <div className="min-w-0 flex-1">
                         <p className="text-[1.05rem] leading-snug font-medium">{a.title}</p>
-                        {a.byline && <p className="font-sans text-sm text-ink-2">{a.byline}</p>}
-                        <AddedLine entry={a} onUndone={onUndone} />
+                        <p className="font-sans text-sm text-ink-2">
+                          {a.byline}
+                          {!a.workKey && (
+                            <span className="font-serif text-ink-3 italic">
+                              {a.byline && " · "}Manual Book
+                            </span>
+                          )}
+                        </p>
+                        <AddedLine entry={a} onUndone={onUndone} onTap={ready} />
                       </div>
                     </li>
                   ))}
@@ -154,9 +187,9 @@ export function MobileAdd({ finding, onDone, onOpenBook }: { finding: number; on
             <>
               {phase === "loading" && results.length === 0 && <p className="pt-5 text-ink-2 italic">Searching…</p>}
               {phase === "error" && (
-                <p className="pt-5 text-contrast">
-                  Search is unavailable right now.{" "}
-                  <button type="button" onClick={retry} className="min-h-11 underline underline-offset-2">
+                <p className="pt-5">
+                  <span className="text-contrast">Search is unavailable right now.</span>{" "}
+                  <button type="button" onClick={retry} className={`${hitArea} whitespace-nowrap underline underline-offset-2`}>
                     Try again
                   </button>
                 </p>
@@ -184,6 +217,7 @@ export function MobileAdd({ finding, onDone, onOpenBook }: { finding: number; on
                           onAdded={onAdded}
                           onUndone={onUndone}
                           onOpenBook={onOpenBook}
+                          onTap={ready}
                         />
                       );
                     })}
@@ -195,7 +229,7 @@ export function MobileAdd({ finding, onDone, onOpenBook }: { finding: number; on
               )}
               <p className="mt-6 font-sans text-xs text-ink-3">
                 Results from{" "}
-                <a href="https://openlibrary.org" target="_blank" rel="noreferrer" className="underline underline-offset-2">
+                <a href="https://openlibrary.org" target="_blank" rel="noreferrer" className={`${hitArea} underline underline-offset-2`}>
                   Open Library
                 </a>
               </p>
@@ -211,6 +245,9 @@ export function MobileAdd({ finding, onDone, onOpenBook }: { finding: number; on
     setManualOpen(true);
   }
 }
+
+// A touch target past the line a link sits in, without spacing the text out.
+const hitArea = "relative after:absolute after:-inset-x-1 after:-inset-y-3.5 after:content-['']";
 
 function AddByHand({ onOpen }: { onOpen: () => void }) {
   return (
@@ -229,6 +266,7 @@ function AddResult({
   onAdded,
   onUndone,
   onOpenBook,
+  onTap,
 }: {
   result: SearchResult;
   added: Added | undefined;
@@ -237,18 +275,22 @@ function AddResult({
   onAdded: (entry: Added) => void;
   onUndone: (entry: Added) => void;
   onOpenBook: (bookId: string) => void;
+  onTap: () => void;
 }) {
   const [pending, start] = useTransition();
   const [adding, setAdding] = useState<Status | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Added meanwhile somewhere else, so the choices give way.
+  const [duplicate, setDuplicate] = useState(false);
 
   function add(status: Status) {
+    onTap();
     setError(null);
     setAdding(status);
     start(async () => {
       const res = await addBookAction(r, status);
       if (res.ok) onAdded({ bookId: res.bookId, workKey: r.workKey, title: r.title, byline: r.authors.join(", "), coverUrl: r.coverUrl, status });
-      else if (res.reason === "duplicate") setError("Already in your library.");
+      else if (res.reason === "duplicate") setDuplicate(true);
       else setError("Couldn’t add this book. Try again.");
     });
   }
@@ -266,21 +308,30 @@ function AddResult({
       </div>
       {/* The full width under the Book, so each choice reads on one line. */}
       <div className="mt-3">
-          {added ? (
-            <AddedLine entry={added} onUndone={onUndone} />
-          ) : inLibrary ? (
-            <p className="flex min-h-11 items-center font-sans text-sm text-ink-2">
+        {added ? (
+          <AddedLine entry={added} onUndone={onUndone} onTap={onTap} />
+        ) : inLibrary ? (
+          <p className="flex min-h-11 items-center justify-between gap-3 font-sans text-sm text-ink-2">
+            <span>
               {check}In your library · {LABELS[inLibrary]}
-            </p>
-          ) : (
-            <div className={addChoices} role="group" aria-label={`Add ${r.title}`}>
-              {(Object.keys(LABELS) as Status[]).map((s) => (
-                <button key={s} type="button" disabled={pending} onMouseDown={keepFocus} onClick={() => add(s)} className={addButton}>
-                  {pending && adding === s ? "Adding…" : LABELS[s]}
-                </button>
-              ))}
-            </div>
-          )}
+            </span>
+            {r.libraryBookId && (
+              <button type="button" onClick={() => onOpenBook(r.libraryBookId!)} aria-label={`Open ${r.title}`} className={`${quietLink} -mr-2 px-2`}>
+                Open
+              </button>
+            )}
+          </p>
+        ) : duplicate ? (
+          <p className="flex min-h-11 items-center font-sans text-sm text-ink-2">{check}Already in your library</p>
+        ) : (
+          <div className={addChoices} role="group" aria-label={`Add ${r.title}`}>
+            {(Object.keys(LABELS) as Status[]).map((s) => (
+              <button key={s} type="button" disabled={pending} onMouseDown={keepFocus} onClick={() => add(s)} className={addButton}>
+                {pending && adding === s ? "Adding…" : LABELS[s]}
+              </button>
+            ))}
+          </div>
+        )}
         {error && <p className="mt-1.5 font-sans text-sm text-contrast">{error}</p>}
       </div>
     </li>
@@ -288,12 +339,12 @@ function AddResult({
 }
 
 // "Added · Reading" and its Undo, which takes the Book back out of the library as Remove would.
-function AddedLine({ entry, onUndone }: { entry: Added; onUndone: (entry: Added) => void }) {
+function AddedLine({ entry, onUndone, onTap }: { entry: Added; onUndone: (entry: Added) => void; onTap: () => void }) {
   const [pending, start] = useTransition();
   const [failed, setFailed] = useState(false);
   return (
     <>
-      <p className="flex min-h-11 items-center justify-between gap-3 font-sans text-sm text-ink-2">
+      <p className="flex min-h-11 items-center justify-between gap-3 font-sans text-sm text-ink">
         <span>
           {check}Added · {LABELS[entry.status]}
         </span>
@@ -302,6 +353,7 @@ function AddedLine({ entry, onUndone }: { entry: Added; onUndone: (entry: Added)
           disabled={pending}
           onMouseDown={keepFocus}
           onClick={() => {
+            onTap();
             setFailed(false);
             start(async () => {
               if ((await removeFromLibraryAction(entry.bookId)).ok) onUndone(entry);

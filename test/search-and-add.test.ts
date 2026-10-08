@@ -252,11 +252,11 @@ describe("search ranking", () => {
     expect(results[1].coverUrl).toBeNull();
   });
 
-  it("marks works already in the library with their status", async () => {
+  it("marks works already in the library with their status and Book, so the result can open it", async () => {
     const stoner = work({ workKey: "/works/stoner", title: "Stoner", editionCount: 9 });
-    await addBook(ctx.db, ctx.pipeline, ctx.userId, stoner, "reading");
+    const { bookId } = await addBook(ctx.db, ctx.pipeline, ctx.userId, stoner, "reading");
     const results = await searchBooks(ctx.db, ctx.userId, fakeGateway([stoner, work({ workKey: "/works/other" })]), "x");
-    expect(results.map((r) => r.libraryStatus)).toEqual(["reading", null]);
+    expect(results.map((r) => [r.libraryStatus, r.libraryBookId])).toEqual([["reading", bookId], [null, null]]);
   });
 
   it("returns nothing for a blank query without calling Open Library", async () => {

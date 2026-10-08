@@ -16,8 +16,9 @@ type Phase = "idle" | "loading" | "done" | "error";
 
 // On a phone the three choices share the row equally, at a full touch target.
 export const addButton =
-  "min-h-11 rounded-[3px] border border-ink/70 px-1.5 py-2 max-lg:leading-tight lg:min-h-0 lg:px-2.5 lg:py-1 font-sans text-[0.8rem] font-medium text-ink transition-colors duration-150 hover:bg-ink hover:text-paper max-lg:active:bg-paper-3 disabled:border-rule disabled:text-ink-3 disabled:hover:bg-transparent disabled:hover:text-ink-3";
-export const addChoices = "grid grid-cols-[1fr_1fr_1.15fr] gap-1.5 lg:flex lg:flex-wrap";
+  "min-h-11 rounded-[3px] border border-ink/70 px-1 py-2 max-lg:leading-tight lg:min-h-0 lg:px-2.5 lg:py-1 font-sans text-[0.8rem] font-medium text-ink transition-colors duration-150 hover:bg-ink hover:text-paper max-lg:active:bg-paper-3 disabled:border-rule disabled:text-ink-3 disabled:hover:bg-transparent disabled:hover:text-ink-3";
+// Columns weighted by their labels, so each reads on one line down to a 320px screen.
+export const addChoices = "grid grid-cols-[1.12fr_0.8fr_1.08fr] gap-1.5 lg:flex lg:flex-wrap";
 
 // `removed` is set anew each time a Book is removed elsewhere: search says so until the reader types,
 // fetches the results again, and takes focus back. `onOpenBook` opens a Book in the library, which
@@ -362,19 +363,22 @@ function useLookalike(title: string, author: string) {
 
 // A Manual Book: title and author, then the cover and description as quiet reveals, added with the
 // same Status choices as a search result. Enter adds it as Want to read, the first choice. Escape
-// closes it with the draft kept (`onClose(false)`); Cancel discards it.
+// closes it with the draft kept (`onClose(false)`); Cancel discards it. With `enterMovesOn` (the phone,
+// whose keyboard has no Tab), Enter goes to the next field instead, and the last puts the keyboard away.
 export function ManualBookForm({
   draft,
   onChange,
   onAdded,
   onClose,
   onOpenBook,
+  enterMovesOn = false,
 }: {
   draft: BookDraft;
   onChange: (draft: BookDraft) => void;
   onAdded: (title: string, bookId: string, status: Status) => void;
   onClose: (discard: boolean) => void;
   onOpenBook: (bookId: string) => void;
+  enterMovesOn?: boolean;
 }) {
   const [showCover, setShowCover] = useState(!!draft.coverUrl);
   const [showDescription, setShowDescription] = useState(!!draft.description);
@@ -430,6 +434,13 @@ export function ManualBookForm({
           e.stopPropagation();
           onClose(false);
         }
+        if (enterMovesOn && e.key === "Enter" && e.target instanceof HTMLInputElement) {
+          e.preventDefault();
+          const fields = [refs.title, refs.author, refs.coverUrl].flatMap((r) => (r.current ? [r.current] : []));
+          const next = fields[fields.indexOf(e.target) + 1];
+          if (next) next.focus();
+          else e.target.blur();
+        }
       }}
     >
       <h3 id="manual-heading" className="text-[1.05rem] leading-snug font-medium">
@@ -440,11 +451,11 @@ export function ManualBookForm({
       <label htmlFor="manual-title" className={label}>
         Title
       </label>
-      <input ref={refs.title} id="manual-title" value={draft.title} onChange={(e) => change({ title: e.target.value })} autoComplete="off" {...invalidProps(error, "title", errorId)} className={input} />
+      <input ref={refs.title} id="manual-title" enterKeyHint={enterMovesOn ? "next" : undefined} value={draft.title} onChange={(e) => change({ title: e.target.value })} autoComplete="off" {...invalidProps(error, "title", errorId)} className={input} />
       <label htmlFor="manual-author" className={label}>
         Author
       </label>
-      <input ref={refs.author} id="manual-author" value={draft.author} onChange={(e) => change({ author: e.target.value })} autoComplete="off" {...invalidProps(error, "author", errorId, "manual-author-hint")} className={input} />
+      <input ref={refs.author} id="manual-author" enterKeyHint={enterMovesOn ? (showCover ? "next" : "done") : undefined} value={draft.author} onChange={(e) => change({ author: e.target.value })} autoComplete="off" {...invalidProps(error, "author", errorId, "manual-author-hint")} className={input} />
       <p id="manual-author-hint" className="mt-1 font-sans text-[0.8rem] text-ink-3">
         {CO_AUTHOR_HINT}
       </p>
@@ -457,6 +468,7 @@ export function ManualBookForm({
           <input
             ref={refs.coverUrl}
             id="manual-cover"
+            enterKeyHint={enterMovesOn ? "done" : undefined}
             type="url"
             inputMode="url"
             placeholder="https://"

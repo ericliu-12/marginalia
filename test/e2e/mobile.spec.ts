@@ -43,6 +43,7 @@ const CATALOG = ["Piranesi", "Austerlitz", "The Peregrine"].map((title, i) => ({
   subjects: [],
   coverUrl: null,
   libraryStatus: null,
+  libraryBookId: null,
   lookalike: null,
 }));
 const answerSearch = (page: Page) =>
@@ -85,11 +86,18 @@ test("Add adds a Book in one tap, stays open with the search selected for the ne
   await expect(addedSoFar.getByRole("listitem")).toContainText("PiranesiA. AuthorAdded · Reading");
   await expect(addedSoFar.getByRole("button", { name: "Undo adding Piranesi" })).toBeVisible();
 
+  await searchbox(page).fill("The Peregrine");
+  await addScreen(page).getByRole("group", { name: "Add The Peregrine" }).getByRole("button", { name: "Want to read" }).click();
+  await expect(addScreen(page).getByText("Added · Want to read")).toBeVisible();
+
+  // Done opens the sections that were added to, so every new Book is on show.
   await addScreen(page).getByRole("button", { name: "Done" }).click();
   await expect(addScreen(page)).toHaveCount(0);
   await expect(add).toBeFocused();
   await expect(shelf(page).getByRole("button", { name: /^Piranesi/ })).toBeVisible();
-  await expect(shelf(page).getByRole("button", { name: "Read 6" })).toBeVisible();
+  await expect(shelf(page).getByRole("button", { name: "Want to read 2" })).toHaveAttribute("aria-expanded", "true");
+  await expect(shelf(page).getByRole("button", { name: /^The Peregrine/ })).toBeVisible();
+  await expect(shelf(page).getByRole("button", { name: "Read 6" })).toHaveAttribute("aria-expanded", "false");
 });
 
 test("Add is a URL too: back closes it, to the button that opened it", async ({ page }) => {
@@ -99,6 +107,19 @@ test("Add is a URL too: back closes it, to the button that opened it", async ({ 
   await page.goBack();
   await expect(addScreen(page)).toHaveCount(0);
   await expect(page).toHaveURL(/\/$/);
+  await expect(add).toBeFocused();
+});
+
+test("Escape clears a search first, and then closes Add", async ({ page }) => {
+  await answerSearch(page);
+  const add = page.getByRole("button", { name: "Add a Book" });
+  await add.click();
+  await searchbox(page).fill("Piranesi");
+  await page.keyboard.press("Escape");
+  await expect(searchbox(page)).toHaveValue("");
+  await expect(addScreen(page)).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(addScreen(page)).toHaveCount(0);
   await expect(add).toBeFocused();
 });
 
@@ -113,20 +134,58 @@ test("a Book search can't find is added by hand, past a lookalike warning, and c
 
   await form.getByRole("button", { name: "Want to read" }).click();
   const addedSoFar = addScreen(page).getByRole("region", { name: "Added so far" });
-  await expect(addedSoFar.getByRole("listitem")).toContainText("stoner: a noveljohn williamsAdded · Want to read");
+  await expect(addedSoFar.getByRole("listitem")).toContainText("stoner: a noveljohn williams · Manual BookAdded · Want to read");
   await expect(searchbox(page)).toBeFocused();
   await addedSoFar.getByRole("button", { name: "Undo adding stoner: a novel" }).click();
   await expect(addedSoFar).toHaveCount(0);
+  await addScreen(page).getByRole("button", { name: "Done" }).click();
+  await expect(shelf(page).getByRole("button", { name: "Want to read 1" })).toBeVisible();
+});
 
-  // The warning's title opens the Book it looks like, and back from there is the shelf.
+test("a lookalike's title opens that Book, and back returns to Add as it was", async ({ page }) => {
+  await answerSearch(page);
+  await page.getByRole("button", { name: "Add a Book" }).click();
+  await searchbox(page).fill("Piranesi");
+  await addScreen(page).getByRole("group", { name: "Add Piranesi" }).getByRole("button", { name: "Reading" }).click();
+  await expect(addScreen(page).getByText("Added · Reading")).toBeVisible();
+
   await searchbox(page).fill("stoner: a novel");
   await addScreen(page).getByRole("button", { name: "Add it by hand" }).click();
+  const form = addScreen(page).getByRole("form", { name: "Add a book by hand" });
   await form.getByLabel("Author").fill("john williams");
   await form.getByRole("button", { name: "Stoner" }).click();
   await expect(page.getByRole("heading", { level: 2 })).toHaveText("Stoner");
+
+  // Back, by gesture or by the screen's own link, finds the form and this visit's adds where they were.
   await page.goBack();
+  await expect(form.getByLabel("Author")).toHaveValue("john williams");
+  await form.getByRole("button", { name: "Stoner" }).click();
+  await page.getByRole("button", { name: "Back to Add a Book" }).click();
+  await expect(form.getByLabel("Author")).toHaveValue("john williams");
+  await searchbox(page).fill("");
+  await expect(addScreen(page).getByRole("region", { name: "Added so far" }).getByRole("button", { name: "Undo adding Piranesi" })).toBeVisible();
+
+  await addScreen(page).getByRole("button", { name: "Done" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Reading");
-  await expect(shelf(page).getByRole("button", { name: "Want to read 1" })).toBeVisible();
+  await expect(page).toHaveURL(/\/$/);
+});
+
+test("Enter in the hand-add form moves to the next field rather than adding the Book", async ({ page }) => {
+  await page.route("**/api/search?**", (route) => route.fulfill({ json: [] }));
+  await page.getByRole("button", { name: "Add a Book" }).click();
+  await searchbox(page).fill("Kitchen Notes");
+  await addScreen(page).getByRole("button", { name: "Add it by hand" }).click();
+  const form = addScreen(page).getByRole("form", { name: "Add a book by hand" });
+
+  await form.getByLabel("Title").focus();
+  await page.keyboard.press("Enter");
+  await expect(form.getByLabel("Author")).toBeFocused();
+  await page.keyboard.type("June Ash");
+  // The last field puts the keyboard away; the Book waits for a Status.
+  await page.keyboard.press("Enter");
+  await expect(form.getByLabel("Author")).not.toBeFocused();
+  await expect(form).toBeVisible();
+  await expect(addScreen(page).getByRole("region", { name: "Added so far" })).toHaveCount(0);
 });
 
 test("Read on the Book screen finishes the Book, and only the first finish shows the finish line", async ({ page }) => {

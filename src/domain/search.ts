@@ -33,6 +33,8 @@ export type SearchResult = OpenLibraryWork & {
   coverUrl: string | null;
   // The reader's Status for this work if it is already in their library.
   libraryStatus: Status | null;
+  // That Book, to open it from the result; null with `libraryStatus`.
+  libraryBookId: string | null;
   // Another Book in the reader's library this work looks like; advisory, and null when it is in the library itself.
   lookalike: Lookalike | null;
 };
@@ -133,7 +135,7 @@ export async function searchBooks(
   if (ranked.length === 0) return [];
 
   const owned = await db
-    .select({ workKey: book.openLibraryWorkKey, status: libraryEntry.status })
+    .select({ workKey: book.openLibraryWorkKey, status: libraryEntry.status, bookId: book.id })
     .from(libraryEntry)
     .innerJoin(book, eq(book.id, libraryEntry.bookId))
     .where(
@@ -145,15 +147,17 @@ export async function searchBooks(
         ),
       ),
     );
-  const statusByKey = new Map(owned.map((o) => [o.workKey, o.status]));
+  const ownedByKey = new Map(owned.map((o) => [o.workKey, o]));
   const lookalike = await lookalikeCheck(db, userId);
 
   return ranked.map((w) => {
-    const libraryStatus = statusByKey.get(w.workKey) ?? null;
+    const entry = ownedByKey.get(w.workKey);
+    const libraryStatus = entry?.status ?? null;
     return {
       ...w,
       coverUrl: coverUrlFor(w.coverId),
       libraryStatus,
+      libraryBookId: entry?.bookId ?? null,
       lookalike: libraryStatus ? null : lookalike({ title: w.title, author: w.authors[0] ?? "" }),
     };
   });
