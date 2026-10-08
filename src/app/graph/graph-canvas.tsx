@@ -22,6 +22,7 @@ import {
   FIT_PADDING,
   INK,
   LABEL_GAP,
+  LABEL_LINE,
   LABEL_PLATE,
   LABEL_SIZE,
   LAND_MS,
@@ -40,6 +41,7 @@ import {
   WASH_RADIUS,
   nodeRadius,
 } from "./graph-style";
+import { placeLabels, placeNames, type Box, type Dot, type LabelRequest, type NameRequest } from "./placement";
 
 export type Selection = { kind: "book"; bookId: string } | { kind: "connection"; id: string } | { kind: "cluster"; id: string } | null;
 
@@ -64,7 +66,7 @@ type Focus = {
 };
 
 // Graph data for force-graph, built once per graph: stored positions scaled by layoutScale, an
-// id-to-node map, and each Cluster's Books.
+// id-to-node map, and each Cluster's Books (as nodes, and as a set of ids).
 function prepare(graph: GraphView) {
   const raw = new Map(graph.books.map((b) => [b.bookId, b]));
   const lengths = graph.connections.map((c) => Math.hypot(raw.get(c.a)!.x - raw.get(c.b)!.x, raw.get(c.a)!.y - raw.get(c.b)!.y));
@@ -95,7 +97,11 @@ function prepare(graph: GraphView) {
       q.book.finishedAt - p.book.finishedAt ||
       (p.id < q.id ? -1 : 1),
   );
-  const clusters = graph.clusters.map((cluster) => ({ cluster, nodes: cluster.bookIds.map((id) => byId.get(id)!).filter(Boolean) }));
+  const clusters = graph.clusters.map((cluster) => ({
+    cluster,
+    nodes: cluster.bookIds.map((id) => byId.get(id)!).filter(Boolean),
+    members: new Set(cluster.bookIds),
+  }));
   return { nodes, links, byId, byPriority, clusters };
 }
 
@@ -159,12 +165,39 @@ function focusFor(graph: GraphView, prepared: ReturnType<typeof prepare>, select
   };
 }
 
+// A Cluster's wash: its pools at full tint, in a canvas covering them at (x, y), w by h graph units.
+// Drawn `sharp` device pixels to the graph unit, or coarser for a big Cluster (pools are soft), and
+// again once the zoom has moved WASH_RESCALE times from that or the Books have moved.
+type Wash = { canvas: HTMLCanvasElement; nodes: Node[]; x: number; y: number; w: number; h: number; sharp: number; moved: boolean };
+const WASH_RESCALE = 2;
+const WASH_MAX_SIDE = 1024;
+
+function drawWash(nodes: Node[], tint: string, r: number, sharp: number, canvas = document.createElement("canvas")): Wash {
+  const xs = nodes.map((n) => n.x!);
+  const ys = nodes.map((n) => n.y!);
+  const [x, y] = [Math.min(...xs) - r, Math.min(...ys) - r];
+  const [w, h] = [Math.max(...xs) + r - x, Math.max(...ys) + r - y];
+  const scale = Math.min(sharp, WASH_MAX_SIDE / Math.max(w, h));
+  // Resizing clears it.
+  Object.assign(canvas, { width: Math.ceil(w * scale), height: Math.ceil(h * scale) });
+  const lc = canvas.getContext("2d")!;
+  lc.setTransform(scale, 0, 0, scale, -x * scale, -y * scale);
+  for (const n of nodes) {
+    const g = lc.createRadialGradient(n.x!, n.y!, 0, n.x!, n.y!, r);
+    g.addColorStop(0, tint);
+    g.addColorStop(0.45, `${tint}c0`);
+    g.addColorStop(1, `${tint}00`);
+    lc.fillStyle = g;
+    lc.beginPath();
+    lc.arc(n.x!, n.y!, r, 0, Math.PI * 2);
+    lc.fill();
+  }
+  return { canvas, nodes, x, y, w, h, sharp, moved: false };
+}
+
 // Camera moves glide, new Clusters fade in, and new Books arrive, unless the reader asked for less motion.
 export const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const glide = () => (reducedMotion() ? 0 : 600);
-
-type Box = { x0: number; y0: number; x1: number; y1: number };
-type Side = "right" | "left" | "above" | "below";
 
 const endId = (end: string | Node) => (typeof end === "string" ? end : end.id);
 
@@ -246,9 +279,12 @@ export function GraphCanvas({
     const serif = getComputedStyle(document.documentElement).getPropertyValue("--nf-serif").trim() || "Georgia";
     const font = (k: number) => `500 ${LABEL_SIZE / k}px ${serif}, Georgia, serif`;
     const widths = new Map<string, number>();
-    // Where one Cluster's pools are drawn before they go on the canvas together, so they never add up.
-    const layer = document.createElement("canvas");
+    // Each Cluster's wash, as last drawn; and whether a drag's simulation is moving the Books.
+    const washes = new Map<string, Wash>();
+    let simulating = false;
 
+    // The last placement, and what it was made for: each label's box relative to its dot.
+    let kept: { scene: { focus: Focus; data: ReturnType<typeof prepare>; key: string }; labels: { id: string; text: string; box: Box }[] } | null = null;
     void import("force-graph").then(({ default: ForceGraphCtor }) => {
       if (cancelled) return;
       const f = (fg = new ForceGraphCtor<Node, Link>(host));
@@ -278,50 +314,108 @@ export function GraphCanvas({
         return EDGE_WIDTH[l.connection.strength] + extra;
       };
 
+      // Places every label and Cluster name afresh, moving the names into place; the labels, each with
+      // its box relative to its dot.
+      const place = (ctx: CanvasRenderingContext2D, k: number, view: { width: number; height: number }, dots: Dot[], screen: Map<string, Dot>) => {
+        const { labelOrder, litBooks, chosenBookId, chosenClusterId } = focusRef.current;
+        const width = (text: string) => {
+          let w = widths.get(text);
+          if (w === undefined) {
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.font = font(1);
+            w = ctx.measureText(text).width;
+            ctx.restore();
+            widths.set(text, w);
+          }
+          return w;
+        };
+        const { byId, clusters } = data();
+        const hovered = pointed();
+        const requests: LabelRequest[] = [];
+        const texts = new Map<string, string>();
+        const H = LABEL_SIZE * LABEL_LINE;
+        for (const n of hovered ? [byId.get(hovered), ...labelOrder] : labelOrder) {
+          if (!n || texts.has(n.id)) continue;
+          const must = n.id === hovered || n.id === chosenBookId;
+          // Faded Books stay unlabelled unless the reader is close enough to read them anyway.
+          if (litBooks && !litBooks.has(n.id) && k < 1.6 && !must) continue;
+          const text = must ? n.book.title : n.label;
+          texts.set(n.id, text);
+          const s = screen.get(n.id)!;
+          const gap = n.radius + LABEL_GAP + (ringed(n.id) ? RING_GAP : 0);
+          requests.push({ id: n.id, x: s.x, y: s.y, gap, plate: LABEL_PLATE, w: width(text) + 2 * LABEL_PLATE, h: H, must });
+        }
+        const first = placeLabels({ view, dots, requests });
+
+        const r = WASH_RADIUS * TYPICAL_EDGE_LENGTH * k;
+        const fontSize = Math.round(Math.min(CLUSTER_NAME_SIZE.max, Math.max(CLUSTER_NAME_SIZE.min, r * CLUSTER_NAME_SIZE.perRadius)) * 2) / 2;
+        const names: NameRequest[] = [];
+        for (const { cluster, nodes: books, members } of clusters) {
+          const nameEl = nameEls.current.get(cluster.id);
+          if (!nameEl || books.length === 0) continue;
+          if (nameEl.style.fontSize !== `${fontSize}px`) nameEl.style.fontSize = `${fontSize}px`;
+          const key = `${cluster.id}:${cluster.name}:${fontSize}`;
+          let size = nameSizes.current.get(key);
+          if (!size) nameSizes.current.set(key, (size = { w: nameEl.offsetWidth, h: nameEl.offsetHeight }));
+          names.push({ id: cluster.id, members, ...size, chosen: cluster.id === chosenClusterId });
+        }
+        const placed = placeNames({
+          view,
+          clear: CLUSTER_NAME_CLEAR,
+          uncovered: view.width - insetRef.current,
+          washRadius: r,
+          offset: CLUSTER_NAME_OFFSET,
+          dots,
+          labels: first.map((l) => l.box),
+          names,
+        });
+        const now = performance.now();
+        for (const [id, box] of placed) {
+          const nameEl = nameEls.current.get(id)!;
+          nameEl.style.visibility = box ? "visible" : "hidden";
+          if (!box) continue;
+          nameEl.toggleAttribute("data-faded", litBooks !== null && id !== chosenClusterId);
+          nameEl.style.transform = `translate(${box.x0}px, ${box.y0}px)`;
+          nameEl.style.opacity = String(faded(id, now));
+        }
+
+        // Placed again, now clear of the names, so none is drawn under one.
+        const nameBoxes = [...placed.values()].filter((b) => b !== null);
+        const labels = nameBoxes.length ? placeLabels({ view, dots, requests, obstacles: nameBoxes }) : first;
+        return labels.map(({ id, box }) => {
+          const s = screen.get(id)!;
+          return { id, text: texts.get(id)!, box: { x0: box.x0 - s.x, y0: box.y0 - s.y, x1: box.x1 - s.x, y1: box.y1 - s.y } };
+        });
+      };
+
       f.width(host.clientWidth)
         .height(host.clientHeight)
         .backgroundColor("rgba(0,0,0,0)")
         .nodeId("id")
-        // Washes first, under everything: each Cluster's pools drawn at full tint into the layer, which
-        // goes on the paper at the Cluster's strength. Lighter behind any other selection.
-        .onRenderFramePre((ctx) => {
+        // Washes first, under everything: each Cluster's pools drawn at full tint into a canvas of its
+        // own, which goes on the paper at the Cluster's strength, so they never add up. Lighter behind any
+        // other selection. Drawn in graph units and kept while the camera moves, and while a drag's
+        // simulation runs (they catch up once it settles); drawn again for a fresh graph, or once the zoom
+        // is far from the one they were drawn at.
+        .onRenderFramePre((ctx, k) => {
           const { chosenClusterId, litBooks } = focusRef.current;
-          const { width, height } = ctx.canvas;
-          if (layer.width !== width || layer.height !== height) Object.assign(layer, { width, height });
-          const lc = layer.getContext("2d")!;
           const r = WASH_RADIUS * TYPICAL_EDGE_LENGTH;
           const now = performance.now();
-          for (const { cluster, nodes } of data().clusters) {
+          const sharp = k * window.devicePixelRatio;
+          const { clusters } = data();
+          // Washes of Clusters gone from a fresh graph are let go.
+          if (washes.size > clusters.length) for (const id of washes.keys()) if (!clusters.some((c) => c.cluster.id === id)) washes.delete(id);
+          for (const { cluster, nodes } of clusters) {
             const alpha = (cluster.id === chosenClusterId ? WASH_ALPHA.chosen : litBooks ? WASH_ALPHA.faded : WASH_ALPHA.rest) * faded(cluster.id, now);
             if (alpha <= 0 || nodes.length === 0) continue;
-            const tint = WASH[cluster.wash];
-            // Only the part of the canvas this Cluster's pools cover, in device pixels.
-            const m = ctx.getTransform();
-            const xs = nodes.map((n) => m.a * n.x! + m.e);
-            const ys = nodes.map((n) => m.d * n.y! + m.f);
-            const pad = r * m.a;
-            const x0 = Math.max(0, Math.floor(Math.min(...xs) - pad));
-            const y0 = Math.max(0, Math.floor(Math.min(...ys) - pad));
-            const w = Math.min(width, Math.ceil(Math.max(...xs) + pad)) - x0;
-            const h = Math.min(height, Math.ceil(Math.max(...ys) + pad)) - y0;
-            if (w <= 0 || h <= 0) continue;
-            lc.setTransform(1, 0, 0, 1, 0, 0);
-            lc.clearRect(x0, y0, w, h);
-            lc.setTransform(m);
-            for (const n of nodes) {
-              const g = lc.createRadialGradient(n.x!, n.y!, 0, n.x!, n.y!, r);
-              g.addColorStop(0, tint);
-              g.addColorStop(0.45, `${tint}c0`);
-              g.addColorStop(1, `${tint}00`);
-              lc.fillStyle = g;
-              lc.beginPath();
-              lc.arc(n.x!, n.y!, r, 0, Math.PI * 2);
-              lc.fill();
-            }
+            let wash = washes.get(cluster.id);
+            const stale =
+              !wash || wash.nodes !== nodes || (!simulating && (wash.moved || sharp > wash.sharp * WASH_RESCALE || sharp < wash.sharp / WASH_RESCALE));
+            if (stale) washes.set(cluster.id, (wash = drawWash(nodes, WASH[cluster.wash], r, sharp, wash?.canvas)));
             ctx.save();
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.globalAlpha = alpha;
-            ctx.drawImage(layer, x0, y0, w, h, x0, y0, w, h);
+            ctx.drawImage(wash!.canvas, wash!.x, wash!.y, wash!.w, wash!.h);
             ctx.restore();
           }
         })
@@ -393,148 +487,49 @@ export function GraphCanvas({
           ctx.arc(n.x!, n.y!, (n.radius + 5) / k, 0, Math.PI * 2);
           ctx.fill();
         })
-        // Labels last, over the edges, each on a paper plate so no edge strikes through it. In priority
-        // order, each goes to the first side of its dot (right, left, above, below) where it overlaps no
-        // dot and no label already placed, or is left off; a coarse grid keeps the checks cheap. The
-        // hovered and chosen Books always get theirs, in full. Then each Cluster's name goes above or
-        // below it, whichever crosses fewer of the labels drawn (and names placed before it).
+        // Labels last, over the edges, each on a paper plate so no edge strikes through it, placed in
+        // priority order by placeLabels; the hovered and chosen Books always get theirs, in full. Each
+        // Cluster's name is placed by placeNames among those labels, and the labels then again around the
+        // names. While a drag's simulation runs and nothing else changes, the labels keep their sides and
+        // follow their dots, and the names stay put, until it settles.
         .onRenderFramePost((ctx, k) => {
-          const { labelOrder, litBooks, chosenBookId } = focusRef.current;
+          const { nodes, byId } = data();
+          const dots: Dot[] = nodes.map((n) => ({ id: n.id, ...f.graph2ScreenCoords(n.x!, n.y!), radius: n.radius }));
+          const screen = new Map(dots.map((d) => [d.id, d]));
+          const origin = f.graph2ScreenCoords(0, 0);
+          const view = { width: f.width(), height: f.height() };
+          const scene = { focus: focusRef.current, data: data(), key: [k, origin.x, origin.y, view.width, view.height, insetRef.current, pointed()].join() };
+          const still = simulating && kept && kept.scene.focus === scene.focus && kept.scene.data === scene.data && kept.scene.key === scene.key;
+          if (!still) kept = { scene, labels: place(ctx, k, view, dots, screen) };
+          const { litBooks } = focusRef.current;
           ctx.font = font(k);
           ctx.textBaseline = "middle";
-          const CELL = 48;
-          const taken = new Map<string, Box[]>();
-          const cells = (b: Box) => {
-            const keys = [];
-            for (let i = Math.floor(b.x0 / CELL); i <= Math.floor(b.x1 / CELL); i++)
-              for (let j = Math.floor(b.y0 / CELL); j <= Math.floor(b.y1 / CELL); j++) keys.push(`${i}:${j}`);
-            return keys;
-          };
-          const free = (b: Box) => !cells(b).some((key) => taken.get(key)?.some((o) => o.x0 < b.x1 && b.x0 < o.x1 && o.y0 < b.y1 && b.y0 < o.y1));
-          const take = (b: Box) => {
-            for (const key of cells(b)) taken.set(key, [...(taken.get(key) ?? []), b]);
-          };
-          const width = (text: string) => {
-            let w = widths.get(text);
-            if (w === undefined) {
-              ctx.save();
-              ctx.setTransform(1, 0, 0, 1, 0, 0);
-              ctx.font = font(1);
-              w = ctx.measureText(text).width;
-              ctx.restore();
-              widths.set(text, w);
-            }
-            return w;
-          };
-          // Every dot is an obstacle, so no label sits on another Book.
-          const { nodes, byId, clusters } = data();
-          const screen = new Map(nodes.map((n) => [n.id, f.graph2ScreenCoords(n.x!, n.y!)]));
-          for (const n of nodes) {
-            const s = screen.get(n.id)!;
-            take({ x0: s.x - n.radius, y0: s.y - n.radius, x1: s.x + n.radius, y1: s.y + n.radius });
-          }
-
-          const hovered = pointed();
-          const order = hovered ? [byId.get(hovered), ...labelOrder] : labelOrder;
-          const labels: Box[] = [];
-          const drawn = new Set<string>();
-          const H = LABEL_SIZE * 1.24;
-          for (const n of order) {
-            if (!n || drawn.has(n.id)) continue;
-            const lit = !litBooks || litBooks.has(n.id);
-            const must = n.id === hovered || n.id === chosenBookId;
-            // Faded Books stay unlabelled unless the reader is close enough to read them anyway.
-            if (!lit && k < 1.6 && !must) continue;
-            const text = must ? n.book.title : n.label;
-            const w = width(text) + 2 * LABEL_PLATE;
-            const gap = n.radius + LABEL_GAP + (ringed(n.id) ? RING_GAP : 0);
-            const s = screen.get(n.id)!;
-            const sides: { side: Side; box: Box }[] = [
-              { side: "right", box: { x0: s.x + gap - LABEL_PLATE, y0: s.y - H / 2, x1: s.x + gap - LABEL_PLATE + w, y1: s.y + H / 2 } },
-              { side: "left", box: { x0: s.x - gap + LABEL_PLATE - w, y0: s.y - H / 2, x1: s.x - gap + LABEL_PLATE, y1: s.y + H / 2 } },
-              { side: "above", box: { x0: s.x - w / 2, y0: s.y - gap - H, x1: s.x + w / 2, y1: s.y - gap } },
-              { side: "below", box: { x0: s.x - w / 2, y0: s.y + gap, x1: s.x + w / 2, y1: s.y + gap + H } },
-            ];
-            const spot = sides.find((c) => free(c.box)) ?? (must ? sides[0] : undefined);
-            if (!spot) continue;
-            take(spot.box);
-            labels.push(spot.box);
-            drawn.add(n.id);
-            // Back to graph units for drawing.
-            const p = (sx: number, sy: number) => ({ x: n.x! + (sx - s.x) / k, y: n.y! + (sy - s.y) / k });
-            const corner = p(spot.box.x0, spot.box.y0);
+          ctx.textAlign = "center";
+          for (const { id, text, box } of kept!.labels) {
+            const n = byId.get(id)!;
+            // Back to graph units for drawing, from where the dot is now.
+            const p = (sx: number, sy: number) => ({ x: n.x! + sx / k, y: n.y! + sy / k });
+            const corner = p(box.x0, box.y0);
             ctx.fillStyle = PAPER_PLATE;
             ctx.beginPath();
-            ctx.roundRect(corner.x, corner.y, w / k, H / k, 2 / k);
+            ctx.roundRect(corner.x, corner.y, (box.x1 - box.x0) / k, (box.y1 - box.y0) / k, 2 / k);
             ctx.fill();
-            const mid = p((spot.box.x0 + spot.box.x1) / 2, (spot.box.y0 + spot.box.y1) / 2);
-            ctx.textAlign = "center";
-            ctx.fillStyle = lit ? INK : FADED_LABEL;
+            const mid = p((box.x0 + box.x1) / 2, (box.y0 + box.y1) / 2);
+            ctx.fillStyle = !litBooks || litBooks.has(id) ? INK : FADED_LABEL;
             ctx.fillText(text, mid.x, mid.y);
           }
-
-          const now = performance.now();
-          const hit = (b: Box, o: Box) => o.x0 < b.x1 && b.x0 < o.x1 && o.y0 < b.y1 && b.y0 < o.y1;
-          const r = WASH_RADIUS * TYPICAL_EDGE_LENGTH * k;
-          // The side crossing fewer labels (and names) wins; on a tie, the one clear of other Clusters'
-          // washes, then the one over fewer dots.
-          const crowding = (b: Box, mine: Set<string>) => {
-            let near = 0;
-            let dots = 0;
-            for (const n of nodes) {
-              const p = screen.get(n.id)!;
-              if (hit(b, { x0: p.x - n.radius, y0: p.y - n.radius, x1: p.x + n.radius, y1: p.y + n.radius })) dots++;
-              const dx = Math.max(b.x0 - p.x, 0, p.x - b.x1);
-              const dy = Math.max(b.y0 - p.y, 0, p.y - b.y1);
-              if (!mine.has(n.id) && Math.hypot(dx, dy) < r) near++;
-            }
-            return [labels.filter((o) => hit(b, o)).length, near, dots];
-          };
-          const names: Box[] = [];
-          const { chosenClusterId } = focusRef.current;
-          const fontSize = Math.round(Math.min(CLUSTER_NAME_SIZE.max, Math.max(CLUSTER_NAME_SIZE.min, r * CLUSTER_NAME_SIZE.perRadius)) * 2) / 2;
-          // Whether one side's crowding is lower, comparing in order of importance.
-          const fewer = (p: number[], q: number[]) => {
-            for (let i = 0; i < p.length; i++) if (p[i] !== q[i]) return p[i] < q[i];
-            return false;
-          };
-          const uncovered = f.width() - insetRef.current;
-          for (const { cluster, nodes: members } of clusters) {
-            const nameEl = nameEls.current.get(cluster.id);
-            if (!nameEl || members.length === 0) continue;
-            if (nameEl.style.fontSize !== `${fontSize}px`) nameEl.style.fontSize = `${fontSize}px`;
-            const key = `${cluster.id}:${cluster.name}:${fontSize}`;
-            let size = nameSizes.current.get(key);
-            if (!size) nameSizes.current.set(key, (size = { w: nameEl.offsetWidth, h: nameEl.offsetHeight }));
-            // Placed by the Books on screen, and kept on screen itself; with none of them showing, left off.
-            const { top, bottom, side } = CLUSTER_NAME_CLEAR;
-            const [canvasW, canvasH] = [f.width(), f.height()];
-            const pts = members.map((n) => screen.get(n.id)!).filter((p) => p.x >= 0 && p.x <= canvasW && p.y >= 0 && p.y <= canvasH);
-            if (pts.length === 0) {
-              nameEl.style.visibility = "hidden";
-              continue;
-            }
-            const x = Math.min(canvasW - side - size.w / 2, Math.max(side + size.w / 2, pts.reduce((sum, p) => sum + p.x, 0) / pts.length));
-            const gap = r * CLUSTER_NAME_OFFSET + size.h / 2;
-            const at = (y: number): Box => {
-              const cy = Math.min(canvasH - bottom - size.h / 2, Math.max(top + size.h / 2, y));
-              return { x0: x - size.w / 2, y0: cy - size.h / 2, x1: x + size.w / 2, y1: cy + size.h / 2 };
-            };
-            const above = at(Math.min(...pts.map((p) => p.y)) - gap);
-            const below = at(Math.max(...pts.map((p) => p.y)) + gap);
-            const mine = new Set(cluster.bookIds);
-            const box = fewer(crowding(below, mine), crowding(above, mine)) ? below : above;
-            const chosen = cluster.id === chosenClusterId;
-            // Left off where it would sit on another name or under the panel; the chosen name always shows.
-            const off = !chosen && (names.some((o) => hit(box, o)) || box.x1 > uncovered);
-            nameEl.style.visibility = off ? "hidden" : "visible";
-            if (off) continue;
-            labels.push(box);
-            names.push(box);
-            nameEl.toggleAttribute("data-faded", litBooks !== null && !chosen);
-            nameEl.style.transform = `translate(${box.x0}px, ${box.y0}px)`;
-            nameEl.style.opacity = String(faded(cluster.id, now));
-          }
+        })
+        // Only a drag runs the simulation, and the settling after it; a fresh graph never starts it.
+        .onNodeDrag(() => {
+          simulating = true;
+          f.cooldownTicks(DRAG.settleTicks);
+        })
+        .onNodeDragEnd(() => f.cooldownTicks(DRAG.settleTicks))
+        .onEngineStop(() => {
+          simulating = false;
+          f.cooldownTicks(0);
+          // The Books have moved: each wash is drawn again where they now are.
+          for (const wash of washes.values()) wash.moved = true;
         })
         .onNodeHover((n) => {
           hoverRef.current = n?.id ?? null;
@@ -608,13 +603,9 @@ export function GraphCanvas({
     f.cooldownTicks(0).graphData({ nodes: prepared.nodes, links: prepared.links });
     // Redrawn every frame while a Cluster fades in, since nothing else is moving.
     if (fresh.length) animateFor.current(WASH_FADE_MS);
-    // Once the canvas has its size, fit the first graph, then let drags run the simulation.
-    let frame = requestAnimationFrame(function settle() {
-      if (first && !fitFirst(f)) {
-        frame = requestAnimationFrame(settle);
-        return;
-      }
-      f.cooldownTicks(DRAG.settleTicks);
+    // Once the canvas has its size, fit the first graph.
+    let frame = requestAnimationFrame(function fit() {
+      if (first && !fitFirst(f)) frame = requestAnimationFrame(fit);
     });
     return () => cancelAnimationFrame(frame);
   }, [ready, prepared]);

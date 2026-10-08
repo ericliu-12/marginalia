@@ -47,3 +47,6 @@ scripts/eval/out/
 /test-results/
 /vitest-results/
 /playwright-report/
+
+# Graph benchmark screenshots
+scripts/bench/out/

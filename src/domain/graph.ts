@@ -4,6 +4,7 @@ import forceAtlas2 from "graphology-layout-forceatlas2";
 import type { Db } from "@/db/client";
 import { book, bookPosition, libraryEntry } from "@/db/schema";
 import { readClusters } from "./clusters";
+import { LABEL_CHAR, LABEL_GAP, LABEL_LINE, LABEL_SIZE, nodeRadius, TYPICAL_EDGE_LENGTH } from "./graph-drawing";
 import { readGraphStatus } from "./graph-job";
 import { byStrength, otherBook, touches, type Pair } from "./connection-pair";
 import { CLUSTER_WEIGHT, readLiveConnections, type ConnectionType, type Strength } from "./connections";
@@ -30,9 +31,17 @@ export function labelOf(title: string) {
 
 // Room a new Book is given, in typical Connection lengths (the median, the unit the graph is drawn at):
 // no nearer another Book than `spacing`, and its right-hand label (`gap` from the dot, `char` per
-// character, `height` tall) clear of other Books and their labels. Sized for the zoom a graph of a few
-// dozen Books is shown at.
-export const LABEL_ROOM = { spacing: 0.6, gap: 0.12, char: 0.045, height: 0.16 };
+// character, `height` tall) clear of other Books and their labels. The label is the canvas's, at
+// ROOM_ZOOM, about the zoom a graph of a few dozen Books is shown at, beside the dot of a Book with
+// DISPLAY_CAP Connections.
+const ROOM_ZOOM = 1.5;
+const PIXEL = 1 / (TYPICAL_EDGE_LENGTH * ROOM_ZOOM);
+export const LABEL_ROOM = {
+  spacing: 0.6,
+  gap: (nodeRadius(DISPLAY_CAP) + LABEL_GAP) * PIXEL,
+  char: LABEL_SIZE * LABEL_CHAR * PIXEL,
+  height: LABEL_SIZE * LABEL_LINE * PIXEL,
+};
 // Where else a new Book may go when its own spot is crowded: rings this far apart, this many spots each.
 const ROOM_RINGS = 6;
 const ROOM_RING_STEP = 0.35;

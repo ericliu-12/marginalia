@@ -1,8 +1,12 @@
 import type { ConnectionType, Strength } from "@/domain/connections";
+import type { WASH_COUNT } from "@/domain/clusters";
 import type { GraphBook, GraphConnection } from "@/domain/graph";
+import { TYPICAL_EDGE_LENGTH } from "@/domain/graph-drawing";
 
 // The graph's tunable look, in one place. Sizes are screen pixels, whatever the zoom.
-// Which Connections show at rest (AT_REST_STRENGTHS, DISPLAY_CAP per Book) is set in src/domain/graph.ts.
+// Which Connections show at rest (AT_REST_STRENGTHS, DISPLAY_CAP per Book) is set in src/domain/graph.ts;
+// the dots, the label type and the drawing scale, which the worker also uses, in src/domain/graph-drawing.ts.
+export { LABEL_GAP, LABEL_LINE, LABEL_SIZE, nodeRadius, TYPICAL_EDGE_LENGTH } from "@/domain/graph-drawing";
 
 export const EDGE_WIDTH: Record<Strength, number> = { strong: 4.5, moderate: 2.5, weak: 1.25 };
 // A faded edge, behind a selection.
@@ -14,11 +18,6 @@ export const EDGE_WIDTH_HOVER_EXTRA = 1.5;
 // so the path walked reads without touching width, which is Strength.
 export const TRAIL_CASING = 1;
 
-// A Book's dot grows with its Connections, slowly, so hubs stand out without swallowing their labels.
-export const nodeRadius = (degree: number) => 3.5 + 1.7 * Math.sqrt(degree);
-
-export const LABEL_SIZE = 13;
-export const LABEL_GAP = 4;
 // Paper showing around a label, so edges pass behind it rather than through it.
 export const LABEL_PLATE = 2;
 // Space between a chosen or hovered Book's dot and the ring around it.
@@ -27,9 +26,6 @@ export const RING_GAP = 4;
 // fits, the label is left off. Books keep theirs in this order: the most recently finished few, then
 // those with more Connections. (Label text is cut by labelOf in src/domain/graph.ts.)
 export const RECENT_LABELS = 3;
-
-// The layout is scaled so a typical Connection is this long, which the drag forces below assume.
-export const TYPICAL_EDGE_LENGTH = 70;
 
 const median = (xs: number[]) => {
   const s = xs.filter((x) => x > 0).sort((a, b) => a - b);
@@ -68,10 +64,10 @@ export const STRENGTH_LABEL: Record<Strength, string> = { strong: "Strong", mode
 
 // Cluster washes: soft pools of colour behind each Cluster's Books, under the Connections. Six pale
 // tints kept apart from the Connection Type hues, so no Connection's line sinks into its wash; a
-// Cluster keeps its tint (its stored `wash`) for as long as it keeps its identity. WASH_COUNT in
-// src/domain/clusters.ts is their number.
+// Cluster keeps its tint (its stored `wash`) for as long as it keeps its identity. There is one for each
+// of the WASH_COUNT the Clusters are handed out from.
 // Equal in lightness and chroma (OKLCH 0.76, 0.065), so no Cluster reads stronger than another.
-export const WASH = ["#c4ae82", "#d0a1bb", "#81bfb6", "#d6a492", "#b0abd8", "#d1a888"];
+export const WASH = ["#c4ae82", "#d0a1bb", "#81bfb6", "#d6a492", "#b0abd8", "#d1a888"] as const satisfies { length: typeof WASH_COUNT };
 // How much of its tint a wash lays on the paper where it is fullest: at rest, while its Cluster is
 // chosen, and behind some other selection. A Cluster's pools never add up past this.
 export const WASH_ALPHA = { rest: 0.35, chosen: 0.55, faded: 0.16 };
