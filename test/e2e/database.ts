@@ -257,3 +257,14 @@ export async function manualBook(title: string, author: string, description: str
   await db.insert(enrichment).values({ bookId: row.id, status: "ready", recognised: false });
   await pool.end();
 }
+
+// A Book the reader is reading for the first time: an open Read-through, not yet Finished.
+export async function readingBook(title: string) {
+  const { db, pool } = createDb(e2eDatabaseUrl());
+  const userId = await getSeededUserId(db);
+  const [row] = await db.insert(book).values({ title, authors: ["A. Writer"] }).returning();
+  const [entry] = await db.insert(libraryEntry).values({ userId, bookId: row.id, status: "reading" }).returning();
+  await db.insert(readThrough).values({ libraryEntryId: entry.id, userId, startedAt: new Date() });
+  await db.insert(enrichment).values({ bookId: row.id, status: "ready", recognised: true, summary: `${title}.`, themes: ["memory"] });
+  await pool.end();
+}

@@ -72,13 +72,14 @@ export async function editBookAction(bookId: string, input: ManualBookInput): Pr
   }
 }
 
-export async function changeStatusAction(bookId: string, status: Status): Promise<{ ok: boolean }> {
+// `firstCompletion` when the move completed the Book's first Read-through, so its Connections are being found.
+export async function changeStatusAction(bookId: string, status: Status): Promise<{ ok: true; firstCompletion: boolean } | { ok: false }> {
   try {
     const db = appDb();
-    await changeStatus(db, appPipeline(db), await getSeededUserId(db), bookId, status);
+    const { firstCompletion } = await changeStatus(db, appPipeline(db), await getSeededUserId(db), bookId, status);
     revalidatePath("/");
     revalidatePath("/graph");
-    return { ok: true };
+    return { ok: true, firstCompletion };
   } catch (err) {
     console.error(err);
     return { ok: false };

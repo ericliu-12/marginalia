@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useTransition, type ReactNode } from "react";
+import { useCallback, useEffect, useOptimistic, useRef, useState, useTransition, type ReactNode } from "react";
 import type { LibraryItem } from "@/domain/library";
 import type { Status } from "@/domain/search";
 import type { EnrichmentView } from "@/domain/enrichment";
@@ -44,8 +44,9 @@ function saveDraft(bookId: string, draft: Draft) {
 }
 
 // The Book panel for one Library Entry. It does not assume where it lives: the library view docks it
-// in the right pane and the graph view floats it over the canvas, so the host supplies the way out,
-// what a Connection's other Book opens, and anything it shows under the way out (the graph's trail).
+// in the right pane, the graph view floats it over the canvas, and on a phone it is the whole Book
+// screen (`screen`, with the three-way Status control), so the host supplies the way out, what a
+// Connection's other Book opens, and anything it shows under the way out (the graph's trail).
 export function BookPanel({
   item,
   backLabel,
@@ -54,6 +55,7 @@ export function BookPanel({
   onOpenBook,
   crumbs,
   withheldConnections,
+  variant = "panel",
 }: {
   item: LibraryItem;
   backLabel: string;
@@ -63,6 +65,7 @@ export function BookPanel({
   crumbs?: ReactNode;
   // Connections the graph has yet to draw in, kept out of the list until it does.
   withheldConnections?: Set<string>;
+  variant?: "panel" | "screen";
 }) {
   const [notes, setNotes] = useState<Note[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -91,8 +94,22 @@ export function BookPanel({
     };
   }, [item.bookId, retry]);
 
+  // Beside the title in the panel; on the Book screen, below the Status control that matters more there.
+  const editLink = !editingBook && (
+    <button
+      type="button"
+      onClick={() => {
+        setSaved(false);
+        setEditingBook(true);
+      }}
+      className={quietLink}
+    >
+      {item.manual ? "Edit details" : "Edit title or author"}
+    </button>
+  );
+
   return (
-    <aside aria-label={`Notes on ${item.title}`} onKeyDown={(e) => e.key === "Escape" && onBack()} className="flex h-full min-h-0 flex-col bg-paper-2">
+    <aside aria-label={`Notes on ${item.title}`} onKeyDown={(e) => e.key === "Escape" && onBack()} className={`flex h-full min-h-0 flex-col ${variant === "screen" ? "bg-paper" : "bg-paper-2"}`}>
       <div className="px-6 pt-5 pb-3">
         <button type="button" onClick={onBack} className={`${quietLink} -ml-0.5 flex items-center gap-1.5 no-underline`}>
           <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
@@ -110,24 +127,15 @@ export function BookPanel({
               {item.title}
             </h2>
             {item.authors.length > 0 && <p className="font-sans text-sm text-ink-2">{item.authors.join(", ")}</p>}
-            <StatusMoves key={item.status} item={item} />
-            {!editingBook && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSaved(false);
-                  setEditingBook(true);
-                }}
-                className={quietLink}
-              >
-                {item.manual ? "Edit details" : "Edit title or author"}
-              </button>
-            )}
+            {variant === "panel" && <StatusMoves key={item.status} item={item} />}
+            {variant === "panel" && editLink}
             <p role="status" className="font-sans text-sm text-ink-2 empty:hidden">
               {saved ? "Changes saved." : ""}
             </p>
           </div>
         </div>
+        {variant === "screen" && <StatusControl item={item} />}
+        {variant === "screen" && <div className="mt-2">{editLink}</div>}
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-6 pt-5 pb-10">
@@ -145,7 +153,8 @@ export function BookPanel({
           />
         )}
         <About key={`about-${item.bookId}-${edits}`} bookId={item.bookId} noteCount={notes?.length ?? null} />
-        <ConnectionsSection key={`connections-${item.bookId}`} bookId={item.bookId} onOpenBook={onOpenBook} withheld={withheldConnections} />
+        {/* Starts over when the Book becomes Finished, to show its Connections being found. */}
+        <ConnectionsSection key={`connections-${item.bookId}-${item.finished}`} bookId={item.bookId} onOpenBook={onOpenBook} withheld={withheldConnections} />
 
         <NoteForm
           key={item.bookId}
@@ -230,6 +239,62 @@ function StatusMoves({ item }: { item: LibraryItem }) {
           Couldn’t move this book. Try again.
         </p>
       )}
+    </div>
+  );
+}
+
+const STATUSES: Status[] = ["want", "reading", "read"];
+
+// The Book screen's Status: one tap between all three, shown at once. Read records today as the finish
+// date. When that completes the Book's first Read-through, the finish line says where its Connections
+// will be; it goes when the Status moves on, and a later Read-through never brings it back.
+function StatusControl({ item }: { item: LibraryItem }) {
+  const [shown, show] = useOptimistic(item.status);
+  const [pending, start] = useTransition();
+  const [error, setError] = useState(false);
+  const [finishLine, setFinishLine] = useState(false);
+
+  function move(to: Status) {
+    if (pending || to === shown) return;
+    setError(false);
+    // Only the move's own answer can bring the line back, so a later Read-through never flashes it.
+    setFinishLine(false);
+    start(async () => {
+      show(to);
+      const res = await changeStatusAction(item.bookId, to);
+      if (!res.ok) return setError(true);
+      if (to === "read") setFinishLine(res.firstCompletion);
+    });
+  }
+
+  return (
+    <div aria-busy={pending} className="mt-5">
+      <div role="group" aria-label={`Status of ${item.title}`} className="grid grid-cols-3 gap-[3px] rounded-[3px] bg-paper-3 p-[3px]">
+        {STATUSES.map((s) => (
+          <button
+            key={s}
+            type="button"
+            aria-pressed={shown === s}
+            onClick={() => move(s)}
+            className="min-h-11 rounded-[2px] font-sans text-sm font-medium text-ink-2 transition-[background-color,color,box-shadow] duration-200 ease-out-expo aria-pressed:bg-paper-2 aria-pressed:text-ink aria-pressed:shadow-[0_1px_2px_rgb(35_29_23/0.2)]"
+          >
+            {STATUS_LABEL[s]}
+          </button>
+        ))}
+      </div>
+      {error && (
+        <p role="alert" className="mt-2 font-sans text-sm text-contrast">
+          Couldn’t move this book. Try again.
+        </p>
+      )}
+      {/* Mounted throughout, so the line is announced when it appears. */}
+      <p role="status" className="mt-4 rounded-[3px] bg-paper-3 px-4 py-3 leading-snug empty:hidden motion-safe:animate-draw-in">
+        {finishLine && shown === "read" && (
+          <>
+            <span className="font-medium">Finished.</span> Connections are being found; they’ll appear in the graph on a larger screen.
+          </>
+        )}
+      </p>
     </div>
   );
 }

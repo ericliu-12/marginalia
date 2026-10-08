@@ -75,7 +75,7 @@ export function ConnectionsSection({ bookId, onOpenBook, withheld }: { bookId: s
                 <button
                   type="button"
                   onClick={() => onOpenBook(c.otherBookId)}
-                  className={titleLink}
+                  className={`${titleLink} -my-2.5 py-2.5 lg:my-0 lg:py-0`}
                 >
                   {c.otherTitle}
                 </button>

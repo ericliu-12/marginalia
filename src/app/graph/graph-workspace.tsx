@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { otherBook } from "@/domain/connection-pair";
 import { visibleConnections, type GraphView } from "@/domain/graph";
 import type { LibraryItem } from "@/domain/library";
@@ -18,15 +18,7 @@ import { GraphCanvas, reducedMotion, type Selection } from "./graph-canvas";
 import { DRAW_FIRST_MS, DRAW_STEP_MS, DRAW_UNHURRIED, TYPE_COLOR, TYPE_LABEL } from "./graph-style";
 import { CLOSED, panelState } from "./panel-state";
 import { TrailCrumbs } from "./trail-crumbs";
-
-// Matches Tailwind's lg: the graph is a desktop surface.
-const WIDE = "(min-width: 1024px)";
-const subscribe = (cb: () => void) => {
-  const mq = window.matchMedia(WIDE);
-  mq.addEventListener("change", cb);
-  return () => mq.removeEventListener("change", cb);
-};
-const useWide = () => useSyncExternalStore(subscribe, () => window.matchMedia(WIDE).matches, () => true);
+import { WIDE, useWide } from "../use-wide";
 
 // The floating panel: 27rem, as the library's right pane, inset from the canvas edge.
 const PANEL_INSET = 27 * 17 + 24;
@@ -63,7 +55,7 @@ export function GraphWorkspace({
   loneThemes: string[];
 }) {
   const router = useRouter();
-  const wide = useWide();
+  const wide = useWide(true);
   // While background work is about to change the graph (after a dismissal, a removal, a Refresh or a
   // Connections run), check back until it settles, then fetch the page again for the fresh graph. The
   // Clusters and positions come once more before that, as soon as only their names are left to come.
