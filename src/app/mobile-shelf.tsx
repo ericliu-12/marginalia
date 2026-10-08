@@ -37,6 +37,9 @@ export function MobileShelf({ items, finding }: { items: LibraryItem[]; finding:
   const noteAdded = useCallback((statuses: Status[]) => {
     addedTo.current = statuses;
   }, []);
+  // How many screens were pushed above the shelf, so back from one is history's back. A screen opened
+  // from its URL has none beneath it and goes to the shelf. (Not history.state: Next rewrites it.)
+  const depth = useRef(0);
   const addRef = useRef<HTMLButtonElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const book = items.find((i) => i.bookId === bookId);
@@ -50,22 +53,38 @@ export function MobileShelf({ items, finding }: { items: LibraryItem[]; finding:
   // that Book's place, so back leads to where the first Book was opened.
   function openBook(id: string) {
     if (!book && !adding) back.current = { scrollY: window.scrollY, bookId: id };
-    if (book) window.history.replaceState(window.history.state?.[PUSHED] ? pushedState() : null, "", `?book=${id}`);
-    else window.history.pushState(pushedState(), "", `?book=${id}`);
+    if (book) {
+      window.history.replaceState(null, "", `?book=${id}`);
+    } else {
+      depth.current++;
+      window.history.pushState(null, "", `?book=${id}`);
+    }
     window.scrollTo(0, 0);
   }
 
   function openAdd() {
     addScroll.current = window.scrollY;
-    window.history.pushState(pushedState(), "", "?add");
+    depth.current++;
+    window.history.pushState(null, "", "?add");
   }
 
-  // An entry pushed from the screen before goes back to it; one opened from its URL has none, so it goes
-  // to the shelf.
   function goBack() {
-    if (window.history.state?.[PUSHED]) window.history.back();
-    else window.history.replaceState(null, "", "/");
+    if (depth.current > 0) {
+      depth.current--;
+      window.history.back();
+    } else {
+      window.history.replaceState(null, "", "/");
+    }
   }
+  // The back gesture leaves screens without goBack: back on the shelf none are pushed, on Add at most Add.
+  useEffect(() => {
+    const onPop = () => {
+      const p = new URLSearchParams(window.location.search);
+      depth.current = Math.min(depth.current, p.has("book") ? 2 : p.has("add") ? 1 : 0);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
 
   useLayoutEffect(() => {
     if (book || !back.current) return;
@@ -169,15 +188,10 @@ export function MobileShelf({ items, finding }: { items: LibraryItem[]; finding:
           </div>
         </>
       )}
-      {addKept && <MobileAdd finding={finding} hidden={!adding} onDone={goBack} onOpenBook={openBook} onAddedChange={noteAdded} />}
+      {addKept && <MobileAdd items={items} finding={finding} hidden={!adding} onDone={goBack} onOpenBook={openBook} onAddedChange={noteAdded} />}
     </>
   );
 }
-
-// Marks a history entry as pushed from the screen before it, so going back is going there. A new object
-// each time: Next writes its own fields into the one it is given.
-const PUSHED = "marginaliaPushed";
-const pushedState = () => ({ [PUSHED]: true });
 
 function Rows({ items, onOpen }: { items: LibraryItem[]; onOpen: (bookId: string) => void }) {
   return (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
+import type { LibraryItem } from "@/domain/library";
 import type { SearchResult, Status } from "@/domain/search";
 import { addBookAction, removeFromLibraryAction } from "./actions";
 import { EMPTY_BOOK, type BookDraft } from "./book-draft";
@@ -24,15 +25,18 @@ const check = (
 // The phone's Add a Book: full screen over the shelf, for adding several Books in a row. Each result
 // goes in with one tap as Want to read, Reading or Already read; search stays open with its text
 // selected, so the next Book is typed straight over it. Every add can be undone until Done. A Book
-// opened from here `hidden`s it, keeping the visit for back to return to. `onAddedChange` hears the
-// Statuses of what is added, newest first.
+// opened from here `hidden`s it, keeping the visit for back to return to; what was done there to the
+// Books added (`items`, the library) shows here. `onAddedChange` hears the Statuses of what is added,
+// newest first.
 export function MobileAdd({
+  items,
   finding,
   hidden,
   onDone,
   onOpenBook,
   onAddedChange,
 }: {
+  items: LibraryItem[];
   finding: number;
   hidden: boolean;
   onDone: () => void;
@@ -43,19 +47,37 @@ export function MobileAdd({
   const { results, phase, retry } = useBookSearch(query);
   // Newest first. Undone ones leave; their search results then offer the choices again, whatever the
   // search said when it was fetched (`undone`).
-  const [added, setAdded] = useState<Added[]>([]);
+  const [adds, setAdds] = useState<Added[]>([]);
   const [undone, setUndone] = useState<Set<string>>(new Set());
+  // Each add as the library has it now: its Status there, and gone once a Book seen in the library has
+  // left it (removed on its own screen). One just added may not have reached `items` yet.
+  const [seen, setSeen] = useState<Set<string>>(new Set());
+  const entries = new Map(items.map((i) => [i.bookId, i]));
+  const added = adds.flatMap((a) => {
+    const entry = entries.get(a.bookId);
+    if (entry) return [{ ...a, status: entry.status }];
+    return seen.has(a.bookId) ? [] : [a];
+  });
+  useEffect(() => {
+    const arrived = adds.filter((a) => !seen.has(a.bookId) && items.some((i) => i.bookId === a.bookId));
+    if (arrived.length) setSeen((s) => new Set([...s, ...arrived.map((a) => a.bookId)]));
+  }, [adds, items, seen]);
   const [said, setSaid] = useState("");
   const [manualOpen, setManualOpen] = useState(false);
   const [manualDraft, setManualDraft] = useState<BookDraft | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Back from a Book opened here, the results are fetched again, so each says what the library holds now.
+  const wasHidden = useRef(hidden);
   useEffect(() => {
     if (!hidden) inputRef.current?.focus();
-  }, [hidden]);
+    if (wasHidden.current && !hidden) retry();
+    wasHidden.current = hidden;
+  }, [hidden]); // eslint-disable-line react-hooks/exhaustive-deps
+  const statuses = added.map((a) => a.status).join();
   useEffect(() => {
-    onAddedChange(added.map((a) => a.status));
-  }, [added, onAddedChange]);
+    onAddedChange(statuses ? (statuses.split(",") as Status[]) : []);
+  }, [statuses, onAddedChange]);
 
   // Called in the tap itself as well as after it lands: iOS raises the keyboard only for focus given
   // during a gesture.
@@ -65,12 +87,12 @@ export function MobileAdd({
   }
 
   function onAdded(entry: Added) {
-    setAdded((a) => [entry, ...a]);
+    setAdds((a) => [entry, ...a]);
     setSaid(`Added ${entry.title} as ${LABELS[entry.status]}.`);
     ready();
   }
   function onUndone(entry: Added) {
-    setAdded((a) => a.filter((x) => x.bookId !== entry.bookId));
+    setAdds((a) => a.filter((x) => x.bookId !== entry.bookId));
     if (entry.workKey) setUndone((u) => new Set(u).add(entry.workKey!));
     setSaid(`Took ${entry.title} back out of your library.`);
     ready();
@@ -147,6 +169,7 @@ export function MobileAdd({
                 onOpenBook={onOpenBook}
                 onClose={closeManual}
                 enterMovesOn
+                onChoose={ready}
                 onAdded={(title, bookId, status) => {
                   const byline = manualDraft.author.trim();
                   closeManual(true);
@@ -222,6 +245,11 @@ export function MobileAdd({
                           onAdded={onAdded}
                           onUndone={onUndone}
                           onOpenBook={onOpenBook}
+                          onDuplicate={() => {
+                            // Added elsewhere meanwhile: the search, fetched again, says how.
+                            setUndone((u) => new Set([...u].filter((k) => k !== r.workKey)));
+                            retry();
+                          }}
                           onTap={ready}
                         />
                       );
@@ -271,6 +299,7 @@ function AddResult({
   onAdded,
   onUndone,
   onOpenBook,
+  onDuplicate,
   onTap,
 }: {
   result: SearchResult;
@@ -280,23 +309,26 @@ function AddResult({
   onAdded: (entry: Added) => void;
   onUndone: (entry: Added) => void;
   onOpenBook: (bookId: string) => void;
+  onDuplicate: () => void;
   onTap: () => void;
 }) {
   const [pending, start] = useTransition();
   const [adding, setAdding] = useState<Status | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
   // Added meanwhile somewhere else, so the choices give way.
   const [duplicate, setDuplicate] = useState(false);
 
   function add(status: Status) {
     onTap();
-    setError(null);
+    setFailed(false);
     setAdding(status);
     start(async () => {
       const res = await addBookAction(r, status);
       if (res.ok) onAdded({ bookId: res.bookId, workKey: r.workKey, title: r.title, byline: r.authors.join(", "), coverUrl: r.coverUrl, status });
-      else if (res.reason === "duplicate") setDuplicate(true);
-      else setError("Couldn’t add this book. Try again.");
+      else if (res.reason === "duplicate") {
+        setDuplicate(true);
+        onDuplicate();
+      } else setFailed(true);
     });
   }
 
@@ -327,7 +359,8 @@ function AddResult({
             )}
           </p>
         ) : duplicate ? (
-          <p className="flex min-h-11 items-center font-sans text-sm text-ink-2">{check}Already in your library</p>
+          // Until the search, fetched again, gives its Status.
+          <p className="flex min-h-11 items-center font-sans text-sm text-ink-2">{check}In your library</p>
         ) : (
           <div className={addChoices} role="group" aria-label={`Add ${r.title}`}>
             {(Object.keys(LABELS) as Status[]).map((s) => (
@@ -337,7 +370,14 @@ function AddResult({
             ))}
           </div>
         )}
-        {error && <p className="mt-1.5 font-sans text-sm text-contrast">{error}</p>}
+        {failed && adding && (
+          <p className="mt-1.5 font-sans text-sm">
+            <span className="text-contrast">Couldn’t add this book.</span>{" "}
+            <button type="button" onMouseDown={keepFocus} onClick={() => add(adding)} className={`${hitArea} whitespace-nowrap text-ink underline underline-offset-2`}>
+              Try again
+            </button>
+          </p>
+        )}
       </div>
     </li>
   );

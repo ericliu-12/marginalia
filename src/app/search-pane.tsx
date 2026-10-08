@@ -365,6 +365,7 @@ function useLookalike(title: string, author: string) {
 // same Status choices as a search result. Enter adds it as Want to read, the first choice. Escape
 // closes it with the draft kept (`onClose(false)`); Cancel discards it. With `enterMovesOn` (the phone,
 // whose keyboard has no Tab), Enter goes to the next field instead, and the last puts the keyboard away.
+// `onChoose` hears a valid choice in the tap itself, before the add.
 export function ManualBookForm({
   draft,
   onChange,
@@ -372,6 +373,7 @@ export function ManualBookForm({
   onClose,
   onOpenBook,
   enterMovesOn = false,
+  onChoose,
 }: {
   draft: BookDraft;
   onChange: (draft: BookDraft) => void;
@@ -379,6 +381,7 @@ export function ManualBookForm({
   onClose: (discard: boolean) => void;
   onOpenBook: (bookId: string) => void;
   enterMovesOn?: boolean;
+  onChoose?: () => void;
 }) {
   const [showCover, setShowCover] = useState(!!draft.coverUrl);
   const [showDescription, setShowDescription] = useState(!!draft.description);
@@ -410,6 +413,7 @@ export function ManualBookForm({
     }
     setError(null);
     setAdding(status);
+    onChoose?.();
     start(async () => {
       const res = await addManualBookAction({ ...draft, coverUrl: withScheme(draft.coverUrl) }, status);
       if (res.ok) onAdded(draft.title.trim(), res.bookId, status);

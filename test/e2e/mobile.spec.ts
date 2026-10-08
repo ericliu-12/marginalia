@@ -170,6 +170,40 @@ test("a lookalike's title opens that Book, and back returns to Add as it was", a
   await expect(page).toHaveURL(/\/$/);
 });
 
+test("what is done on a Book's screen shows back in Add: a new Status, and a removed Book drops out of Added so far", async ({ page }) => {
+  await answerSearch(page);
+  await page.getByRole("button", { name: "Add a Book" }).click();
+  await searchbox(page).fill("Piranesi");
+  await addScreen(page).getByRole("group", { name: "Add Piranesi" }).getByRole("button", { name: "Reading" }).click();
+  await expect(addScreen(page).getByText("Added · Reading")).toBeVisible();
+
+  // A hand-added lookalike of the Book just added is the way to its screen.
+  const toPiranesi = async () => {
+    await searchbox(page).fill("Piranesi: a novel");
+    await addScreen(page).getByRole("button", { name: "Add it by hand" }).click();
+    const form = addScreen(page).getByRole("form", { name: "Add a book by hand" });
+    await form.getByLabel("Author").fill("A. Author");
+    await form.getByRole("button", { name: "Piranesi", exact: true }).click();
+    await expect(page.getByRole("heading", { level: 2 })).toHaveText("Piranesi");
+  };
+  const addedSoFar = addScreen(page).getByRole("region", { name: "Added so far" });
+
+  await toPiranesi();
+  await status(page).getByRole("button", { name: "Read", exact: true }).click();
+  await expect(status(page).getByRole("button", { name: "Read", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Back to Add a Book" }).click();
+  await searchbox(page).fill("");
+  await expect(addedSoFar.getByText("Added · Already read")).toBeVisible();
+
+  await toPiranesi();
+  await page.getByRole("button", { name: "Remove from library" }).click();
+  await page.getByRole("button", { name: "Yes, remove" }).click();
+  await expect(addScreen(page)).toBeVisible();
+  await searchbox(page).fill("");
+  await expect(addedSoFar).toHaveCount(0);
+  await expect(addScreen(page).getByText("Search by title; add the author to narrow it.", { exact: false })).toBeVisible();
+});
+
 test("Enter in the hand-add form moves to the next field rather than adding the Book", async ({ page }) => {
   await page.route("**/api/search?**", (route) => route.fulfill({ json: [] }));
   await page.getByRole("button", { name: "Add a Book" }).click();
