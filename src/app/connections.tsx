@@ -202,7 +202,8 @@ export function DismissConnection({
 }
 
 // The quiet line beside the wordmark while Books are finding their Connections.
-export function FindingIndicator({ initial }: { initial: number }) {
+// `className` places it; by default it sits after the wordmark.
+export function FindingIndicator({ initial, className }: { initial: number; className?: string }) {
   const [seen, setSeen] = useState(initial);
   const [count, setCount] = useState(initial);
   // A fresh count from the server replaces whatever polling had found.
@@ -220,7 +221,7 @@ export function FindingIndicator({ initial }: { initial: number }) {
   usePoll(poll, POLL_MS, count > 0);
   // The live region stays mounted so the line is announced when it appears.
   return (
-    <p role="status" className={`mr-auto font-serif text-sm text-ink-3 italic ${count > 0 ? "ml-4" : ""}`}>
+    <p role="status" className={`font-serif text-sm text-ink-3 italic ${className ?? `mr-auto ${count > 0 ? "ml-4" : ""}`}`}>
       {count > 0 && `${count} ${count === 1 ? "Book" : "Books"} finding Connections`}
     </p>
   );

@@ -1,12 +1,12 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { LibraryItem } from "@/domain/library";
 import { BookPanel } from "./book-panel";
 import { FindingIndicator } from "./connections";
 import { Cover } from "./cover";
-import { SearchPane } from "./search-pane";
+import { MobileAdd } from "./mobile-add";
 
 const SECTIONS = [
   { status: "want", label: "Want to read" },
@@ -21,31 +21,37 @@ const chevron = (
 
 // The library on a phone: the Reading shelf is home, with Want to read and Read folded away below.
 // A row opens its Book screen; "Add a Book" stays pinned at the bottom. There is no graph here.
-// The Book screen is a URL (/?book=<id>), so the phone's back gesture returns to the shelf.
+// The Book screen is a URL (/?book=<id>), and so is Add (/?add), so the phone's back gesture returns to
+// the shelf.
 export function MobileShelf({ items, finding }: { items: LibraryItem[]; finding: number }) {
-  const bookId = useSearchParams().get("book");
-  const [adding, setAdding] = useState(false);
+  const params = useSearchParams();
+  const bookId = params.get("book");
+  const adding = !bookId && params.has("add");
   const [open, setOpen] = useState<Record<string, boolean>>({});
   // Where the shelf was when a Book opened, to come back to: its scroll and the row that opened it.
   const back = useRef<{ scrollY: number; bookId: string } | null>(null);
-  // Whether the Book screen's history entry is ours to go back from, rather than a link opened directly.
+  // Whether the Book screen's or Add's history entry is ours to go back from, rather than a link opened directly.
   const pushed = useRef(false);
   const addRef = useRef<HTMLButtonElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const book = items.find((i) => i.bookId === bookId);
 
-  // From the shelf a Book is a new history entry; from another Book's Connection it takes that Book's
-  // place, so back always leads to the shelf.
+  // From the shelf a Book is a new history entry; from another Book's Connection, or from Add, it takes
+  // that screen's place, so back always leads to the shelf.
   function openBook(id: string) {
-    if (book) {
+    if (!book) back.current = { scrollY: window.scrollY, bookId: id };
+    if (book || adding) {
       window.history.replaceState(null, "", `?book=${id}`);
     } else {
-      back.current = { scrollY: window.scrollY, bookId: id };
       pushed.current = true;
       window.history.pushState(null, "", `?book=${id}`);
     }
-    setAdding(false);
     window.scrollTo(0, 0);
+  }
+
+  function openAdd() {
+    pushed.current = true;
+    window.history.pushState(null, "", "?add");
   }
 
   function toShelf() {
@@ -69,6 +75,13 @@ export function MobileShelf({ items, finding }: { items: LibraryItem[]; finding:
     (document.querySelector<HTMLElement>(`[data-book-id="${from}"]`) ?? headingRef.current)?.focus();
   }, [book, items, open]);
 
+  // Leaving Add, by Done or back, returns to the button that opened it.
+  const wasAdding = useRef(adding);
+  useEffect(() => {
+    if (wasAdding.current && !adding && !book) addRef.current?.focus();
+    wasAdding.current = adding;
+  }, [adding, book]);
+
   if (book) {
     return (
       <main className="mx-auto max-w-[40rem] pt-[env(safe-area-inset-top)]">
@@ -88,7 +101,7 @@ export function MobileShelf({ items, finding }: { items: LibraryItem[]; finding:
   const reading = items.filter((i) => i.status === "reading");
   return (
     <>
-      <main className="mx-auto max-w-[40rem] px-6 pt-[max(1.25rem,env(safe-area-inset-top))] pb-36">
+      <main inert={adding} className="mx-auto max-w-[40rem] px-6 pt-[max(1.25rem,env(safe-area-inset-top))] pb-36">
         <div className="flex min-h-11 items-baseline gap-4">
           <p className="text-[1.75rem] leading-none font-medium tracking-[-0.01em] italic">Marginalia</p>
           <FindingIndicator initial={finding} />
@@ -126,13 +139,13 @@ export function MobileShelf({ items, finding }: { items: LibraryItem[]; finding:
           );
         })}
       </main>
-      <div className="fixed inset-x-0 bottom-0 bg-linear-to-t from-paper from-60% to-paper/0 pt-8">
+      <div inert={adding} className="fixed inset-x-0 bottom-0 bg-linear-to-t from-paper from-60% to-paper/0 pt-8">
         <div className="mx-auto max-w-[40rem] px-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <button
             ref={addRef}
             type="button"
             aria-expanded={adding}
-            onClick={() => setAdding(true)}
+            onClick={openAdd}
             className="flex min-h-12 w-full items-center justify-center gap-2 rounded-[3px] bg-ink font-sans text-[0.95rem] font-medium text-paper transition-colors active:bg-ink-2"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden>
@@ -142,20 +155,7 @@ export function MobileShelf({ items, finding }: { items: LibraryItem[]; finding:
           </button>
         </div>
       </div>
-      {/* Today's search pane, full screen, until the phone's own Add flow (#40). */}
-      {adding && (
-        <div className="fixed inset-0 z-10 bg-paper-2 pt-[env(safe-area-inset-top)]">
-          <SearchPane
-            removed={null}
-            hidden={false}
-            onOpenBook={openBook}
-            onClose={() => {
-              setAdding(false);
-              requestAnimationFrame(() => addRef.current?.focus());
-            }}
-          />
-        </div>
-      )}
+      {adding && <MobileAdd finding={finding} onDone={toShelf} onOpenBook={openBook} />}
     </>
   );
 }

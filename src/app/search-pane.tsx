@@ -9,13 +9,15 @@ import { CO_AUTHOR_HINT, EMPTY_BOOK, draftError, invalidProps, withScheme, type 
 import { Cover } from "./cover";
 import { quietLink } from "./quiet-link";
 
-const LABELS: Record<Status, string> = { want: "Want to read", reading: "Reading", read: "Already read" };
+export const LABELS: Record<Status, string> = { want: "Want to read", reading: "Reading", read: "Already read" };
 const DEBOUNCE_MS = 300;
 
 type Phase = "idle" | "loading" | "done" | "error";
 
-const addButton =
-  "rounded-[3px] border border-ink/70 px-2.5 py-2.5 lg:py-1 font-sans text-[0.8rem] font-medium text-ink transition-colors duration-150 hover:bg-ink hover:text-paper disabled:border-rule disabled:text-ink-3 disabled:hover:bg-transparent disabled:hover:text-ink-3";
+// On a phone the three choices share the row equally, at a full touch target.
+export const addButton =
+  "min-h-11 rounded-[3px] border border-ink/70 px-1.5 py-2 max-lg:leading-tight lg:min-h-0 lg:px-2.5 lg:py-1 font-sans text-[0.8rem] font-medium text-ink transition-colors duration-150 hover:bg-ink hover:text-paper max-lg:active:bg-paper-3 disabled:border-rule disabled:text-ink-3 disabled:hover:bg-transparent disabled:hover:text-ink-3";
+export const addChoices = "grid grid-cols-[1fr_1fr_1.15fr] gap-1.5 lg:flex lg:flex-wrap";
 
 // `removed` is set anew each time a Book is removed elsewhere: search says so until the reader types,
 // fetches the results again, and takes focus back. `onOpenBook` opens a Book in the library, which
@@ -31,10 +33,8 @@ export function SearchPane({
   onOpenBook: (bookId: string) => void;
   hidden: boolean;
 }) {
-  const [retry, setRetry] = useState(0);
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [phase, setPhase] = useState<Phase>("idle");
+  const { results, setResults, phase, retry } = useBookSearch(query, removed);
   const [notice, setNotice] = useState<{ title: string; addedBookId?: string } | null>(null);
   // A Book being added by hand: the draft outlives the form, so searching again or Escape keeps it
   // for "Add it by hand" to bring back; Cancel discards it.
@@ -67,31 +67,6 @@ export function SearchPane({
     inputRef.current?.focus();
     setNotice(removed && { title: removed.title });
   }, [removed]);
-
-  useEffect(() => {
-    const q = query.trim();
-    if (!q) {
-      setResults([]);
-      setPhase("idle");
-      return;
-    }
-    setPhase("loading");
-    const ctrl = new AbortController();
-    const timer = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`, { signal: ctrl.signal });
-        if (!res.ok) throw new Error(String(res.status));
-        setResults(await res.json());
-        setPhase("done");
-      } catch (err) {
-        if ((err as Error).name !== "AbortError") setPhase("error");
-      }
-    }, DEBOUNCE_MS);
-    return () => {
-      clearTimeout(timer);
-      ctrl.abort();
-    };
-  }, [query, retry, removed]);
 
   // Statuses chosen in this pane override what the search response said.
   function markAdded(workKey: string, status: Status) {
@@ -176,7 +151,7 @@ export function SearchPane({
             {phase === "error" && (
               <p className="text-contrast">
                 Search is unavailable right now.{" "}
-                <button type="button" onClick={() => setRetry((n) => n + 1)} className="underline underline-offset-2">
+                <button type="button" onClick={retry} className="underline underline-offset-2">
                   Try again
                 </button>
               </p>
@@ -229,6 +204,39 @@ export function SearchPane({
   );
 }
 
+// Open Library searched as the reader types, once they pause. A change to `again` fetches the same
+// query anew.
+export function useBookSearch(query: string, again?: unknown) {
+  const [retries, setRetries] = useState(0);
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [phase, setPhase] = useState<Phase>("idle");
+  useEffect(() => {
+    const q = query.trim();
+    if (!q) {
+      setResults([]);
+      setPhase("idle");
+      return;
+    }
+    setPhase("loading");
+    const ctrl = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`, { signal: ctrl.signal });
+        if (!res.ok) throw new Error(String(res.status));
+        setResults(await res.json());
+        setPhase("done");
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") setPhase("error");
+      }
+    }, DEBOUNCE_MS);
+    return () => {
+      clearTimeout(timer);
+      ctrl.abort();
+    };
+  }, [query, retries, again]);
+  return { results, setResults, phase, retry: () => setRetries((n) => n + 1) };
+}
+
 function Result({
   result: r,
   lookalikeAgain,
@@ -279,7 +287,7 @@ function Result({
               In your library · {LABELS[r.libraryStatus]}
             </p>
           ) : (
-            <div className="flex flex-wrap gap-1.5" role="group" aria-label={`Add ${r.title}`}>
+            <div className={addChoices} role="group" aria-label={`Add ${r.title}`}>
               {(Object.keys(LABELS) as Status[]).map((s) => (
                 <button
                   key={s}
@@ -302,12 +310,12 @@ function Result({
 
 // A Book's title as a way to open it, set in the serif italic titles take inside sans text. Its touch
 // target reaches past the line it sits in, without spacing the text out.
-const bookTitleLink =
+export const bookTitleLink =
   "relative font-serif text-[0.95rem] italic underline decoration-rule underline-offset-4 transition-colors hover:decoration-ink after:absolute after:-inset-x-1 after:-inset-y-3 after:content-[''] lg:after:hidden";
 
 // Advisory, never blocking: the Book looks like one already in the library, which is where a re-read
 // belongs (its panel can start one). The title opens it. Said in full once; `again` only points back.
-function LookalikeNote({
+export function LookalikeNote({
   lookalike,
   again = false,
   onOpenBook,
@@ -355,7 +363,7 @@ function useLookalike(title: string, author: string) {
 // A Manual Book: title and author, then the cover and description as quiet reveals, added with the
 // same Status choices as a search result. Enter adds it as Want to read, the first choice. Escape
 // closes it with the draft kept (`onClose(false)`); Cancel discards it.
-function ManualBookForm({
+export function ManualBookForm({
   draft,
   onChange,
   onAdded,
@@ -364,7 +372,7 @@ function ManualBookForm({
 }: {
   draft: BookDraft;
   onChange: (draft: BookDraft) => void;
-  onAdded: (title: string, bookId: string) => void;
+  onAdded: (title: string, bookId: string, status: Status) => void;
   onClose: (discard: boolean) => void;
   onOpenBook: (bookId: string) => void;
 }) {
@@ -400,7 +408,7 @@ function ManualBookForm({
     setAdding(status);
     start(async () => {
       const res = await addManualBookAction({ ...draft, coverUrl: withScheme(draft.coverUrl) }, status);
-      if (res.ok) onAdded(draft.title.trim(), res.bookId);
+      if (res.ok) onAdded(draft.title.trim(), res.bookId, status);
       else setError({ field: null, message: "Couldn’t add this book. Try again." });
     });
   }
@@ -512,7 +520,7 @@ function ManualBookForm({
         </p>
       )}
       <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
-        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Add to your library as">
+        <div className={`${addChoices} max-lg:w-full`} role="group" aria-label="Add to your library as">
           {(Object.keys(LABELS) as Status[]).map((s) => (
             <button key={s} type="submit" value={s} disabled={pending} className={addButton}>
               {pending && adding === s ? "Adding…" : LABELS[s]}

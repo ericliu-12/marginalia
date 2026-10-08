@@ -32,13 +32,101 @@ test("opens on the Reading shelf, with Want to read and Read folded away and no 
   await expect(shelf(page).getByRole("button", { name: "Read 6" })).toHaveAttribute("aria-expanded", "false");
 });
 
-test("Add a Book, pinned under the shelf, opens search full screen and closes back to it", async ({ page }) => {
+// Open Library played here: works whose title starts with what is typed, none of them in the library.
+const CATALOG = ["Piranesi", "Austerlitz", "The Peregrine"].map((title, i) => ({
+  workKey: `/works/OL${i}W`,
+  title,
+  authors: ["A. Author"],
+  firstPublishedYear: 2000 + i,
+  editionCount: 10,
+  coverId: null,
+  subjects: [],
+  coverUrl: null,
+  libraryStatus: null,
+  lookalike: null,
+}));
+const answerSearch = (page: Page) =>
+  page.route("**/api/search?**", (route) => {
+    const q = new URL(route.request().url()).searchParams.get("q")!.toLowerCase();
+    return route.fulfill({ json: CATALOG.filter((w) => w.title.toLowerCase().startsWith(q)) });
+  });
+const addScreen = (page: Page) => page.getByRole("dialog", { name: "Add a Book" });
+const searchbox = (page: Page) => page.getByRole("searchbox", { name: "Search by title and author" });
+const selectedText = (page: Page) => searchbox(page).evaluate((el: HTMLInputElement) => el.value.slice(el.selectionStart!, el.selectionEnd!));
+
+test("Add adds a Book in one tap, stays open with the search selected for the next, and Undo takes one back out", async ({ page }) => {
+  await answerSearch(page);
   const add = page.getByRole("button", { name: "Add a Book" });
   await add.click();
-  await expect(page.getByRole("searchbox", { name: "Search by title and author" })).toBeFocused();
-  await page.getByRole("button", { name: "Close search" }).click();
-  await expect(page.getByRole("searchbox")).toHaveCount(0);
+  await expect(searchbox(page)).toBeFocused();
+
+  await searchbox(page).fill("Piranesi");
+  await addScreen(page).getByRole("group", { name: "Add Piranesi" }).getByRole("button", { name: "Reading" }).click();
+  await expect(addScreen(page).getByText("Added · Reading")).toBeVisible();
+  await expect(searchbox(page)).toBeFocused();
+  expect(await selectedText(page)).toBe("Piranesi");
+
+  // Typing goes over the selected search, and the next Book is one tap too.
+  await page.keyboard.type("Austerlitz");
+  await addScreen(page).getByRole("group", { name: "Add Austerlitz" }).getByRole("button", { name: "Already read" }).click();
+  await expect(addScreen(page).getByText("Added · Already read")).toBeVisible();
+  await expect(addScreen(page).getByText("1 Book finding Connections")).toBeVisible();
+  expect(await selectedText(page)).toBe("Austerlitz");
+
+  await addScreen(page).getByRole("button", { name: "Undo adding Austerlitz" }).click();
+  await expect(addScreen(page).getByRole("group", { name: "Add Austerlitz" })).toBeVisible();
+  await expect(addScreen(page).getByText("1 Book finding Connections")).toHaveCount(0);
+  await expect(searchbox(page)).toBeFocused();
+
+  // An empty search shows what this visit added, each still undoable.
+  await searchbox(page).fill("");
+  const addedSoFar = addScreen(page).getByRole("region", { name: "Added so far" });
+  await expect(addedSoFar.getByRole("listitem")).toHaveCount(1);
+  await expect(addedSoFar.getByRole("listitem")).toContainText("PiranesiA. AuthorAdded · Reading");
+  await expect(addedSoFar.getByRole("button", { name: "Undo adding Piranesi" })).toBeVisible();
+
+  await addScreen(page).getByRole("button", { name: "Done" }).click();
+  await expect(addScreen(page)).toHaveCount(0);
   await expect(add).toBeFocused();
+  await expect(shelf(page).getByRole("button", { name: /^Piranesi/ })).toBeVisible();
+  await expect(shelf(page).getByRole("button", { name: "Read 6" })).toBeVisible();
+});
+
+test("Add is a URL too: back closes it, to the button that opened it", async ({ page }) => {
+  const add = page.getByRole("button", { name: "Add a Book" });
+  await add.click();
+  await expect(page).toHaveURL(/\?add$/);
+  await page.goBack();
+  await expect(addScreen(page)).toHaveCount(0);
+  await expect(page).toHaveURL(/\/$/);
+  await expect(add).toBeFocused();
+});
+
+test("a Book search can't find is added by hand, past a lookalike warning, and can be undone", async ({ page }) => {
+  await page.route("**/api/search?**", (route) => route.fulfill({ json: [] }));
+  await page.getByRole("button", { name: "Add a Book" }).click();
+  await searchbox(page).fill("stoner: a novel");
+  await addScreen(page).getByRole("button", { name: "Add it by hand" }).click();
+  const form = addScreen(page).getByRole("form", { name: "Add a book by hand" });
+  await form.getByLabel("Author").fill("john williams");
+  await expect(form.getByText("already in your library. Reading it again? Start a new read-through from there instead.")).toBeVisible();
+
+  await form.getByRole("button", { name: "Want to read" }).click();
+  const addedSoFar = addScreen(page).getByRole("region", { name: "Added so far" });
+  await expect(addedSoFar.getByRole("listitem")).toContainText("stoner: a noveljohn williamsAdded · Want to read");
+  await expect(searchbox(page)).toBeFocused();
+  await addedSoFar.getByRole("button", { name: "Undo adding stoner: a novel" }).click();
+  await expect(addedSoFar).toHaveCount(0);
+
+  // The warning's title opens the Book it looks like, and back from there is the shelf.
+  await searchbox(page).fill("stoner: a novel");
+  await addScreen(page).getByRole("button", { name: "Add it by hand" }).click();
+  await form.getByLabel("Author").fill("john williams");
+  await form.getByRole("button", { name: "Stoner" }).click();
+  await expect(page.getByRole("heading", { level: 2 })).toHaveText("Stoner");
+  await page.goBack();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Reading");
+  await expect(shelf(page).getByRole("button", { name: "Want to read 1" })).toBeVisible();
 });
 
 test("Read on the Book screen finishes the Book, and only the first finish shows the finish line", async ({ page }) => {

@@ -3,6 +3,7 @@ import { e2eDatabaseUrl } from "./test/e2e/database";
 
 // A production build on its own port and database, so it runs beside `pnpm dev`. The API keys are
 // placeholders: nothing the tests do calls out, and anything that tried would fail rather than spend.
+// The Google Books key is blank, which turns off the description lookup when a Book is added from search.
 const PORT = 3100;
 
 export default defineConfig({
@@ -21,7 +22,7 @@ export default defineConfig({
       DATABASE_URL: e2eDatabaseUrl(),
       ANTHROPIC_API_KEY: "e2e-no-calls",
       VOYAGE_API_KEY: "e2e-no-calls",
-      GOOGLE_BOOKS_API_KEY: "e2e-no-calls",
+      GOOGLE_BOOKS_API_KEY: "",
     },
   },
 });

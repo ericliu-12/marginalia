@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { addBook } from "../src/domain/add-book";
+import { addBook, addManualBook } from "../src/domain/add-book";
 import { dismissConnection, readConnections, type JudgeInput } from "../src/domain/connections";
 import { backfillEmbeddings } from "../src/domain/embeddings";
 import { readEnrichment, tryAgain } from "../src/domain/enrichment";
@@ -8,7 +8,7 @@ import { readGraph } from "../src/domain/graph";
 import { changeStatus, removeFromLibrary } from "../src/domain/library-entry";
 import { addNote, updateNote } from "../src/domain/notes";
 import { RETRIES, jobGaveUp, type JobDeps } from "../src/domain/pipeline";
-import { connection, connectionRun, enrichment, libraryEntry, note } from "../src/db/schema";
+import { book, connection, connectionRun, enrichment, libraryEntry, note } from "../src/db/schema";
 import { fakeEmbedder, fakeEnricher, fakeJudge, fakeNamer, work } from "./fakes";
 import { useTestDb } from "./harness";
 
@@ -356,6 +356,21 @@ describe("Pipeline", () => {
       const { bookId } = await add("gone", "read");
       await removeFromLibrary(ctx.db, ctx.pipeline, ctx.userId, bookId);
       expect(ctx.jobs.cancelled).toEqual([{ kind: "connections", userId: ctx.userId, bookId }]);
+      const judge = fakeJudge();
+      await ctx.jobs.drain(deps({ judge }));
+      expect(judge.inputs).toEqual([]);
+    });
+
+    // The phone's Undo, straight after adding: a Book added by hand as Already read is already finding
+    // its Connections, and its private Book goes with the Entry.
+    it("cancels the waiting job of a Book just added by hand as read, and deletes the Manual Book", async () => {
+      await add("other", "read");
+      await ctx.jobs.drain(deps());
+      const { bookId } = await addManualBook(ctx.db, ctx.pipeline, ctx.userId, { title: "Kitchen Notes", author: "June Ash" }, "read");
+      expect(await readConnections(ctx.db, ctx.userId, bookId)).toMatchObject({ status: "running" });
+      await removeFromLibrary(ctx.db, ctx.pipeline, ctx.userId, bookId);
+      expect(ctx.jobs.cancelled).toEqual([{ kind: "connections", userId: ctx.userId, bookId }]);
+      expect(await ctx.db.select().from(book).where(eq(book.id, bookId))).toEqual([]);
       const judge = fakeJudge();
       await ctx.jobs.drain(deps({ judge }));
       expect(judge.inputs).toEqual([]);
