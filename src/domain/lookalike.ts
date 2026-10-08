@@ -38,11 +38,10 @@ export async function lookalikeCheck(db: Db, userId: string) {
     authors: [b.authors[0], entry.authorOverride].filter((a): a is string => !!a),
   }));
 
-  return (c: Candidate, exceptBookId?: string): Lookalike | null => {
+  return (c: Candidate): Lookalike | null => {
     const title = normTitle(c.title);
     const hit = entries.find(
       (e) =>
-        e.lookalike.bookId !== exceptBookId &&
         e.titles.has(title) &&
         (!c.author.trim() || e.authors.length === 0 || e.authors.some((a) => namesMatch(a, c.author))),
     );
