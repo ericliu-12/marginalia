@@ -2,12 +2,28 @@ import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { addBook } from "../src/domain/add-book";
 import { readConnection, type Strength } from "../src/domain/connections";
-import { DISPLAY_CAP, LABEL_ROOM, layoutGraph, readGraph, visibleConnections, type GraphView } from "../src/domain/graph";
+import { DISPLAY_CAP, LABEL_MAX_CHARS, LABEL_ROOM, labelOf, layoutGraph, readGraph, visibleConnections, type GraphView } from "../src/domain/graph";
 import { changeStatus, removeFromLibrary } from "../src/domain/library-entry";
 import type { JobDeps } from "../src/domain/pipeline";
 import { connection, libraryEntry } from "../src/db/schema";
 import { fakeEmbedder, fakeEnricher, fakeJudge, fakeNamer, work } from "./fakes";
 import { useTestDb } from "./harness";
+
+describe("A Book's label", () => {
+  it("is its title cut at a subtitle", () => {
+    expect(labelOf("Stoner: A Novel")).toBe("Stoner");
+  });
+
+  it("cuts a long title at a word, within LABEL_MAX_CHARS", () => {
+    const label = labelOf("The unbearable lightness of being");
+    expect(label).toBe("The unbearable lightness of…");
+    expect(label.length).toBeLessThanOrEqual(LABEL_MAX_CHARS);
+  });
+
+  it("cuts mid-word only where the first word alone is too long", () => {
+    expect(labelOf("Supercalifragilisticexpialidocious and more")).toBe(`${"Supercalifragilisticexpialidocious".slice(0, LABEL_MAX_CHARS - 1)}…`);
+  });
+});
 
 describe("Graph", () => {
   const ctx = useTestDb();

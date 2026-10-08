@@ -5,7 +5,7 @@ import { overlaps, placeLabels, placeNames, type Box, type Dot, type LabelReques
 // plates reaching 2 back toward it beside the dot.
 const VIEW = { width: 1000, height: 800 };
 const dot = (id: string, x: number, y: number, radius = 4): Dot => ({ id, x, y, radius });
-const ask = (d: Dot, must = false, w = 60): LabelRequest => ({ id: d.id, x: d.x, y: d.y, gap: 12, plate: 2, w, h: 16, must });
+const ask = (d: Dot, must = false, w = 60, over = false): LabelRequest => ({ id: d.id, x: d.x, y: d.y, gap: 12, plate: 2, w, h: 16, must, over });
 const at = (placed: { id: string; box: Box }[], id: string) => placed.find((p) => p.id === id)?.box;
 const sideOf = (box: Box | undefined, d: Dot) =>
   !box ? "off" : box.x0 > d.x ? "right" : box.x1 < d.x ? "left" : box.y1 < d.y ? "above" : "below";
@@ -38,6 +38,16 @@ describe("Label placement", () => {
     const crowd = [dot("r", 540, 400), dot("l", 460, 400), dot("u", 500, 380), dot("d", 500, 420)];
     expect(at(placeLabels({ view: VIEW, dots: [a, ...crowd], requests: [ask(a)] }), "a")).toBeUndefined();
     expect(sideOf(at(placeLabels({ view: VIEW, dots: [a, ...crowd], requests: [ask(a, true)] }), "a"), a)).toBe("right");
+  });
+
+  it("lets a label marked `over` sit on other Books' dots where no side is clear, but never on a label", () => {
+    const a = dot("a", 500, 400);
+    const crowd = [dot("r", 540, 400), dot("l", 460, 400), dot("u", 500, 380), dot("d", 500, 420)];
+    expect(sideOf(at(placeLabels({ view: VIEW, dots: [a, ...crowd], requests: [ask(a, false, 60, true)] }), "a"), a)).toBe("right");
+    const b = dot("b", 500, 450);
+    // b's label goes first and takes its right; a's label, over the crowd, still finds a side clear of it.
+    const placed = placeLabels({ view: VIEW, dots: [a, b, ...crowd], requests: [ask(b), ask(a, false, 60, true)], obstacles: [{ x0: 505, y0: 390, x1: 580, y1: 410 }] });
+    expect(sideOf(at(placed, "a"), a)).toBe("left");
   });
 
   it("gives earlier requests first pick, so later ones move aside or are left off", () => {
@@ -111,6 +121,15 @@ describe("Cluster name placement", () => {
     const placed = place([dot("a", 990, 400), dot("b", 995, 410)], [name("q", ["a", "b"])]);
     expect(placed.get("q")!.x1).toBe(990);
     expect(place([dot("a", 400, 70), dot("b", 420, 760)], [name("q", ["a", "b"])]).get("q")!.y0).toBeGreaterThanOrEqual(50);
+  });
+
+  it("is left off too close beside an earlier name, so two names never read as one", () => {
+    const q = [dot("a", 300, 400), dot("b", 340, 400), dot("c", 320, 410)];
+    // r's name would sit 8px to the right of q's, on the same line.
+    const r = [dot("d", 408, 400), dot("e", 448, 400), dot("f", 428, 410)];
+    const placed = place([...q, ...r], [name("q", ["a", "b", "c"]), name("r", ["d", "e", "f"])]);
+    expect(placed.get("q")).not.toBeNull();
+    expect(placed.get("r")).toBeNull();
   });
 
   it("is left off on top of an earlier name, or under the panel, unless chosen", () => {

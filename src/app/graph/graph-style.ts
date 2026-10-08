@@ -26,6 +26,9 @@ export const RING_GAP = 4;
 // fits, the label is left off. Books keep theirs in this order: the most recently finished few, then
 // those with more Connections. (Label text is cut by labelOf in src/domain/graph.ts.)
 export const RECENT_LABELS = 3;
+// The first few labels in that order (behind a selection, its own Books' first) may sit over other Books'
+// dots where no side of theirs is clear, so a crowded graph still names the Books that matter most.
+export const LEAD_LABELS = 8;
 
 const median = (xs: number[]) => {
   const s = xs.filter((x) => x > 0).sort((a, b) => a - b);

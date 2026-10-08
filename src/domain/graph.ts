@@ -22,11 +22,15 @@ export const DISPLAY_CAP = 3;
 const FRESH_ITERATIONS = 500;
 const SETTLE_ITERATIONS = 100;
 
-// A Book's label: its title cut at a subtitle, then to LABEL_MAX_CHARS.
+// A Book's label: its title cut at a subtitle, then to LABEL_MAX_CHARS, at the last whole word that fits
+// (mid-word only when the first word alone is too long).
 export const LABEL_MAX_CHARS = 32;
 export function labelOf(title: string) {
   const main = title.split(/:\s/)[0];
-  return main.length > LABEL_MAX_CHARS ? `${main.slice(0, LABEL_MAX_CHARS - 1).trimEnd()}…` : main;
+  if (main.length <= LABEL_MAX_CHARS) return main;
+  const fits = main.slice(0, LABEL_MAX_CHARS);
+  const word = fits.lastIndexOf(" ");
+  return `${(word > 0 ? fits.slice(0, word) : fits.slice(0, LABEL_MAX_CHARS - 1)).trimEnd()}…`;
 }
 
 // Room a new Book is given, in typical Connection lengths (the median, the unit the graph is drawn at):

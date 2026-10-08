@@ -27,6 +27,7 @@ import {
   LABEL_SIZE,
   LAND_MS,
   LAND_RING,
+  LEAD_LABELS,
   layoutScale,
   MAX_FIT_ZOOM,
   PAPER_PLATE,
@@ -41,7 +42,7 @@ import {
   WASH_RADIUS,
   nodeRadius,
 } from "./graph-style";
-import { placeLabels, placeNames, type Box, type Dot, type LabelRequest, type NameRequest } from "./placement";
+import { overlaps, placeLabels, placeNames, type Box, type Dot, type LabelRequest, type NameRequest } from "./placement";
 
 export type Selection = { kind: "book"; bookId: string } | { kind: "connection"; id: string } | { kind: "cluster"; id: string } | null;
 
@@ -344,9 +345,19 @@ export function GraphCanvas({
           texts.set(n.id, text);
           const s = screen.get(n.id)!;
           const gap = n.radius + LABEL_GAP + (ringed(n.id) ? RING_GAP : 0);
-          requests.push({ id: n.id, x: s.x, y: s.y, gap, plate: LABEL_PLATE, w: width(text) + 2 * LABEL_PLATE, h: H, must });
+          const over = requests.length < LEAD_LABELS;
+          requests.push({ id: n.id, x: s.x, y: s.y, gap, plate: LABEL_PLATE, w: width(text) + 2 * LABEL_PLATE, h: H, must, over });
         }
-        const first = placeLabels({ view, dots, requests });
+        // Behind a selection, faded Books give way to the lit ones' labels; and no label goes under the
+        // wordmark, the legend or the panel.
+        const blocking = litBooks ? dots.filter((d) => litBooks.has(d.id)) : dots;
+        const origin = host.getBoundingClientRect();
+        const chrome: Box[] = [...document.querySelectorAll("[data-graph-chrome]")].map((el) => {
+          const r = el.getBoundingClientRect();
+          return { x0: r.left - origin.left, y0: r.top - origin.top, x1: r.right - origin.left, y1: r.bottom - origin.top };
+        });
+        if (insetRef.current) chrome.push({ x0: view.width - insetRef.current, y0: 0, x1: view.width, y1: view.height });
+        const first = placeLabels({ view, dots: blocking, requests, obstacles: chrome });
 
         const r = WASH_RADIUS * TYPICAL_EDGE_LENGTH * k;
         const fontSize = Math.round(Math.min(CLUSTER_NAME_SIZE.max, Math.max(CLUSTER_NAME_SIZE.min, r * CLUSTER_NAME_SIZE.perRadius)) * 2) / 2;
@@ -380,9 +391,14 @@ export function GraphCanvas({
           nameEl.style.opacity = String(faded(id, now));
         }
 
-        // Placed again, now clear of the names, so none is drawn under one.
-        const nameBoxes = [...placed.values()].filter((b) => b !== null);
-        const labels = nameBoxes.length ? placeLabels({ view, dots, requests, obstacles: nameBoxes }) : first;
+        // Placed again, now clear of the names, so none is drawn under one; behind a selection, only the
+        // chosen Cluster's name holds its place, and any other a label then lands on is left off.
+        const holding = [...placed].filter(([id, box]) => box !== null && (!litBooks || id === chosenClusterId)).map(([, box]) => box!);
+        const labels = holding.length ? placeLabels({ view, dots: blocking, requests, obstacles: [...chrome, ...holding] }) : first;
+        for (const [id, box] of placed) {
+          if (!box || holding.includes(box) || !labels.some((l) => overlaps(l.box, box))) continue;
+          nameEls.current.get(id)!.style.visibility = "hidden";
+        }
         return labels.map(({ id, box }) => {
           const s = screen.get(id)!;
           return { id, text: texts.get(id)!, box: { x0: box.x0 - s.x, y0: box.y0 - s.y, x1: box.x1 - s.x, y1: box.y1 - s.y } };
@@ -734,7 +750,7 @@ function ClusterName({ cluster, chosen, onSelect, nameRef }: { cluster: GraphClu
       data-chosen={chosen || undefined}
       onClick={onSelect}
       style={{ "--name": CLUSTER_NAME_COLOR, "--faded": FADED_LABEL, fontSize: CLUSTER_NAME_SIZE.max, visibility: "hidden" } as React.CSSProperties}
-      className="pointer-events-auto absolute top-0 left-0 rounded-[2px] bg-paper/80 px-1.5 py-0.5 font-serif leading-tight font-medium whitespace-nowrap text-(--name) italic decoration-rule decoration-1 underline-offset-[5px] transition-colors duration-150 hover:bg-paper/95 hover:text-ink hover:underline data-chosen:bg-paper/95 data-chosen:text-ink data-faded:bg-transparent data-faded:text-(--faded)"
+      className="pointer-events-auto absolute top-0 left-0 rounded-[2px] bg-paper/80 px-1.5 py-0.5 font-serif leading-tight font-medium whitespace-nowrap text-(--name) italic decoration-rule decoration-1 underline-offset-[5px] transition-colors duration-150 hover:bg-paper/95 hover:text-ink hover:underline data-chosen:bg-paper/95 data-chosen:text-ink data-faded:bg-paper/60 data-faded:text-(--faded)"
     >
       {cluster.name}
     </button>

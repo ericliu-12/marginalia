@@ -184,8 +184,8 @@ export function GraphWorkspace({
       )}
 
       <header className="pointer-events-none absolute inset-x-0 top-0 flex items-baseline gap-8 px-8 pt-7 lg:px-12">
-        <h1 className="pointer-events-auto text-[1.75rem] leading-none font-medium tracking-[-0.01em] italic">Marginalia</h1>
-        <div className="pointer-events-auto">
+        <h1 data-graph-chrome className="pointer-events-auto text-[1.75rem] leading-none font-medium tracking-[-0.01em] italic">Marginalia</h1>
+        <div data-graph-chrome className="pointer-events-auto">
           <ViewSwitch current="graph" />
         </div>
         <FindingIndicator initial={finding} />
@@ -213,7 +213,7 @@ export function GraphWorkspace({
       {/* Until the first Connection, in the place the legend will take: a lone Book's themes (never drawn
           as Connections), and what is coming. */}
       {wide && graph.books.length > 0 && graph.connections.length === 0 && (
-        <div className="pointer-events-none absolute bottom-7 left-12 flex max-w-[52ch] flex-col gap-1.5">
+        <div data-graph-chrome className="pointer-events-none absolute bottom-7 left-12 flex max-w-[52ch] flex-col gap-1.5">
           {graph.books.length === 1 && loneThemes.length > 0 && (
             <p className="font-sans text-[0.8rem] leading-relaxed font-medium text-ink-2">
               Themes of <i className="font-serif text-[0.95rem] font-normal">{graph.books[0].label}</i>: {loneThemes.join(" · ")}
@@ -224,7 +224,7 @@ export function GraphWorkspace({
       )}
 
       {wide && graph.connections.length > 0 && (
-        <div className="pointer-events-none absolute bottom-7 left-12 flex flex-col gap-1.5 font-sans text-[0.8rem] text-ink-2">
+        <div data-graph-chrome className="pointer-events-none absolute bottom-7 left-12 flex flex-col gap-1.5 font-sans text-[0.8rem] text-ink-2">
           <ul className="flex gap-5" aria-label="Connection types">
             {(["thematic", "contrast", "context"] as const).map((t) => (
               <li key={t} className="flex items-center gap-2 font-medium text-ink-2">
