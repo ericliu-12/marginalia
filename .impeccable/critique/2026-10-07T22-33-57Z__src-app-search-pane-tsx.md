@@ -10,6 +10,7 @@ target_fingerprint: "sha256:58ee95cd8dd24f75bbb5fb80877bd38e27e12415dc9cc3682f9e
 target_path: /Users/ericliu/Documents/projects/marginalia/src/app/search-pane.tsx
 timestamp: 2026-10-07T22-33-57Z
 slug: src-app-search-pane-tsx
+closed: true
 ---
 Method: dual-agent (A: design review · B: detector + browser)
 
