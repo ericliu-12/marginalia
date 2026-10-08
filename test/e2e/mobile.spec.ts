@@ -16,7 +16,7 @@ test.beforeEach(async ({ page }) => {
 
 const shelf = (page: Page) => page.getByRole("main");
 const status = (page: Page) => page.getByRole("group", { name: /^Status of / });
-const finishLine = (page: Page) => page.getByText("Connections are being found; they’ll appear in the graph on a larger screen.");
+const finishLine = (page: Page) => page.getByText("Connections are being found; they’ll gather below, and in the graph on a larger screen.");
 const connections = (page: Page) => page.getByRole("region", { name: "Connections" });
 
 test("opens on the Reading shelf, with Want to read and Read folded away and no graph", async ({ page }) => {
@@ -67,6 +67,31 @@ test("Read on the Book screen finishes the Book, and only the first finish shows
   await expect(page.getByText("1 Book finding Connections")).toBeVisible();
 });
 
+test("the Book screen is a URL, and browser back returns to the shelf where it was", async ({ page }) => {
+  await shelf(page).getByRole("button", { name: "Read 6" }).click();
+  const stoner = shelf(page).getByRole("button", { name: /^Stoner/ });
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  const scrollY = await page.evaluate(() => window.scrollY);
+  expect(scrollY).toBeGreaterThan(0);
+  await stoner.click();
+  await expect(page.getByRole("heading", { level: 2 })).toHaveText("Stoner");
+  await expect(page).toHaveURL(/\?book=/);
+
+  await page.goBack();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Reading");
+  await expect(page).toHaveURL(/\/$/);
+  await expect(shelf(page).getByRole("button", { name: /^Stoner/ })).toBeFocused();
+  expect(await page.evaluate(() => window.scrollY)).toBe(scrollY);
+
+  // The URL opens the Book screen on its own, and its way out goes to the shelf.
+  await page.goForward();
+  await expect(page.getByRole("heading", { level: 2 })).toHaveText("Stoner");
+  await page.reload();
+  await expect(page.getByRole("heading", { level: 2 })).toHaveText("Stoner");
+  await page.getByRole("button", { name: "Back to library" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Reading");
+});
+
 test("the Book screen lists its Connections as text, and a title opens that Book", async ({ page }) => {
   await shelf(page).getByRole("button", { name: "Read 6" }).click();
   await shelf(page).getByRole("button", { name: /^Stoner/ }).click();
@@ -76,4 +101,8 @@ test("the Book screen lists its Connections as text, and a title opens that Book
 
   await connections(page).getByRole("button", { name: "The Remains of the Day", exact: true }).click();
   await expect(page.getByRole("heading", { level: 2 })).toHaveText("The Remains of the Day");
+
+  // Following a Connection takes the Book's place, so back still leads to the shelf.
+  await page.goBack();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Reading");
 });

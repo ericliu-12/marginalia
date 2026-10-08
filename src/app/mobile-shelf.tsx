@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useLayoutEffect, useRef, useState } from "react";
 import type { LibraryItem } from "@/domain/library";
 import { BookPanel } from "./book-panel";
@@ -20,31 +21,53 @@ const chevron = (
 
 // The library on a phone: the Reading shelf is home, with Want to read and Read folded away below.
 // A row opens its Book screen; "Add a Book" stays pinned at the bottom. There is no graph here.
+// The Book screen is a URL (/?book=<id>), so the phone's back gesture returns to the shelf.
 export function MobileShelf({ items, finding }: { items: LibraryItem[]; finding: number }) {
-  const [bookId, setBookId] = useState<string | null>(null);
+  const bookId = useSearchParams().get("book");
   const [adding, setAdding] = useState(false);
   const [open, setOpen] = useState<Record<string, boolean>>({});
   // Where the shelf was when a Book opened, to come back to: its scroll and the row that opened it.
   const back = useRef<{ scrollY: number; bookId: string } | null>(null);
+  // Whether the Book screen's history entry is ours to go back from, rather than a link opened directly.
+  const pushed = useRef(false);
   const addRef = useRef<HTMLButtonElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const book = items.find((i) => i.bookId === bookId);
 
+  // From the shelf a Book is a new history entry; from another Book's Connection it takes that Book's
+  // place, so back always leads to the shelf.
   function openBook(id: string) {
-    if (!bookId) back.current = { scrollY: window.scrollY, bookId: id };
+    if (book) {
+      window.history.replaceState(null, "", `?book=${id}`);
+    } else {
+      back.current = { scrollY: window.scrollY, bookId: id };
+      pushed.current = true;
+      window.history.pushState(null, "", `?book=${id}`);
+    }
     setAdding(false);
-    setBookId(id);
     window.scrollTo(0, 0);
+  }
+
+  function toShelf() {
+    if (pushed.current) window.history.back();
+    else window.history.replaceState(null, "", "/");
+    pushed.current = false;
   }
 
   useLayoutEffect(() => {
     if (book || !back.current) return;
     const { scrollY, bookId: from } = back.current;
+    // A Book moved off Reading comes back to its section open, so its row is there to return to.
+    const status = items.find((i) => i.bookId === from)?.status;
+    if (status && status !== "reading" && !open[status]) {
+      setOpen((o) => ({ ...o, [status]: true }));
+      return;
+    }
     back.current = null;
     window.scrollTo(0, scrollY);
     // A removed Book has no row to return to; the shelf's heading is the nearest stable place.
     (document.querySelector<HTMLElement>(`[data-book-id="${from}"]`) ?? headingRef.current)?.focus();
-  }, [book]);
+  }, [book, items, open]);
 
   if (book) {
     return (
@@ -54,12 +77,8 @@ export function MobileShelf({ items, finding }: { items: LibraryItem[]; finding:
           variant="screen"
           item={book}
           backLabel="Back to library"
-          onBack={() => {
-            // A Book moved off Reading comes back to its section open, so its row is there to return to.
-            if (book.status !== "reading") setOpen((o) => ({ ...o, [book.status]: true }));
-            setBookId(null);
-          }}
-          onRemoved={() => setBookId(null)}
+          onBack={toShelf}
+          onRemoved={toShelf}
           onOpenBook={openBook}
         />
       </main>

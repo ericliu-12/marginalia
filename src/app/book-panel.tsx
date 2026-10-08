@@ -291,7 +291,7 @@ function StatusControl({ item }: { item: LibraryItem }) {
       <p role="status" className="mt-4 rounded-[3px] bg-paper-3 px-4 py-3 leading-snug empty:hidden motion-safe:animate-draw-in">
         {finishLine && shown === "read" && (
           <>
-            <span className="font-medium">Finished.</span> Connections are being found; they’ll appear in the graph on a larger screen.
+            <span className="font-medium">Finished.</span> Connections are being found; they’ll gather below, and in the graph on a larger screen.
           </>
         )}
       </p>

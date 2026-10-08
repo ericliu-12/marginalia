@@ -99,7 +99,7 @@ Newsreader carries the wordmark (italic), headings, titles and empty-state voice
 
 Operate-mode two-pane desktop layout. The library fills the left, left-aligned to the wordmark, content capped at 42rem. The search pane is 27rem on the right, separated by a 1px rule, and collapses fully; "Add a book" in the header reopens it. Library rows are cover (44x66) plus title and author, separated by faint rules, never boxed.
 
-Below 1024px, where the graph does not fit, the library is the phone's shelf: one column capped at 40rem, no Graph link. The Reading shelf is home under a 2rem serif "Reading" title. Want to read and Read sit below as collapsed sections, and "Add a Book" is pinned to the bottom edge over a paper fade. A whole row is the tap target: cover, title and author, and a chevron. A row opens the Book screen, which is the Book panel at full width, on paper rather than raised paper.
+Below 1024px, where the graph does not fit, the library is the phone's shelf: one column capped at 40rem, no Graph link. The Reading shelf is home under a 2rem serif "Reading" title. Want to read and Read sit below as collapsed sections, and "Add a Book" is pinned to the bottom edge over a paper fade. A whole row is the tap target: cover, title and author, and a chevron. A row opens the Book screen (`/?book=<id>`, so the back gesture returns to the shelf), which is the Book panel at full width, on paper rather than raised paper.
 
 ## Elevation & Depth
 
@@ -117,7 +117,7 @@ Near-square: 2px for covers, 3px for buttons and inputs. No pills, no circles.
 - **Quiet button:** 1px ink outline, fills with ink on hover. Used for the one-click Want to read / Reading / Already read choices in the search pane.
 - **Row actions:** the per-row Status moves in the library (Start reading, Mark finished, Want to read, Read again). On touch devices they stay visible as quiet buttons with 44px targets. On pointer devices they rest as invisible, quiet text links in ink tertiary (underlined, hairline underline), revealed on row hover or keyboard focus within the row; hovering a link darkens it to ink. Rows stay titles-first: actions never compete with the title at rest.
 - **Status control:** the Book screen's three-way Want to read / Reading / Read. It is a paper-sunk track with the chosen segment raised on paper raised with the cover shadow, at 3px and 2px corners and 44px targets. The selection moves at once.
-- **Finish line:** the one moment on the phone. The first time a Book becomes Read, a paper-sunk block rises in under the Status control: "**Finished.** Connections are being found; they'll appear in the graph on a larger screen." A later Read-through never shows it.
+- **Finish line:** the one moment on the phone. The first time a Book becomes Read, a paper-sunk block rises in under the Status control: "**Finished.** Connections are being found; they'll gather below, and in the graph on a larger screen." A later Read-through never shows it.
 - **Cover:** the image, or a typeset placeholder on a paper-sunk tone (title in serif, author in small caps-style sans) when there is no cover or it fails to load.
 - **Section header:** serif heading with a hairline below and a quiet count; collapsible sections show a chevron.
 - **Cluster name:** italic serif in Cluster name ink on a soft paper plate, centred above or below its wash, whichever crosses fewer Book labels. It is sized with the zoom (13–18px), turns to ink with a hairline underline on hover, and fades with the rest of the graph behind a selection. Choosing it opens the Cluster panel.
