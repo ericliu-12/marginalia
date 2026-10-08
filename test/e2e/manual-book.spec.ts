@@ -22,14 +22,17 @@ test("a Book search can't find is added by hand, and lands in the library", asyn
   const form = await openManualForm(page, "Notes from a Kitchen");
 
   await expect(form.getByLabel("Title")).toHaveValue("Notes from a Kitchen");
-  await form.getByLabel("Author").fill("June Ash");
+  await expect(form.getByLabel("Author")).toHaveAccessibleDescription("Separate co-authors with ‘and’.");
+  await form.getByLabel("Author").fill("June Ash and Kim Lee");
   await form.getByRole("button", { name: "Add a description" }).click();
   await form.getByLabel("Description").fill("A year of cooking through grief.");
   await form.getByRole("button", { name: "Want to read" }).click();
 
   await expect(searchPane(page).getByText("Added Notes from a Kitchen to your library.")).toBeVisible();
   await expect(searchPane(page).getByText("No match", { exact: false })).toHaveCount(0);
-  await expect(library(page).getByRole("region", { name: /^Want to read/ }).getByRole("button", { name: "Notes from a Kitchen", exact: true })).toBeVisible();
+  const wanted = library(page).getByRole("region", { name: /^Want to read/ });
+  await expect(wanted.getByRole("button", { name: "Notes from a Kitchen", exact: true })).toBeVisible();
+  await expect(wanted.getByText("June Ash, Kim Lee")).toBeVisible();
 
   // The notice opens the Book just added.
   await searchPane(page).getByRole("button", { name: "Notes from a Kitchen" }).click();

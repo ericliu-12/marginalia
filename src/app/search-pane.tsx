@@ -5,7 +5,7 @@ import type { Lookalike } from "@/domain/lookalike";
 import type { SearchResult, Status } from "@/domain/search";
 import { addBookAction, addManualBookAction, findLookalikeAction } from "./actions";
 import { field } from "./book-panel";
-import { EMPTY_BOOK, draftError, invalidProps, withScheme, type BookDraft, type DraftError } from "./book-draft";
+import { CO_AUTHOR_HINT, EMPTY_BOOK, draftError, invalidProps, withScheme, type BookDraft, type DraftError } from "./book-draft";
 import { Cover } from "./cover";
 import { quietLink } from "./quiet-link";
 
@@ -436,7 +436,10 @@ function ManualBookForm({
       <label htmlFor="manual-author" className={label}>
         Author
       </label>
-      <input ref={refs.author} id="manual-author" value={draft.author} onChange={(e) => change({ author: e.target.value })} autoComplete="off" {...invalidProps(error, "author", errorId)} className={input} />
+      <input ref={refs.author} id="manual-author" value={draft.author} onChange={(e) => change({ author: e.target.value })} autoComplete="off" {...invalidProps(error, "author", errorId, "manual-author-hint")} className={input} />
+      <p id="manual-author-hint" className="mt-1 font-sans text-[0.8rem] text-ink-3">
+        {CO_AUTHOR_HINT}
+      </p>
 
       {showCover && (
         <>

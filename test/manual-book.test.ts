@@ -44,6 +44,20 @@ describe("Manual Books, lookalikes and overrides", () => {
       expect(await bookRow(bookId)).toMatchObject({ title: "Kitchen", authors: ["June Ash"], coverUrl: null, description: null });
     });
 
+    it("keeps co-authors apart, split on 'and', '&' and ';' but never on a comma", async () => {
+      const authors = async (author: string) => (await bookRow((await manual({ author })).bookId)).authors;
+      expect(await authors("Terry Pratchett and Neil Gaiman")).toEqual(["Terry Pratchett", "Neil Gaiman"]);
+      expect(await authors("Terry Pratchett & Neil Gaiman ; Someone Else")).toEqual(["Terry Pratchett", "Neil Gaiman", "Someone Else"]);
+      expect(await authors("Pratchett, Terry")).toEqual(["Pratchett, Terry"]);
+      expect(await authors("Ferdinand Anderson")).toEqual(["Ferdinand Anderson"]);
+    });
+
+    it("passes the Enrichment author cross-check when the model names any co-author", async () => {
+      const { bookId } = await manual({ title: "Good Omens", author: "Neil Gaiman and Terry Pratchett" });
+      await enrichBook(ctx.db, { model: fakeEnricher({ author: "Neil Gaiman" }) }, bookId);
+      expect((await ctx.db.select().from(enrichment).where(eq(enrichment.bookId, bookId)))[0].recognised).toBe(true);
+    });
+
     it("needs a title and an author, and a cover that is an http(s) address", async () => {
       await expect(manual({ title: " " })).rejects.toBeInstanceOf(InvalidBookError);
       await expect(manual({ author: "" })).rejects.toBeInstanceOf(InvalidBookError);

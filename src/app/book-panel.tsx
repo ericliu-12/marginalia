@@ -16,7 +16,7 @@ import {
   tryAgainAction,
   updateNoteAction,
 } from "./actions";
-import { draftError, invalidProps, withScheme, type BookDraft, type DraftError } from "./book-draft";
+import { CO_AUTHOR_HINT, draftError, invalidProps, withScheme, type BookDraft, type DraftError } from "./book-draft";
 import { ConnectionsSection } from "./connections";
 import { MOVES } from "./library-list";
 import { useInlineConfirm } from "./use-inline-confirm";
@@ -275,7 +275,8 @@ function RemoveEntry({ bookId, title, onRemoved }: { bookId: string; title: stri
 function EditBookForm({ item, onDone }: { item: LibraryItem; onDone: (saved: boolean) => void }) {
   const [draft, setDraft] = useState<BookDraft>({
     title: item.title,
-    author: item.authors.join(", "),
+    // A Manual Book's co-authors are written as they are split; a shared Book's author override is one name.
+    author: item.authors.join(item.manual ? " and " : ", "),
     coverUrl: item.coverUrl ?? "",
     description: item.description ?? "",
   });
@@ -340,7 +341,20 @@ function EditBookForm({ item, onDone }: { item: LibraryItem; onDone: (saved: boo
       <label htmlFor="edit-author" className={label}>
         Author
       </label>
-      <input ref={refs.author} id="edit-author" value={draft.author} onChange={(e) => change({ author: e.target.value })} autoComplete="off" {...invalidProps(error, "author", errorId)} className={`${field} mt-1 font-sans text-[0.95rem]`} />
+      <input
+        ref={refs.author}
+        id="edit-author"
+        value={draft.author}
+        onChange={(e) => change({ author: e.target.value })}
+        autoComplete="off"
+        {...invalidProps(error, "author", errorId, item.manual ? "edit-author-hint" : undefined)}
+        className={`${field} mt-1 font-sans text-[0.95rem]`}
+      />
+      {item.manual && (
+        <p id="edit-author-hint" className="mt-1 font-sans text-[0.8rem] text-ink-3">
+          {CO_AUTHOR_HINT}
+        </p>
+      )}
       {item.manual && (
         <>
           <label htmlFor="edit-cover" className={label}>

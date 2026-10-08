@@ -15,18 +15,19 @@ export class DuplicateBookError extends Error {
 
 export class InvalidBookError extends Error {}
 
-// What the reader types for a Manual Book; the cover and description may be left blank.
+// What the reader types for a Manual Book; the cover and description may be left blank. Co-authors
+// are separated by "and", "&" or ";", never a comma, which can be "Last, First".
 export type ManualBookInput = { title: string; author: string; coverUrl?: string; description?: string };
 
-// A Manual Book's fields as stored: trimmed, blanks as null. A title and an author are required, and a
-// cover must be an http(s) address (it is put in an <img>).
+// A Manual Book's fields as stored: trimmed, blanks as null, co-authors apart. A title and an author are
+// required, and a cover must be an http(s) address (it is put in an <img>).
 export function manualBookFields(input: ManualBookInput) {
   const title = input.title.trim();
-  const author = input.author.trim();
+  const authors = input.author.split(/\s+and\s+|[&;]/i).map((a) => a.trim()).filter(Boolean);
   const coverUrl = input.coverUrl?.trim() || null;
-  if (!title || !author) throw new InvalidBookError("A Book needs a title and an author");
+  if (!title || authors.length === 0) throw new InvalidBookError("A Book needs a title and an author");
   if (coverUrl && !/^https?:\/\/\S+$/i.test(coverUrl)) throw new InvalidBookError("A cover must be an http(s) address");
-  return { title, authors: [author], coverUrl, description: input.description?.trim() || null };
+  return { title, authors, coverUrl, description: input.description?.trim() || null };
 }
 
 // Open Library subjects are noisy: drop call numbers, award/NYT tags and FAST/URI strings.

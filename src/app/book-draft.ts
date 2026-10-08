@@ -20,6 +20,12 @@ export function draftError(draft: BookDraft, needsTitleAndAuthor: boolean): Draf
   return null;
 }
 
-// Ties an input to the form's error message when the message is about it.
-export const invalidProps = (error: DraftError | null, field: keyof BookDraft, errorId: string) =>
-  error?.field === field ? { "aria-invalid": true, "aria-describedby": errorId } : {};
+// Ties an input to the form's error message when the message is about it, and to its hint if it has one.
+export function invalidProps(error: DraftError | null, field: keyof BookDraft, errorId: string, hintId?: string) {
+  const invalid = error?.field === field;
+  const describedBy = [hintId, invalid && errorId].filter(Boolean).join(" ");
+  return { ...(invalid && { "aria-invalid": true }), ...(describedBy && { "aria-describedby": describedBy }) };
+}
+
+// Under a Manual Book's Author field: co-authors are kept apart by these words, not by commas.
+export const CO_AUTHOR_HINT = "Separate co-authors with ‘and’.";
