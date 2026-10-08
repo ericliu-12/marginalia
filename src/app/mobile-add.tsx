@@ -82,6 +82,10 @@ export function MobileAdd({
     inputRef.current?.focus();
   }
 
+  // What became of a result on this visit: added (and not undone), or already in the library.
+  const inLibraryNow = (r: SearchResult) => (undone.has(r.workKey) ? null : r.libraryStatus);
+  const offersChoices = (r: SearchResult) => !inLibraryNow(r) && !added.some((a) => a.workKey === r.workKey);
+
   const q = query.trim();
   return (
     <div
@@ -206,14 +210,15 @@ export function MobileAdd({
                 <>
                   <ul aria-busy={phase === "loading"} className={`divide-y divide-rule/60 transition-opacity ${phase === "loading" ? "opacity-60" : ""}`}>
                     {results.map((r, i) => {
-                      const inLibrary = undone.has(r.workKey) ? null : r.libraryStatus;
+                      const inLibrary = inLibraryNow(r);
                       return (
                         <AddResult
                           key={r.workKey}
                           result={r}
                           added={added.find((a) => a.workKey === r.workKey)}
                           inLibrary={inLibrary}
-                          lookalikeAgain={!!r.lookalike && results.slice(0, i).some((p) => !p.libraryStatus && p.lookalike?.bookId === r.lookalike!.bookId)}
+                          // The full note shows on the first result still offering its choices; later ones point back to it.
+                          lookalikeAgain={!!r.lookalike && results.slice(0, i).some((p) => offersChoices(p) && p.lookalike?.bookId === r.lookalike!.bookId)}
                           onAdded={onAdded}
                           onUndone={onUndone}
                           onOpenBook={onOpenBook}
