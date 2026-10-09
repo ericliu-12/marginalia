@@ -1,10 +1,13 @@
 import { Pool } from "pg";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { startProductionWorker } from "../src/lib/production-worker";
+import { recordDbActivityOnFailure } from "./harness";
 
 // The worker as `pnpm worker` builds it, with no test overrides (no polling interval, real
 // clients). Only the API keys are placeholders; nothing here calls Claude or Voyage.
 describe("Production worker", () => {
+  // It once failed intermittently, uncaptured (#51); a recurrence records what pg-boss waited on.
+  recordDbActivityOnFailure();
   // Jobs another file's worker left behind would run here for real, calling Claude, Voyage and the
   // book APIs, and stopping would wait on those calls.
   beforeAll(async () => {
