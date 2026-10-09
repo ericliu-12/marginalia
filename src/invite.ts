@@ -14,3 +14,5 @@ const { db, pool } = createDb(process.env.DATABASE_URL!);
 const url = await invite(db, email, siteUrl());
 await pool.end();
 console.log(`Invited ${normaliseEmail(email)}. They sign in at ${url}`);
+// While Google's consent screen is in Testing, Google itself turns away anyone not on its test-user list.
+console.log(`Add ${normaliseEmail(email)} as a Google test user: Google Cloud Console → Google Auth Platform → Audience → Test users → Add users.`);

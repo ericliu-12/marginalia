@@ -27,7 +27,7 @@ describe("Seeding", () => {
     const env = { OWNER_EMAIL: " Owner@Example.com " };
     const owner = await seedUser(ctx.db, env);
     await seedUser(ctx.db, env);
-    expect(owner).toMatchObject({ id: ctx.userId, email: "owner@example.com" });
+    expect(owner).toMatchObject({ id: ctx.userId, email: "owner@example.com", emailVerified: true });
     expect(await getSeededUserId(ctx.db, env)).toBe(ctx.userId);
     expect(await ctx.db.select({ email: user.email }).from(user)).toEqual([{ email: "owner@example.com" }]);
     const [kept] = await ctx.db.select().from(libraryEntry).where(eq(libraryEntry.bookId, entry.bookId));

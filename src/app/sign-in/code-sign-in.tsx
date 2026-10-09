@@ -11,6 +11,9 @@ const CODE_LASTS_MS = 5 * 60 * 1000;
 
 const button =
   "mt-3 min-h-11 w-full rounded-[3px] bg-ink px-4 font-sans text-sm font-medium text-paper transition-colors hover:bg-ink-2 disabled:cursor-default disabled:hover:bg-ink";
+// Google's sign-in branding: its own "G", unaltered, on a neutral outlined button.
+const googleButton =
+  "flex min-h-11 w-full items-center justify-center gap-3 rounded-[3px] border border-edge bg-paper-2 px-4 font-sans text-sm font-medium text-ink transition-colors hover:bg-paper-3 disabled:cursor-default disabled:text-ink-3 disabled:hover:bg-paper-2";
 const label = "block font-sans text-[0.8rem] font-medium text-ink-2";
 const quietText = "font-sans text-[0.8rem] text-ink-3";
 
@@ -26,6 +29,8 @@ async function post(path: string, body: object): Promise<Response | null> {
 const UNREACHABLE = "Couldn’t reach Marginalia. Try again.";
 // Better Auth's rate limit, the same for every email.
 const TOO_MANY = "Too many tries. Wait a minute, then try again.";
+// The same whatever went wrong, so it never tells an invited email from another.
+const GOOGLE_FAILED = "That didn’t sign you in. Try again, or sign in with an email code below.";
 const looksLikeEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 
 // The email and when its code was sent, never the code: the iPhone home-screen app may reload while the
@@ -47,7 +52,19 @@ function writeSaved(saved: Saved | null) {
   } catch {}
 }
 
-export function CodeSignIn({ next }: { next: string }) {
+function GoogleMark() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 48 48" className="size-[18px] shrink-0">
+      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+    </svg>
+  );
+}
+
+// `callbackURL` is where Google returns the Reader, already absolute on the site's own address.
+export function CodeSignIn({ next, callbackURL, googleFailed }: { next: string; callbackURL: string; googleFailed: boolean }) {
   const [step, setStep] = useState<"email" | "code">("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -56,9 +73,29 @@ export function CodeSignIn({ next }: { next: string }) {
   const [sentAt, setSentAt] = useState(0);
   const [now, setNow] = useState(0);
   const [resent, setResent] = useState(false);
+  const [googlePending, setGooglePending] = useState(false);
+  const [googleError, setGoogleError] = useState<string | null>(null);
   const emailInput = useRef<HTMLInputElement>(null);
   const codeInput = useRef<HTMLInputElement>(null);
   const codeForm = useRef<HTMLFormElement>(null);
+
+  // Set after the page loads, so the alert is a change a screen reader announces; and taken out of the
+  // address, so a reload doesn't show it again.
+  useEffect(() => {
+    if (!googleFailed) return;
+    setGoogleError(GOOGLE_FAILED);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("error");
+    window.history.replaceState(null, "", url);
+  }, [googleFailed]);
+
+  // Back from Google without signing in (Done on the iPhone's sheet, or the back button), the page may be
+  // restored as it was left, still opening Google.
+  useEffect(() => {
+    const restored = (e: PageTransitionEvent) => e.persisted && setGooglePending(false);
+    window.addEventListener("pageshow", restored);
+    return () => window.removeEventListener("pageshow", restored);
+  }, []);
 
   useEffect(() => {
     const saved = readSaved();
@@ -93,9 +130,22 @@ export function CodeSignIn({ next }: { next: string }) {
     return true;
   }
 
+  // Better Auth answers with Google's address; the page goes there, and Google sends the Reader back.
+  async function onGoogle() {
+    if (googlePending) return;
+    setGooglePending(true);
+    setGoogleError(null);
+    const res = await post("/sign-in/social", { provider: "google", callbackURL });
+    const url = res?.ok ? ((await res.json()) as { url?: string }).url : undefined;
+    if (url) return window.location.assign(url);
+    setGooglePending(false);
+    setGoogleError(res ? GOOGLE_FAILED : UNREACHABLE);
+  }
+
   async function onEmail(e: FormEvent) {
     e.preventDefault();
     if (pending) return;
+    setGoogleError(null);
     const address = email.trim().toLowerCase();
     setEmail(address);
     if (!address) return (setError("Enter your email."), emailInput.current?.focus());
@@ -164,7 +214,19 @@ export function CodeSignIn({ next }: { next: string }) {
     return (
       <form onSubmit={onEmail} noValidate className="w-full max-w-[19rem]">
         {wordmark}
-        <label htmlFor="email" className={`${label} mt-10`}>
+        <p id="google-message" role="alert" className="mt-8 min-h-5 font-sans text-sm text-pretty text-contrast">
+          {googleError}
+        </p>
+        <button type="button" onClick={onGoogle} disabled={googlePending} aria-describedby={googleError ? "google-message" : undefined} className={`${googleButton} mt-2`}>
+          <GoogleMark />
+          {googlePending ? "Opening Google…" : "Continue with Google"}
+        </button>
+        <div className="mt-8 flex items-center gap-3" aria-hidden="true">
+          <span className="h-px flex-1 bg-rule" />
+          <span className={quietText}>or</span>
+          <span className="h-px flex-1 bg-rule" />
+        </div>
+        <label htmlFor="email" className={`${label} mt-6`}>
           Email
         </label>
         <input

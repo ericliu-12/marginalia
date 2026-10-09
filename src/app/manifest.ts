@@ -5,8 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Marginalia",
     short_name: "Marginalia",
-    // The #59 spike opens on its page, since the home-screen app has no address bar; #63 puts back "/".
-    start_url: "/spike/google",
+    start_url: "/",
     display: "standalone",
     background_color: "#f3ecdd",
     theme_color: "#f3ecdd",

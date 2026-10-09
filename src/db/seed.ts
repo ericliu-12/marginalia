@@ -17,6 +17,8 @@ export async function seedUser(db: Db, env: Record<string, string | undefined> =
     if (!owner) await db.update(user).set({ email, updatedAt: new Date() }).where(eq(user.email, SEEDED_USER_EMAIL));
   }
   await db.insert(user).values({ email }).onConflictDoNothing();
+  // The owner gave OWNER_EMAIL themselves, so it counts as verified: Google joins only a verified Reader.
+  if (email !== SEEDED_USER_EMAIL) await db.update(user).set({ emailVerified: true }).where(eq(user.email, email));
   const [row] = await db.select().from(user).where(eq(user.email, email));
   return row;
 }

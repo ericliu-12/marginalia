@@ -29,6 +29,7 @@ export default defineConfig({
       SESSION_SECRET: E2E_SESSION_SECRET,
       MONTHLY_AI_BUDGET_USD: "8",
       GOOGLE_CLIENT_ID: "e2e-no-calls",
+      GOOGLE_CLIENT_SECRET: "e2e-no-calls",
       BETTER_AUTH_URL: `http://localhost:${PORT}`,
       BETTER_AUTH_SECRET: E2E_SESSION_SECRET,
       MAIL_OUTBOX_FILE: E2E_OUTBOX,
