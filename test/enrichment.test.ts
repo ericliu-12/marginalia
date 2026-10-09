@@ -257,6 +257,7 @@ describe("Enrichment", () => {
       const before = await rowFor(b.id);
       descriptions.opts.gbError = true;
       await tryAgain(ctx.db, ctx.pipeline, ctx.userId, b.id);
+      await ctx.db.update(enrichment).set({ attempts: 1, lastError: "model failed" }).where(eq(enrichment.bookId, b.id));
       const model = fakeEnricher({ summary: "Worse." });
       await enrichBook(ctx.db, { model, descriptions }, b.id);
       expect(model.inputs).toEqual([]);
@@ -273,6 +274,12 @@ describe("Enrichment", () => {
       expect(await readEnrichment(ctx.db, b.id)).toMatchObject({ status: "ready", googleBooksVolumeId: null });
       const [row] = await ctx.db.select().from(book).where(eq(book.id, b.id));
       expect(row).toMatchObject({ description: null, googleBooksVolumeId: "gb1" });
+
+      // Google is back: the Book's next job grounds it in Google's description.
+      descriptions.opts.gbError = false;
+      await enrichBook(ctx.db, { model, descriptions }, b.id);
+      expect(model.inputs[1].description).toBe(prose(700));
+      expect(await readEnrichment(ctx.db, b.id)).toMatchObject({ googleBooksVolumeId: "gb1" });
     });
   });
 

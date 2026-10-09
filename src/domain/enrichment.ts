@@ -117,6 +117,9 @@ export async function enrichBook(db: Db, deps: EnrichDeps, bookId: string): Prom
   const [current] = await db.select().from(enrichment).where(eq(enrichment.bookId, bookId));
 
   const requested = current?.requestedAt ?? null;
+  // Clears the "Try again" this run handles. One that arrived while it was in flight stays requested,
+  // so the job it queued still does its work.
+  const handled = sql`case when ${enrichment.requestedAt} is not distinct from ${requested} then null else ${enrichment.requestedAt} end`;
   // Google's description is never stored (#44); a description stored beside a volume predates that and
   // is Google's, so it is never read.
   let stored = b.googleBooksVolumeId ? null : b.description;
@@ -151,7 +154,7 @@ export async function enrichBook(db: Db, deps: EnrichDeps, bookId: string): Prom
       console.warn(`Enrichment kept for "${b.title}": no Google Books description`);
       await db
         .update(enrichment)
-        .set({ status: "ready", requestedAt: sql`case when ${enrichment.requestedAt} is not distinct from ${requested} then null else ${enrichment.requestedAt} end` })
+        .set({ status: "ready", attempts: 0, lastError: null, requestedAt: handled })
         .where(eq(enrichment.bookId, bookId));
       return;
     }
@@ -187,7 +190,8 @@ export async function enrichBook(db: Db, deps: EnrichDeps, bookId: string): Prom
       embedding: null,
       embeddingModel: null,
       googleBooksVolumeId: fetched ? b.googleBooksVolumeId : null,
-      descriptionHash,
+      // Without Google's description the run is not up to date, so the Book's next job tries again.
+      descriptionHash: b.googleBooksVolumeId && !fetched ? null : descriptionHash,
       metadataHash,
       believedAuthor: r.author,
       believedFirstPublishedYear: r.firstPublishedYear,
@@ -205,9 +209,7 @@ export async function enrichBook(db: Db, deps: EnrichDeps, bookId: string): Prom
       .values(values)
       .onConflictDoUpdate({
         target: enrichment.bookId,
-        // A "Try again" that arrived while this run was in flight stays requested, so the job it
-        // queued still does its work.
-        set: { ...values, requestedAt: sql`case when ${enrichment.requestedAt} is not distinct from ${requested} then null else ${enrichment.requestedAt} end` },
+        set: { ...values, requestedAt: handled },
       });
   } catch (err) {
     const failure = {
