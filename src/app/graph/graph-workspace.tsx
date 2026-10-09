@@ -185,10 +185,10 @@ export function GraphWorkspace({
         <div data-graph-chrome className="pointer-events-auto">
           <ViewSwitch current="graph" />
         </div>
-        <div data-graph-chrome className="pointer-events-auto">
+        <FindingIndicator initial={finding} paused={paused} />
+        <div data-graph-chrome className="pointer-events-auto ml-auto">
           <ReaderLink signedIn={signedIn} />
         </div>
-        <FindingIndicator initial={finding} paused={paused} />
       </header>
 
       {!wide && (

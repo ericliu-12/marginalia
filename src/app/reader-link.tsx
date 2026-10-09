@@ -9,7 +9,7 @@ import { quietLink } from "./quiet-link";
 // Sign out with one. #67's account page replaces it.
 export function ReaderLink({ signedIn, className = "" }: { signedIn: boolean; className?: string }) {
   const pathname = usePathname();
-  const [pending, setPending] = useState(false);
+  const [state, setState] = useState<"idle" | "pending" | "failed">("idle");
 
   if (!signedIn)
     return (
@@ -19,14 +19,19 @@ export function ReaderLink({ signedIn, className = "" }: { signedIn: boolean; cl
     );
 
   async function signOut() {
-    setPending(true);
+    setState("pending");
     const res = await fetch("/api/auth/sign-out", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(() => null);
     if (res?.ok) return window.location.assign("/sign-in");
-    setPending(false);
+    setState("failed");
   }
   return (
-    <button type="button" onClick={signOut} disabled={pending} className={`${quietLink} ${className}`}>
-      Sign out
-    </button>
+    <span className={`flex items-baseline gap-2 ${className}`}>
+      <span role="status" className="font-sans text-[0.8rem] text-contrast">
+        {state === "failed" ? "Couldn’t sign out." : ""}
+      </span>
+      <button type="button" onClick={signOut} disabled={state === "pending"} className={quietLink}>
+        {state === "pending" ? "Signing out…" : state === "failed" ? "Try again" : "Sign out"}
+      </button>
+    </span>
   );
 }

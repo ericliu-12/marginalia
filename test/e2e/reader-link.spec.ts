@@ -26,7 +26,11 @@ test("signed out, the library offers Sign in; signed in, Sign out, which ends th
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole("link", { name: "Sign in" })).toHaveCount(0);
 
+  // A sign-out that fails says so, and can be tried again.
+  await page.route("**/api/auth/sign-out", (route) => route.fulfill({ status: 500 }), { times: 1 });
   await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Couldn’t sign out." })).toBeVisible();
+  await page.getByRole("button", { name: "Try again" }).click();
   await expect(page).toHaveURL(/\/sign-in$/);
   expect((await context.cookies()).map((c) => c.name)).not.toContain("better-auth.session_token");
   await page.goto("/");

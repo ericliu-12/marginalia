@@ -19,13 +19,13 @@ export function LibraryWorkspace({ items, finding, paused, signedIn }: { items: 
 
   return (
     <div className="flex min-h-screen flex-col lg:h-screen">
-      <header className="flex flex-wrap items-baseline justify-between gap-y-2 px-8 pt-7 pb-5 lg:px-12">
+      <header className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 px-8 pt-7 pb-5 lg:px-12">
         <div className="mr-auto flex items-baseline gap-8">
           <h1 className="text-[1.75rem] leading-none font-medium tracking-[-0.01em] italic">Marginalia</h1>
           <ViewSwitch current="library" />
-          <ReaderLink signedIn={signedIn} />
           <FindingIndicator initial={finding} paused={paused} />
         </div>
+        <ReaderLink signedIn={signedIn} />
         {!searchOpen && (
           <button
             ref={openRef}
