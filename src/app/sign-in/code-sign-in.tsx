@@ -13,7 +13,7 @@ const button =
   "mt-3 min-h-11 w-full rounded-[3px] bg-ink px-4 font-sans text-sm font-medium text-paper transition-colors hover:bg-ink-2 disabled:cursor-default disabled:hover:bg-ink";
 // Google's sign-in branding: its own "G", unaltered, on a neutral outlined button.
 const googleButton =
-  "flex min-h-11 w-full items-center justify-center gap-3 rounded-[3px] border border-edge bg-paper-raised px-4 font-sans text-sm font-medium text-ink transition-colors hover:bg-paper-sunk disabled:cursor-default disabled:hover:bg-paper-raised";
+  "flex min-h-11 w-full items-center justify-center gap-3 rounded-[3px] border border-edge bg-paper-2 px-4 font-sans text-sm font-medium text-ink transition-colors hover:bg-paper-3 disabled:cursor-default disabled:text-ink-3 disabled:hover:bg-paper-2";
 const label = "block font-sans text-[0.8rem] font-medium text-ink-2";
 const quietText = "font-sans text-[0.8rem] text-ink-3";
 
@@ -74,10 +74,28 @@ export function CodeSignIn({ next, callbackURL, googleFailed }: { next: string; 
   const [now, setNow] = useState(0);
   const [resent, setResent] = useState(false);
   const [googlePending, setGooglePending] = useState(false);
-  const [googleError, setGoogleError] = useState<string | null>(googleFailed ? GOOGLE_FAILED : null);
+  const [googleError, setGoogleError] = useState<string | null>(null);
   const emailInput = useRef<HTMLInputElement>(null);
   const codeInput = useRef<HTMLInputElement>(null);
   const codeForm = useRef<HTMLFormElement>(null);
+
+  // Set after the page loads, so the alert is a change a screen reader announces; and taken out of the
+  // address, so a reload doesn't show it again.
+  useEffect(() => {
+    if (!googleFailed) return;
+    setGoogleError(GOOGLE_FAILED);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("error");
+    window.history.replaceState(null, "", url);
+  }, [googleFailed]);
+
+  // Back from Google without signing in (Done on the iPhone's sheet, or the back button), the page may be
+  // restored as it was left, still opening Google.
+  useEffect(() => {
+    const restored = (e: PageTransitionEvent) => e.persisted && setGooglePending(false);
+    window.addEventListener("pageshow", restored);
+    return () => window.removeEventListener("pageshow", restored);
+  }, []);
 
   useEffect(() => {
     const saved = readSaved();
@@ -127,6 +145,7 @@ export function CodeSignIn({ next, callbackURL, googleFailed }: { next: string; 
   async function onEmail(e: FormEvent) {
     e.preventDefault();
     if (pending) return;
+    setGoogleError(null);
     const address = email.trim().toLowerCase();
     setEmail(address);
     if (!address) return (setError("Enter your email."), emailInput.current?.focus());

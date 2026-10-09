@@ -24,7 +24,8 @@ test("Continue with Google goes to Google, which is told to return the Reader to
 test("a Google sign-in that fails comes back to the sign-in page with one neutral line, and the email code still works", async ({ page }) => {
   // A return Better Auth can't match to a sign-in it started, as any failure comes back.
   await page.goto("/api/auth/callback/google?code=code&state=forged");
-  await expect(page).toHaveURL(/\/sign-in\?error=/);
   await expect(page.locator("#google-message")).toHaveText("That didn’t sign you in. Try again, or sign in with an email code below.");
+  // Taken out of the address once shown, so a reload doesn't show it again.
+  await expect(page).toHaveURL(/\/sign-in$/);
   await expect(page.getByRole("button", { name: "Send code" })).toBeEnabled();
 });

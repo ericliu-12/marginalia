@@ -85,6 +85,7 @@ describe("Continue with Google", () => {
     const { google } = await start();
     expect(google.origin + google.pathname).toBe("https://accounts.google.com/o/oauth2/v2/auth");
     expect(google.searchParams.get("redirect_uri")).toBe(`${BASE_URL}/api/auth/callback/google`);
+    expect(google.searchParams.get("prompt")).toBe("select_account");
   });
 
   it("signs a Reader who signed up with an email code in to the same library, and returns them on BETTER_AUTH_URL", async () => {
