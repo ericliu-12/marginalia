@@ -31,9 +31,16 @@ After any change to the Enrichment or connection-judge prompts, or to the judge'
 
 After any change to the Cluster naming prompt, its call settings or input layout, re-name the dev Clusters (local `DATABASE_URL`; clear `named_member_book_ids` so each is due, then run `nameClusters` with `claudeClusterNamer`, so the call still sees the old name; a few cents) and show the user each Cluster's Books, name and description before committing.
 
-## Git
+## Shipping
 
-Before any commit, check the current branch (`git branch --show-current`) and confirm it's the intended one.
+`main` auto-deploys to production on Railway, so it changes only by a merged PR: commit and push on a ticket branch, never on `main`.
+
+1. Work on a branch named `<issue-number>-<short-slug>` (e.g. `46-reading-pace`). Before each commit, confirm `git branch --show-current` is that branch; commit there and push the branch.
+2. Before opening a PR, run `pnpm test` and `pnpm e2e`; both pass in full.
+3. Open the PR with `gh pr create`: its body says `Closes #N`, summarises the change, and lists what the user should test by hand (e.g. on their iPhone).
+4. Wait for the user to say "merge it". Then `gh pr merge --squash --delete-branch`, and check with `railway logs` that the deploy succeeded before saying it's live.
+
+Migrations are backward-compatible. The web service's pre-deploy runs them while the previous deploy is still serving and the worker restarts on its own, so the code already running must keep working on the migrated schema: add tables and columns freely, and drop or rename a column only in a later deploy, once no running code uses it.
 
 ## Sub-agents
 
