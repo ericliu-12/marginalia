@@ -120,8 +120,7 @@ export async function enrichBook(db: Db, deps: EnrichDeps, bookId: string): Prom
   // Clears the "Try again" this run handles. One that arrived while it was in flight stays requested,
   // so the job it queued still does its work.
   const handled = sql`case when ${enrichment.requestedAt} is not distinct from ${requested} then null else ${enrichment.requestedAt} end`;
-  // Google's description is never stored (#44); a description stored beside a volume predates that and
-  // is Google's, so it is never read.
+  // Google's description is never stored (#44), so a description beside a volume is not this Book's.
   let stored = b.googleBooksVolumeId ? null : b.description;
   // Google's description for this run only, once it has been fetched.
   let fetched = "";
