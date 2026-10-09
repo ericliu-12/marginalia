@@ -3,12 +3,14 @@ import { e2eDatabaseUrl } from "./test/e2e/database";
 import { E2E_OUTBOX } from "./test/e2e/mail";
 import { E2E_CATALOG } from "./test/e2e/open-library";
 import { E2E_PASSWORD, E2E_SESSION_SECRET, signedIn } from "./test/e2e/session";
+import { E2E_PORT } from "./test/worktree";
 
-// A production build on its own port and database, so it runs beside `pnpm dev`. The API keys are
+// A production build on its own port and database, so it runs beside `pnpm dev` (and, in a ticket's
+// worktree, beside the other checkouts' e2e runs: see test/worktree.ts). The API keys are
 // placeholders: nothing the tests do calls out, and anything that tried would fail rather than spend.
 // The Google Books key is blank, which turns off the description lookup when a Book is added from search,
 // and Open Library's works come from a file the tests write (test/e2e/open-library.ts).
-const PORT = 3100;
+const PORT = E2E_PORT;
 
 export default defineConfig({
   testDir: "test/e2e",

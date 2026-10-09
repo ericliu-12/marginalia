@@ -23,7 +23,7 @@ Any work that creates or changes UI uses the `impeccable` skill.
 
 ## Browser tests
 
-Before committing any UI change, run `pnpm e2e` (Playwright against a production build on port 3100 and its own seeded `marginalia_e2e` database; runs beside `pnpm dev`, no real API calls). Each UI ticket adds a thin e2e check for its main flow to `test/e2e/`, seeding what it needs through `test/e2e/database.ts`.
+Before committing any UI change, run `pnpm e2e` (Playwright against a production build on port 3100 and its own seeded `marginalia_e2e` database, or in a ticket worktree port 4000+N and `marginalia_e2e_N` (`test/worktree.ts`); runs beside `pnpm dev` and other checkouts, no real API calls). Each UI ticket adds a thin e2e check for its main flow to `test/e2e/`, seeding what it needs through `test/e2e/database.ts`.
 
 ## Evals
 
@@ -41,6 +41,14 @@ After any change to the Cluster naming prompt, its call settings or input layout
 4. Wait for the user to say "merge it". Then `gh pr merge --squash --delete-branch`, and check with `railway logs` that the deploy succeeded before saying it's live.
 
 Migrations are backward-compatible. The web service's pre-deploy runs them while the previous deploy is still serving and the worker restarts on its own, so the code already running must keep working on the migrated schema: add tables and columns freely, and drop or rename a column only in a later deploy, once no running code uses it.
+
+## Parallel tickets
+
+A ticket can run in its own worktree beside other work. When asked to work on a ticket in parallel, or to "start #N alongside", use the `parallel-ticket` skill: it checks for overlap and open blockers, then gives the command for the user to run in a new terminal.
+
+- `pnpm ticket <n> <slug>` creates `../marginalia-<n>` on branch `<n>-<slug>` from `origin/main`, copies `.env`, installs, and starts `claude "/implement #<n>"` there. Its `pnpm test` and `pnpm e2e` use their own databases and port.
+- `pnpm ticket:done <n>`, from the main checkout once the PR is merged, removes the worktree and its branch and drops its test databases.
+- Before merging the second of two parallel PRs, "update from main": merge `origin/main` into its branch, rerun `pnpm test` and `pnpm e2e`, push.
 
 ## Sub-agents
 

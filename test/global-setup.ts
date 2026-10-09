@@ -1,9 +1,10 @@
 import { Pool } from "pg";
 import { createDb } from "../src/db/client";
 import { runMigrations } from "../src/db/migrate";
+import { perWorktree } from "./worktree";
 
 const ADMIN_URL = process.env.DATABASE_URL ?? "postgres://marginalia:marginalia@localhost:5433/marginalia";
-export const TEST_DB_NAME = "marginalia_test";
+export const TEST_DB_NAME = perWorktree("marginalia_test");
 
 export function testDatabaseUrl() {
   const url = new URL(ADMIN_URL);
