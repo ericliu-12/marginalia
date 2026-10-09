@@ -32,7 +32,9 @@ describe("Signing in with an email code", () => {
     expect(mailer.sent).toHaveLength(1);
     const [mail] = mailer.sent;
     expect(mail).toMatchObject({ from: "Marginalia <hello@inkmarginalia.com>", to: "friend@example.com" });
-    expect(mail.text).toMatch(/\b\d{6}\b/);
+    const code = mailer.codeFor("friend@example.com");
+    expect(mail.subject).toBe(`Your Marginalia code: ${code}`);
+    expect(mail.text.split("\n")[0]).toBe(`Your Marginalia sign-in code is ${code}.`);
     expect(mail.text).toContain("expires in 5 minutes");
     expect(mail.text).toContain("didn’t ask for this");
 

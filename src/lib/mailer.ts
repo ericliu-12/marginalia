@@ -12,7 +12,7 @@ const FROM = "Marginalia <hello@inkmarginalia.com>";
 export const signInCodeMail = (to: string, code: string): Mail => ({
   from: FROM,
   to,
-  subject: `${code} is your Marginalia code`,
+  subject: `Your Marginalia code: ${code}`,
   text: `Your Marginalia sign-in code is ${code}.\n\nIt expires in 5 minutes.\n\nIf you didn’t ask for this, you can ignore this email.\n`,
 });
 
