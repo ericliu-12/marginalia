@@ -561,6 +561,9 @@ type NoteFormProps = {
 // Tapping a reveal or Save leaves focus where it is, so a phone's keyboard stays up.
 const keepFocus = (e: React.MouseEvent) => e.preventDefault();
 
+// A save with no answer by now is shown as failed: a phone that has lost its signal can hang rather than fail.
+const SAVE_TIMEOUT_MS = 15_000;
+
 export function NoteForm(props: NoteFormProps) {
   const { note, onSaved, onCancel, variant = "panel" } = props;
   const editing = !!note;
@@ -570,47 +573,92 @@ export function NoteForm(props: NoteFormProps) {
       ? { body: props.note.body, quote: props.note.quote ?? "", page: props.note.page?.toString() ?? "" }
       : loadDraft(props.bookId),
   );
+  // What is typed now, for a save that answers late.
+  const latest = useRef(draft);
   const [showQuote, setShowQuote] = useState(!!draft.quote);
   const [showPage, setShowPage] = useState(!!draft.page);
-  // A save that failed keeps everything typed and offers to send it again.
+  // A save that failed keeps everything typed, and Save becomes Try again.
   const [error, setError] = useState<{ message: string; retry: boolean } | null>(null);
-  const [pending, start] = useTransition();
+  // Not a transition: a server action that hangs would keep it pending.
+  const [pending, setPending] = useState(false);
+  // The save on its way. Server actions go one at a time, so one that has hung would hold back a second
+  // try, and could land as well; trying again waits on it once more rather than sending another.
+  const inflight = useRef<Promise<void> | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const ownBodyRef = useRef<HTMLTextAreaElement>(null);
   const bodyRef = props.bodyRef ?? ownBodyRef;
   const quoteRef = useRef<HTMLTextAreaElement>(null);
   const pageRef = useRef<HTMLInputElement>(null);
+  const saveRef = useRef<HTMLButtonElement>(null);
   const idPrefix = note ? `note-${note.id}` : "new-note";
 
   useEffect(() => {
     if (editing) bodyRef.current?.focus();
   }, [editing, bodyRef]);
 
+  useEffect(() => () => clearTimeout(timer.current), []);
+
+  // With a phone's keyboard up, the message and the way to try again can sit below the sheet's fold.
+  useEffect(() => {
+    if (error?.retry) saveRef.current?.scrollIntoView({ block: "nearest" });
+  }, [error]);
+
   function change(patch: Partial<Draft>) {
     const next = { ...draft, ...patch };
     setDraft(next);
+    latest.current = next;
     setError(null);
     if (props.bookId) saveDraft(props.bookId, next);
   }
 
-  function submit() {
-    if (!draft.body.trim()) return setError({ message: "Write something first.", retry: false });
-    const page = parsePage(draft.page);
-    if (page === "invalid") return setError({ message: "Page should be a whole number.", retry: false });
+  // A new Note's draft is cleared once it is saved, unless the reader has typed on since sending it.
+  function finish(saved: Note, sent: Draft) {
     setError(null);
-    start(async () => {
-      const input = { body: draft.body, quote: draft.quote, page };
-      // Offline, the action itself rejects rather than answering.
-      const res = await (props.note ? updateNoteAction(props.note.id, input) : addNoteAction(props.bookId, input)).catch(() => ({ ok: false as const }));
-      if (!res.ok) return setError({ message: "Couldn’t save this note.", retry: true });
-      if (!editing) {
+    if (!editing && latest.current === sent) {
+      if (props.bookId) saveDraft(props.bookId, EMPTY);
+      latest.current = EMPTY;
+      // The sheet goes down with the words still on it.
+      if (!sheet) {
         setDraft(EMPTY);
         setShowQuote(false);
         setShowPage(false);
-        if (props.bookId) saveDraft(props.bookId, EMPTY);
-        if (!sheet) bodyRef.current?.focus();
+        bodyRef.current?.focus();
       }
-      onSaved?.(res.note);
-    });
+    }
+    onSaved?.(saved);
+  }
+
+  function submit() {
+    if (!draft.body.trim()) {
+      const message = draft.quote.trim() ? "Add a line of your own to go with the passage." : "Write something first.";
+      return setError({ message, retry: false });
+    }
+    const page = parsePage(draft.page);
+    if (page === "invalid") return setError({ message: "Page should be a whole number.", retry: false });
+    setError(null);
+    setPending(true);
+    const failed = () => setError({ message: "Couldn’t save. Your note is kept here.", retry: true });
+    if (!inflight.current) {
+      const sent = draft;
+      const input = { body: sent.body, quote: sent.quote, page };
+      // Offline, the action itself rejects rather than answering.
+      const call = props.note ? updateNoteAction(props.note.id, input) : addNoteAction(props.bookId, input);
+      inflight.current = call
+        .catch(() => ({ ok: false as const }))
+        .then((res) => {
+          inflight.current = null;
+          clearTimeout(timer.current);
+          setPending(false);
+          // A late answer that saved it counts, even after the reader was told it hadn't.
+          if (res.ok) finish(res.note, sent);
+          else failed();
+        });
+    }
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      setPending(false);
+      failed();
+    }, SAVE_TIMEOUT_MS);
   }
 
   // Revealed and focused in the same tap, so a phone keeps its keyboard up for the new field.
@@ -619,11 +667,23 @@ export function NoteForm(props: NoteFormProps) {
     ref.current?.focus();
   }
 
-  const sheetField = "w-full bg-transparent text-ink placeholder:text-ink-3 focus-visible:outline-none";
+  // Taking a quote or page away clears it and goes back to the Note's text.
+  function remove(patch: Partial<Draft>, show: (on: boolean) => void) {
+    change(patch);
+    show(false);
+    bodyRef.current?.focus();
+  }
+
+  // Writing on the sheet's paper has no box; a keyboard's focus shows as a thematic hairline beneath.
+  const sheetField = "w-full bg-transparent text-ink placeholder:text-ink-3 focus-visible:shadow-[0_1px_0_var(--color-thematic)] focus-visible:outline-none";
   const label = "font-sans text-[0.8rem] font-medium text-ink-2";
+  const removeLink = (what: string, onClick: () => void) => (
+    <button type="button" aria-label={`Remove ${what}`} onMouseDown={keepFocus} onClick={onClick} className={`${quietLink} shrink-0`}>
+      Remove
+    </button>
+  );
   return (
     <form
-      aria-label={sheet ? "New note" : undefined}
       onSubmit={(e) => {
         e.preventDefault();
         submit();
@@ -649,13 +709,17 @@ export function NoteForm(props: NoteFormProps) {
         onChange={(e) => change({ body: e.target.value })}
         placeholder="What are you thinking?"
         rows={sheet ? 5 : editing ? 4 : 3}
-        className={sheet ? `${sheetField} block resize-none py-1.5 text-[1.125rem] leading-normal` : `${field} resize-y text-[1.0625rem] leading-normal`}
+        // In the sheet the text grows as it is written, and the sheet scrolls, rather than scrolling inside it.
+        className={`${sheet ? `${sheetField} block min-h-[5lh] resize-none py-1.5 field-sizing-content` : `${field} resize-y`} text-[1.0625rem] leading-normal`}
       />
       {showQuote && (
-        <div className={sheet ? "border-t border-rule pt-2.5" : "mt-3"}>
-          <label htmlFor={`${idPrefix}-quote`} className={label}>
-            Quoted passage
-          </label>
+        <div className={sheet ? "border-t border-rule pt-1" : "mt-3"}>
+          <div className="flex items-center justify-between gap-3">
+            <label htmlFor={`${idPrefix}-quote`} className={label}>
+              Quoted passage
+            </label>
+            {removeLink("quote", () => remove({ quote: "" }, setShowQuote))}
+          </div>
           <textarea
             ref={quoteRef}
             id={`${idPrefix}-quote`}
@@ -663,41 +727,38 @@ export function NoteForm(props: NoteFormProps) {
             onChange={(e) => change({ quote: e.target.value })}
             rows={sheet ? 3 : 2}
             placeholder={sheet ? "The passage, as written" : undefined}
-            className={sheet ? `${sheetField} block resize-none py-1 text-ink-2 italic` : `${field} mt-1 resize-y italic`}
+            className={sheet ? `${sheetField} block min-h-[3lh] resize-none pb-1 text-ink-2 italic field-sizing-content` : `${field} mt-1 resize-y italic`}
           />
         </div>
       )}
       {showPage && (
         <div className={sheet ? "flex items-center gap-3 border-t border-rule" : "mt-3"}>
-          <label htmlFor={`${idPrefix}-page`} className={label}>
-            Page
-          </label>
+          <div className={sheet ? "contents" : "flex items-center justify-between gap-3"}>
+            <label htmlFor={`${idPrefix}-page`} className={label}>
+              Page
+            </label>
+            {!sheet && removeLink("page", () => remove({ page: "" }, setShowPage))}
+          </div>
           <input
             ref={pageRef}
             id={`${idPrefix}-page`}
             inputMode="numeric"
             autoComplete="off"
+            placeholder="e.g. 112"
             value={draft.page}
             onChange={(e) => change({ page: e.target.value })}
-            className={sheet ? `${sheetField} min-h-11 w-24 font-sans text-[0.95rem] tabular-nums` : `${field} mt-1 w-28 font-sans text-[0.95rem]`}
+            className={sheet ? `${sheetField} min-h-11 min-w-0 flex-1 font-sans text-[0.95rem] tabular-nums` : `${field} mt-1 w-28 font-sans text-[0.95rem]`}
           />
+          {sheet && removeLink("page", () => remove({ page: "" }, setShowPage))}
         </div>
       )}
       {error && (
-        <p role="alert" className="mt-2 font-sans text-sm text-contrast">
+        <p role="alert" className={`font-sans text-sm text-contrast ${sheet ? "border-t border-rule py-2.5" : "mt-2"}`}>
           {error.message}
-          {error.retry && (
-            <>
-              {" "}
-              <button type="submit" onMouseDown={keepFocus} disabled={pending} className="min-h-11 underline decoration-contrast/40 underline-offset-4 lg:min-h-0">
-                Try again
-              </button>
-            </>
-          )}
         </p>
       )}
-      <div className={sheet ? "flex flex-wrap items-center gap-x-5 border-t border-rule pt-1" : "mt-3 flex flex-wrap items-center gap-x-5 gap-y-1"}>
-        {!sheet && <SaveNote pending={pending} editing={editing} sheet={false} />}
+      <div className={sheet ? "flex flex-wrap items-center gap-x-5 border-t border-rule pt-1 empty:hidden" : "mt-3 flex flex-wrap items-center gap-x-5 gap-y-1"}>
+        {!sheet && <SaveNote buttonRef={saveRef} pending={pending} retry={!!error?.retry} editing={editing} sheet={false} />}
         {editing && (
           <button type="button" onClick={onCancel} disabled={pending} className={quietLink}>
             Cancel
@@ -714,22 +775,36 @@ export function NoteForm(props: NoteFormProps) {
           </button>
         )}
       </div>
-      {sheet && <SaveNote pending={pending} editing={false} sheet />}
+      {sheet && <SaveNote buttonRef={saveRef} pending={pending} retry={!!error?.retry} editing={false} sheet />}
     </form>
   );
 }
 
-function SaveNote({ pending, editing, sheet }: { pending: boolean; editing: boolean; sheet: boolean }) {
+function SaveNote({
+  buttonRef,
+  pending,
+  retry,
+  editing,
+  sheet,
+}: {
+  buttonRef: RefObject<HTMLButtonElement | null>;
+  pending: boolean;
+  retry: boolean;
+  editing: boolean;
+  sheet: boolean;
+}) {
   return (
     <button
+      ref={buttonRef}
       type="submit"
       disabled={pending}
       onMouseDown={keepFocus}
       className={`rounded-[3px] bg-ink font-sans font-medium text-paper transition-colors hover:bg-ink-2 disabled:bg-ink-3 ${sheet ? "mt-2 min-h-12 w-full text-[0.95rem] active:bg-ink-2" : "min-h-11 px-4 py-2 text-sm lg:min-h-0"}`}
     >
-      {pending ? "Saving…" : editing ? "Save changes" : "Save note"}
+      {pending ? "Saving…" : retry ? "Try again" : editing ? "Save changes" : "Save note"}
     </button>
   );
+
 }
 
 function NoteItem({

@@ -24,6 +24,9 @@ const pen = (
   </svg>
 );
 
+// How long the "Note saved" line stays.
+const SAVED_MS = 8000;
+
 const chevron = (
   <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden className="shrink-0">
     <path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -45,11 +48,23 @@ export function MobileShelf({ items, finding }: { items: LibraryItem[]; finding:
   if (opening && noteParam === opening) setOpening(null);
   const noteBook = bookId || adding ? undefined : items.find((i) => i.bookId === (opening ?? noteParam));
   const noteBodyRef = useRef<HTMLTextAreaElement>(null);
+  // The quiet "Note saved" line: it is said once the sheet has gone (`justSaved` holds it till then, so
+  // it isn't spoken from behind the inert shelf), and it goes with the next move or after a while.
   const [saved, setSaved] = useState<{ bookId: string; title: string } | null>(null);
-  // Which Books have an unsent draft, read again whenever a sheet or a Book screen closes.
+  const justSaved = useRef<{ bookId: string; title: string } | null>(null);
+  const savedRef = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (!saved) return;
+    const timer = setInterval(() => {
+      // Not while the reader is on its Open link.
+      if (!savedRef.current?.contains(document.activeElement)) setSaved(null);
+    }, SAVED_MS);
+    return () => clearInterval(timer);
+  }, [saved]);
+  // Which Books have an unsent draft, read again whenever a sheet or a Book screen opens or closes.
   const [drafts, setDrafts] = useState<Set<string>>(new Set());
   useEffect(() => {
-    if (!noteBook && !bookId) setDrafts(new Set(items.filter((i) => hasDraft(i.bookId)).map((i) => i.bookId)));
+    setDrafts(new Set(items.filter((i) => hasDraft(i.bookId)).map((i) => i.bookId)));
   }, [items, noteBook, bookId]);
   const [open, setOpen] = useState<Record<string, boolean>>({});
   // Where the shelf was when a Book opened, to come back to: its scroll and the row that opened it.
@@ -75,6 +90,7 @@ export function MobileShelf({ items, finding }: { items: LibraryItem[]; finding:
   // From the shelf or from Add a Book is a new history entry; from another Book's Connection it takes
   // that Book's place, so back leads to where the first Book was opened.
   function openBook(id: string) {
+    setSaved(null);
     if (!book && !adding) back.current = { scrollY: window.scrollY, bookId: id };
     if (book) {
       window.history.replaceState(null, "", `?book=${id}`);
@@ -94,6 +110,7 @@ export function MobileShelf({ items, finding }: { items: LibraryItem[]; finding:
   }
 
   function openAdd() {
+    setSaved(null);
     addScroll.current = window.scrollY;
     depth.current++;
     window.history.pushState(null, "", "?add");
@@ -151,6 +168,8 @@ export function MobileShelf({ items, finding }: { items: LibraryItem[]; finding:
   useEffect(() => {
     if (noteBook) noteFor.current = noteBook.bookId;
     else if (noteFor.current) {
+      setSaved(justSaved.current);
+      justSaved.current = null;
       document.querySelector<HTMLElement>(`[data-note-for="${noteFor.current}"]`)?.focus();
       noteFor.current = null;
     }
@@ -213,7 +232,7 @@ export function MobileShelf({ items, finding }: { items: LibraryItem[]; finding:
           </main>
           <div inert={adding || !!noteBook} className="fixed inset-x-0 bottom-0 bg-linear-to-t from-paper from-60% to-paper/0 pt-8">
             <div className="mx-auto max-w-[40rem] px-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
-              <p role="status" className="mb-1 flex min-h-11 items-center gap-x-4 font-sans text-sm text-ink-2 empty:hidden">
+              <p ref={savedRef} role="status" className="mb-1 flex min-h-11 items-center gap-x-4 font-sans text-sm text-ink-2 empty:hidden">
                 {saved && (
                   <>
                     <span className="min-w-0 truncate">
@@ -247,7 +266,7 @@ export function MobileShelf({ items, finding }: { items: LibraryItem[]; finding:
           bodyRef={noteBodyRef}
           onClose={goBack}
           onSaved={() => {
-            setSaved({ bookId: noteBook.bookId, title: noteBook.title });
+            justSaved.current = { bookId: noteBook.bookId, title: noteBook.title };
             goBack();
           }}
         />
