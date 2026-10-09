@@ -70,11 +70,15 @@ export function MobileAdd({
   const [manualDraft, setManualDraft] = useState<BookDraft | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const view = useVisibleViewport();
+  // Until Add has risen, the search's caret is hidden: iOS draws it apart from the page, so it lags and
+  // jitters behind the moving field. Without motion there is no rise, and the caret shows at once.
+  const [risen, setRisen] = useState(false);
 
   // Back from a Book opened here, the results are fetched again, so each says what the library holds now.
   const wasHidden = useRef(hidden);
   useEffect(() => {
-    if (!hidden) inputRef.current?.focus({ preventScroll: true });
+    if (hidden) setRisen(false);
+    else inputRef.current?.focus({ preventScroll: true });
     if (wasHidden.current && !hidden) retry();
     wasHidden.current = hidden;
   }, [hidden]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -128,6 +132,7 @@ export function MobileAdd({
       }}
       // Fitted to what the keyboard leaves visible, as the Note sheet is, so the heading and search stay in view.
       style={view ? { top: view.top, height: view.height } : { top: 0, height: "100dvh" }}
+      onAnimationEnd={(e) => e.target === e.currentTarget && setRisen(true)}
       className="fixed inset-x-0 z-10 flex flex-col bg-paper motion-safe:animate-sheet-up"
     >
       <div className="mx-auto w-full max-w-[40rem] flex-none px-6 pt-[max(1rem,env(safe-area-inset-top))]">
@@ -155,7 +160,7 @@ export function MobileAdd({
           placeholder="Title and author"
           autoComplete="off"
           autoCapitalize="off"
-          className="mt-3 min-h-12 w-full rounded-[3px] border border-edge bg-paper-2 px-3 font-sans text-base text-ink placeholder:text-ink-3 focus-visible:border-thematic focus-visible:ring-2 focus-visible:ring-thematic/30 focus-visible:outline-none"
+          className={`mt-3 min-h-12 w-full rounded-[3px] border border-edge bg-paper-2 px-3 ${risen ? "" : "motion-safe:caret-transparent"} font-sans text-base text-ink placeholder:text-ink-3 focus-visible:border-thematic focus-visible:ring-2 focus-visible:ring-thematic/30 focus-visible:outline-none`}
         />
         <FindingIndicator initial={finding} paused={paused} className="mt-2 min-h-5" />
       </div>

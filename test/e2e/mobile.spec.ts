@@ -100,6 +100,12 @@ test("Add adds a Book in one tap, stays open with the search selected for the ne
   await expect(shelf(page).getByRole("button", { name: "Read 6" })).toHaveAttribute("aria-expanded", "false");
 });
 
+test("Add's search shows its caret once Add has risen, not while it moves", async ({ page }) => {
+  await page.getByRole("button", { name: "Add a Book" }).click();
+  await expect(searchbox(page)).toBeFocused();
+  await expect.poll(() => searchbox(page).evaluate((el) => getComputedStyle(el).caretColor)).not.toBe("rgba(0, 0, 0, 0)");
+});
+
 test("Add is a URL too: back closes it, to the button that opened it", async ({ page }) => {
   const add = page.getByRole("button", { name: "Add a Book" });
   await add.click();
