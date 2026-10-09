@@ -127,6 +127,13 @@
       "when": 1791528207121,
       "tag": "0017_better_auth",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791570619617,
+      "tag": "0018_cluster_described_members",
+      "breakpoints": true
     }
   ]
 }
