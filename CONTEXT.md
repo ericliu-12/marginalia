@@ -4,6 +4,10 @@ A private, contemplative web app where a reader keeps a personal library, captur
 
 ## Language
 
+**Reader**:
+A person with an account who keeps a library. Every Library Entry, Note, Manual Book, Connection and Cluster belongs to exactly one Reader, and no Reader sees another's.
+_Avoid_: User, account, member
+
 **Book**:
 A single work, independent of any reader. Editions (hardcover, paperback, translation printings) are ignored.
 _Avoid_: Edition, title, volume

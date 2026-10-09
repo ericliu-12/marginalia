@@ -27,6 +27,7 @@ export default defineConfig({
       APP_PASSWORD: E2E_PASSWORD,
       SESSION_SECRET: E2E_SESSION_SECRET,
       MONTHLY_AI_BUDGET_USD: "8",
+      GOOGLE_CLIENT_ID: "e2e-no-calls",
     },
   },
 });
