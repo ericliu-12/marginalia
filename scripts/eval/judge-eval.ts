@@ -12,7 +12,7 @@ import { Pool } from "pg";
 import { sql } from "drizzle-orm";
 import { createDb } from "@/db/client";
 import { runMigrations } from "@/db/migrate";
-import { seedUser } from "@/db/seed";
+import { user } from "@/db/schema";
 import { addBook } from "@/domain/add-book";
 import type { JudgeInput, JudgeResult } from "@/domain/connections";
 import type { Embedder } from "@/domain/embeddings";
@@ -49,7 +49,7 @@ const { db, pool } = createDb(scratchUrl.toString());
 
 try {
   await runMigrations(db);
-  const user = await seedUser(db);
+  const [reader] = await db.insert(user).values({ email: "eval@marginalia.local" }).returning();
 
   // Voyage rate limits clear within minutes: retry rather than abort a paid run.
   const voyage = voyageEmbedder();
@@ -91,13 +91,13 @@ try {
   for (const slug of fixture.order) {
     const b = books[slug];
     const work: OpenLibraryWork = { workKey: `/works/${slug}`, title: b.title, authors: [b.author], firstPublishedYear: null, editionCount: 1, coverId: null, subjects: [] };
-    const entry = await addBook(db, pipeline, user.id, work, "read");
+    const entry = await addBook(db, pipeline, reader.id, work, "read");
     // Seat the saved Enrichment through the real Enrichment module (hashes included), so the job does not redo it.
     const saved = { model: "eval", promptVersion: "saved", async enrich() {
       return { ...b.enrichment, author: b.author, firstPublishedYear: null, inputTokens: 0, outputTokens: 0, costUsd: 0 };
     } };
     await enrichBook(db, { model: saved }, entry.bookId);
-    for (const body of b.notes) await addNote(db, pipeline, user.id, entry.bookId, { body });
+    for (const body of b.notes) await addNote(db, pipeline, reader.id, entry.bookId, { body });
     current = slug;
     await jobs.drain({ model: unused, judge, embedder, descriptions: null, namer });
     console.log(`${b.title}: ${raw.filter((r) => r.slug === slug).length ? "judged" : "no candidates"}`);

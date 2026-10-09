@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
-import { finishBook, LIBRARY, readerId, seedLibrary, settleGraph, wantBook } from "./database";
+import { finishBook, LIBRARY, seedLibrary, settleGraph, wantBook } from "./database";
+import { READER_A } from "./session";
 
 // The arrival: a Book finished since the graph last showed lands, its panel opens, and its Connections
 // draw in one by one. Each test opens the graph once first, so it has something to remember.
@@ -73,7 +74,7 @@ test("a Book added as already read, with no dates, is new in the graph rather th
 
 test("the graph remembers what it showed under the reader's own id", async ({ page }) => {
   await openGraph(page);
-  const remembered = await page.evaluate((key) => localStorage.getItem(key), `marginalia:graph-shown:${await readerId()}`);
+  const remembered = await page.evaluate((key) => localStorage.getItem(key), `marginalia:graph-shown:${READER_A.id}`);
   expect(JSON.parse(remembered!)).toHaveLength(LIBRARY.length);
 });
 

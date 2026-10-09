@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readingBook, seedLibrary, wantBook } from "./database";
+import { catalog } from "./open-library";
 
 // The library at phone width: the Reading shelf, its folded sections, and the Book screen with its
 // three-way Status control. The seeded chain is all Read; Middlemarch is being read for the first time.
@@ -46,11 +47,13 @@ const CATALOG = ["Piranesi", "Austerlitz", "The Peregrine"].map((title, i) => ({
   libraryBookId: null,
   lookalike: null,
 }));
-const answerSearch = (page: Page) =>
-  page.route("**/api/search?**", (route) => {
+const answerSearch = async (page: Page) => {
+  await catalog(CATALOG);
+  await page.route("**/api/search?**", (route) => {
     const q = new URL(route.request().url()).searchParams.get("q")!.toLowerCase();
     return route.fulfill({ json: CATALOG.filter((w) => w.title.toLowerCase().startsWith(q)) });
   });
+};
 const addScreen = (page: Page) => page.getByRole("dialog", { name: "Add a Book" });
 const searchbox = (page: Page) => page.getByRole("searchbox", { name: "Search by title and author" });
 const selectedText = (page: Page) => searchbox(page).evaluate((el: HTMLInputElement) => el.value.slice(el.selectionStart!, el.selectionEnd!));

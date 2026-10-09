@@ -2,30 +2,28 @@
 
 import { revalidatePath } from "next/cache";
 import { appDb } from "@/db/client";
-import { getSeededUserId } from "@/db/seed";
-import { addBook, addManualBook, DuplicateBookError, InvalidBookError, type ManualBookInput } from "@/domain/add-book";
+import { addBookByWorkKey, addManualBook, DuplicateBookError, InvalidBookError, type ManualBookInput } from "@/domain/add-book";
 import { editBook } from "@/domain/edit-book";
 import { findLookalike, type Lookalike } from "@/domain/lookalike";
-import { descriptionGateway } from "@/lib/book-search";
+import { bookSearchGateway, descriptionGateway } from "@/lib/book-search";
 import { readEntryEnrichment, tryAgain, type EnrichmentView } from "@/domain/enrichment";
 import { countFindingConnections, dismissConnection, readConnection, readConnections, type ConnectionDetail, type ConnectionsView } from "@/domain/connections";
 import { readGraphStatus, type GraphStatus } from "@/domain/graph-job";
 import { changeStatus, removeFromLibrary } from "@/domain/library-entry";
 import { readPause } from "@/domain/spend";
 import { appPipeline } from "@/lib/jobs";
-import { requireSession } from "@/lib/signed-in";
+import { requireReader } from "@/lib/signed-in";
 import { addNote, deleteNote, listNotes, updateNote, type Note, type NoteInput } from "@/domain/notes";
-import type { OpenLibraryWork, Status } from "@/domain/search";
+import type { Status } from "@/domain/search";
 
 export type AddResult = { ok: true; bookId: string } | { ok: false; reason: "duplicate" | "failed" };
 
-// TODO(before multi-user): `work` comes from the browser and is stored as sent. Re-fetch the work
-// from Open Library by `work.workKey` here and ignore the client-supplied fields (see #17).
-export async function addBookAction(work: OpenLibraryWork, status: Status): Promise<AddResult> {
+// Only the work's key comes from the browser; the work is looked up again on the server.
+export async function addBookAction(workKey: string, status: Status): Promise<AddResult> {
   try {
-    await requireSession();
+    const userId = await requireReader();
     const db = appDb();
-    const { bookId } = await addBook(db, appPipeline(db), await getSeededUserId(db), work, status, descriptionGateway());
+    const { bookId } = await addBookByWorkKey(db, appPipeline(db), userId, workKey, status, { works: bookSearchGateway(), descriptions: descriptionGateway() });
     revalidatePath("/");
     return { ok: true, bookId };
   } catch (err) {
@@ -39,9 +37,9 @@ export type ManualAddResult = { ok: true; bookId: string } | { ok: false; reason
 
 export async function addManualBookAction(input: ManualBookInput, status: Status): Promise<ManualAddResult> {
   try {
-    await requireSession();
+    const userId = await requireReader();
     const db = appDb();
-    const { bookId } = await addManualBook(db, appPipeline(db), await getSeededUserId(db), input, status);
+    const { bookId } = await addManualBook(db, appPipeline(db), userId, input, status);
     revalidatePath("/");
     return { ok: true, bookId };
   } catch (err) {
@@ -54,9 +52,9 @@ export async function addManualBookAction(input: ManualBookInput, status: Status
 // Null when there is no lookalike, or it could not be checked: the warning is advisory.
 export async function findLookalikeAction(title: string, author: string): Promise<Lookalike | null> {
   try {
-    await requireSession();
+    const userId = await requireReader();
     const db = appDb();
-    return await findLookalike(db, await getSeededUserId(db), { title, author });
+    return await findLookalike(db, userId, { title, author });
   } catch (err) {
     console.error(err);
     return null;
@@ -65,9 +63,9 @@ export async function findLookalikeAction(title: string, author: string): Promis
 
 export async function editBookAction(bookId: string, input: ManualBookInput): Promise<{ ok: true } | { ok: false; reason: "invalid" | "failed" }> {
   try {
-    await requireSession();
+    const userId = await requireReader();
     const db = appDb();
-    await editBook(db, appPipeline(db), await getSeededUserId(db), bookId, input);
+    await editBook(db, appPipeline(db), userId, bookId, input);
     revalidatePath("/");
     revalidatePath("/graph");
     return { ok: true };
@@ -85,9 +83,9 @@ export async function changeStatusAction(
   status: Status,
 ): Promise<{ ok: true; firstCompletion: boolean; paused: string | null } | { ok: false }> {
   try {
-    await requireSession();
+    const userId = await requireReader();
     const db = appDb();
-    const { firstCompletion } = await changeStatus(db, appPipeline(db), await getSeededUserId(db), bookId, status);
+    const { firstCompletion } = await changeStatus(db, appPipeline(db), userId, bookId, status);
     const pause = firstCompletion ? await readPause(db) : null;
     revalidatePath("/");
     revalidatePath("/graph");
@@ -100,9 +98,9 @@ export async function changeStatusAction(
 
 export async function removeFromLibraryAction(bookId: string): Promise<{ ok: boolean }> {
   try {
-    await requireSession();
+    const userId = await requireReader();
     const db = appDb();
-    await removeFromLibrary(db, appPipeline(db), await getSeededUserId(db), bookId);
+    await removeFromLibrary(db, appPipeline(db), userId, bookId);
     revalidatePath("/");
     return { ok: true };
   } catch (err) {
@@ -115,9 +113,9 @@ export type NoteResult = { ok: true; note: Note } | { ok: false };
 
 export async function listNotesAction(bookId: string): Promise<Note[] | null> {
   try {
-    await requireSession();
+    const userId = await requireReader();
     const db = appDb();
-    return await listNotes(db, await getSeededUserId(db), bookId);
+    return await listNotes(db, userId, bookId);
   } catch (err) {
     console.error(err);
     return null;
@@ -127,9 +125,9 @@ export async function listNotesAction(bookId: string): Promise<Note[] | null> {
 // `id` names a new Note from the browser, so a save sent again lands once.
 export async function addNoteAction(bookId: string, input: NoteInput, id?: string): Promise<NoteResult> {
   try {
-    await requireSession();
+    const userId = await requireReader();
     const db = appDb();
-    return { ok: true, note: await addNote(db, appPipeline(db), await getSeededUserId(db), bookId, input, id) };
+    return { ok: true, note: await addNote(db, appPipeline(db), userId, bookId, input, id) };
   } catch (err) {
     console.error(err);
     return { ok: false };
@@ -138,9 +136,9 @@ export async function addNoteAction(bookId: string, input: NoteInput, id?: strin
 
 export async function updateNoteAction(noteId: string, input: NoteInput): Promise<NoteResult> {
   try {
-    await requireSession();
+    const userId = await requireReader();
     const db = appDb();
-    return { ok: true, note: await updateNote(db, appPipeline(db), await getSeededUserId(db), noteId, input) };
+    return { ok: true, note: await updateNote(db, appPipeline(db), userId, noteId, input) };
   } catch (err) {
     console.error(err);
     return { ok: false };
@@ -149,9 +147,9 @@ export async function updateNoteAction(noteId: string, input: NoteInput): Promis
 
 export async function deleteNoteAction(noteId: string): Promise<{ ok: boolean }> {
   try {
-    await requireSession();
+    const userId = await requireReader();
     const db = appDb();
-    await deleteNote(db, await getSeededUserId(db), noteId);
+    await deleteNote(db, userId, noteId);
     return { ok: true };
   } catch (err) {
     console.error(err);
@@ -162,9 +160,9 @@ export async function deleteNoteAction(noteId: string): Promise<{ ok: boolean }>
 // Null when it could not be read (not the same as a Book with no Enrichment yet).
 export async function getEnrichmentAction(bookId: string): Promise<{ enrichment: EnrichmentView | null } | null> {
   try {
-    await requireSession();
+    const userId = await requireReader();
     const db = appDb();
-    return { enrichment: await readEntryEnrichment(db, await getSeededUserId(db), bookId) };
+    return { enrichment: await readEntryEnrichment(db, userId, bookId) };
   } catch (err) {
     console.error(err);
     return null;
@@ -173,9 +171,9 @@ export async function getEnrichmentAction(bookId: string): Promise<{ enrichment:
 
 export async function tryAgainAction(bookId: string): Promise<{ ok: boolean }> {
   try {
-    await requireSession();
+    const userId = await requireReader();
     const db = appDb();
-    return { ok: await tryAgain(db, appPipeline(db), await getSeededUserId(db), bookId) };
+    return { ok: await tryAgain(db, appPipeline(db), userId, bookId) };
   } catch (err) {
     console.error(err);
     return { ok: false };
@@ -185,9 +183,9 @@ export async function tryAgainAction(bookId: string): Promise<{ ok: boolean }> {
 // Null when it could not be read.
 export async function getConnectionsAction(bookId: string): Promise<ConnectionsView | null> {
   try {
-    await requireSession();
+    const userId = await requireReader();
     const db = appDb();
-    return await readConnections(db, await getSeededUserId(db), bookId);
+    return await readConnections(db, userId, bookId);
   } catch (err) {
     console.error(err);
     return null;
@@ -197,9 +195,9 @@ export async function getConnectionsAction(bookId: string): Promise<ConnectionsV
 // Null when it could not be read; `connection` is null when it is gone (dismissed, or its Book removed).
 export async function getConnectionAction(connectionId: string): Promise<{ connection: ConnectionDetail | null } | null> {
   try {
-    await requireSession();
+    const userId = await requireReader();
     const db = appDb();
-    return { connection: await readConnection(db, await getSeededUserId(db), connectionId) };
+    return { connection: await readConnection(db, userId, connectionId) };
   } catch (err) {
     console.error(err);
     return null;
@@ -209,9 +207,9 @@ export async function getConnectionAction(connectionId: string): Promise<{ conne
 // Whether the reader's graph is about to change; null when it can't be told.
 export async function graphStatusAction(): Promise<GraphStatus | null> {
   try {
-    await requireSession();
+    const userId = await requireReader();
     const db = appDb();
-    return await readGraphStatus(db, await getSeededUserId(db));
+    return await readGraphStatus(db, userId);
   } catch (err) {
     console.error(err);
     return null;
@@ -222,9 +220,9 @@ export async function graphStatusAction(): Promise<GraphStatus | null> {
 // this month's spending limit (`paused` is the day it resumes).
 export async function backgroundStatusAction(): Promise<{ finding: number; paused: string | null } | null> {
   try {
-    await requireSession();
+    const userId = await requireReader();
     const db = appDb();
-    const [finding, pause] = await Promise.all([countFindingConnections(db, await getSeededUserId(db)), readPause(db)]);
+    const [finding, pause] = await Promise.all([countFindingConnections(db, userId), readPause(db)]);
     return { finding, paused: pause?.resumesOn ?? null };
   } catch (err) {
     console.error(err);
@@ -236,9 +234,9 @@ export async function backgroundStatusAction(): Promise<{ finding: number; pause
 // once it settles.
 export async function dismissConnectionAction(connectionId: string): Promise<{ ok: boolean }> {
   try {
-    await requireSession();
+    const userId = await requireReader();
     const db = appDb();
-    await dismissConnection(db, appPipeline(db), await getSeededUserId(db), connectionId);
+    await dismissConnection(db, appPipeline(db), userId, connectionId);
     revalidatePath("/graph");
     return { ok: true };
   } catch (err) {
@@ -249,9 +247,9 @@ export async function dismissConnectionAction(connectionId: string): Promise<{ o
 
 export async function refreshConnectionsAction(bookId: string): Promise<{ ok: boolean }> {
   try {
-    await requireSession();
+    const userId = await requireReader();
     const db = appDb();
-    await appPipeline(db).refreshRequested(await getSeededUserId(db), bookId);
+    await appPipeline(db).refreshRequested(userId, bookId);
     // The graph sees the run, and checks back until it settles.
     revalidatePath("/graph");
     return { ok: true };

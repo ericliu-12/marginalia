@@ -335,7 +335,7 @@ function AddResult({
     setFailed(false);
     setAdding(status);
     start(async () => {
-      const res = await addBookAction(r, status);
+      const res = await addBookAction(r.workKey, status);
       if (res.ok) onAdded({ bookId: res.bookId, workKey: r.workKey, title: r.title, byline: r.authors.join(", "), coverUrl: r.coverUrl, status });
       else if (res.reason === "duplicate") {
         setDuplicate(true);

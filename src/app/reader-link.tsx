@@ -1,22 +1,12 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { quietLink } from "./quiet-link";
 
-// Beside the wordmark, since the home-screen app has no address bar: Sign in without a Reader session,
-// Sign out with one. #67's account page replaces it.
-export function ReaderLink({ signedIn, className = "" }: { signedIn: boolean; className?: string }) {
-  const pathname = usePathname();
+// Beside the wordmark, since the home-screen app has no address bar: Sign out. #67's account page
+// replaces it.
+export function ReaderLink({ className = "" }: { className?: string }) {
   const [state, setState] = useState<"idle" | "pending" | "failed">("idle");
-
-  if (!signedIn)
-    return (
-      <Link href={pathname === "/" ? "/sign-in" : `/sign-in?next=${encodeURIComponent(pathname)}`} className={`${quietLink} ${className}`}>
-        Sign in
-      </Link>
-    );
 
   async function signOut() {
     setState("pending");

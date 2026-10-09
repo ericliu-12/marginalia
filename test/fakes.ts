@@ -19,11 +19,14 @@ export function work(overrides: Partial<OpenLibraryWork> & { workKey: string }):
   };
 }
 
-// Fake Open Library: returns the given works for any query and records queries.
+// Fake Open Library: returns the given works for any query, finds one by key, and records queries.
 export function fakeGateway(works: OpenLibraryWork[]): BookSearchGateway & { queries: string[] } {
   const queries: string[] = [];
   return {
     queries,
+    async findWork(workKey) {
+      return works.find((w) => w.workKey === workKey) ?? null;
+    },
     async searchWorks(query) {
       queries.push(query);
       return works;

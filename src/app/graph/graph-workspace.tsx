@@ -48,7 +48,6 @@ export function GraphWorkspace({
   paused,
   userId,
   loneThemes,
-  signedIn,
 }: {
   graph: GraphView;
   items: LibraryItem[];
@@ -57,7 +56,6 @@ export function GraphWorkspace({
   userId: string;
   // With a single Finished Book, its Enrichment themes, where it has any.
   loneThemes: string[];
-  signedIn: boolean;
 }) {
   const router = useRouter();
   const wide = useWide(true);
@@ -187,7 +185,7 @@ export function GraphWorkspace({
         </div>
         <FindingIndicator initial={finding} paused={paused} />
         <div data-graph-chrome className="pointer-events-auto ml-auto">
-          <ReaderLink signedIn={signedIn} />
+          <ReaderLink />
         </div>
       </header>
 

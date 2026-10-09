@@ -5,7 +5,7 @@ import { ADD_TIME_BUDGET, describeBook, type DescriptionGateway } from "./descri
 import { namesMatch } from "./enrichment";
 import { enterLibrary } from "./library-entry";
 import type { Pipeline } from "./pipeline";
-import { coverUrlFor, type OpenLibraryWork, type Status } from "./search";
+import { coverUrlFor, type BookSearchGateway, type OpenLibraryWork, type Status } from "./search";
 
 export class DuplicateBookError extends Error {
   constructor(public workKey: string) {
@@ -14,6 +14,12 @@ export class DuplicateBookError extends Error {
 }
 
 export class InvalidBookError extends Error {}
+
+export class WorkNotFoundError extends Error {
+  constructor(public workKey: string) {
+    super(`Open Library has no work ${workKey}`);
+  }
+}
 
 // What the reader types for a Manual Book; the cover and description may be left blank. Co-authors
 // are separated by "and", "&" or ";", never a comma, which can be "Last, First".
@@ -103,6 +109,21 @@ export async function addBook(
   // Adding a Book directly as read is its first completion, so a backfill add finds Connections too.
   if (result.firstCompletion) await pipeline.bookFinished(userId, result.bookId);
   return result;
+}
+
+// Domain seam: search's Add. Only the work's key comes from the browser: the work is looked up again
+// here, so the shared Book every Reader sees holds what Open Library says, not what a request said.
+export async function addBookByWorkKey(
+  db: Db,
+  pipeline: Pipeline,
+  userId: string,
+  workKey: string,
+  status: Status,
+  gateways: { works: BookSearchGateway; descriptions?: DescriptionGateway | null },
+) {
+  const work = await gateways.works.findWork(workKey);
+  if (!work) throw new WorkNotFoundError(workKey);
+  return addBook(db, pipeline, userId, work, status, gateways.descriptions);
 }
 
 // Domain seam: a Book the reader adds by hand because search found no match. It is private to them

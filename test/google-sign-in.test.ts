@@ -1,7 +1,6 @@
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { account, session, user } from "../src/db/schema";
-import { seedUser } from "../src/db/seed";
 import { invite } from "../src/domain/allowlist";
 import { createAuth } from "../src/lib/auth";
 import { fakeMailer } from "./fakes";
@@ -104,8 +103,8 @@ describe("Continue with Google", () => {
     expect(await readerOf((await signInWithGoogle({ sub: "google-1", email: owner.email, email_verified: true })).sessionCookie)).toBe(ctx.userId);
   });
 
-  it("signs the owner in to their seeded library with Google, without an email code first", async () => {
-    await seedUser(ctx.db, { OWNER_EMAIL: "owner@example.com" });
+  it("signs a Reader whose email is verified in to their library with Google, without an email code first", async () => {
+    await ctx.db.update(user).set({ email: "owner@example.com", emailVerified: true }).where(eq(user.id, ctx.userId));
     const { sessionCookie } = await signInWithGoogle({ sub: "google-5", email: "owner@example.com", email_verified: true });
     expect(await readerOf(sessionCookie)).toBe(ctx.userId);
   });

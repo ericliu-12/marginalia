@@ -1,10 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { SEEDED_USER_EMAIL } from "../../src/db/seed";
 import { seedLibrary } from "./database";
 import { clearOutbox, codeSentTo } from "./mail";
+import { pastTheGate, READER_A } from "./session";
 
-// The home-screen app has no address bar, so the wordmark carries the way to /sign-in, and out again,
-// until #67's account page. Past the password gate, as every spec starts.
+// The library and the graph are a signed-in Reader's. The home-screen app has no address bar, so the
+// wordmark carries Sign out, until #67's account page. Past the password gate, as every spec starts.
 
 let address = 0;
 test.beforeEach(async ({ page }) => {
@@ -14,18 +14,8 @@ test.beforeEach(async ({ page }) => {
   await clearOutbox();
 });
 
-test("signed out, the library offers Sign in; signed in, Sign out, which ends the session", async ({ page, context }) => {
+test("Sign out ends the session, and the library then asks the Reader to sign in", async ({ page, context }) => {
   await page.goto("/");
-  await expect(page.getByRole("button", { name: "Sign out" })).toHaveCount(0);
-  await page.getByRole("link", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/sign-in$/);
-
-  await page.getByLabel("Email").fill(SEEDED_USER_EMAIL);
-  await page.getByRole("button", { name: "Send code" }).click();
-  await page.getByLabel("Code").fill(await codeSentTo(SEEDED_USER_EMAIL));
-  await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole("link", { name: "Sign in" })).toHaveCount(0);
-
   // A sign-out that fails says so, and can be tried again.
   await page.route("**/api/auth/sign-out", (route) => route.fulfill({ status: 500 }), { times: 1 });
   await page.getByRole("button", { name: "Sign out" }).click();
@@ -34,21 +24,29 @@ test("signed out, the library offers Sign in; signed in, Sign out, which ends th
   await expect(page).toHaveURL(/\/sign-in$/);
   expect((await context.cookies()).map((c) => c.name)).not.toContain("better-auth.session_token");
   await page.goto("/");
-  await expect(page.getByRole("link", { name: "Sign in" })).toBeVisible();
+  await expect(page).toHaveURL(/\/sign-in$/);
 });
 
-test("the graph's Sign in comes back to the graph", async ({ page }) => {
-  await page.goto("/graph");
-  await page.getByRole("link", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/sign-in\?next=%2Fgraph$/);
+test.describe("signed out", () => {
+  test.use({ storageState: pastTheGate() });
+
+  test("the graph goes to sign-in, and signing in comes back to the graph", async ({ page }) => {
+    await page.goto("/graph");
+    await expect(page).toHaveURL(/\/sign-in\?next=%2Fgraph$/);
+    await page.getByLabel("Email").fill(READER_A.email);
+    await page.getByRole("button", { name: "Send code" }).click();
+    await page.getByLabel("Code").fill(await codeSentTo(READER_A.email));
+    await expect(page).toHaveURL(/\/graph$/);
+    await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+  });
 });
 
 test.describe("on the phone", () => {
   test.use({ viewport: { width: 412, height: 915 }, isMobile: true, hasTouch: true });
 
-  test("the shelf's wordmark row carries Sign in", async ({ page }) => {
+  test("the shelf's wordmark row carries Sign out", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("link", { name: "Sign in" }).tap();
+    await page.getByRole("button", { name: "Sign out" }).tap();
     await expect(page).toHaveURL(/\/sign-in$/);
   });
 });

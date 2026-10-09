@@ -8,12 +8,15 @@ export async function hasSession(): Promise<boolean> {
   return g.kind === "on" && verifyToken((await cookies()).get(SESSION_COOKIE)?.value, g.secret) !== null;
 }
 
-// Every Server Function checks for itself: the proxy's matcher is not the only line.
-export async function requireSession() {
-  if (!(await hasSession())) throw new Error("Not signed in.");
+// The Reader signed in with Better Auth, apart from the password gate above; null without one.
+export async function signedInReader(): Promise<string | null> {
+  return (await appAuth().api.getSession({ headers: await headers() }))?.user.id ?? null;
 }
 
-// Whether a Reader is signed in with Better Auth, apart from the password gate above.
-export async function hasReaderSession(): Promise<boolean> {
-  return Boolean(await appAuth().api.getSession({ headers: await headers() }));
+// Every Server Function and API route acts as the Reader this returns, and refuses a request without
+// one: the proxy's matcher is not the only line.
+export async function requireReader(): Promise<string> {
+  const id = (await hasSession()) ? await signedInReader() : null;
+  if (!id) throw new Error("Not signed in.");
+  return id;
 }

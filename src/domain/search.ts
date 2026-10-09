@@ -27,6 +27,8 @@ export type OpenLibraryWork = {
 // Seam to Open Library; tests supply a fake.
 export interface BookSearchGateway {
   searchWorks(query: string): Promise<OpenLibraryWork[]>;
+  // One work by its key, as search describes it; null when Open Library has no such work.
+  findWork(workKey: string): Promise<OpenLibraryWork | null>;
 }
 
 export type SearchResult = OpenLibraryWork & {

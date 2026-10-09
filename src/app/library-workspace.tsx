@@ -9,7 +9,7 @@ import { SearchPane } from "./search-pane";
 import { ReaderLink } from "./reader-link";
 import { ViewSwitch } from "./view-switch";
 
-export function LibraryWorkspace({ items, finding, paused, signedIn }: { items: LibraryItem[]; finding: number; paused: string | null; signedIn: boolean }) {
+export function LibraryWorkspace({ items, finding, paused }: { items: LibraryItem[]; finding: number; paused: string | null }) {
   const [searchOpen, setSearchOpen] = useState(true);
   const [bookId, setBookId] = useState<string | null>(null);
   // The Book last removed: search says so and fetches again, so its result stops saying it is in the library.
@@ -25,7 +25,7 @@ export function LibraryWorkspace({ items, finding, paused, signedIn }: { items: 
           <ViewSwitch current="library" />
           <FindingIndicator initial={finding} paused={paused} />
         </div>
-        <ReaderLink signedIn={signedIn} />
+        <ReaderLink />
         {!searchOpen && (
           <button
             ref={openRef}

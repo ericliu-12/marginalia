@@ -1,11 +1,13 @@
 import { defineConfig, devices } from "@playwright/test";
 import { e2eDatabaseUrl } from "./test/e2e/database";
 import { E2E_OUTBOX } from "./test/e2e/mail";
+import { E2E_CATALOG } from "./test/e2e/open-library";
 import { E2E_PASSWORD, E2E_SESSION_SECRET, signedIn } from "./test/e2e/session";
 
 // A production build on its own port and database, so it runs beside `pnpm dev`. The API keys are
 // placeholders: nothing the tests do calls out, and anything that tried would fail rather than spend.
-// The Google Books key is blank, which turns off the description lookup when a Book is added from search.
+// The Google Books key is blank, which turns off the description lookup when a Book is added from search,
+// and Open Library's works come from a file the tests write (test/e2e/open-library.ts).
 const PORT = 3100;
 
 export default defineConfig({
@@ -33,6 +35,7 @@ export default defineConfig({
       BETTER_AUTH_URL: `http://localhost:${PORT}`,
       BETTER_AUTH_SECRET: E2E_SESSION_SECRET,
       MAIL_OUTBOX_FILE: E2E_OUTBOX,
+      OPEN_LIBRARY_FIXTURE_FILE: E2E_CATALOG,
     },
   },
 });
