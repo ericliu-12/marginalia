@@ -1,5 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 import { e2eDatabaseUrl } from "./test/e2e/database";
+import { E2E_OUTBOX } from "./test/e2e/mail";
 import { E2E_PASSWORD, E2E_SESSION_SECRET, signedIn } from "./test/e2e/session";
 
 // A production build on its own port and database, so it runs beside `pnpm dev`. The API keys are
@@ -28,6 +29,9 @@ export default defineConfig({
       SESSION_SECRET: E2E_SESSION_SECRET,
       MONTHLY_AI_BUDGET_USD: "8",
       GOOGLE_CLIENT_ID: "e2e-no-calls",
+      BETTER_AUTH_URL: `http://localhost:${PORT}`,
+      BETTER_AUTH_SECRET: E2E_SESSION_SECRET,
+      MAIL_OUTBOX_FILE: E2E_OUTBOX,
     },
   },
 });

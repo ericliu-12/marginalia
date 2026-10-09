@@ -60,7 +60,7 @@ const CHAIN = [
 // Back to just this library, before each test.
 export async function seedLibrary() {
   const { db, pool } = createDb(e2eDatabaseUrl());
-  await db.execute(sql`TRUNCATE "user" CASCADE`);
+  await db.execute(sql`TRUNCATE "user", verification, allowed_email CASCADE`);
   await db.delete(paidCall);
   const userId = (await seedUser(db)).id;
   const ids: string[] = [];
@@ -218,7 +218,7 @@ export async function wantBook(title: string) {
 // Thematic Connection for each pair in `linked` (indexes into `titles`), laid out as the worker would.
 export async function seedSmallLibrary(titles: string[], linked: [number, number][] = [], themes = ["memory", "duty"]) {
   const { db, pool } = createDb(e2eDatabaseUrl());
-  await db.execute(sql`TRUNCATE "user" CASCADE`);
+  await db.execute(sql`TRUNCATE "user", verification, allowed_email CASCADE`);
   await db.delete(paidCall);
   const userId = (await seedUser(db)).id;
   const ids: string[] = [];
