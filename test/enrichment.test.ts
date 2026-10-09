@@ -30,6 +30,7 @@ describe("Enrichment", () => {
       recognised: true,
       summary: "A quiet novel about a life.",
       themes: ["work", "solitude"],
+      googleBooksVolumeId: "gb1",
     });
   });
 
@@ -122,7 +123,7 @@ describe("Enrichment", () => {
   it("an unrecognised Book keeps no summary or themes", async () => {
     const b = await addStoner();
     await enrichBook(ctx.db, { model: fakeEnricher({ recognised: false, summary: "invented", themes: ["x"] }) }, b.id);
-    expect(await readEnrichment(ctx.db, b.id)).toEqual({ status: "ready", recognised: false, summary: null, themes: null });
+    expect(await readEnrichment(ctx.db, b.id)).toEqual({ status: "ready", recognised: false, summary: null, themes: null, googleBooksVolumeId: null });
   });
 
   describe("author cross-check", () => {

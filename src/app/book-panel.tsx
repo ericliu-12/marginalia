@@ -522,6 +522,21 @@ function About({ bookId, noteCount }: { bookId: string; noteCount: number | null
         {enrichment.themes && enrichment.themes.length > 0 && (
           <p className="mt-2 font-sans text-[0.8rem] leading-relaxed text-ink-2">{enrichment.themes.join(" · ")}</p>
         )}
+        {/* Google's terms ask for a link to the Book's page wherever its description is used (#42). */}
+        {enrichment.googleBooksVolumeId && (
+          <p className="mt-3 font-sans text-[0.8rem] text-ink-3">
+            Drawn from the description on{" "}
+            <a
+              href={`https://books.google.com/books?id=${encodeURIComponent(enrichment.googleBooksVolumeId)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              // Inline, so min-height can't reach 44px; padding grows the tap area without moving the line.
+              className={`${quietLink} py-[13px] lg:py-0`}
+            >
+              Google Books
+            </a>
+          </p>
+        )}
       </>
     );
   }

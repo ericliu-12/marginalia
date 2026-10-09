@@ -32,6 +32,8 @@ export type EnrichmentView = {
   recognised: boolean;
   summary: string | null;
   themes: string[] | null;
+  // The Google Books volume whose description grounded the summary; null when none did.
+  googleBooksVolumeId: string | null;
 };
 
 // Ready and recognised: the only Enrichment that is embedded or shown to the judge.
@@ -215,9 +217,18 @@ export async function requestEnrichment(db: Db, queue: JobQueue, bookId: string,
 
 // Domain seam: what the Book panel shows. Null for a Book added before Enrichment existed.
 export async function readEnrichment(db: Db, bookId: string): Promise<EnrichmentView | null> {
-  const [row] = await db.select().from(enrichment).where(eq(enrichment.bookId, bookId));
-  if (!row) return null;
-  return { status: row.status, recognised: row.recognised, summary: row.summary, themes: row.themes };
+  const [row] = await db
+    .select({
+      status: enrichment.status,
+      recognised: enrichment.recognised,
+      summary: enrichment.summary,
+      themes: enrichment.themes,
+      googleBooksVolumeId: book.googleBooksVolumeId,
+    })
+    .from(enrichment)
+    .innerJoin(book, eq(book.id, enrichment.bookId))
+    .where(eq(enrichment.bookId, bookId));
+  return row ?? null;
 }
 
 // Domain seam: the Enrichment of a Book in the reader's library, as their Book panel shows it.
