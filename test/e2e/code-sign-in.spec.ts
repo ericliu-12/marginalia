@@ -1,12 +1,13 @@
 import { expect, test, type Page } from "@playwright/test";
-import { SEEDED_USER_EMAIL } from "../../src/db/seed";
 import { SESSION_COOKIE as GATE_COOKIE, issueToken } from "../../src/lib/session";
 import { seedLibrary } from "./database";
 import { clearOutbox, codeSentTo, outbox } from "./mail";
-import { E2E_SESSION_SECRET } from "./session";
+import { E2E_SESSION_SECRET, pastTheGate, READER_A } from "./session";
 
-// Signing in with an email code (#60), behind the password gate (the default storage state passes it).
-// The server's mailer writes to a file the test reads the code from.
+// Signing in with an email code (#60), behind the password gate. The server's mailer writes to a file
+// the test reads the code from.
+
+test.use({ storageState: pastTheGate() });
 
 const SITE = "http://localhost:3100";
 const SESSION_COOKIE = "better-auth.session_token";
@@ -27,18 +28,18 @@ const reply = (page: Page) => page.getByText(/can sign in here, a code is on its
 
 test("a Reader signs in with the code emailed to them and returns to the page they wanted", async ({ page, context }) => {
   await page.goto("/sign-in?next=%2Fgraph");
-  await sendCodeTo(page, ` ${SEEDED_USER_EMAIL.toUpperCase()} `);
-  await expect(reply(page)).toHaveText(`If ${SEEDED_USER_EMAIL} can sign in here, a code is on its way. It lasts 5 minutes.`);
+  await sendCodeTo(page, ` ${READER_A.email.toUpperCase()} `);
+  await expect(reply(page)).toHaveText(`If ${READER_A.email} can sign in here, a code is on its way. It lasts 5 minutes.`);
   await expect(page.getByLabel("Code")).toHaveAttribute("autocomplete", "one-time-code");
   await expect(page.getByText(/^You can send a new code in \d+s$/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Send a new code" })).toHaveCount(0);
 
   // Back from Mail after the home-screen app reloaded: still at the code, for the same email.
   await page.reload();
-  await expect(reply(page)).toContainText(SEEDED_USER_EMAIL);
+  await expect(reply(page)).toContainText(READER_A.email);
 
   // Six digits sign in by themselves, as when the phone fills the code in.
-  await page.getByLabel("Code").fill(await codeSentTo(SEEDED_USER_EMAIL));
+  await page.getByLabel("Code").fill(await codeSentTo(READER_A.email));
   await expect(page).toHaveURL(/\/graph$/);
   expect((await context.cookies()).map((c) => c.name)).toContain(SESSION_COOKIE);
 
@@ -54,15 +55,15 @@ test("an email that may not sign in gets the same reply, and no email is sent to
   // A Reader's code sent after it is the only email in the outbox.
   await page.getByRole("button", { name: "Use a different email" }).click();
   await expect(page.getByLabel("Email")).toHaveValue("stranger@example.com");
-  await sendCodeTo(page, SEEDED_USER_EMAIL);
-  await codeSentTo(SEEDED_USER_EMAIL);
-  expect((await outbox()).map((m) => m.to)).toEqual([SEEDED_USER_EMAIL]);
+  await sendCodeTo(page, READER_A.email);
+  await codeSentTo(READER_A.email);
+  expect((await outbox()).map((m) => m.to)).toEqual([READER_A.email]);
 });
 
 test("a wrong code says so and is selected to be typed over", async ({ page }) => {
   await page.goto("/sign-in");
-  await sendCodeTo(page, SEEDED_USER_EMAIL);
-  const code = await codeSentTo(SEEDED_USER_EMAIL);
+  await sendCodeTo(page, READER_A.email);
+  const code = await codeSentTo(READER_A.email);
   await page.getByLabel("Code").fill(code === "000000" ? "111111" : "000000");
   await expect(page.locator("#sign-in-message")).toHaveText("That code didn’t work. Check it, or wait to send a new one.");
   await expect(page.getByLabel("Code")).toBeFocused();
@@ -96,12 +97,12 @@ test.describe("with a Host and forwarded headers that don't match the server's a
     const signedIn = await playwright.request.newContext({ extraHTTPHeaders: { cookie: `${GATE_COOKIE}=${issueToken(E2E_SESSION_SECRET)}` } });
     const send = await signedIn.post(direct("/api/auth/email-otp/send-verification-otp"), {
       headers: { ...headers("inkmarginalia.example"), origin: SITE },
-      data: { email: SEEDED_USER_EMAIL, type: "sign-in" },
+      data: { email: READER_A.email, type: "sign-in" },
     });
     expect(send.status()).toBe(200);
     const signIn = await signedIn.post(direct("/api/auth/sign-in/email-otp"), {
       headers: { ...headers("inkmarginalia.example"), origin: SITE },
-      data: { email: SEEDED_USER_EMAIL, otp: await codeSentTo(SEEDED_USER_EMAIL) },
+      data: { email: READER_A.email, otp: await codeSentTo(READER_A.email) },
     });
     expect(signIn.status()).toBe(200);
     expect(absoluteOffSite(signIn.headers().location)).toBe(false);

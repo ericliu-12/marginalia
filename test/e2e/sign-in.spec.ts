@@ -1,9 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import { seedLibrary } from "./database";
-import { E2E_PASSWORD } from "./session";
+import { behindTheGate, E2E_PASSWORD } from "./session";
 
-// Signed out: the private deploy's one password, and the limit on guessing it.
-test.use({ storageState: { cookies: [], origins: [] } });
+// Not past the gate: the private deploy's one password, and the limit on guessing it.
+test.use({ storageState: behindTheGate() });
 
 test.beforeEach(async () => {
   await seedLibrary();

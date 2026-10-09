@@ -1,8 +1,11 @@
 import { expect, test } from "@playwright/test";
 import { seedLibrary } from "./database";
+import { pastTheGate } from "./session";
 
 // Continue with Google (#63), behind the password gate. Google itself is never reached: its sign-in page
 // is answered here, and its return is checked by hand on the iPhone.
+
+test.use({ storageState: pastTheGate() });
 
 const SITE = "http://localhost:3100";
 

@@ -2,10 +2,10 @@ import { eq, sql } from "drizzle-orm";
 import { Pool } from "pg";
 import { createDb } from "../../src/db/client";
 import { runMigrations } from "../../src/db/migrate";
-import { getSeededUserId, seedUser } from "../../src/db/seed";
 import { layoutGraph } from "../../src/domain/graph";
 import { runGraphJob } from "../../src/domain/graph-job";
-import { book, bookPosition, clusterLabel, connection, enrichment, libraryEntry, note, paidCall, readThrough } from "../../src/db/schema";
+import { book, bookPosition, clusterLabel, connection, enrichment, libraryEntry, note, paidCall, readThrough, session, user } from "../../src/db/schema";
+import { READER_A, READER_B } from "./session";
 
 // The browser tests' own database on the docker-compose Postgres, apart from the app's and the unit tests'.
 // The web server is handed this database as DATABASE_URL, so creating it goes through Postgres's own
@@ -20,7 +20,7 @@ const onDatabase = (name: string) => {
 };
 export const e2eDatabaseUrl = () => onDatabase(E2E_DB_NAME);
 
-// Fresh, migrated and holding the reader, once per run; the app answers nothing without the reader.
+// Fresh and migrated, once per run.
 export async function createE2eDatabase() {
   const { hostname } = new URL(BASE_URL);
   if (!["localhost", "127.0.0.1"].includes(hostname)) {
@@ -32,8 +32,16 @@ export async function createE2eDatabase() {
   await admin.end();
   const { db, pool } = createDb(e2eDatabaseUrl());
   await runMigrations(db);
-  await seedUser(db);
   await pool.end();
+}
+
+// Readers A and B, each signed in (the session their cookie in session.ts names), and nobody else.
+async function seedReaders(db: ReturnType<typeof createDb>["db"]) {
+  await db.execute(sql`TRUNCATE "user", verification, allowed_email CASCADE`);
+  for (const r of [READER_A, READER_B]) {
+    await db.insert(user).values({ id: r.id, email: r.email, emailVerified: true });
+    await db.insert(session).values({ userId: r.id, token: r.token, expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) });
+  }
 }
 
 // A small finished library, laid out left to right as a chain of Connections: each Book links to the
@@ -60,9 +68,9 @@ const CHAIN = [
 // Back to just this library, before each test.
 export async function seedLibrary() {
   const { db, pool } = createDb(e2eDatabaseUrl());
-  await db.execute(sql`TRUNCATE "user", verification, allowed_email CASCADE`);
+  await seedReaders(db);
   await db.delete(paidCall);
-  const userId = (await seedUser(db)).id;
+  const userId = READER_A.id;
   const ids: string[] = [];
   for (const [i, b] of LIBRARY.entries()) {
     const [row] = await db.insert(book).values({ title: b.title, authors: [b.author] }).returning();
@@ -129,7 +137,7 @@ export async function layOutGraph() {
   const named = new Promise<void>((resolve) => (finish = resolve));
   let reached!: () => void;
   const laidOut = new Promise<void>((resolve) => (reached = resolve));
-  const job = runGraphJob(db, await getSeededUserId(db), { layOut: async () => {}, name: () => (reached(), named) });
+  const job = runGraphJob(db, READER_A.id, { layOut: async () => {}, name: () => (reached(), named) });
   await laidOut;
   naming = { finish, job, pool };
 }
@@ -151,7 +159,7 @@ export async function settleGraph() {
     return;
   }
   const { db, pool } = createDb(e2eDatabaseUrl());
-  await runGraphJob(db, await getSeededUserId(db), { layOut: async () => {}, name: async () => {} });
+  await runGraphJob(db, READER_A.id, { layOut: async () => {}, name: async () => {} });
   await pool.end();
 }
 
@@ -196,18 +204,10 @@ export async function markFinding(title: string) {
   await pool.end();
 }
 
-// The reader the app serves.
-export async function readerId() {
-  const { db, pool } = createDb(e2eDatabaseUrl());
-  const id = await getSeededUserId(db);
-  await pool.end();
-  return id;
-}
-
 // A Book the reader wants to read: in the library, not Finished, so not in the graph.
 export async function wantBook(title: string) {
   const { db, pool } = createDb(e2eDatabaseUrl());
-  const userId = await getSeededUserId(db);
+  const userId = READER_A.id;
   const [row] = await db.insert(book).values({ title, authors: ["A. Writer"] }).returning();
   await db.insert(libraryEntry).values({ userId, bookId: row.id, status: "want" });
   await db.insert(enrichment).values({ bookId: row.id, status: "ready", recognised: true, summary: `${title}.`, themes: ["memory"] });
@@ -218,9 +218,9 @@ export async function wantBook(title: string) {
 // Thematic Connection for each pair in `linked` (indexes into `titles`), laid out as the worker would.
 export async function seedSmallLibrary(titles: string[], linked: [number, number][] = [], themes = ["memory", "duty"]) {
   const { db, pool } = createDb(e2eDatabaseUrl());
-  await db.execute(sql`TRUNCATE "user", verification, allowed_email CASCADE`);
+  await seedReaders(db);
   await db.delete(paidCall);
-  const userId = (await seedUser(db)).id;
+  const userId = READER_A.id;
   const ids: string[] = [];
   for (const [i, title] of titles.entries()) {
     const [row] = await db.insert(book).values({ title, authors: ["A. Writer"] }).returning();
@@ -253,7 +253,7 @@ export async function seedSmallLibrary(titles: string[], linked: [number, number
 // A Book the reader added by hand, wanted, with Enrichment that did not recognise it.
 export async function manualBook(title: string, author: string, description: string) {
   const { db, pool } = createDb(e2eDatabaseUrl());
-  const userId = await getSeededUserId(db);
+  const userId = READER_A.id;
   const [row] = await db.insert(book).values({ title, authors: [author], description, createdByUserId: userId }).returning();
   await db.insert(libraryEntry).values({ userId, bookId: row.id, status: "want" });
   await db.insert(enrichment).values({ bookId: row.id, status: "ready", recognised: false });
@@ -264,7 +264,7 @@ export async function manualBook(title: string, author: string, description: str
 // With `googleBooksVolumeId`, the Book's summary was grounded in that Google Books description.
 export async function readingBook(title: string, googleBooksVolumeId?: string) {
   const { db, pool } = createDb(e2eDatabaseUrl());
-  const userId = await getSeededUserId(db);
+  const userId = READER_A.id;
   const [row] = await db.insert(book).values({ title, authors: ["A. Writer"], googleBooksVolumeId }).returning();
   const [entry] = await db.insert(libraryEntry).values({ userId, bookId: row.id, status: "reading" }).returning();
   await db.insert(readThrough).values({ libraryEntryId: entry.id, userId, startedAt: new Date() });
@@ -277,4 +277,12 @@ export async function overBudget() {
   const { db, pool } = createDb(e2eDatabaseUrl());
   await db.insert(paidCall).values({ provider: "anthropic", model: "e2e", purpose: "judge", inputTokens: 0, outputTokens: 0, costUsd: 9 });
   await pool.end();
+}
+
+// The Book with this title.
+export async function bookIdOf(title: string) {
+  const { db, pool } = createDb(e2eDatabaseUrl());
+  const [row] = await db.select({ id: book.id }).from(book).where(eq(book.title, title));
+  await pool.end();
+  return row.id;
 }
