@@ -5,6 +5,7 @@ import { EMBEDDING_DIMENSIONS } from "../src/lib/models";
 import type { EnrichmentModel, EnrichmentResult } from "../src/domain/enrichment";
 import type { DescriptionGateway, GoogleBooksVolume } from "../src/domain/description";
 import type { BookSearchGateway, OpenLibraryWork } from "../src/domain/search";
+import type { Mail, Mailer } from "../src/lib/mailer";
 
 export function work(overrides: Partial<OpenLibraryWork> & { workKey: string }): OpenLibraryWork {
   return {
@@ -150,6 +151,23 @@ export function fakeNamer(
     async name(input) {
       inputs.push(input);
       return { name: "Quiet Lives", description: "Books about quiet lives.", inputTokens: 500, outputTokens: 50, costUsd: 0.0015, ...(await reply(input)) };
+    },
+  };
+}
+
+// Fake mailer: keeps every email it is asked to send; `codeFor` reads the code from the latest to `to`.
+export function fakeMailer(): Mailer & { sent: Mail[]; codeFor(to: string): string } {
+  const sent: Mail[] = [];
+  return {
+    sent,
+    async send(mail) {
+      sent.push(mail);
+    },
+    codeFor(to) {
+      const mail = sent.findLast((m) => m.to === to);
+      const code = mail?.text.match(/\b\d{6}\b/)?.[0];
+      if (!code) throw new Error(`No code sent to ${to}`);
+      return code;
     },
   };
 }

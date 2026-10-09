@@ -19,6 +19,7 @@
     "connections:backfill": "tsx --env-file-if-exists=.env src/backfill-connections.ts",
     "embed:backfill": "tsx --env-file-if-exists=.env src/backfill-embeddings.ts",
     "graph:layout": "tsx --env-file-if-exists=.env src/layout-graph.ts",
+    "invite": "tsx --env-file-if-exists=.env src/invite.ts",
     "eval": "tsx --env-file-if-exists=.env scripts/eval/judge-eval.ts",
     "bench:graph": "tsx --env-file-if-exists=.env scripts/bench/graph-bench.ts",
     "db:generate": "drizzle-kit generate",
@@ -28,6 +29,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",
+    "better-auth": "^1.7.7",
     "drizzle-orm": "^0.45.3",
     "force-graph": "^1.52.0",
     "graphology": "^0.26.0",

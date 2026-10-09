@@ -120,6 +120,13 @@
       "when": 1791522802206,
       "tag": "0016_clear_google_descriptions",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791528207121,
+      "tag": "0017_better_auth",
+      "breakpoints": true
     }
   ]
 }

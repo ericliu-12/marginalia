@@ -21,4 +21,16 @@ describe("Seeding", () => {
     const [kept] = await ctx.db.select().from(libraryEntry).where(eq(libraryEntry.bookId, entry.bookId));
     expect(kept).toMatchObject({ userId: ctx.userId, status: "reading" });
   });
+
+  it("with OWNER_EMAIL, makes the seeded reader the owner's account, keeping their library, on every run after", async () => {
+    const entry = await addBook(ctx.db, ctx.pipeline, ctx.userId, work({ workKey: "/works/seed2", title: "Stoner" }), "reading");
+    const env = { OWNER_EMAIL: " Owner@Example.com " };
+    const owner = await seedUser(ctx.db, env);
+    await seedUser(ctx.db, env);
+    expect(owner).toMatchObject({ id: ctx.userId, email: "owner@example.com" });
+    expect(await getSeededUserId(ctx.db, env)).toBe(ctx.userId);
+    expect(await ctx.db.select({ email: user.email }).from(user)).toEqual([{ email: "owner@example.com" }]);
+    const [kept] = await ctx.db.select().from(libraryEntry).where(eq(libraryEntry.bookId, entry.bookId));
+    expect(kept.userId).toBe(ctx.userId);
+  });
 });
