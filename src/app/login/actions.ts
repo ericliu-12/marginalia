@@ -15,6 +15,8 @@ export async function signInAction(_previous: SignInState, form: FormData): Prom
   if (wait > 0) return { error: "limited", minutes: Math.ceil(wait / 60_000) };
   if (!passwordMatches(String(form.get("password") ?? ""), g.password)) {
     signInLimit.failed(address);
+    // The address the limit counted, so the deploy can be checked against the reader's real one.
+    console.warn(`Wrong password from ${address}`);
     return { error: "wrong" };
   }
   signInLimit.succeeded(address);
