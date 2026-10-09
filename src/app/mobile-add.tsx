@@ -9,6 +9,7 @@ import { FindingIndicator } from "./connections";
 import { Cover } from "./cover";
 import { quietLink } from "./quiet-link";
 import { addButton, addChoices, LABELS, LookalikeNote, ManualBookForm, useBookSearch } from "./search-pane";
+import { useVisibleViewport } from "./use-visible-viewport";
 
 // A Book added while Add is open: it can be undone until Done. `workKey` is null for one added by hand.
 type Added = { bookId: string; workKey: string | null; title: string; byline: string; coverUrl: string | null; status: Status };
@@ -68,11 +69,12 @@ export function MobileAdd({
   const [manualOpen, setManualOpen] = useState(false);
   const [manualDraft, setManualDraft] = useState<BookDraft | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const view = useVisibleViewport();
 
   // Back from a Book opened here, the results are fetched again, so each says what the library holds now.
   const wasHidden = useRef(hidden);
   useEffect(() => {
-    if (!hidden) inputRef.current?.focus();
+    if (!hidden) inputRef.current?.focus({ preventScroll: true });
     if (wasHidden.current && !hidden) retry();
     wasHidden.current = hidden;
   }, [hidden]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -82,9 +84,10 @@ export function MobileAdd({
   }, [statuses, onAddedChange]);
 
   // Called in the tap itself as well as after it lands: iOS raises the keyboard only for focus given
-  // during a gesture.
+  // during a gesture. Never scrolled to: iOS would scroll the page under Add to reach the search while
+  // Add is still rising, leaving it pushed up behind the keyboard.
   function ready() {
-    inputRef.current?.focus();
+    inputRef.current?.focus({ preventScroll: true });
     inputRef.current?.select();
   }
 
@@ -103,7 +106,7 @@ export function MobileAdd({
   function closeManual(discard: boolean) {
     setManualOpen(false);
     if (discard) setManualDraft(null);
-    inputRef.current?.focus();
+    inputRef.current?.focus({ preventScroll: true });
   }
 
   // What became of a result on this visit: added (and not undone), or already in the library.
@@ -123,7 +126,9 @@ export function MobileAdd({
         if (e.target === inputRef.current && query) setQuery("");
         else onDone();
       }}
-      className="fixed inset-0 z-10 flex flex-col bg-paper motion-safe:animate-sheet-up"
+      // Fitted to what the keyboard leaves visible, as the Note sheet is, so the heading and search stay in view.
+      style={view ? { top: view.top, height: view.height } : { top: 0, height: "100dvh" }}
+      className="fixed inset-x-0 z-10 flex flex-col bg-paper motion-safe:animate-sheet-up"
     >
       <div className="mx-auto w-full max-w-[40rem] flex-none px-6 pt-[max(1rem,env(safe-area-inset-top))]">
         <div className="flex min-h-11 items-center justify-between">
