@@ -7,6 +7,7 @@ import { appDb, type Db } from "@/db/client";
 import * as schema from "@/db/schema";
 import { mayBecomeReader } from "@/domain/allowlist";
 import { appMailer, signInCodeMail, type Mailer } from "./mailer";
+import { siteUrl } from "./site-url";
 
 // Readers sign in with Better Auth, in our Postgres (ADR 0002).
 
@@ -21,8 +22,7 @@ type AuthConfig = { mailer: Mailer; signupMode: SignupMode; baseURL: string; sec
 export function createAuth(db: Db, config: AuthConfig) {
   const allowed = (email: string) => config.signupMode === "open" || mayBecomeReader(db, email);
   return betterAuth({
-    // Every absolute URL comes from here, never from the request: behind Railway's proxy a request's
-    // own URL is the server's address (localhost:8080), not the site's.
+    // Every absolute URL comes from here, never from the request (see siteUrl).
     baseURL: config.baseURL,
     secret: config.secret,
     database: drizzleAdapter(db, { provider: "pg", schema }),
@@ -61,7 +61,7 @@ export type Auth = ReturnType<typeof createAuth>;
 
 let shared: Auth | undefined;
 
-// The app's Better Auth. BETTER_AUTH_URL is the site's own address (https://inkmarginalia.com in production).
+// The app's Better Auth.
 export function appAuth(): Auth {
   shared ??= createAuth(appDb(), {
     mailer: appMailer(),
@@ -70,10 +70,4 @@ export function appAuth(): Auth {
     secret: process.env.BETTER_AUTH_SECRET ?? "",
   });
   return shared;
-}
-
-export function siteUrl(env: Record<string, string | undefined> = process.env): string {
-  if (env.BETTER_AUTH_URL) return env.BETTER_AUTH_URL;
-  if (env.NODE_ENV === "production") throw new Error("BETTER_AUTH_URL is not set.");
-  return "http://localhost:3000";
 }
