@@ -52,8 +52,7 @@ export const book = pgTable(
     // (Google's terms, #44): Enrichment fetches it for each run.
     googleBooksVolumeId: text("google_books_volume_id"),
     // Open Library's description, fetched once, or what the reader wrote for a Manual Book; null when
-    // neither had one or Google's describes the Book. One stored for a Book with a Google Books volume
-    // is Google's, from before #44, and is never read.
+    // neither had one or Google's describes the Book.
     description: text("description"),
     // Set only for Manual Books, which are private to their creator.
     createdByUserId: uuid("created_by_user_id").references(() => user.id),

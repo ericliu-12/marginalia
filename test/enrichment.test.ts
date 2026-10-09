@@ -241,9 +241,9 @@ describe("Enrichment", () => {
       expect(model.inputs).toHaveLength(2);
     });
 
-    it("never reads a Google description stored before #44", async () => {
+    it("never reads a description stored beside a Google volume", async () => {
       const { b, descriptions } = await addDescribed();
-      await ctx.db.update(book).set({ description: "Stored from Google long ago." }).where(eq(book.id, b.id));
+      await ctx.db.update(book).set({ description: "Stored beside the volume." }).where(eq(book.id, b.id));
       const model = fakeEnricher();
       await enrichBook(ctx.db, { model, descriptions }, b.id);
       expect(model.inputs[0].description).toBe(prose(700));
