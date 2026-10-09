@@ -19,11 +19,23 @@ A hosted queue (Inngest, Trigger.dev, QStash) calling serverless functions was a
 
 ## Decision
 
-- **Railway, one project, four services**, each reading its config from the repo (set "Railway Config File" in each service's settings):
-  - **web**: `railway/web.json`. Builds Next, runs `pnpm db:deploy` (migrations, then the idempotent seed of the one reader) before each deploy, so a failing migration stops the deploy. Health check on `/login`.
-  - **worker**: `railway/worker.json`. No build step; `pnpm worker`, restarted always.
-  - **backup**: `railway/backup.json`. A cron service, 03:00 UTC, built from `backup/Dockerfile`.
-  - **postgres**: the `pgvector/pgvector:pg17` image, the same as `docker-compose.yml`, with a volume at `/var/lib/postgresql/data` and `PGDATA=/var/lib/postgresql/data/pgdata`. Reached only over Railway's private network; no public TCP proxy.
+- **Railway, one project, four services, set in each service's dashboard settings.** No config files: Railway's Config as Code (`railway.json`) is deprecated and stops working on 2026-12-01, and its replacement, Infrastructure as Code (`.railway/railway.ts`), has no cron schedule, restart policy, watch paths or Dockerfile build in its reference, which the backup service needs. The settings below are the record; change them here when they change there. Empty means Railway's default.
+
+  | Setting | web | worker | backup | postgres |
+  |---|---|---|---|---|
+  | Source | GitHub `ericliu-12/marginalia`, `main` | same | same | Docker image `pgvector/pgvector:pg17` |
+  | Builder | Railpack | Railpack | Dockerfile, chosen by `RAILWAY_DOCKERFILE_PATH=backup/Dockerfile` | — |
+  | Build command | `pnpm build` | `echo The worker runs from source with tsx` | — | — |
+  | Pre-deploy command | `pnpm db:deploy` | — | — | — |
+  | Start command | `pnpm start` | `pnpm worker` | — (the Dockerfile's `CMD`) | — |
+  | Cron schedule | — | — | `0 3 * * *` (03:00 UTC) | — |
+  | Watch paths | — | — | `/backup/**` | — |
+  | Healthcheck path | `/login` | — | — | — |
+  | Restart policy | On failure, 5 retries | Always | Never | On failure, 5 retries |
+  | Volume | — | — | — | `/var/lib/postgresql/data` |
+  | Networking | a public Railway domain | private only | private only | private only, no TCP proxy |
+
+  `pnpm db:deploy` runs the migrations, then the seed, which only creates the one reader if missing, so a failing migration stops the deploy. The postgres service also sets `PGDATA=/var/lib/postgresql/data/pgdata`, since the volume's root holds `lost+found`; it is the same image as `docker-compose.yml`.
 - **Keep pg-boss.**
 - **The gate**: `APP_PASSWORD` and `SESSION_SECRET` (at least 32 characters). A signed, HttpOnly cookie lasts 90 days and is renewed daily as the app is used, so the iPhone home-screen app stays signed in. Five wrong passwords from one address, or fifty overall, stop sign-in for fifteen minutes. In production, a missing or short value lets no one in.
 - **Spend**: every Claude and Voyage call is logged in `paid_call` at list price. At `MONTHLY_AI_BUDGET_USD` ($8) for the UTC month, the worker holds every job (re-queued every 30 minutes, using up no attempts) and the app says so by the wordmark. Hard caps sit outside the app: an Anthropic workspace limit of $10, a Railway hard limit of $15, a Google Books key restricted to that API with a lowered daily quota. Voyage has no spending cap; its key is kept apart from development's.
