@@ -44,6 +44,9 @@ const routeModules = files.filter((f) => /(^|\/)route\.ts$/.test(f));
 
 describe("Every Server Function and API route requires a Reader", () => {
   beforeEach(() => {
+    // The password gate open, as in development, so only the Reader's session decides.
+    vi.stubEnv("APP_PASSWORD", undefined);
+    vi.stubEnv("SESSION_SECRET", undefined);
     touched.db = 0;
     touched.sessionChecks = 0;
   });

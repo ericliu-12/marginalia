@@ -7,8 +7,8 @@ import { searchBooks } from "@/domain/search";
 import { bookSearchGateway, descriptionGateway } from "@/lib/book-search";
 import { appPipeline } from "@/lib/jobs";
 
-// Dev only: `pnpm dev:seed-library <email>` fills that Reader's library with Books marked Already read, through the real add path, so
-// Enrichment and embeddings are queued for the worker (`pnpm worker`) to run.
+// Dev only: `pnpm dev:seed-library <email>` fills that Reader's library with Books marked Already read,
+// through the real add path, so Enrichment and embeddings are queued for the worker (`pnpm worker`) to run.
 const url = process.env.DATABASE_URL;
 if (!url || !["localhost", "127.0.0.1"].includes(new URL(url).hostname)) {
   throw new Error("dev:seed-library only runs against a local DATABASE_URL.");
