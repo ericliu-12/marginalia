@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { allowedEmail, session, user, verification } from "../src/db/schema";
 import { invite } from "../src/domain/allowlist";
 import { createAuth, type SignupMode } from "../src/lib/auth";
+import { resendMailer } from "../src/lib/mailer";
 import { fakeMailer } from "./fakes";
 import { useTestDb } from "./harness";
 
@@ -101,5 +102,26 @@ describe("pnpm invite", () => {
     expect(await ctx.db.select({ email: allowedEmail.email, usd: allowedEmail.monthlyBudgetUsd }).from(allowedEmail)).toEqual([
       { email: "friend@example.com", usd: 5 },
     ]);
+  });
+});
+
+describe("A sign-in code that fails to send", () => {
+  const ctx = useTestDb();
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("is logged with Resend's error, since the request doesn't wait for it", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response('{"message":"The domain is not verified"}', { status: 403 })));
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    const auth = createAuth(ctx.db, { mailer: resendMailer("re_test"), signupMode: "open", baseURL: BASE_URL, secret: "s".repeat(32) });
+
+    expect(await auth.api.sendVerificationOTP({ body: { email: "friend@example.com", type: "sign-in" } })).toEqual({ success: true });
+    await vi.waitFor(() => expect(logged).toHaveBeenCalled());
+    const [message, error] = logged.mock.calls[0];
+    expect(message).toBe("Could not send a sign-in code to friend@example.com");
+    expect(String(error)).toContain("403");
+    expect(String(error)).toContain("The domain is not verified");
   });
 });
