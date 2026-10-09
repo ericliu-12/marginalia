@@ -33,7 +33,9 @@ A hosted queue (Inngest, Trigger.dev, QStash) calling serverless functions was a
   | Healthcheck path | `/login` | — | — | — |
   | Restart policy | On failure, 5 retries | Always | Never | On failure, 5 retries |
   | Volume | — | — | — | `/var/lib/postgresql/data` |
-  | Networking | a public Railway domain | private only | private only | private only, no TCP proxy |
+  | Networking | `inkmarginalia.com` (custom domain, port 8080), plus Railway's `web-production-fd25da.up.railway.app` | private only | private only | private only, no TCP proxy |
+
+  **The domain** is `https://inkmarginalia.com` (#54). Its DNS is at Cloudflare, DNS-only (not proxied), so Railway's edge issues the certificate. Nothing in the app names a host: the manifest and redirects are relative, Server Actions check the request's own host, and the session cookie sets no `domain`, so it belongs to whichever host signed in. The Railway domain still answers, with its own sign-in; add the home-screen app from `inkmarginalia.com`. Anything that needs an absolute origin (auth callbacks, #45) uses `https://inkmarginalia.com`.
 
   `pnpm db:deploy` runs the migrations, then the seed, which only creates the one reader if missing, so a failing migration stops the deploy. The postgres service also sets `PGDATA=/var/lib/postgresql/data/pgdata`, since the volume's root holds `lost+found`; it is the same image as `docker-compose.yml`.
 
