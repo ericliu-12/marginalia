@@ -36,6 +36,8 @@ A hosted queue (Inngest, Trigger.dev, QStash) calling serverless functions was a
   | Networking | a public Railway domain | private only | private only | private only, no TCP proxy |
 
   `pnpm db:deploy` runs the migrations, then the seed, which only creates the one reader if missing, so a failing migration stops the deploy. The postgres service also sets `PGDATA=/var/lib/postgresql/data/pgdata`, since the volume's root holds `lost+found`; it is the same image as `docker-compose.yml`.
+
+  web, worker and backup reach it by reference, with the password kept out of the URL (it holds characters a URL would need escaped): `DATABASE_URL=postgresql://${{postgres.POSTGRES_USER}}@${{postgres.RAILWAY_PRIVATE_DOMAIN}}:5432/${{postgres.POSTGRES_DB}}` and `PGPASSWORD=${{postgres.POSTGRES_PASSWORD}}`, which node-postgres, pg-boss and pg_dump all read when the URL has none. web and worker also take `MONTHLY_AI_BUDGET_USD=8`; backup takes `R2_BUCKET=marginalia-backups` and `RAILWAY_DOCKERFILE_PATH`.
 - **Keep pg-boss.**
 - **The gate**: `APP_PASSWORD` and `SESSION_SECRET` (at least 32 characters). A signed, HttpOnly cookie lasts 90 days and is renewed daily as the app is used, so the iPhone home-screen app stays signed in. Five wrong passwords from one address, or fifty overall, stop sign-in for fifteen minutes. In production, a missing or short value lets no one in.
 - **Spend**: every Claude and Voyage call is logged in `paid_call` at list price. At `MONTHLY_AI_BUDGET_USD` ($8) for the UTC month, the worker holds every job (re-queued every 30 minutes, using up no attempts) and the app says so by the wordmark. Hard caps sit outside the app: an Anthropic workspace limit of $10, a Railway hard limit of $15, a Google Books key restricted to that API with a lowered daily quota. Voyage has no spending cap; its key is kept apart from development's.
@@ -58,7 +60,7 @@ Restore into a new database beside the live one, check it, then point the servic
 4. `psql "$PG" -c 'CREATE DATABASE marginalia_restored'`
 5. `pg_restore --no-owner --no-privileges --exit-on-error --dbname="${PG%/*}/marginalia_restored" <file>.dump`
 6. Check it: `psql "${PG%/*}/marginalia_restored" -c 'select count(*) from book' -c 'select count(*) from note' -c 'select count(*) from connection'`, and compare with what the app showed.
-7. In Railway, change the database name at the end of `DATABASE_URL` from `/marginalia` to `/marginalia_restored` on web, worker and backup, and deploy each. Redeploying the worker starts it again.
+7. In Railway, change the database name at the end of `DATABASE_URL` from `/${{postgres.POSTGRES_DB}}` to `/marginalia_restored` on web, worker and backup, and deploy each. Redeploying the worker starts it again.
 8. Turn the TCP proxy off again. Drop the old database once the restored one has run for a while.
 
 To practise without touching production, do steps 4–6 against the local docker-compose database (`postgres://marginalia:marginalia@localhost:5433`). This was done when the backup was added: every table's count, the embeddings, pg-boss's jobs and the pgvector version came back.
