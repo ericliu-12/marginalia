@@ -1,5 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 import { e2eDatabaseUrl } from "./test/e2e/database";
+import { E2E_PASSWORD, E2E_SESSION_SECRET, signedIn } from "./test/e2e/session";
 
 // A production build on its own port and database, so it runs beside `pnpm dev`. The API keys are
 // placeholders: nothing the tests do calls out, and anything that tried would fail rather than spend.
@@ -11,7 +12,7 @@ export default defineConfig({
   // One database, reset before each test.
   workers: 1,
   fullyParallel: false,
-  use: { baseURL: `http://localhost:${PORT}`, trace: "retain-on-failure" },
+  use: { baseURL: `http://localhost:${PORT}`, trace: "retain-on-failure", storageState: signedIn() },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } }],
   webServer: {
     command: `pnpm exec tsx test/e2e/create-database.ts && pnpm exec next build && pnpm exec next start --port ${PORT}`,
@@ -23,6 +24,8 @@ export default defineConfig({
       ANTHROPIC_API_KEY: "e2e-no-calls",
       VOYAGE_API_KEY: "e2e-no-calls",
       GOOGLE_BOOKS_API_KEY: "",
+      APP_PASSWORD: E2E_PASSWORD,
+      SESSION_SECRET: E2E_SESSION_SECRET,
     },
   },
 });
