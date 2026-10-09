@@ -20,7 +20,7 @@ import {
 import { CO_AUTHOR_HINT, draftError, invalidProps, withScheme, type BookDraft, type DraftError } from "./book-draft";
 import { ConnectionsSection } from "./connections";
 import { MOVES } from "./library-list";
-import { EMPTY, loadDraft, saveDraft, type Draft } from "./note-draft";
+import { EMPTY, loadDraft, newNoteId, sameDraft, saveDraft, type Draft } from "./note-draft";
 import { useInlineConfirm } from "./use-inline-confirm";
 import { POLL_MS, usePoll } from "./use-poll";
 import { Cover } from "./cover";
@@ -581,9 +581,8 @@ export function NoteForm(props: NoteFormProps) {
   const [error, setError] = useState<{ message: string; retry: boolean } | null>(null);
   // Not a transition: a server action that hangs would keep it pending.
   const [pending, setPending] = useState(false);
-  // The save on its way. Server actions go one at a time, so one that has hung would hold back a second
-  // try, and could land as well; trying again waits on it once more rather than sending another.
-  const inflight = useRef<Promise<void> | null>(null);
+  // The latest try at saving; an earlier one that answers late doesn't speak for it.
+  const attempt = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const ownBodyRef = useRef<HTMLTextAreaElement>(null);
   const bodyRef = props.bodyRef ?? ownBodyRef;
@@ -611,11 +610,14 @@ export function NoteForm(props: NoteFormProps) {
     if (props.bookId) saveDraft(props.bookId, next);
   }
 
-  // A new Note's draft is cleared once it is saved, unless the reader has typed on since sending it.
+  // A try that saved what is typed now finishes the Note. One that saved what was typed before (it
+  // answered late, after the reader typed on) changes nothing here: the next try lands on the same Note.
+  // The stored draft is cleared only if it is still what was saved, as another form may have it now.
   function finish(saved: Note, sent: Draft) {
+    if (props.bookId && sameDraft(loadDraft(props.bookId), sent)) saveDraft(props.bookId, EMPTY);
+    if (latest.current !== sent) return;
     setError(null);
-    if (!editing && latest.current === sent) {
-      if (props.bookId) saveDraft(props.bookId, EMPTY);
+    if (!editing) {
       latest.current = EMPTY;
       // The sheet goes down with the words still on it.
       if (!sheet) {
@@ -635,30 +637,36 @@ export function NoteForm(props: NoteFormProps) {
     }
     const page = parsePage(draft.page);
     if (page === "invalid") return setError({ message: "Page should be a whole number.", retry: false });
+    let sent = draft;
+    if (props.bookId && !sent.id) {
+      sent = { ...draft, id: newNoteId() };
+      setDraft(sent);
+      latest.current = sent;
+      saveDraft(props.bookId, sent);
+    }
+    const mine = ++attempt.current;
+    const failed = () => {
+      if (attempt.current !== mine) return;
+      clearTimeout(timer.current);
+      setPending(false);
+      setError({ message: "Couldn’t save. Your note is kept here.", retry: true });
+    };
     setError(null);
     setPending(true);
-    const failed = () => setError({ message: "Couldn’t save. Your note is kept here.", retry: true });
-    if (!inflight.current) {
-      const sent = draft;
-      const input = { body: sent.body, quote: sent.quote, page };
-      // Offline, the action itself rejects rather than answering.
-      const call = props.note ? updateNoteAction(props.note.id, input) : addNoteAction(props.bookId, input);
-      inflight.current = call
-        .catch(() => ({ ok: false as const }))
-        .then((res) => {
-          inflight.current = null;
+    clearTimeout(timer.current);
+    timer.current = setTimeout(failed, SAVE_TIMEOUT_MS);
+    const input = { body: sent.body, quote: sent.quote, page };
+    // Offline, the action itself rejects rather than answering.
+    (props.note ? updateNoteAction(props.note.id, input) : addNoteAction(props.bookId, input, sent.id))
+      .catch(() => ({ ok: false as const }))
+      .then((res) => {
+        if (!res.ok) return failed();
+        if (attempt.current === mine) {
           clearTimeout(timer.current);
           setPending(false);
-          // A late answer that saved it counts, even after the reader was told it hadn't.
-          if (res.ok) finish(res.note, sent);
-          else failed();
-        });
-    }
-    clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
-      setPending(false);
-      failed();
-    }, SAVE_TIMEOUT_MS);
+        }
+        finish(res.note, sent);
+      });
   }
 
   // Revealed and focused in the same tap, so a phone keeps its keyboard up for the new field.

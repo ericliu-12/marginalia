@@ -39,14 +39,22 @@ function clean(input: NoteInput) {
 }
 
 // Domain seam: Notes attach to the reader's Library Entry for a Book, never to the shared Book.
-export async function addNote(db: Db, pipeline: Pipeline, userId: string, bookId: string, input: NoteInput): Promise<Note> {
+// A Note added under an `id` the reader's Note already has is that Note sent again (a retry after no
+// answer), so it takes the later text rather than becoming a second Note.
+export async function addNote(db: Db, pipeline: Pipeline, userId: string, bookId: string, input: NoteInput, id?: string): Promise<Note> {
   const values = clean(input);
   const entry = await findEntry(db, userId, bookId);
   if (!entry) throw new NotInLibraryError(bookId);
   const [created] = await db
     .insert(note)
-    .values({ libraryEntryId: entry.id, userId, ...values })
+    .values({ id, libraryEntryId: entry.id, userId, ...values })
+    .onConflictDoUpdate({
+      target: note.id,
+      set: { ...values, embedding: null, embeddingModel: null, embedFailedAt: null, updatedAt: new Date() },
+      setWhere: and(eq(note.userId, userId), eq(note.libraryEntryId, entry.id)),
+    })
     .returning(columns);
+  if (!created) throw new NoteNotFoundError(id!);
   await pipeline.noteSaved(created.id);
   return created;
 }

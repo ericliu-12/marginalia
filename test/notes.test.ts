@@ -38,6 +38,24 @@ describe("notes", () => {
     expect(await listNotes(ctx.db, ctx.userId, id)).toHaveLength(1);
   });
 
+  // A save that is sent again (a retry after no answer) carries the same id, so it lands once, as sent last.
+  it("adding a Note again under the same id updates it rather than adding a second", async () => {
+    const id = await bookId();
+    const noteId = "6f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b";
+    await addNote(ctx.db, ctx.pipeline, ctx.userId, id, { body: "Half a thought" }, noteId);
+    const again = await addNote(ctx.db, ctx.pipeline, ctx.userId, id, { body: "Half a thought, finished", page: 7 }, noteId);
+    expect(again).toMatchObject({ id: noteId, body: "Half a thought, finished", page: 7 });
+    expect(await listNotes(ctx.db, ctx.userId, id)).toEqual([expect.objectContaining({ id: noteId, body: "Half a thought, finished" })]);
+  });
+
+  it("adding under an id that is another reader's Note leaves that Note alone", async () => {
+    const id = await bookId();
+    const n = await addNote(ctx.db, ctx.pipeline, ctx.userId, id, { body: "Mine" });
+    const other = "00000000-0000-0000-0000-000000000000";
+    await expect(addNote(ctx.db, ctx.pipeline, other, id, { body: "Hijacked" }, n.id)).rejects.toThrow();
+    expect((await listNotes(ctx.db, ctx.userId, id))[0].body).toBe("Mine");
+  });
+
   it("deletes a Note", async () => {
     const id = await bookId();
     const n = await addNote(ctx.db, ctx.pipeline, ctx.userId, id, { body: "Gone" });

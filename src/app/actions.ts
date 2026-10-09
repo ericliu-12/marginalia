@@ -110,10 +110,11 @@ export async function listNotesAction(bookId: string): Promise<Note[] | null> {
   }
 }
 
-export async function addNoteAction(bookId: string, input: NoteInput): Promise<NoteResult> {
+// `id` names a new Note from the browser, so a save sent again lands once.
+export async function addNoteAction(bookId: string, input: NoteInput, id?: string): Promise<NoteResult> {
   try {
     const db = appDb();
-    return { ok: true, note: await addNote(db, appPipeline(db), await getSeededUserId(db), bookId, input) };
+    return { ok: true, note: await addNote(db, appPipeline(db), await getSeededUserId(db), bookId, input, id) };
   } catch (err) {
     console.error(err);
     return { ok: false };

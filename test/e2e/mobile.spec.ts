@@ -423,11 +423,14 @@ test("the Note sheet rides on top of the on-screen keyboard", async ({ page }) =
   expect((await sheet(page).boundingBox())!.y).toBeGreaterThanOrEqual(120);
 });
 
-test("a save that hangs gives up after a while, keeping the Note to try again", async ({ page }) => {
+test("a save that hangs gives up after a while, and trying again with more written saves one Note, as written last", async ({ page }) => {
   await page.clock.install();
   await page.reload();
-  // Server actions that never answer, as on a phone that has lost its signal mid-request.
-  await page.route("**/*", (route) => (route.request().method() === "POST" && route.request().headers()["next-action"] ? undefined : route.fallback()));
+  // The first save hangs, as on a phone that has lost its signal mid-request, until it is let go.
+  const held: import("@playwright/test").Route[] = [];
+  await page.route("**/*", (route) =>
+    route.request().method() === "POST" && route.request().headers()["next-action"] && held.length === 0 ? void held.push(route) : route.fallback(),
+  );
 
   await pen(page, "Middlemarch").click();
   await page.keyboard.type("Written in a tunnel");
@@ -435,8 +438,21 @@ test("a save that hangs gives up after a while, keeping the Note to try again", 
   await expect(sheet(page).getByRole("button", { name: "Saving…" })).toBeVisible();
   await page.clock.fastForward(16_000);
   await expect(sheet(page).getByRole("alert")).toHaveText("Couldn’t save. Your note is kept here.");
-  await expect(sheet(page).getByRole("button", { name: "Try again" })).toBeEnabled();
   await expect(noteText(page)).toHaveValue("Written in a tunnel");
+
+  // The reader writes on (which clears the message) and saves again; then the first save gets through after all.
+  await noteText(page).press("End");
+  await page.keyboard.type(", and out of it");
+  await expect(sheet(page).getByRole("alert")).toHaveCount(0);
+  await sheet(page).getByRole("button", { name: "Save note" }).click();
+  await held[0].fallback();
+  await expect(sheet(page)).toHaveCount(0);
+  await expect(page.getByRole("status").filter({ hasText: "Note saved on Middlemarch" })).toBeVisible();
+
+  await shelf(page).getByRole("button", { name: /^Middlemarch/ }).click();
+  const notes = page.getByRole("listitem").filter({ hasText: "Written in a tunnel" });
+  await expect(notes).toHaveCount(1);
+  await expect(notes).toContainText("Written in a tunnel, and out of it");
 });
 
 test("the Note saved line goes with the next move, or after a while", async ({ page }) => {
