@@ -31,7 +31,7 @@ export function createAuth(db: Db, config: AuthConfig) {
     // About 90 days, renewed once a day as the app is used, so the iPhone home-screen app stays signed in.
     session: { expiresIn: 90 * DAY_SECONDS, updateAge: DAY_SECONDS },
     // Google's callback is ${baseURL}/api/auth/callback/google, the redirect URI on the Google OAuth client.
-    // Google always asks which account, so a reader with two isn't signed in with the wrong one unasked.
+    // Google always asks which account, so a Reader with two isn't signed in with the wrong one unasked.
     socialProviders: { google: { ...config.google, prompt: "select_account" } },
     // Google joins the Reader with the same email, if Google has verified it (it isn't a trusted provider,
     // so its say-so alone isn't enough) and so has an email code. A code finds a Google Reader by email too.
