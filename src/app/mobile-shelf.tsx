@@ -179,7 +179,7 @@ export function MobileShelf({ items, finding, paused }: { items: LibraryItem[]; 
   return (
     <>
       {book ? (
-        <main className="mx-auto max-w-[40rem] pt-[env(safe-area-inset-top)]">
+        <main className="mx-auto max-w-[40rem] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
           <BookPanel
             key={book.bookId}
             variant="screen"

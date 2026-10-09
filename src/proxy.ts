@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { gate, SESSION_COOKIE, sessionCookie, shouldRenew, verifyToken } from "@/lib/session";
 
-// Everything but /login and the build's static files needs the session cookie. A page without one
+// Everything but /login, the build's static files, and the icons and manifest (fetched without the
+// cookie when the app is added to the home screen) needs the session cookie. A page without one
 // goes to /login and comes back after; a Server Function or API call is refused.
 export function proxy(request: NextRequest) {
   const g = gate();
@@ -19,4 +20,4 @@ export function proxy(request: NextRequest) {
   return response;
 }
 
-export const config = { matcher: ["/((?!login|_next/static|_next/image|favicon.ico).*)"] };
+export const config = { matcher: ["/((?!login|_next/static|_next/image|favicon.ico|icon.png|apple-icon.png|manifest.webmanifest|icons/).*)"] };
