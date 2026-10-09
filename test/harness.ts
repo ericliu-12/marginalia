@@ -33,28 +33,30 @@ export function useTestDb() {
 
 // A failed test records every other session on the test database (state, what it waits on, who
 // blocks it), and the pool's counts when given one, so an intermittent stall can be diagnosed from
-// the run that had it.
+// the run that had it. A test that already recorded its own (at the moment it gave up) keeps that.
 export function recordDbActivityOnFailure(pool?: Pool) {
   beforeEach(({ task, onTestFailed }) => {
     onTestFailed(async () => {
-      // Its own connection: the pool may be the thing that is stuck.
-      const client = new Client({ connectionString: process.env.TEST_DATABASE_URL! });
-      try {
-        await client.connect();
-        const { rows } = await client.query(
-          `SELECT pid, state, wait_event_type, wait_event, pg_blocking_pids(pid) AS blocked_by,
-                  extract(epoch FROM now() - xact_start) AS in_transaction_s, left(query, 300) AS query
-           FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid()`,
-        );
-        task.meta.dbActivity = {
-          pool: pool && { total: pool.totalCount, idle: pool.idleCount, waiting: pool.waitingCount },
-          sessions: rows,
-        };
-      } catch {
-        // Diagnostics only; the failure itself is what the report needs.
-      } finally {
-        await client.end().catch(() => {});
-      }
+      task.meta.dbActivity ??= await readDbActivity(pool);
     });
   });
+}
+
+export async function readDbActivity(pool?: Pool) {
+  // Its own connection: the pool may be the thing that is stuck.
+  const client = new Client({ connectionString: process.env.TEST_DATABASE_URL! });
+  try {
+    await client.connect();
+    const { rows } = await client.query(
+      `SELECT pid, state, wait_event_type, wait_event, pg_blocking_pids(pid) AS blocked_by,
+              extract(epoch FROM now() - xact_start) AS in_transaction_s, left(query, 300) AS query
+       FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid()`,
+    );
+    return { pool: pool && { total: pool.totalCount, idle: pool.idleCount, waiting: pool.waitingCount }, sessions: rows };
+  } catch {
+    // Diagnostics only; the failure itself is what the report needs.
+    return undefined;
+  } finally {
+    await client.end().catch(() => {});
+  }
 }
