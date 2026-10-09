@@ -166,8 +166,12 @@ describe("The worker, for two Readers", () => {
     }));
     return { judge, deps: { model: fakeEnricher(), judge, embedder, descriptions: null, namer: fakeNamer() } satisfies JobDeps };
   };
-  const rowsOf = async <T extends typeof connection | typeof clusterLabel | typeof bookPosition>(t: T) =>
-    (await ctx.db.select({ userId: t.userId }).from(t)).map((r) => r.userId);
+  // Whose rows each table holds.
+  const owners = async () => ({
+    connections: (await ctx.db.select().from(connection)).map((r) => r.userId),
+    clusters: (await ctx.db.select().from(clusterLabel)).map((r) => r.userId),
+    positions: [...new Set((await ctx.db.select().from(bookPosition)).map((r) => r.userId))],
+  });
 
   beforeEach(async () => {
     a = ctx.userId;
@@ -181,9 +185,7 @@ describe("The worker, for two Readers", () => {
     for (const t of titles) await runJob(ctx.db, d, ctx.jobs, { kind: "connections", userId: a, bookId: bookIds.get(t)! });
     await runJob(ctx.db, d, ctx.jobs, { kind: "graph", userId: a });
 
-    expect(await rowsOf(connection)).toEqual([a, a, a]);
-    expect(await rowsOf(clusterLabel)).toEqual([a]);
-    expect(new Set(await rowsOf(bookPosition))).toEqual(new Set([a]));
+    expect(await owners()).toEqual({ connections: [a, a, a], clusters: [a], positions: [a] });
     const shown = JSON.stringify(judge.inputs);
     expect(shown).toContain("A's note");
     expect(shown).not.toContain("B's note");

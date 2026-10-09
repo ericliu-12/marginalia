@@ -24,8 +24,7 @@
     "bench:graph": "tsx --env-file-if-exists=.env scripts/bench/graph-bench.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file-if-exists=.env src/db/migrate.ts",
-    "db:seed": "tsx --env-file-if-exists=.env src/db/seed.ts",
-    "db:deploy": "pnpm db:migrate && pnpm db:seed"
+    "db:deploy": "pnpm db:migrate"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",

@@ -2,8 +2,7 @@
 // 80% inside their Cluster with preferential attachment, 40% strong. The same for every run of a size.
 import { sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
-import { seedUser } from "@/db/seed";
-import { book, bookPosition, clusterLabel, connection, enrichment, libraryEntry, readThrough } from "@/db/schema";
+import { book, bookPosition, clusterLabel, connection, enrichment, libraryEntry, readThrough, user } from "@/db/schema";
 import { recomputeClusters } from "@/domain/clusters";
 import { layoutGraph } from "@/domain/graph";
 
@@ -61,7 +60,7 @@ function library(n: number) {
 // the worker would, every Cluster named.
 export async function seedSyntheticLibrary(db: Db, n: number) {
   await db.execute(sql`TRUNCATE "user" CASCADE`);
-  const userId = (await seedUser(db)).id;
+  const [{ id: userId }] = await db.insert(user).values({ email: "bench@marginalia.local" }).returning();
   const { titles, pairs, degree } = library(n);
   const books = await db.insert(book).values(titles.map((title) => ({ title, authors: ["A. Writer"] }))).returning({ id: book.id });
   const entries = await db

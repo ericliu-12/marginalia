@@ -1,11 +1,13 @@
+import { eq } from "drizzle-orm";
 import { appDb } from "@/db/client";
-import { getSeededUserId } from "@/db/seed";
+import { user } from "@/db/schema";
+import { normaliseEmail } from "@/domain/allowlist";
 import { addBook, DuplicateBookError } from "@/domain/add-book";
 import { searchBooks } from "@/domain/search";
 import { bookSearchGateway, descriptionGateway } from "@/lib/book-search";
 import { appPipeline } from "@/lib/jobs";
 
-// Dev only: fills the library with Books marked Already read, through the real add path, so
+// Dev only: `pnpm dev:seed-library <email>` fills that Reader's library with Books marked Already read, through the real add path, so
 // Enrichment and embeddings are queued for the worker (`pnpm worker`) to run.
 const url = process.env.DATABASE_URL;
 if (!url || !["localhost", "127.0.0.1"].includes(new URL(url).hostname)) {
@@ -30,7 +32,9 @@ const QUERIES = [
 ];
 
 const db = appDb();
-const userId = await getSeededUserId(db);
+const [reader] = await db.select({ id: user.id }).from(user).where(eq(user.email, normaliseEmail(process.argv[2] ?? "")));
+if (!reader) throw new Error("Usage: pnpm dev:seed-library <email of a Reader who has signed in>");
+const userId = reader.id;
 const gateway = bookSearchGateway();
 const descriptions = descriptionGateway();
 const pipeline = appPipeline(db);

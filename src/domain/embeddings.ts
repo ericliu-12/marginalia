@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import type { Db } from "@/db/client";
 import { enrichment, libraryEntry, note } from "@/db/schema";

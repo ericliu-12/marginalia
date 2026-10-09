@@ -7,7 +7,7 @@ import { useWide } from "./use-wide";
 
 // The server can't tell the screen's width, so it renders both and CSS shows the right one; once the
 // browser knows, only that one stays mounted.
-export function Library(props: { items: LibraryItem[]; finding: number; paused: string | null; signedIn: boolean }) {
+export function Library(props: { items: LibraryItem[]; finding: number; paused: string | null }) {
   const wide = useWide(null);
   return (
     <>

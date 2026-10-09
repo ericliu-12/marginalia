@@ -12,7 +12,7 @@ import { Pool } from "pg";
 import { sql } from "drizzle-orm";
 import { createDb } from "@/db/client";
 import { runMigrations } from "@/db/migrate";
-import { seedUser } from "@/db/seed";
+import { user as reader } from "@/db/schema";
 import { addBook } from "@/domain/add-book";
 import type { JudgeInput, JudgeResult } from "@/domain/connections";
 import type { Embedder } from "@/domain/embeddings";
@@ -49,7 +49,7 @@ const { db, pool } = createDb(scratchUrl.toString());
 
 try {
   await runMigrations(db);
-  const user = await seedUser(db);
+  const [user] = await db.insert(reader).values({ email: "eval@marginalia.local" }).returning();
 
   // Voyage rate limits clear within minutes: retry rather than abort a paid run.
   const voyage = voyageEmbedder();

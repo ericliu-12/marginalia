@@ -262,7 +262,7 @@ function Result({
     setError(null);
     setAdding(status);
     start(async () => {
-      const res = await addBookAction(r, status);
+      const res = await addBookAction(r.workKey, status);
       if (res.ok) {
         onAdded(r.workKey, status);
         setAdded(true);
