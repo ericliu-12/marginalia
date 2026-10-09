@@ -193,9 +193,10 @@ export function MobileShelf({ items, finding, paused }: { items: LibraryItem[]; 
       ) : (
         <>
           <main inert={adding || !!noteBook} className="mx-auto max-w-[40rem] px-6 pt-[max(1.25rem,env(safe-area-inset-top))] pb-36">
-            <div className="flex min-h-11 items-baseline gap-4">
+            {/* A line too long to sit beside the wordmark drops under it whole, rather than wrapping. */}
+            <div className="flex min-h-11 flex-wrap items-baseline gap-x-4 gap-y-1">
               <p className="text-[1.75rem] leading-none font-medium tracking-[-0.01em] italic">Marginalia</p>
-              <FindingIndicator initial={finding} paused={paused} />
+              <FindingIndicator initial={finding} paused={paused} className="shrink-0" />
             </div>
             <h1 ref={headingRef} tabIndex={-1} className="mt-6 text-[2rem] leading-tight font-medium outline-none">Reading</h1>
             {reading.length > 0 ? (

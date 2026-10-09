@@ -48,12 +48,12 @@ export function SignInForm({ next, unconfigured }: { next: string; unconfigured:
         className={`${field} mt-1 font-sans text-[0.95rem] disabled:opacity-60`}
       />
       <p id="sign-in-message" role="alert" className="mt-2 min-h-5 font-sans text-sm text-contrast">
-        {closed ? "Sign-in isn’t set up on this server yet." : error}
+        {closed ? "Sign-in isn’t set up on this server yet: it needs APP_PASSWORD, and a SESSION_SECRET of 32 characters or more." : error}
       </p>
       <button
         type="submit"
         disabled={pending || closed}
-        className="mt-3 min-h-11 w-full rounded-[3px] bg-ink px-4 font-sans text-sm font-medium text-paper transition-colors hover:bg-ink-2 disabled:cursor-default disabled:opacity-60 disabled:hover:bg-ink"
+        className={`mt-3 min-h-11 w-full rounded-[3px] bg-ink px-4 font-sans text-sm font-medium text-paper transition-colors hover:bg-ink-2 disabled:cursor-default disabled:hover:bg-ink ${closed ? "opacity-60" : ""}`}
       >
         {pending ? "Opening…" : "Open"}
       </button>

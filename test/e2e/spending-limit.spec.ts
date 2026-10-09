@@ -34,7 +34,10 @@ test.describe("on a phone", () => {
   test("the shelf and Add say it too", async ({ page }) => {
     await overBudget();
     await page.goto("/");
-    await expect(page.getByRole("main").getByRole("status")).toHaveText(`Spending limit reached · resumes ${resumesOn}`);
+    const shelfLine = page.getByRole("main").getByRole("status");
+    await expect(shelfLine).toHaveText(`Spending limit reached · resumes ${resumesOn}`);
+    // Too long to sit beside the wordmark, it drops under it on one line rather than wrapping.
+    expect((await shelfLine.boundingBox())!.height).toBeLessThan(30);
     await page.getByRole("button", { name: "Add a Book" }).click();
     await expect(page.getByRole("dialog", { name: "Add a Book" }).getByRole("status")).toHaveText(`Spending limit reached · resumes ${resumesOn}`);
   });
