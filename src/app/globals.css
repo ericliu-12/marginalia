@@ -9,6 +9,8 @@
   --color-ink-2: #5d5245;
   --color-ink-3: #6f6454;
   --color-rule: #d8cdb7;
+  /* A field's border: 3:1 on paper and paper raised, so the box is findable before it is focused. */
+  --color-edge: #8f816c;
   --color-thematic: #3e5f8a;
   --color-contrast: #a8432f;
   --color-context: #6f7a3a;

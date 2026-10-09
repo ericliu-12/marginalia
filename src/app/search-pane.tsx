@@ -105,7 +105,7 @@ export function SearchPane({
           }}
           placeholder="Title and author"
           autoComplete="off"
-          className="w-full rounded-[3px] border border-rule bg-paper px-3 py-2.5 font-sans text-[0.95rem] text-ink placeholder:text-ink-3 focus-visible:border-thematic focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-thematic/30"
+          className="w-full rounded-[3px] border border-edge bg-paper px-3 py-2.5 font-sans text-[0.95rem] text-ink placeholder:text-ink-3 focus-visible:border-thematic focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-thematic/30"
         />
       </div>
 

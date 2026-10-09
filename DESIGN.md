@@ -9,6 +9,7 @@ colors:
   ink-secondary: "#5d5245"
   ink-tertiary: "#6f6454"
   rule: "#d8cdb7"
+  edge: "#8f816c"
   thematic: "#3e5f8a"
   contrast: "#a8432f"
   context: "#6f7a3a"
@@ -87,6 +88,7 @@ A private, contemplative reading room. Warm paper, dark ink, a serif voice with 
 - **Paper** (`#f3ecdd`) is the page. **Paper raised** (`#faf5ea`) is a surface lifted from it (the search pane). **Paper sunk** (`#e9e0cd`) is a pressed or placeholder surface (cover placeholders, hover wash).
 - **Ink** (`#231d17`) is text and the primary action fill. **Ink secondary** and **tertiary** carry authors, counts and captions. Ink tertiary is only for text on paper or paper raised (it falls below 4.5:1 on paper sunk).
 - **Rule** (`#d8cdb7`) is the hairline for dividers and pane edges.
+- **Edge** (`#8f816c`) is a field's border at rest, 3.2:1 on paper and 3.5:1 on paper raised, so an empty input is findable before it is focused. Hairlines stay in rule; the Note sheet's fields stay boxless.
 - **Thematic** (blue), **Contrast** (rust) and **Context** (olive) are the three Connection Type hues, reserved for graph and Connection UI. Outside it, thematic is the focus ring, contrast is the error text and caret, context is the "added" check.
 - **Cluster washes** are six pale tints (`#c4ae82`, `#d0a1bb`, `#81bfb6`, `#d6a492`, `#b0abd8`, `#d1a888`), equal in OKLCH lightness and chroma and kept apart from the three Connection Type hues, so no Connection's line sinks into a wash. A Cluster is given its tint when it forms and keeps it for as long as it keeps its identity. They appear only on the graph, as soft pools behind a Cluster's Books, never over text.
 - **Cluster name ink** (`#4a4137`, between ink and ink secondary) holds 4.5:1 even where two washes overlap.
