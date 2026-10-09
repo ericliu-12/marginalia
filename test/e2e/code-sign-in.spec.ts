@@ -30,8 +30,12 @@ test("a Reader signs in with the code emailed to them and returns to the page th
   await sendCodeTo(page, ` ${SEEDED_USER_EMAIL.toUpperCase()} `);
   await expect(reply(page)).toHaveText(`If ${SEEDED_USER_EMAIL} can sign in here, a code is on its way. It lasts 5 minutes.`);
   await expect(page.getByLabel("Code")).toHaveAttribute("autocomplete", "one-time-code");
-  await expect(page.getByText(/again in \d+s/)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Send a new code" })).toBeDisabled();
+  await expect(page.getByText(/^You can send a new code in \d+s$/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Send a new code" })).toHaveCount(0);
+
+  // Back from Mail after the home-screen app reloaded: still at the code, for the same email.
+  await page.reload();
+  await expect(reply(page)).toContainText(SEEDED_USER_EMAIL);
 
   // Six digits sign in by themselves, as when the phone fills the code in.
   await page.getByLabel("Code").fill(await codeSentTo(SEEDED_USER_EMAIL));
@@ -60,7 +64,7 @@ test("a wrong code says so and is selected to be typed over", async ({ page }) =
   await sendCodeTo(page, SEEDED_USER_EMAIL);
   const code = await codeSentTo(SEEDED_USER_EMAIL);
   await page.getByLabel("Code").fill(code === "000000" ? "111111" : "000000");
-  await expect(page.locator("#sign-in-message")).toHaveText("That code didn’t work. Check it, or send a new one.");
+  await expect(page.locator("#sign-in-message")).toHaveText("That code didn’t work. Check it, or wait to send a new one.");
   await expect(page.getByLabel("Code")).toBeFocused();
   await page.getByLabel("Code").fill(code);
   await expect(page).toHaveURL(/\/$/);

@@ -7,10 +7,12 @@ import { quietLink } from "../quiet-link";
 // One code a minute per email (#65), so "Send a new code" rests for as long after each send.
 const RESEND_AFTER_S = 60;
 const CODE_LENGTH = 6;
+const CODE_LASTS_MS = 5 * 60 * 1000;
 
 const button =
   "mt-3 min-h-11 w-full rounded-[3px] bg-ink px-4 font-sans text-sm font-medium text-paper transition-colors hover:bg-ink-2 disabled:cursor-default disabled:hover:bg-ink";
-const label = "mt-10 block font-sans text-[0.8rem] font-medium text-ink-2";
+const label = "block font-sans text-[0.8rem] font-medium text-ink-2";
+const quietText = "font-sans text-[0.8rem] text-ink-3";
 
 // Relative paths only: the page's own origin is the site's, and nothing absolute is built here.
 async function post(path: string, body: object): Promise<Response | null> {
@@ -24,6 +26,26 @@ async function post(path: string, body: object): Promise<Response | null> {
 const UNREACHABLE = "Couldn’t reach Marginalia. Try again.";
 // Better Auth's rate limit, the same for every email.
 const TOO_MANY = "Too many tries. Wait a minute, then try again.";
+const looksLikeEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+
+// The email and when its code was sent, never the code: the iPhone home-screen app may reload while the
+// reader is in Mail, and should come back to the code step. Storage can be unavailable; then it just doesn't.
+const SAVED = "marginalia:sign-in";
+type Saved = { email: string; sentAt: number };
+function readSaved(): Saved | null {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(SAVED) ?? "null") as Saved | null;
+    return saved && Date.now() - saved.sentAt < CODE_LASTS_MS ? saved : null;
+  } catch {
+    return null;
+  }
+}
+function writeSaved(saved: Saved | null) {
+  try {
+    if (saved) sessionStorage.setItem(SAVED, JSON.stringify(saved));
+    else sessionStorage.removeItem(SAVED);
+  } catch {}
+}
 
 export function CodeSignIn({ next }: { next: string }) {
   const [step, setStep] = useState<"email" | "code">("email");
@@ -38,6 +60,15 @@ export function CodeSignIn({ next }: { next: string }) {
   const codeInput = useRef<HTMLInputElement>(null);
   const codeForm = useRef<HTMLFormElement>(null);
 
+  useEffect(() => {
+    const saved = readSaved();
+    if (!saved) return;
+    setEmail(saved.email);
+    setSentAt(saved.sentAt);
+    setNow(Date.now());
+    setStep("code");
+  }, []);
+
   const waitS = Math.max(0, RESEND_AFTER_S - Math.floor((now - sentAt) / 1000));
   useEffect(() => {
     if (step !== "code" || waitS === 0) return;
@@ -46,9 +77,7 @@ export function CodeSignIn({ next }: { next: string }) {
   }, [step, waitS]);
 
   // The same reply whatever the email: the server sends a code only if it may sign in.
-  async function sendCode() {
-    const address = email.trim().toLowerCase();
-    setEmail(address);
+  async function sendCode(address: string) {
     setPending(true);
     setError(null);
     const res = await post("/email-otp/send-verification-otp", { email: address, type: "sign-in" });
@@ -60,13 +89,18 @@ export function CodeSignIn({ next }: { next: string }) {
     const at = Date.now();
     setSentAt(at);
     setNow(at);
+    writeSaved({ email: address, sentAt: at });
     return true;
   }
 
   async function onEmail(e: FormEvent) {
     e.preventDefault();
     if (pending) return;
-    if (!(await sendCode())) return emailInput.current?.select();
+    const address = email.trim().toLowerCase();
+    setEmail(address);
+    if (!address) return (setError("Enter your email."), emailInput.current?.focus());
+    if (!looksLikeEmail(address)) return (setError("That doesn’t look like an email address."), emailInput.current?.select());
+    if (!(await sendCode(address))) return emailInput.current?.select();
     setCode("");
     setResent(false);
     setStep("code");
@@ -74,23 +108,35 @@ export function CodeSignIn({ next }: { next: string }) {
 
   async function onResend() {
     if (pending || waitS > 0) return;
-    if (await sendCode()) {
+    if (await sendCode(email)) {
       setResent(true);
       setCode("");
       codeInput.current?.focus();
     }
   }
 
+  function differentEmail() {
+    writeSaved(null);
+    setError(null);
+    setStep("email");
+  }
+
   async function onCode(e?: FormEvent) {
     e?.preventDefault();
-    if (pending || code.length !== CODE_LENGTH) return;
+    if (pending) return;
+    if (code.length !== CODE_LENGTH) return (setError(`The code is ${CODE_LENGTH} digits.`), codeInput.current?.focus());
     setPending(true);
     setError(null);
     const res = await post("/sign-in/email-otp", { email, otp: code });
-    if (res?.ok) return window.location.assign(next);
+    if (res?.ok) {
+      writeSaved(null);
+      return window.location.assign(next);
+    }
     setPending(false);
     // Wrong, expired or used up all read alike, so the reply never tells an invited email from another.
-    setError(!res ? UNREACHABLE : res.status === 429 ? TOO_MANY : "That code didn’t work. Check it, or send a new one.");
+    if (!res) return setError(UNREACHABLE);
+    if (res.status === 429) return setError(TOO_MANY);
+    setError(`That code didn’t work. Check it, or ${waitS > 0 ? "wait to send" : "send"} a new one.`);
   }
 
   // Typed, pasted or filled from the keyboard's suggestion: six digits sign in at once.
@@ -104,20 +150,21 @@ export function CodeSignIn({ next }: { next: string }) {
     // Only on a change of step: a failed try selects its own field below.
   }, [step]);
   useEffect(() => {
-    if (error && step === "code") codeInput.current?.select();
-  }, [error, step]);
+    if (error && step === "code" && code.length === CODE_LENGTH) codeInput.current?.select();
+  }, [error, step, code.length]);
 
   const message = (
-    <p id="sign-in-message" role="alert" className="mt-2 min-h-5 font-sans text-sm text-contrast">
+    <p id="sign-in-message" role="alert" className="mt-2 min-h-5 font-sans text-sm text-pretty text-contrast">
       {error}
     </p>
   );
+  const wordmark = <h1 className="text-[1.75rem] leading-none font-medium tracking-[-0.01em] italic">Marginalia</h1>;
 
   if (step === "email")
     return (
-      <form onSubmit={onEmail} className="w-full max-w-[19rem]">
-        <h1 className="text-[1.75rem] leading-none font-medium tracking-[-0.01em] italic">Marginalia</h1>
-        <label htmlFor="email" className={label}>
+      <form onSubmit={onEmail} noValidate className="w-full max-w-[19rem]">
+        {wordmark}
+        <label htmlFor="email" className={`${label} mt-10`}>
           Email
         </label>
         <input
@@ -129,7 +176,6 @@ export function CodeSignIn({ next }: { next: string }) {
           autoCapitalize="none"
           spellCheck={false}
           enterKeyHint="send"
-          required
           autoFocus
           value={email}
           onChange={(e) => {
@@ -148,16 +194,16 @@ export function CodeSignIn({ next }: { next: string }) {
     );
 
   return (
-    <form ref={codeForm} onSubmit={onCode} className="w-full max-w-[19rem]">
-      <h1 className="text-[1.75rem] leading-none font-medium tracking-[-0.01em] italic">Marginalia</h1>
-      <p className="mt-10 text-[1.0625rem] leading-normal text-ink-2">
-        If <span className="break-all text-ink">{email}</span> can sign in here, a code is on its way. It lasts 5 minutes.
+    <form ref={codeForm} onSubmit={onCode} noValidate className="w-full max-w-[19rem]">
+      {wordmark}
+      <p id="code-sent" className="mt-10 text-[1.0625rem] leading-normal text-pretty text-ink-2">
+        If <span className="wrap-anywhere text-ink">{email}</span> can sign in here, a code is on its way. It lasts 5 minutes.
       </p>
-      <button type="button" onClick={() => (setError(null), setStep("email"))} className={`${quietLink} -ml-0.5 text-left`}>
+      <button type="button" onClick={differentEmail} className={`${quietLink} mt-2 text-left`}>
         Use a different email
       </button>
-      <label htmlFor="code" className="mt-6 block font-sans text-[0.8rem] font-medium text-ink-2">
-        Code
+      <label htmlFor="code" className={`${label} mt-6`}>
+        6-digit code
       </label>
       <input
         ref={codeInput}
@@ -166,32 +212,37 @@ export function CodeSignIn({ next }: { next: string }) {
         type="text"
         inputMode="numeric"
         autoComplete="one-time-code"
-        pattern="[0-9]{6}"
         maxLength={CODE_LENGTH}
         enterKeyHint="go"
-        required
         value={code}
         onChange={(e) => {
           setCode(e.target.value.replace(/\D/g, "").slice(0, CODE_LENGTH));
           setError(null);
         }}
         aria-invalid={error ? true : undefined}
-        aria-describedby={error ? "sign-in-message" : undefined}
-        className={`${field} mt-1 font-sans text-[1.1rem] tracking-[0.3em] tabular-nums`}
+        aria-describedby={error ? "code-sent sign-in-message" : "code-sent"}
+        className={`${field} mt-1 font-sans text-[1.0625rem] tracking-[0.3em] tabular-nums`}
       />
       {message}
-      <button type="submit" disabled={pending || code.length !== CODE_LENGTH} className={button}>
+      <button type="submit" disabled={pending} className={button}>
         {pending ? "Signing in…" : "Sign in"}
       </button>
-      <p className="mt-4 flex items-center gap-2 font-sans text-[0.8rem] text-ink-3">
-        <button type="button" onClick={onResend} disabled={pending || waitS > 0} className={`${quietLink} disabled:no-underline`}>
-          Send a new code
-        </button>
-        {waitS > 0 && (
-          <span aria-live="polite" className="tabular-nums">
-            {resent ? "Sent · " : ""}again in {waitS}s
-          </span>
+      <p className={`${quietText} mt-4`}>No email? Check spam, or send a new code.</p>
+      {/* Holds the link's touch height while the countdown shows, so nothing moves when it ends. */}
+      <div className="mt-1 flex min-h-11 items-center lg:min-h-5">
+        {waitS > 0 ? (
+          <p className={`${quietText} tabular-nums`}>
+            {resent ? "Sent. You can send another" : "You can send a new code"} in {waitS}s
+          </p>
+        ) : (
+          <button type="button" onClick={onResend} disabled={pending} className={quietLink}>
+            Send a new code
+          </button>
         )}
+      </div>
+      {/* Said once when a new code goes out, not with every tick of the countdown. */}
+      <p aria-live="polite" className="sr-only">
+        {resent ? "A new code is on its way." : ""}
       </p>
     </form>
   );
