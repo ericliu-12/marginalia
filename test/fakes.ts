@@ -39,18 +39,28 @@ export function volume(id: string, v: NonNullable<GoogleBooksVolume["volumeInfo"
   return { id, volumeInfo: { title: "Stoner", authors: ["John Williams"], language: "en", description: prose(600), ...v } };
 }
 
-// Fake Google Books and Open Library descriptions; records calls. `gbError`/`olError` simulate outages.
+// Fake Google Books and Open Library descriptions; records calls. `gbError`/`olError` simulate outages;
+// set `gbError` after adding a Book to have Google go down before it is enriched.
 export function fakeDescriptions(opts: {
   volumes?: GoogleBooksVolume[];
   openLibrary?: string;
   gbError?: boolean;
   olError?: boolean;
-}): DescriptionGateway & { queries: string[]; olCalls: string[] } {
+}): DescriptionGateway & { queries: string[]; volumeCalls: string[]; olCalls: string[]; opts: typeof opts } {
   const queries: string[] = [];
+  const volumeCalls: string[] = [];
   const olCalls: string[] = [];
   return {
     queries,
+    volumeCalls,
     olCalls,
+    opts,
+    async googleBooksVolume(id) {
+      volumeCalls.push(id);
+      const found = opts.volumes?.find((v) => v.id === id);
+      if (opts.gbError || !found) throw new Error(opts.gbError ? "Google Books is down" : "Google Books failed: 404");
+      return found;
+    },
     async googleBooksVolumes(q) {
       queries.push(q);
       if (opts.gbError) throw new Error("Google Books is down");

@@ -34,17 +34,8 @@ export function createDescriptionGateway({
   fetch: doFetch = fetch,
   sleep = abortableSleep,
 }: Options): DescriptionGateway {
-  async function page(
-    q: string,
-    startIndex: number,
-    { signal, retry: { maxAttempts, retryDelayMs } = DEFAULT_RETRY }: LookupOptions,
-  ): Promise<GoogleBooksVolume[]> {
-    const url = `https://www.googleapis.com/books/v1/volumes?${new URLSearchParams({
-      q,
-      maxResults: String(PAGE_SIZE),
-      startIndex: String(startIndex),
-      key: apiKey,
-    })}`;
+  // A Google Books request, retried while it answers 429/503.
+  async function google<T>(url: string, { signal, retry: { maxAttempts, retryDelayMs } = DEFAULT_RETRY }: LookupOptions): Promise<T> {
     let res: Response;
     for (let attempt = 1; ; attempt++) {
       res = await doFetch(url, { signal });
@@ -52,7 +43,17 @@ export function createDescriptionGateway({
       await sleep(retryDelayMs * attempt, signal);
     }
     if (!res.ok) throw new Error(`Google Books failed: ${res.status}`);
-    return ((await res.json()) as { items?: GoogleBooksVolume[] }).items ?? [];
+    return (await res.json()) as T;
+  }
+
+  async function page(q: string, startIndex: number, options: LookupOptions): Promise<GoogleBooksVolume[]> {
+    const url = `https://www.googleapis.com/books/v1/volumes?${new URLSearchParams({
+      q,
+      maxResults: String(PAGE_SIZE),
+      startIndex: String(startIndex),
+      key: apiKey,
+    })}`;
+    return (await google<{ items?: GoogleBooksVolume[] }>(url, options)).items ?? [];
   }
 
   return {
@@ -64,6 +65,11 @@ export function createDescriptionGateway({
         if (got.length < PAGE_SIZE) break;
       }
       return items;
+    },
+
+    async googleBooksVolume(id, options = {}) {
+      const url = `https://www.googleapis.com/books/v1/volumes/${encodeURIComponent(id)}?${new URLSearchParams({ key: apiKey })}`;
+      return google<GoogleBooksVolume>(url, options);
     },
 
     async openLibraryDescription(workKey, { signal } = {}) {

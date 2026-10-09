@@ -1,5 +1,5 @@
 import { eq, sql } from "drizzle-orm";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { addBook } from "../src/domain/add-book";
 import { authorsMatch, enrichBook, enrichmentGaveUp, readEnrichment, readEntryEnrichment, tryAgain } from "../src/domain/enrichment";
 import { NotInLibraryError } from "../src/domain/library-entry";
@@ -11,8 +11,9 @@ describe("Enrichment", () => {
   const ctx = useTestDb();
   const stoner = work({ workKey: "/works/stoner", title: "Stoner", authors: ["John Williams"], firstPublishedYear: 1965 });
 
+  // Open Library describes it, so the description is stored.
   async function addStoner(description?: string) {
-    const gw = description ? fakeDescriptions({ volumes: [volume("gb1", { description })] }) : null;
+    const gw = description ? fakeDescriptions({ openLibrary: description }) : null;
     await addBook(ctx.db, ctx.pipeline, ctx.userId, stoner, "want", gw);
     const [row] = await ctx.db.select().from(book).where(eq(book.openLibraryWorkKey, stoner.workKey));
     return row;
@@ -30,7 +31,7 @@ describe("Enrichment", () => {
       recognised: true,
       summary: "A quiet novel about a life.",
       themes: ["work", "solitude"],
-      googleBooksVolumeId: "gb1",
+      googleBooksVolumeId: null,
     });
   });
 
@@ -169,14 +170,31 @@ describe("Enrichment", () => {
   });
 
   describe("a Book added without a description", () => {
-    it("has it fetched before enriching, storing the description and Google Books volume id", async () => {
+    it("has it looked up before enriching, storing Google's volume id but not its description", async () => {
       const b = await addStoner();
       const descriptions = fakeDescriptions({ volumes: [volume("gb9", { description: prose(800) })] });
       const model = fakeEnricher();
       await enrichBook(ctx.db, { model, descriptions }, b.id);
       expect(model.inputs[0].description).toBe(prose(800));
+      expect(descriptions.volumeCalls).toEqual([]);
       const [row] = await ctx.db.select().from(book).where(eq(book.id, b.id));
-      expect(row).toMatchObject({ description: prose(800), googleBooksVolumeId: "gb9" });
+      expect(row).toMatchObject({ description: null, googleBooksVolumeId: "gb9" });
+      expect(await readEnrichment(ctx.db, b.id)).toMatchObject({ googleBooksVolumeId: "gb9" });
+
+      // Later runs fetch it by volume, without searching again.
+      await tryAgain(ctx.db, ctx.pipeline, ctx.userId, b.id);
+      await enrichBook(ctx.db, { model, descriptions }, b.id);
+      expect(descriptions.queries).toHaveLength(1);
+      expect(descriptions.volumeCalls).toEqual(["gb9"]);
+      expect(model.inputs[1].description).toBe(prose(800));
+    });
+
+    it("stores Open Library's description when that is the one found", async () => {
+      const b = await addStoner();
+      const descriptions = fakeDescriptions({ openLibrary: prose(300) });
+      await enrichBook(ctx.db, { model: fakeEnricher(), descriptions }, b.id);
+      const [row] = await ctx.db.select().from(book).where(eq(book.id, b.id));
+      expect(row).toMatchObject({ description: prose(300), googleBooksVolumeId: null });
     });
 
     it("is enriched conservatively when the lookup finds nothing, and the lookup is not repeated on later runs", async () => {
@@ -188,6 +206,73 @@ describe("Enrichment", () => {
       expect(model.inputs).toHaveLength(1);
       expect(model.inputs[0].description).toBe("");
       expect(descriptions.queries).toHaveLength(1);
+    });
+  });
+
+  describe("a Book Google Books describes", () => {
+    // Added with a Google volume, which leaves no stored description.
+    async function addDescribed() {
+      const descriptions = fakeDescriptions({ volumes: [volume("gb1", { description: `<p>${prose(700)}</p>` })], openLibrary: prose(300) });
+      await addBook(ctx.db, ctx.pipeline, ctx.userId, stoner, "want", descriptions);
+      const [b] = await ctx.db.select().from(book).where(eq(book.openLibraryWorkKey, stoner.workKey));
+      return { b, descriptions };
+    }
+
+    it("is enriched on Google's description, fetched for the run, and links to its volume", async () => {
+      const { b, descriptions } = await addDescribed();
+      const model = fakeEnricher();
+      await enrichBook(ctx.db, { model, descriptions }, b.id);
+      expect(descriptions.volumeCalls).toEqual(["gb1"]);
+      expect(model.inputs[0].description).toBe(prose(700));
+      expect(await readEnrichment(ctx.db, b.id)).toMatchObject({ status: "ready", googleBooksVolumeId: "gb1" });
+      const [row] = await ctx.db.select().from(book).where(eq(book.id, b.id));
+      expect(row.description).toBeNull();
+    });
+
+    it("is not fetched when nothing about the Book changed, and is fetched again on a 'Try again'", async () => {
+      const { b, descriptions } = await addDescribed();
+      const model = fakeEnricher();
+      await enrichBook(ctx.db, { model, descriptions }, b.id);
+      await enrichBook(ctx.db, { model, descriptions }, b.id);
+      expect(descriptions.volumeCalls).toHaveLength(1);
+      await tryAgain(ctx.db, ctx.pipeline, ctx.userId, b.id);
+      await enrichBook(ctx.db, { model, descriptions }, b.id);
+      expect(descriptions.volumeCalls).toHaveLength(2);
+      expect(model.inputs).toHaveLength(2);
+    });
+
+    it("never reads a Google description stored before #44", async () => {
+      const { b, descriptions } = await addDescribed();
+      await ctx.db.update(book).set({ description: "Stored from Google long ago." }).where(eq(book.id, b.id));
+      const model = fakeEnricher();
+      await enrichBook(ctx.db, { model, descriptions }, b.id);
+      expect(model.inputs[0].description).toBe(prose(700));
+    });
+
+    it("leaves a ready Enrichment as it was when Google can't be reached, and the job succeeds", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      const { b, descriptions } = await addDescribed();
+      await enrichBook(ctx.db, { model: fakeEnricher(), descriptions }, b.id);
+      const before = await rowFor(b.id);
+      descriptions.opts.gbError = true;
+      await tryAgain(ctx.db, ctx.pipeline, ctx.userId, b.id);
+      const model = fakeEnricher({ summary: "Worse." });
+      await enrichBook(ctx.db, { model, descriptions }, b.id);
+      expect(model.inputs).toEqual([]);
+      expect(await rowFor(b.id)).toEqual({ ...before, requestedAt: null });
+    });
+
+    it("on a first run Google can't serve, is enriched on Open Library's description, with no Google link", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      const { b, descriptions } = await addDescribed();
+      descriptions.opts.gbError = true;
+      const model = fakeEnricher();
+      await enrichBook(ctx.db, { model, descriptions }, b.id);
+      expect(model.inputs[0].description).toBe(prose(300));
+      expect(await readEnrichment(ctx.db, b.id)).toMatchObject({ status: "ready", googleBooksVolumeId: null });
+      const [row] = await ctx.db.select().from(book).where(eq(book.id, b.id));
+      expect(row).toMatchObject({ description: null, googleBooksVolumeId: "gb1" });
     });
   });
 
