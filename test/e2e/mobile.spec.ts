@@ -287,3 +287,126 @@ test("the Book screen lists its Connections as text, and a title opens that Book
   await page.goBack();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Reading");
 });
+
+const sheet = (page: Page) => page.getByRole("dialog", { name: /^Note on / });
+const noteText = (page: Page) => sheet(page).getByRole("textbox", { name: "New note" });
+const pen = (page: Page, title: string) => page.getByRole("button", { name: `Write a note on ${title}` });
+
+test("the pen on a Reading row opens a Note sheet with its text focused inside the tap, and saving stays on the shelf", async ({ page }) => {
+  await expect(pen(page, "Middlemarch")).toBeVisible();
+  // A phone raises its keyboard only for a focus made inside the tap itself, so the text must be focused
+  // by the time the click returns.
+  const focused = await pen(page, "Middlemarch").evaluate((el: HTMLElement) => {
+    el.click();
+    return document.activeElement?.getAttribute("placeholder");
+  });
+  expect(focused).toBe("What are you thinking?");
+  await expect(sheet(page)).toHaveAccessibleName("Note on Middlemarch");
+  await expect(page).toHaveURL(/\?note=/);
+
+  await page.keyboard.type("Dorothea wants it to be true.");
+  await sheet(page).getByRole("button", { name: "Add a quote" }).click();
+  await expect(sheet(page).getByLabel("Quoted passage")).toBeFocused();
+  await page.keyboard.type("A finely-touched spirit");
+  await sheet(page).getByRole("button", { name: "Save note" }).click();
+
+  await expect(sheet(page)).toHaveCount(0);
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("status").filter({ hasText: "Note saved on Middlemarch" })).toBeVisible();
+  await expect(pen(page, "Middlemarch")).toBeFocused();
+  await expect(shelf(page).getByText("Draft note")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Open", exact: true }).click();
+  await expect(page.getByRole("heading", { level: 2 })).toHaveText("Middlemarch");
+  await expect(page.getByRole("listitem").filter({ hasText: "Dorothea wants it to be true." })).toContainText("“A finely-touched spirit”");
+});
+
+test("a Note's draft survives closing the sheet, back, a refresh and another Book's sheet", async ({ page }) => {
+  await readingBook("Piranesi");
+  await page.reload();
+
+  await pen(page, "Middlemarch").click();
+  await page.keyboard.type("Half a thought");
+  await sheet(page).getByRole("button", { name: "Close" }).click();
+  await expect(sheet(page)).toHaveCount(0);
+  await expect(pen(page, "Middlemarch")).toBeFocused();
+  await expect(shelf(page).getByRole("button", { name: /^Middlemarch/ })).toContainText("Draft note");
+
+  // Back closes it too, and a refresh with it open brings it back as it was.
+  await pen(page, "Middlemarch").click();
+  await expect(noteText(page)).toHaveValue("Half a thought");
+  await page.goBack();
+  await expect(sheet(page)).toHaveCount(0);
+  await pen(page, "Middlemarch").click();
+  await page.keyboard.type(", and the rest");
+  await page.reload();
+  await expect(noteText(page)).toHaveValue("Half a thought, and the rest");
+  await page.keyboard.press("Escape");
+  await expect(sheet(page)).toHaveCount(0);
+  await expect(page).toHaveURL(/\/$/);
+
+  // Each Book keeps its own.
+  await pen(page, "Piranesi").click();
+  await expect(noteText(page)).toHaveValue("");
+  await page.keyboard.type("The House is kind");
+  await sheet(page).locator("..").locator("[aria-hidden]").first().click({ position: { x: 10, y: 10 } });
+  await expect(sheet(page)).toHaveCount(0);
+  await pen(page, "Middlemarch").click();
+  await expect(noteText(page)).toHaveValue("Half a thought, and the rest");
+  await page.goBack();
+
+  // The Book screen writes on the same draft.
+  await shelf(page).getByRole("button", { name: /^Piranesi/ }).click();
+  await expect(page.getByRole("textbox", { name: "New note" })).toHaveValue("The House is kind");
+});
+
+test("a Note that fails to save stays in the sheet with a quiet way to try again", async ({ page }) => {
+  // Server actions go out as POSTs carrying a Next-Action header; drop them, as a lost signal would.
+  const offline = (route: import("@playwright/test").Route) =>
+    route.request().method() === "POST" && route.request().headers()["next-action"] ? route.abort() : route.fallback();
+  await page.route("**/*", offline);
+
+  await pen(page, "Middlemarch").click();
+  await page.keyboard.type("Written on the train");
+  await sheet(page).getByRole("button", { name: "Save note" }).click();
+  await expect(sheet(page).getByRole("alert")).toHaveText("Couldn’t save this note. Try again");
+  await expect(noteText(page)).toHaveValue("Written on the train");
+
+  await page.unroute("**/*", offline);
+  await sheet(page).getByRole("button", { name: "Try again" }).click();
+  await expect(sheet(page)).toHaveCount(0);
+  await expect(page.getByRole("status").filter({ hasText: "Note saved on Middlemarch" })).toBeVisible();
+});
+
+test("the Note sheet rides on top of the on-screen keyboard", async ({ page }) => {
+  // Playwright has no on-screen keyboard; this stands in for the visual viewport a phone shrinks to.
+  await page.addInitScript(() => {
+    // The page's own size until a keyboard is "raised".
+    let raised: { height: number; offsetTop: number } | null = null;
+    const fake = Object.assign(new EventTarget(), { offsetLeft: 0, pageTop: 0, pageLeft: 0, scale: 1 });
+    Object.defineProperties(fake, {
+      width: { get: () => document.documentElement.clientWidth },
+      height: { get: () => raised?.height ?? document.documentElement.clientHeight },
+      offsetTop: { get: () => raised?.offsetTop ?? 0 },
+    });
+    Object.defineProperty(window, "visualViewport", { configurable: true, get: () => fake });
+    (window as unknown as { keyboard: (height: number, offsetTop?: number) => void }).keyboard = (height, offsetTop = 0) => {
+      raised = { height, offsetTop };
+      fake.dispatchEvent(new Event("resize"));
+    };
+  });
+  await page.reload();
+  await pen(page, "Middlemarch").click();
+  const bottom = async () => {
+    const box = (await sheet(page).boundingBox())!;
+    return box.y + box.height;
+  };
+  await expect.poll(bottom).toBeCloseTo(915, 0);
+
+  await page.evaluate(() => (window as unknown as { keyboard: (h: number, t?: number) => void }).keyboard(480));
+  await expect.poll(bottom).toBeCloseTo(480, 0);
+  // iOS may also scroll the page under the keyboard; the sheet follows what is visible.
+  await page.evaluate(() => (window as unknown as { keyboard: (h: number, t?: number) => void }).keyboard(480, 120));
+  await expect.poll(bottom).toBeCloseTo(600, 0);
+  expect((await sheet(page).boundingBox())!.y).toBeGreaterThanOrEqual(120);
+});

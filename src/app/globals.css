@@ -23,11 +23,18 @@
       transform: translateY(4px);
     }
   }
-  /* The phone's Add screen, rising over the shelf. */
+  /* The phone's Add screen and Note sheet, rising over the shelf. */
   --animate-sheet-up: sheet-up 0.45s var(--ease-out-expo) both;
   @keyframes sheet-up {
     from {
       transform: translateY(100%);
+    }
+  }
+  /* The shade behind the Note sheet. */
+  --animate-fade-in: fade-in 0.3s ease-out both;
+  @keyframes fade-in {
+    from {
+      opacity: 0;
     }
   }
 }

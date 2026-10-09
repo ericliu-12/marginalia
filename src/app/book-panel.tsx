@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useOptimistic, useRef, useState, useTransition, type ReactNode } from "react";
+import { useCallback, useEffect, useOptimistic, useRef, useState, useTransition, type ReactNode, type RefObject } from "react";
+import { flushSync } from "react-dom";
 import type { LibraryItem } from "@/domain/library";
 import type { Status } from "@/domain/search";
 import type { EnrichmentView } from "@/domain/enrichment";
@@ -19,29 +20,11 @@ import {
 import { CO_AUTHOR_HINT, draftError, invalidProps, withScheme, type BookDraft, type DraftError } from "./book-draft";
 import { ConnectionsSection } from "./connections";
 import { MOVES } from "./library-list";
+import { EMPTY, loadDraft, saveDraft, type Draft } from "./note-draft";
 import { useInlineConfirm } from "./use-inline-confirm";
 import { POLL_MS, usePoll } from "./use-poll";
 import { Cover } from "./cover";
 import { dangerLink, quietLink } from "./quiet-link";
-
-type Draft = { body: string; quote: string; page: string };
-const EMPTY: Draft = { body: "", quote: "", page: "" };
-
-// An unsent draft survives closing the panel and switching books. Storage may be unavailable.
-const draftKey = (bookId: string) => `marginalia:note-draft:${bookId}`;
-function loadDraft(bookId: string): Draft {
-  try {
-    return { ...EMPTY, ...JSON.parse(localStorage.getItem(draftKey(bookId)) ?? "{}") };
-  } catch {
-    return EMPTY;
-  }
-}
-function saveDraft(bookId: string, draft: Draft) {
-  try {
-    if (draft.body || draft.quote || draft.page) localStorage.setItem(draftKey(bookId), JSON.stringify(draft));
-    else localStorage.removeItem(draftKey(bookId));
-  } catch {}
-}
 
 // The Book panel for one Library Entry. It does not assume where it lives: the library view docks it
 // in the right pane, the graph view floats it over the canvas, and on a phone it is the whole Book
@@ -565,15 +548,23 @@ function parsePage(raw: string): number | null | "invalid" {
   return Number.isInteger(n) && n > 0 && n < 100000 ? n : "invalid";
 }
 
-// Text first; the quote and the page are quiet reveals. Used to write a new Note (draft kept) and to edit one.
-type NoteFormProps = { onSaved?: (n: Note) => void; onCancel?: () => void } & (
-  | { bookId: string; note?: undefined }
-  | { note: Note; bookId?: undefined }
-);
+// Text first; the quote and the page are quiet reveals. Used to write a new Note (draft kept) and to edit
+// one. The phone's Note sheet (`sheet`) sets it as writing on the page itself, with Save full width;
+// its host takes `bodyRef` to focus the text inside the tap that opens it.
+type NoteFormProps = {
+  onSaved?: (n: Note) => void;
+  onCancel?: () => void;
+  variant?: "panel" | "sheet";
+  bodyRef?: RefObject<HTMLTextAreaElement | null>;
+} & ({ bookId: string; note?: undefined } | { note: Note; bookId?: undefined });
 
-function NoteForm(props: NoteFormProps) {
-  const { note, onSaved, onCancel } = props;
+// Tapping a reveal or Save leaves focus where it is, so a phone's keyboard stays up.
+const keepFocus = (e: React.MouseEvent) => e.preventDefault();
+
+export function NoteForm(props: NoteFormProps) {
+  const { note, onSaved, onCancel, variant = "panel" } = props;
   const editing = !!note;
+  const sheet = variant === "sheet";
   const [draft, setDraft] = useState<Draft>(() =>
     props.note
       ? { body: props.note.body, quote: props.note.quote ?? "", page: props.note.page?.toString() ?? "" }
@@ -581,16 +572,18 @@ function NoteForm(props: NoteFormProps) {
   );
   const [showQuote, setShowQuote] = useState(!!draft.quote);
   const [showPage, setShowPage] = useState(!!draft.page);
-  const [error, setError] = useState<string | null>(null);
+  // A save that failed keeps everything typed and offers to send it again.
+  const [error, setError] = useState<{ message: string; retry: boolean } | null>(null);
   const [pending, start] = useTransition();
-  const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const ownBodyRef = useRef<HTMLTextAreaElement>(null);
+  const bodyRef = props.bodyRef ?? ownBodyRef;
   const quoteRef = useRef<HTMLTextAreaElement>(null);
   const pageRef = useRef<HTMLInputElement>(null);
   const idPrefix = note ? `note-${note.id}` : "new-note";
 
   useEffect(() => {
     if (editing) bodyRef.current?.focus();
-  }, [editing]);
+  }, [editing, bodyRef]);
 
   function change(patch: Partial<Draft>) {
     const next = { ...draft, ...patch };
@@ -600,27 +593,37 @@ function NoteForm(props: NoteFormProps) {
   }
 
   function submit() {
-    if (!draft.body.trim()) return setError("Write something first.");
+    if (!draft.body.trim()) return setError({ message: "Write something first.", retry: false });
     const page = parsePage(draft.page);
-    if (page === "invalid") return setError("Page should be a whole number.");
+    if (page === "invalid") return setError({ message: "Page should be a whole number.", retry: false });
     setError(null);
     start(async () => {
       const input = { body: draft.body, quote: draft.quote, page };
-      const res = props.note ? await updateNoteAction(props.note.id, input) : await addNoteAction(props.bookId, input);
-      if (!res.ok) return setError("Couldn’t save this note. Try again.");
+      // Offline, the action itself rejects rather than answering.
+      const res = await (props.note ? updateNoteAction(props.note.id, input) : addNoteAction(props.bookId, input)).catch(() => ({ ok: false as const }));
+      if (!res.ok) return setError({ message: "Couldn’t save this note.", retry: true });
       if (!editing) {
         setDraft(EMPTY);
         setShowQuote(false);
         setShowPage(false);
         if (props.bookId) saveDraft(props.bookId, EMPTY);
-        bodyRef.current?.focus();
+        if (!sheet) bodyRef.current?.focus();
       }
       onSaved?.(res.note);
     });
   }
 
+  // Revealed and focused in the same tap, so a phone keeps its keyboard up for the new field.
+  function reveal(show: (on: boolean) => void, ref: RefObject<HTMLElement | null>) {
+    flushSync(() => show(true));
+    ref.current?.focus();
+  }
+
+  const sheetField = "w-full bg-transparent text-ink placeholder:text-ink-3 focus-visible:outline-none";
+  const label = "font-sans text-[0.8rem] font-medium text-ink-2";
   return (
     <form
+      aria-label={sheet ? "New note" : undefined}
       onSubmit={(e) => {
         e.preventDefault();
         submit();
@@ -645,12 +648,12 @@ function NoteForm(props: NoteFormProps) {
         value={draft.body}
         onChange={(e) => change({ body: e.target.value })}
         placeholder="What are you thinking?"
-        rows={editing ? 4 : 3}
-        className={`${field} resize-y text-[1.0625rem] leading-normal`}
+        rows={sheet ? 5 : editing ? 4 : 3}
+        className={sheet ? `${sheetField} block resize-none py-1.5 text-[1.125rem] leading-normal` : `${field} resize-y text-[1.0625rem] leading-normal`}
       />
       {showQuote && (
-        <div className="mt-3">
-          <label htmlFor={`${idPrefix}-quote`} className="font-sans text-[0.8rem] font-medium text-ink-2">
+        <div className={sheet ? "border-t border-rule pt-2.5" : "mt-3"}>
+          <label htmlFor={`${idPrefix}-quote`} className={label}>
             Quoted passage
           </label>
           <textarea
@@ -658,14 +661,15 @@ function NoteForm(props: NoteFormProps) {
             id={`${idPrefix}-quote`}
             value={draft.quote}
             onChange={(e) => change({ quote: e.target.value })}
-            rows={2}
-            className={`${field} mt-1 resize-y italic`}
+            rows={sheet ? 3 : 2}
+            placeholder={sheet ? "The passage, as written" : undefined}
+            className={sheet ? `${sheetField} block resize-none py-1 text-ink-2 italic` : `${field} mt-1 resize-y italic`}
           />
         </div>
       )}
       {showPage && (
-        <div className="mt-3">
-          <label htmlFor={`${idPrefix}-page`} className="font-sans text-[0.8rem] font-medium text-ink-2">
+        <div className={sheet ? "flex items-center gap-3 border-t border-rule" : "mt-3"}>
+          <label htmlFor={`${idPrefix}-page`} className={label}>
             Page
           </label>
           <input
@@ -675,54 +679,56 @@ function NoteForm(props: NoteFormProps) {
             autoComplete="off"
             value={draft.page}
             onChange={(e) => change({ page: e.target.value })}
-            className={`${field} mt-1 w-28 font-sans text-[0.95rem]`}
+            className={sheet ? `${sheetField} min-h-11 w-24 font-sans text-[0.95rem] tabular-nums` : `${field} mt-1 w-28 font-sans text-[0.95rem]`}
           />
         </div>
       )}
       {error && (
         <p role="alert" className="mt-2 font-sans text-sm text-contrast">
-          {error}
+          {error.message}
+          {error.retry && (
+            <>
+              {" "}
+              <button type="submit" onMouseDown={keepFocus} disabled={pending} className="min-h-11 underline decoration-contrast/40 underline-offset-4 lg:min-h-0">
+                Try again
+              </button>
+            </>
+          )}
         </p>
       )}
-      <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1">
-        <button
-          type="submit"
-          disabled={pending}
-          className="min-h-11 rounded-[3px] bg-ink px-4 py-2 font-sans text-sm font-medium text-paper transition-colors hover:bg-ink-2 disabled:bg-ink-3 lg:min-h-0"
-        >
-          {pending ? "Saving…" : editing ? "Save changes" : "Save note"}
-        </button>
+      <div className={sheet ? "flex flex-wrap items-center gap-x-5 border-t border-rule pt-1" : "mt-3 flex flex-wrap items-center gap-x-5 gap-y-1"}>
+        {!sheet && <SaveNote pending={pending} editing={editing} sheet={false} />}
         {editing && (
           <button type="button" onClick={onCancel} disabled={pending} className={quietLink}>
             Cancel
           </button>
         )}
         {!showQuote && (
-          <button
-            type="button"
-            onClick={() => {
-              setShowQuote(true);
-              requestAnimationFrame(() => quoteRef.current?.focus());
-            }}
-            className={quietLink}
-          >
+          <button type="button" onMouseDown={keepFocus} onClick={() => reveal(setShowQuote, quoteRef)} className={quietLink}>
             Add a quote
           </button>
         )}
         {!showPage && (
-          <button
-            type="button"
-            onClick={() => {
-              setShowPage(true);
-              requestAnimationFrame(() => pageRef.current?.focus());
-            }}
-            className={quietLink}
-          >
+          <button type="button" onMouseDown={keepFocus} onClick={() => reveal(setShowPage, pageRef)} className={quietLink}>
             Add a page
           </button>
         )}
       </div>
+      {sheet && <SaveNote pending={pending} editing={false} sheet />}
     </form>
+  );
+}
+
+function SaveNote({ pending, editing, sheet }: { pending: boolean; editing: boolean; sheet: boolean }) {
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      onMouseDown={keepFocus}
+      className={`rounded-[3px] bg-ink font-sans font-medium text-paper transition-colors hover:bg-ink-2 disabled:bg-ink-3 ${sheet ? "mt-2 min-h-12 w-full text-[0.95rem] active:bg-ink-2" : "min-h-11 px-4 py-2 text-sm lg:min-h-0"}`}
+    >
+      {pending ? "Saving…" : editing ? "Save changes" : "Save note"}
+    </button>
   );
 }
 
