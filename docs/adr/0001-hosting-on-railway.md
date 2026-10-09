@@ -44,10 +44,9 @@ A hosted queue (Inngest, Trigger.dev, QStash) calling serverless functions was a
 
 ## Backups
 
-Two layers:
+One layer: a **nightly `pg_dump` to Cloudflare R2**, off Railway, so even a lost Railway account leaves the data. `backup/backup.sh` writes a custom-format dump of the whole database (the app's tables, pgvector, and pg-boss's queue), checks it reads back, and uploads it as `marginalia/<UTC time>.dump`. A bucket lifecycle rule deletes dumps after 30 days. The first one landed on 2026-10-09.
 
-1. **Railway volume backups** of the postgres service (Backups tab): daily kept 6 days, weekly kept a month, monthly kept 3 months. For "undo yesterday": pick a backup, Restore, deploy the staged change.
-2. **Nightly `pg_dump` to Cloudflare R2**, off Railway, so a lost Railway account still leaves the data. `backup/backup.sh` writes a custom-format dump of the whole database (the app's tables, pgvector, and pg-boss's queue), checks it reads back, and uploads it as `marginalia/<UTC time>.dump`. A bucket lifecycle rule deletes dumps after 30 days.
+Railway's volume backups were the planned second layer, for quick "undo yesterday" restores, but they need the Pro plan ($20 a month against Hobby's $5). At one reader's scale the nightly dump covers it: a restore loses at most the day since 03:00 UTC.
 
 ### Restoring a dump
 
@@ -56,18 +55,21 @@ Restore into a new database beside the live one, check it, then point the servic
 1. Download the dump from the R2 dashboard (bucket, `marginalia/`, the newest file), or:
    `aws s3 cp s3://<bucket>/marginalia/<file>.dump . --endpoint-url https://<account id>.r2.cloudflarestorage.com --region auto`
 2. Stop the worker so nothing writes during the switch: in Railway, the worker service, its active deployment, "Remove".
-3. Turn on the postgres service's TCP proxy (Settings → Networking) and copy its public connection URL into your shell as `PG` (it holds the password; don't paste it anywhere else). Use pg 17 tools (`brew install postgresql@17`, or `docker run --rm -it postgres:17-alpine`).
-4. `psql "$PG" -c 'CREATE DATABASE marginalia_restored'`
-5. `pg_restore --no-owner --no-privileges --exit-on-error --dbname="${PG%/*}/marginalia_restored" <file>.dump`
-6. Check it: `psql "${PG%/*}/marginalia_restored" -c 'select count(*) from book' -c 'select count(*) from note' -c 'select count(*) from connection'`, and compare with what the app showed.
+3. Turn on the postgres service's TCP proxy (Settings → Networking) and note its host and port. In your shell, set `PG=postgresql://marginalia@<proxy host>:<proxy port>` and put the password in `PGPASSWORD` without echoing it (`read -s PGPASSWORD; export PGPASSWORD`, then paste `POSTGRES_PASSWORD` from the postgres service's variables). The password stays out of the URL, as it does for the services. Use pg 17 tools (`brew install postgresql@17`, or `docker run --rm -it -e PGPASSWORD postgres:17-alpine`).
+4. `psql "$PG/marginalia" -c 'CREATE DATABASE marginalia_restored'`
+5. `pg_restore --no-owner --no-privileges --exit-on-error --dbname="$PG/marginalia_restored" <file>.dump`
+6. Check it: `psql "$PG/marginalia_restored" -c 'select count(*) from book' -c 'select count(*) from note' -c 'select count(*) from connection'`, and compare with what the app showed.
 7. In Railway, change the database name at the end of `DATABASE_URL` from `/${{postgres.POSTGRES_DB}}` to `/marginalia_restored` on web, worker and backup, and deploy each. Redeploying the worker starts it again.
 8. Turn the TCP proxy off again. Drop the old database once the restored one has run for a while.
 
-To practise without touching production, do steps 4–6 against the local docker-compose database (`postgres://marginalia:marginalia@localhost:5433`). This was done when the backup was added: every table's count, the embeddings, pg-boss's jobs and the pgvector version came back.
+### Practice restore
+
+The dumps are only worth having if one restores. Now and then (after a schema change, say), do steps 1 and 4–6 against the local docker-compose database instead of production: `PG=postgresql://marginalia@localhost:5433` with `PGPASSWORD=marginalia`, and the newest dump from R2. Then drop `marginalia_restored`. This was first done when the backup was added: every table's count, the embeddings, pg-boss's jobs and the pgvector version came back.
 
 ## Consequences
 
 - One vendor and one bill, with a hard cap at every layer.
+- A single backup layer, a day apart: a restore can lose up to a day's Notes and Books. Revisit (Railway Pro's volume backups, or a more frequent dump) when the data or the readers grow.
 - Migrations run before the web deploy, but the worker deploys from the same commit at the same time, so a migration that the old worker can't run against needs the worker stopped first.
 - The sign-in limit lives in the web process's memory; a restart forgets it.
 - Opening the app to other readers (#45) reopens this: real accounts, per-reader spend, and Voyage's lack of a cap.
