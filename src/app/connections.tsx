@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState, useTransition } from "react";
 import type { ConnectionCard, ConnectionsView } from "@/domain/connections";
-import { countFindingConnectionsAction, dismissConnectionAction, getConnectionsAction, refreshConnectionsAction } from "./actions";
+import { backgroundStatusAction, dismissConnectionAction, getConnectionsAction, refreshConnectionsAction } from "./actions";
 import { dangerLink, quietLink } from "./quiet-link";
 import { useInlineConfirm } from "./use-inline-confirm";
 import { POLL_MS, usePoll } from "./use-poll";
@@ -201,28 +201,37 @@ export function DismissConnection({
   );
 }
 
-// The quiet line beside the wordmark while Books are finding their Connections.
+// While paused, and nothing is finding Connections, the line checks back this often for the month to turn.
+const PAUSED_POLL_MS = 60_000;
+
+// The quiet line beside the wordmark while Books are finding their Connections, or while background
+// work is paused at this month's spending limit (`paused` is the day it resumes), which it says instead.
 // `className` places it; by default it sits after the wordmark.
-export function FindingIndicator({ initial, className }: { initial: number; className?: string }) {
-  const [seen, setSeen] = useState(initial);
+export function FindingIndicator({ initial, paused: initialPaused, className }: { initial: number; paused: string | null; className?: string }) {
+  const [seen, setSeen] = useState({ initial, initialPaused });
   const [count, setCount] = useState(initial);
-  // A fresh count from the server replaces whatever polling had found.
-  if (seen !== initial) {
-    setSeen(initial);
+  const [paused, setPaused] = useState(initialPaused);
+  // A fresh reading from the server replaces whatever polling had found.
+  if (seen.initial !== initial || seen.initialPaused !== initialPaused) {
+    setSeen({ initial, initialPaused });
     setCount(initial);
+    setPaused(initialPaused);
   }
   const poll = useCallback(
     () =>
-      countFindingConnectionsAction().then((n) => {
-        if (n !== null) setCount(n);
+      backgroundStatusAction().then((s) => {
+        if (s === null) return;
+        setCount(s.finding);
+        setPaused(s.paused);
       }),
     [],
   );
-  usePoll(poll, POLL_MS, count > 0);
+  usePoll(poll, count > 0 ? POLL_MS : PAUSED_POLL_MS, count > 0 || paused !== null);
+  const line = paused !== null ? `Spending limit reached · resumes ${paused}` : count > 0 ? `${count} ${count === 1 ? "Book" : "Books"} finding Connections` : null;
   // The live region stays mounted so the line is announced when it appears.
   return (
-    <p role="status" className={`font-serif text-sm text-ink-3 italic ${className ?? `mr-auto ${count > 0 ? "ml-4" : ""}`}`}>
-      {count > 0 && `${count} ${count === 1 ? "Book" : "Books"} finding Connections`}
+    <p role="status" className={`font-serif text-sm text-ink-3 italic ${className ?? `mr-auto ${line ? "ml-4" : ""}`}`}>
+      {line}
     </p>
   );
 }

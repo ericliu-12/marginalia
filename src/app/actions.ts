@@ -11,6 +11,7 @@ import { readEntryEnrichment, tryAgain, type EnrichmentView } from "@/domain/enr
 import { countFindingConnections, dismissConnection, readConnection, readConnections, type ConnectionDetail, type ConnectionsView } from "@/domain/connections";
 import { readGraphStatus, type GraphStatus } from "@/domain/graph-job";
 import { changeStatus, removeFromLibrary } from "@/domain/library-entry";
+import { readPause } from "@/domain/spend";
 import { appPipeline } from "@/lib/jobs";
 import { requireSession } from "@/lib/signed-in";
 import { addNote, deleteNote, listNotes, updateNote, type Note, type NoteInput } from "@/domain/notes";
@@ -212,11 +213,14 @@ export async function graphStatusAction(): Promise<GraphStatus | null> {
   }
 }
 
-export async function countFindingConnectionsAction(): Promise<number | null> {
+// The quiet line by the wordmark: Books finding Connections, and whether background work is paused at
+// this month's spending limit (`paused` is the day it resumes).
+export async function backgroundStatusAction(): Promise<{ finding: number; paused: string | null } | null> {
   try {
     await requireSession();
     const db = appDb();
-    return await countFindingConnections(db, await getSeededUserId(db));
+    const [finding, pause] = await Promise.all([countFindingConnections(db, await getSeededUserId(db)), readPause(db)]);
+    return { finding, paused: pause?.resumesOn ?? null };
   } catch (err) {
     console.error(err);
     return null;

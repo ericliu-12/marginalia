@@ -237,3 +237,22 @@ export const graphJob = pgTable("graph_job", {
   // The job has recomputed the Clusters and laid the graph out for the latest request; only naming is left.
   laidOut: boolean("laid_out").notNull().default(false),
 });
+
+// --- Spend (not per reader) ---
+
+// One row per paid model call, Claude or Voyage, at list price, so the month's spend can be held to
+// MONTHLY_AI_BUDGET_USD. Voyage reports tokens, not cost; its cost is the tokens at its list price.
+export const paidCall = pgTable(
+  "paid_call",
+  {
+    id: id(),
+    provider: text("provider", { enum: ["anthropic", "voyage"] }).notNull(),
+    model: text("model").notNull(),
+    purpose: text("purpose", { enum: ["enrichment", "judge", "cluster-naming", "embedding"] }).notNull(),
+    inputTokens: integer("input_tokens").notNull(),
+    outputTokens: integer("output_tokens").notNull(),
+    costUsd: doublePrecision("cost_usd").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("paid_call_created_at_idx").on(t.createdAt)],
+);

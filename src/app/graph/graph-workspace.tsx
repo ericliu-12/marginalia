@@ -44,12 +44,14 @@ export function GraphWorkspace({
   graph,
   items,
   finding,
+  paused,
   userId,
   loneThemes,
 }: {
   graph: GraphView;
   items: LibraryItem[];
   finding: number;
+  paused: string | null;
   userId: string;
   // With a single Finished Book, its Enrichment themes, where it has any.
   loneThemes: string[];
@@ -180,7 +182,7 @@ export function GraphWorkspace({
         <div data-graph-chrome className="pointer-events-auto">
           <ViewSwitch current="graph" />
         </div>
-        <FindingIndicator initial={finding} />
+        <FindingIndicator initial={finding} paused={paused} />
       </header>
 
       {!wide && (

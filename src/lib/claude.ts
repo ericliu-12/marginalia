@@ -4,6 +4,7 @@ import { z } from "zod";
 import { NAME_MAX_WORDS, type ClusterNamer, type NamingInput } from "@/domain/clusters";
 import type { ConnectionJudge, JudgeInput } from "@/domain/connections";
 import type { EnrichmentInput, EnrichmentModel } from "@/domain/enrichment";
+import type { PaidCall, SpendLog } from "@/domain/spend";
 import { MODELS } from "./models";
 
 // Bump when SYSTEM or the output schema changes; per the Evals rule in CLAUDE.md, run `pnpm eval`
@@ -35,6 +36,14 @@ const PRICE: Record<string, { input: number; output: number }> = {
   "claude-sonnet-5-5": { input: 2, output: 10 },
 };
 
+// What a reply cost at list price, reported to `spend` before the reply is used.
+async function paidFor(spend: SpendLog | undefined, model: string, purpose: PaidCall["purpose"], usage: Anthropic.Usage) {
+  const price = PRICE[model];
+  const costUsd = (usage.input_tokens * price.input + usage.output_tokens * price.output) / 1e6;
+  await spend?.record({ provider: "anthropic", model, purpose, inputTokens: usage.input_tokens, outputTokens: usage.output_tokens, costUsd });
+  return { inputTokens: usage.input_tokens, outputTokens: usage.output_tokens, costUsd };
+}
+
 export function enrichmentPrompt(input: EnrichmentInput) {
   return [
     `Title: ${input.title}`,
@@ -44,7 +53,7 @@ export function enrichmentPrompt(input: EnrichmentInput) {
   ].join("\n");
 }
 
-export function claudeEnricher(client = new Anthropic()): EnrichmentModel {
+export function claudeEnricher(client = new Anthropic(), spend?: SpendLog): EnrichmentModel {
   const model = MODELS.enrichment;
   const price = PRICE[model];
   // Fail at startup, not after a paid call, when the model has no known price.
@@ -60,8 +69,8 @@ export function claudeEnricher(client = new Anthropic()): EnrichmentModel {
         messages: [{ role: "user", content: enrichmentPrompt(input) }],
         output_config: { format: zodOutputFormat(Output) },
       });
+      const paid = await paidFor(spend, model, "enrichment", res.usage);
       if (!res.parsed_output) throw new Error(`Unparsed Enrichment output (stop_reason=${res.stop_reason})`);
-      const { input_tokens, output_tokens } = res.usage;
       const o = res.parsed_output;
       return {
         recognised: o.recognised,
@@ -69,9 +78,7 @@ export function claudeEnricher(client = new Anthropic()): EnrichmentModel {
         themes: o.themes,
         author: o.author.trim() || null,
         firstPublishedYear: o.first_published_year,
-        inputTokens: input_tokens,
-        outputTokens: output_tokens,
-        costUsd: (input_tokens * price.input + output_tokens * price.output) / 1e6,
+        ...paid,
       };
     },
   };
@@ -128,7 +135,7 @@ export function judgePrompt({ book, candidates }: JudgeInput) {
   return `NEWLY FINISHED BOOK\n${book.title} by ${book.authors.join(", ") || "(unknown)"}\nEnrichment: ${enrichment(book.enrichment)}\nReader's Notes:\n${notes(book.notes)}\n\nEARLIER-FINISHED CANDIDATES\n${blocks.join("\n\n")}`;
 }
 
-export function claudeJudge(client = new Anthropic()): ConnectionJudge {
+export function claudeJudge(client = new Anthropic(), spend?: SpendLog): ConnectionJudge {
   const model = MODELS.judge;
   const price = PRICE[model];
   if (!price) throw new Error(`No price recorded for ${model}; add it to PRICE in src/lib/claude.ts.`);
@@ -143,8 +150,8 @@ export function claudeJudge(client = new Anthropic()): ConnectionJudge {
         messages: [{ role: "user", content: judgePrompt(input) }],
         output_config: { format: zodOutputFormat(JudgeOutput), effort: "medium" },
       });
+      const paid = await paidFor(spend, model, "judge", res.usage);
       if (!res.parsed_output) throw new Error(`Unparsed judge output (stop_reason=${res.stop_reason})`);
-      const { input_tokens, output_tokens } = res.usage;
       return {
         connections: res.parsed_output.connections.map((c) => ({
           candidateId: c.candidate_id,
@@ -153,9 +160,7 @@ export function claudeJudge(client = new Anthropic()): ConnectionJudge {
           explanation: c.explanation,
           quotedNoteIds: c.quoted_note_ids,
         })),
-        inputTokens: input_tokens,
-        outputTokens: output_tokens,
-        costUsd: (input_tokens * price.input + output_tokens * price.output) / 1e6,
+        ...paid,
       };
     },
   };
@@ -187,7 +192,7 @@ export function clusterNamingPrompt({ previousName, books, connections }: Naming
   ].join("\n");
 }
 
-export function claudeClusterNamer(client = new Anthropic()): ClusterNamer {
+export function claudeClusterNamer(client = new Anthropic(), spend?: SpendLog): ClusterNamer {
   const model = MODELS.clusterNaming;
   const price = PRICE[model];
   if (!price) throw new Error(`No price recorded for ${model}; add it to PRICE in src/lib/claude.ts.`);
@@ -202,13 +207,11 @@ export function claudeClusterNamer(client = new Anthropic()): ClusterNamer {
         messages: [{ role: "user", content: clusterNamingPrompt(input) }],
         output_config: { format: zodOutputFormat(NamingOutput), effort: "low" },
       });
+      const paid = await paidFor(spend, model, "cluster-naming", res.usage);
       if (!res.parsed_output) throw new Error(`Unparsed Cluster naming output (stop_reason=${res.stop_reason})`);
-      const { input_tokens, output_tokens } = res.usage;
       return {
         ...res.parsed_output,
-        inputTokens: input_tokens,
-        outputTokens: output_tokens,
-        costUsd: (input_tokens * price.input + output_tokens * price.output) / 1e6,
+        ...paid,
       };
     },
   };

@@ -26,6 +26,7 @@ export default defineConfig({
       GOOGLE_BOOKS_API_KEY: "",
       APP_PASSWORD: E2E_PASSWORD,
       SESSION_SECRET: E2E_SESSION_SECRET,
+      MONTHLY_AI_BUDGET_USD: "8",
     },
   },
 });

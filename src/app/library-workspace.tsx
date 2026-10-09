@@ -8,7 +8,7 @@ import { BookPanel } from "./book-panel";
 import { SearchPane } from "./search-pane";
 import { ViewSwitch } from "./view-switch";
 
-export function LibraryWorkspace({ items, finding }: { items: LibraryItem[]; finding: number }) {
+export function LibraryWorkspace({ items, finding, paused }: { items: LibraryItem[]; finding: number; paused: string | null }) {
   const [searchOpen, setSearchOpen] = useState(true);
   const [bookId, setBookId] = useState<string | null>(null);
   // The Book last removed: search says so and fetches again, so its result stops saying it is in the library.
@@ -22,7 +22,7 @@ export function LibraryWorkspace({ items, finding }: { items: LibraryItem[]; fin
         <div className="mr-auto flex items-baseline gap-8">
           <h1 className="text-[1.75rem] leading-none font-medium tracking-[-0.01em] italic">Marginalia</h1>
           <ViewSwitch current="library" />
-          <FindingIndicator initial={finding} />
+          <FindingIndicator initial={finding} paused={paused} />
         </div>
         {!searchOpen && (
           <button

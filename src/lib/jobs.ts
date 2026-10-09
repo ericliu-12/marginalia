@@ -1,6 +1,7 @@
 import { PgBoss } from "pg-boss";
 import type { Db } from "@/db/client";
 import { createPipeline, RETRIES, jobGaveUp, jobKey, runJob, type Job, type JobDeps, type JobQueue } from "@/domain/pipeline";
+import { readPause } from "@/domain/spend";
 
 // pg-boss queue names, and the data each job carries, are kept as they were before the Pipeline so
 // jobs already waiting still run.
@@ -14,6 +15,8 @@ const EMBED_RETRY = { retryLimit: RETRIES.embed, retryDelay: 20, retryBackoff: t
 // worker has stopped checking in (crashed, or killed) expires and is retried, or given up on.
 const HEARTBEAT_SECONDS = 30;
 const ENRICH_CONCURRENCY = 3;
+// While this month's spend is at the budget, a job is put back to be looked at again this much later.
+const PAUSED_RECHECK_SECONDS = 30 * 60;
 const KINDS = Object.keys(QUEUE) as Job["kind"][];
 
 const dataOf = (job: Job): object =>
@@ -93,22 +96,33 @@ export const appPipeline = (db: Db) => createPipeline(db, appJobQueue);
 export type WorkerOptions = JobDeps & {
   connectionString: string;
   db: Db;
+  // This month's spend, in dollars, at which every job waits (each may pay for a model call); none by default.
+  budgetUsd?: number | null;
   pollingIntervalSeconds?: number;
+  pausedRecheckSeconds?: number;
 };
 
 // The long-running worker: owns queue maintenance and runs every job. Returns the queue it serves
 // and a way to stop it.
 export async function startWorker(options: WorkerOptions) {
-  const { connectionString, db, pollingIntervalSeconds, ...deps } = options;
+  const { connectionString, db, budgetUsd = null, pollingIntervalSeconds, pausedRecheckSeconds = PAUSED_RECHECK_SECONDS, ...deps } = options;
   const boss = new PgBoss({ connectionString });
   boss.on("error", (err) => console.error(err));
   await boss.start();
   await ensureQueues(boss);
   const queue = queueFor(boss);
   const polling = pollingIntervalSeconds && { pollingIntervalSeconds };
-  // Each queue, and the queue of the jobs it gave up on.
+  // Each queue, and the queue of the jobs it gave up on. Over budget, a job is sent again for later
+  // instead of run, so it uses up none of its attempts however long the month has left.
   const work = async (kind: Job["kind"], localConcurrency: number, toJob: (data: never) => Job) => {
-    await boss.work(QUEUE[kind], { localConcurrency, ...polling }, async ([job]) => runJob(db, deps, queue, toJob(job.data as never)));
+    await boss.work(QUEUE[kind], { localConcurrency, ...polling }, async ([job]) => {
+      const next = toJob(job.data as never);
+      if (await readPause(db, budgetUsd)) {
+        await boss.send(QUEUE[kind], dataOf(next), { singletonKey: jobKey(next), startAfter: pausedRecheckSeconds });
+        return;
+      }
+      await runJob(db, deps, queue, next);
+    });
     await boss.work(GAVE_UP[kind], { ...polling }, async ([job]) => jobGaveUp(db, queue, toJob(job.data as never)));
   };
   await work("enrich", ENRICH_CONCURRENCY, ({ bookId }: { bookId: string }) => ({ kind: "enrich", bookId }));

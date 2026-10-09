@@ -5,7 +5,7 @@ import { runMigrations } from "../../src/db/migrate";
 import { getSeededUserId, seedUser } from "../../src/db/seed";
 import { layoutGraph } from "../../src/domain/graph";
 import { runGraphJob } from "../../src/domain/graph-job";
-import { book, bookPosition, clusterLabel, connection, enrichment, libraryEntry, note, readThrough } from "../../src/db/schema";
+import { book, bookPosition, clusterLabel, connection, enrichment, libraryEntry, note, paidCall, readThrough } from "../../src/db/schema";
 
 // The browser tests' own database on the docker-compose Postgres, apart from the app's and the unit tests'.
 // The web server is handed this database as DATABASE_URL, so creating it goes through Postgres's own
@@ -61,6 +61,7 @@ const CHAIN = [
 export async function seedLibrary() {
   const { db, pool } = createDb(e2eDatabaseUrl());
   await db.execute(sql`TRUNCATE "user" CASCADE`);
+  await db.delete(paidCall);
   const userId = (await seedUser(db)).id;
   const ids: string[] = [];
   for (const [i, b] of LIBRARY.entries()) {
@@ -218,6 +219,7 @@ export async function wantBook(title: string) {
 export async function seedSmallLibrary(titles: string[], linked: [number, number][] = [], themes = ["memory", "duty"]) {
   const { db, pool } = createDb(e2eDatabaseUrl());
   await db.execute(sql`TRUNCATE "user" CASCADE`);
+  await db.delete(paidCall);
   const userId = (await seedUser(db)).id;
   const ids: string[] = [];
   for (const [i, title] of titles.entries()) {
@@ -267,5 +269,12 @@ export async function readingBook(title: string, googleBooksVolumeId?: string) {
   const [entry] = await db.insert(libraryEntry).values({ userId, bookId: row.id, status: "reading" }).returning();
   await db.insert(readThrough).values({ libraryEntryId: entry.id, userId, startedAt: new Date() });
   await db.insert(enrichment).values({ bookId: row.id, status: "ready", recognised: true, summary: `${title}.`, themes: ["memory"] });
+  await pool.end();
+}
+
+// This month's spend past the e2e server's budget (MONTHLY_AI_BUDGET_USD in playwright.config.ts).
+export async function overBudget() {
+  const { db, pool } = createDb(e2eDatabaseUrl());
+  await db.insert(paidCall).values({ provider: "anthropic", model: "e2e", purpose: "judge", inputTokens: 0, outputTokens: 0, costUsd: 9 });
   await pool.end();
 }

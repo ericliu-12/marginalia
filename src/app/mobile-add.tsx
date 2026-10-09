@@ -31,6 +31,7 @@ const check = (
 export function MobileAdd({
   items,
   finding,
+  paused,
   hidden,
   onDone,
   onOpenBook,
@@ -38,6 +39,7 @@ export function MobileAdd({
 }: {
   items: LibraryItem[];
   finding: number;
+  paused: string | null;
   hidden: boolean;
   onDone: () => void;
   onOpenBook: (bookId: string) => void;
@@ -150,7 +152,7 @@ export function MobileAdd({
           autoCapitalize="off"
           className="mt-3 min-h-12 w-full rounded-[3px] border border-rule bg-paper-2 px-3 font-sans text-base text-ink placeholder:text-ink-3 focus-visible:border-thematic focus-visible:ring-2 focus-visible:ring-thematic/30 focus-visible:outline-none"
         />
-        <FindingIndicator initial={finding} className="mt-2 min-h-5" />
+        <FindingIndicator initial={finding} paused={paused} className="mt-2 min-h-5" />
       </div>
 
       <p aria-live="polite" className="sr-only">
