@@ -30,7 +30,7 @@ export function TurnstileWidget({ siteKey }: { siteKey: string }) {
       <div ref={box} className="min-h-[65px]" />
       <input type="hidden" name="token" value={token} />
       <p className="mt-2 font-sans text-sm text-ink-2">{token ? "The widget gave a token." : "Waiting for the widget…"}</p>
-      {widgetError && <p className="mt-2 font-sans text-sm text-contrast">{widgetError}</p>}
+      {widgetError && <p role="alert" className="mt-2 font-sans text-sm text-contrast">{widgetError}</p>}
       <button
         type="submit"
         disabled={!token || pending}

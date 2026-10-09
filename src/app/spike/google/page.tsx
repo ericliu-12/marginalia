@@ -36,6 +36,9 @@ export default async function GoogleSpikePage({ searchParams }: { searchParams: 
       <a href="/spike/turnstile" className="mt-4 block font-sans text-sm text-ink-2 underline">
         Turnstile spike
       </a>
+      <a href="/" className="mt-2 block font-sans text-sm text-ink-2 underline">
+        The library
+      </a>
     </main>
   );
 }
