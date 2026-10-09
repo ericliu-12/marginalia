@@ -108,6 +108,15 @@ test.describe("with a Host and forwarded headers that don't match the server's a
     const cookie = signIn.headersArray().find((h) => h.name.toLowerCase() === "set-cookie" && h.value.startsWith(SESSION_COOKIE));
     expect(cookie?.value).toBeDefined();
     expect(cookie!.value).not.toMatch(/domain=/i);
+
+    // Google is told to return to the site, and a return it can't match goes back to the site's sign-in page.
+    const google = await signedIn.post(direct("/api/auth/sign-in/social"), {
+      headers: { ...headers("inkmarginalia.example"), origin: SITE },
+      data: { provider: "google", callbackURL: `${SITE}/` },
+    });
+    expect(new URL((await google.json()).url).searchParams.get("redirect_uri")).toBe(`${SITE}/api/auth/callback/google`);
+    const back = await signedIn.get(direct("/api/auth/callback/google?code=code&state=forged"), { headers: headers("inkmarginalia.example"), maxRedirects: 0 });
+    expect(back.headers().location).toMatch(new RegExp(`^${SITE}/sign-in\\?error=`));
     await signedIn.dispose();
   });
 });
