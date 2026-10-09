@@ -23,7 +23,7 @@ export function proxy(request: NextRequest) {
   const issued = g.kind === "on" ? verifyToken(request.cookies.get(SESSION_COOKIE)?.value, g.secret) : null;
   if (issued === null) {
     if (request.method !== "GET" || pathname.startsWith("/api/")) return new NextResponse(null, { status: 401 });
-    const login = new URL("/login", request.url);
+    const login = new URL("/login", siteUrl());
     if (pathname !== "/" || search) login.searchParams.set("next", pathname + search);
     return NextResponse.redirect(login);
   }

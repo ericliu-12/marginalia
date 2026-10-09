@@ -1,12 +1,13 @@
 import { eq } from "drizzle-orm";
 import type { Db } from "./client";
+import { normaliseEmail } from "@/domain/allowlist";
 import { user } from "./schema";
 
 // Until the Reader boundary (#64), the app reads one Reader: the seeded user. With OWNER_EMAIL set, that
 // row carries the owner's real email, so signing in with it opens their existing library.
 export const SEEDED_USER_EMAIL = "reader@marginalia.local";
 
-const seededEmail = (env: Record<string, string | undefined>) => env.OWNER_EMAIL?.trim().toLowerCase() || SEEDED_USER_EMAIL;
+const seededEmail = (env: Record<string, string | undefined>) => (env.OWNER_EMAIL && normaliseEmail(env.OWNER_EMAIL)) || SEEDED_USER_EMAIL;
 
 export async function seedUser(db: Db, env: Record<string, string | undefined> = process.env) {
   const email = seededEmail(env);

@@ -89,7 +89,7 @@ test.describe("with a Host and forwarded headers that don't match the server's a
     const signedOut = await playwright.request.newContext({ extraHTTPHeaders: headers("inkmarginalia.example") });
     const gate = await signedOut.get(direct("/graph"), { maxRedirects: 0 });
     expect(gate.status()).toBe(307);
-    expect(absoluteOffSite(gate.headers().location), gate.headers().location).toBe(false);
+    expect(gate.headers().location).toBe(`${SITE}/login?next=%2Fgraph`);
     await signedOut.dispose();
 
     // Past the password gate, as a browser on the site would be.
