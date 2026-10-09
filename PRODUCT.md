@@ -17,6 +17,7 @@ User-specified:
 - Book data: Open Library API (free, no key) for identity and covers; Google Books API (key required) for descriptions only
 - AI: Claude API for book enrichment (summary, themes), connection judging, and explanations; embeddings for candidate retrieval
 - Auth: none for the MVP (single user). The data model carries `user_id` throughout so auth can be added later.
+  - Opening the app to other people is planned in #45 (Multi-user and public launch).
 
 ## Users
 
