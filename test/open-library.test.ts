@@ -56,6 +56,25 @@ describe("Open Library gateway", () => {
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
+  it("finds one work by key: from a recent search without asking again, otherwise by asking for that key", async () => {
+    const fetch = stubFetch([doc("/works/OL1W"), doc("/works/OL2W")], [doc("/works/OL7W")]);
+    const gw = createOpenLibraryGateway({ ...opts, fetch });
+    await gw.searchWorks("stoner");
+    expect(await gw.findWork("/works/OL2W")).toMatchObject({ workKey: "/works/OL2W", title: "Stoner" });
+    expect(fetch).toHaveBeenCalledTimes(1);
+
+    expect(await gw.findWork("/works/OL7W")).toMatchObject({ workKey: "/works/OL7W" });
+    expect(new URL(String(fetch.mock.calls[1][0])).searchParams.get("q")).toBe("key:/works/OL7W");
+  });
+
+  it("finds nothing for a key Open Library doesn't return, or one not shaped like a work key, which it never asks about", async () => {
+    const fetch = stubFetch([]);
+    const gw = createOpenLibraryGateway({ ...opts, fetch });
+    expect(await gw.findWork("/works/OL9W")).toBeNull();
+    expect(await gw.findWork("/works/OL1W) OR (title:x")).toBeNull();
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
   it("throws on a non-OK response", async () => {
     const fetch = vi.fn().mockResolvedValue(new Response("no", { status: 503 }));
     await expect(createOpenLibraryGateway({ ...opts, fetch }).searchWorks("x")).rejects.toThrow("503");

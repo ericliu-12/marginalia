@@ -1,8 +1,8 @@
 import { sql } from "drizzle-orm";
 import { Client, type Pool } from "pg";
 import { afterAll, beforeEach } from "vitest";
-import { createDb } from "../src/db/client";
-import { seedUser } from "../src/db/seed";
+import { createDb, type Db } from "../src/db/client";
+import { user } from "../src/db/schema";
 import { createPipeline, type Pipeline } from "../src/domain/pipeline";
 import { memoryQueue } from "../src/lib/memory-queue";
 
@@ -13,7 +13,13 @@ declare module "vitest" {
   }
 }
 
-// Real Postgres, reset to "just the seeded user" before every test, with a fresh in-memory job queue
+// A Reader with this email, as signing in would leave them.
+export async function addReader(db: Db, email: string) {
+  const [row] = await db.insert(user).values({ email }).returning();
+  return row;
+}
+
+// Real Postgres, reset to "just one Reader" before every test, with a fresh in-memory job queue
 // behind the Pipeline: jobs wait until the test drains them. A failed test records its database activity.
 export function useTestDb() {
   const { db, pool } = createDb(process.env.TEST_DATABASE_URL!);
@@ -22,7 +28,7 @@ export function useTestDb() {
 
   beforeEach(async () => {
     await db.execute(sql`TRUNCATE "user", verification, allowed_email CASCADE`);
-    ctx.userId = (await seedUser(db)).id;
+    ctx.userId = (await addReader(db, "reader@marginalia.local")).id;
     ctx.jobs = memoryQueue(db);
     ctx.pipeline = createPipeline(db, ctx.jobs);
   });

@@ -44,6 +44,9 @@ function preferEnglishTitle(title: string, edition: string | undefined) {
   return a && b && (a.includes(b) || b.includes(a)) ? title : edition;
 }
 
+// Only a key of this shape reaches Open Library's query.
+const WORK_KEY = /^\/works\/OL\d+W$/;
+
 type Options = {
   userAgent: string;
   fetch?: typeof fetch;
@@ -114,6 +117,15 @@ export function createOpenLibraryGateway({
   }
 
   return {
+    // A work just shown in search is usually still in the cache, so adding it costs no request.
+    async findWork(workKey) {
+      if (!WORK_KEY.test(workKey)) return null;
+      for (const { at, works } of cache.values()) {
+        const hit = now() - at < ttlMs && works.find((w) => w.workKey === workKey);
+        if (hit) return hit;
+      }
+      return (await query({ q: `key:${workKey}` })).find((w) => w.workKey === workKey) ?? null;
+    },
     async searchWorks(q) {
       const key = q.trim().toLowerCase();
       const hit = cache.get(key);

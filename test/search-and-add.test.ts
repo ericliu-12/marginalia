@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { addBook, DuplicateBookError } from "../src/domain/add-book";
+import { addBook, addBookByWorkKey, DuplicateBookError, WorkNotFoundError } from "../src/domain/add-book";
 import { readLibrary } from "../src/domain/library";
 import { searchBooks } from "../src/domain/search";
 import { book, libraryEntry, readThrough } from "../src/db/schema";
@@ -282,6 +282,27 @@ describe("add a Book", () => {
     expect(await readLibrary(ctx.db, ctx.userId)).toEqual([
       expect.objectContaining({ title: "Stoner", authors: ["John Williams"], status: "want" }),
     ]);
+  });
+
+  it("from search, stores the work as Open Library describes it, looked up by its key alone", async () => {
+    const { bookId } = await addBookByWorkKey(ctx.db, ctx.pipeline, ctx.userId, stoner.workKey, "read", { works: fakeGateway([stoner]) });
+    const [row] = await ctx.db.select().from(book).where(eq(book.id, bookId));
+    expect(row).toMatchObject({
+      title: "Stoner",
+      authors: ["John Williams"],
+      openLibraryWorkKey: "/works/OL3511459W",
+      firstPublishedYear: 1965,
+      coverUrl: "https://covers.openlibrary.org/b/id/7-M.jpg?default=false",
+      snapshot: { subjects: ["College teachers"] },
+    });
+    expect(await readLibrary(ctx.db, ctx.userId)).toEqual([expect.objectContaining({ bookId, status: "read" })]);
+  });
+
+  it("from search, adds nothing for a key Open Library doesn't know", async () => {
+    await expect(addBookByWorkKey(ctx.db, ctx.pipeline, ctx.userId, "/works/OL404W", "want", { works: fakeGateway([stoner]) })).rejects.toBeInstanceOf(
+      WorkNotFoundError,
+    );
+    expect(await ctx.db.select().from(book)).toEqual([]);
   });
 
   it("stores the work key, year, cover and a snapshot with noisy subjects dropped", async () => {

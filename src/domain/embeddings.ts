@@ -55,13 +55,15 @@ export async function noteEmbeddingFailed(db: Db, noteId: string): Promise<void>
 
 // A Refresh tries again: the Book's Enrichment and the reader's Notes on it that gave up on a vector
 // are queued to be embedded again. The Notes count as on their way, so the run waits for them; the run
-// embeds the Enrichment itself. One that can't be queued stays given up.
+// embeds the Enrichment itself. One that can't be queued stays given up. A Book not in the reader's
+// library is left alone.
 export async function retryEmbeddings(db: Db, queue: JobQueue, userId: string, bookId: string): Promise<void> {
-  const entry = db.select({ id: libraryEntry.id }).from(libraryEntry).where(and(eq(libraryEntry.userId, userId), eq(libraryEntry.bookId, bookId)));
+  const [entry] = await db.select({ id: libraryEntry.id }).from(libraryEntry).where(and(eq(libraryEntry.userId, userId), eq(libraryEntry.bookId, bookId)));
+  if (!entry) return;
   const notes = await db
     .update(note)
     .set({ embedFailedAt: null })
-    .where(and(inArray(note.libraryEntryId, entry), isNotNull(note.embedFailedAt), isNull(note.embedding)))
+    .where(and(eq(note.libraryEntryId, entry.id), isNotNull(note.embedFailedAt), isNull(note.embedding)))
     .returning({ id: note.id });
   for (const { id } of notes) {
     try {
