@@ -5,13 +5,14 @@ import { runMigrations } from "../../src/db/migrate";
 import { layoutGraph } from "../../src/domain/graph";
 import { runGraphJob } from "../../src/domain/graph-job";
 import { book, bookPosition, clusterLabel, connection, enrichment, libraryEntry, note, paidCall, readThrough, session, user } from "../../src/db/schema";
+import { perWorktree } from "../worktree";
 import { READER_A, READER_B } from "./session";
 
 // The browser tests' own database on the docker-compose Postgres, apart from the app's and the unit tests'.
 // The web server is handed this database as DATABASE_URL, so creating it goes through Postgres's own
 // maintenance database rather than whichever one DATABASE_URL names.
 const BASE_URL = process.env.DATABASE_URL ?? "postgres://marginalia:marginalia@localhost:5433/marginalia";
-const E2E_DB_NAME = "marginalia_e2e";
+const E2E_DB_NAME = perWorktree("marginalia_e2e");
 
 const onDatabase = (name: string) => {
   const url = new URL(BASE_URL);

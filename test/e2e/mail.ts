@@ -3,9 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
 import type { Mail } from "../../src/lib/mailer";
+import { perWorktree } from "../worktree";
 
 // The e2e server's mailer writes each email here (MAIL_OUTBOX_FILE) instead of sending it.
-export const E2E_OUTBOX = join(tmpdir(), "marginalia-e2e-outbox.jsonl");
+export const E2E_OUTBOX = join(tmpdir(), `${perWorktree("marginalia-e2e-outbox", "-")}.jsonl`);
 
 export const clearOutbox = () => writeFile(E2E_OUTBOX, "");
 

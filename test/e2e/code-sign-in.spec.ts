@@ -3,13 +3,14 @@ import { SESSION_COOKIE as GATE_COOKIE, issueToken } from "../../src/lib/session
 import { seedLibrary } from "./database";
 import { clearOutbox, codeSentTo, outbox } from "./mail";
 import { E2E_SESSION_SECRET, pastTheGate, READER_A } from "./session";
+import { E2E_PORT } from "../worktree";
 
 // Signing in with an email code (#60), behind the password gate. The server's mailer writes to a file
 // the test reads the code from.
 
 test.use({ storageState: pastTheGate() });
 
-const SITE = "http://localhost:3100";
+const SITE = `http://localhost:${E2E_PORT}`;
 const SESSION_COOKIE = "better-auth.session_token";
 
 let address = 0;
@@ -75,7 +76,7 @@ test("a wrong code says so and is selected to be typed over", async ({ page }) =
 // name another. Anything absolute built from the request would land on 127.0.0.1 or the Host, not the site.
 test.describe("with a Host and forwarded headers that don't match the server's address", () => {
   const headers = (host: string) => ({ host, "x-forwarded-host": host, "x-forwarded-proto": "https", "x-forwarded-for": "198.51.100.7" });
-  const direct = (path: string) => `http://127.0.0.1:3100${path}`;
+  const direct = (path: string) => `http://127.0.0.1:${E2E_PORT}${path}`;
   const absoluteOffSite = (location: string | undefined) => Boolean(location && /^[a-z]+:/i.test(location) && !location.startsWith(`${SITE}/`));
 
   test("the Railway host is sent to BETTER_AUTH_URL with a 308, path and query kept", async ({ request }) => {
