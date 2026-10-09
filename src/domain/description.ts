@@ -27,6 +27,8 @@ export type LookupOptions = {
 export interface DescriptionGateway {
   // Up to 40 results (two pages of 20) for a plain `title author` query.
   googleBooksVolumes(query: string, options?: LookupOptions): Promise<GoogleBooksVolume[]>;
+  // One volume by id: how Enrichment gets a Google Books description, which is never stored.
+  googleBooksVolume(id: string, options?: LookupOptions): Promise<GoogleBooksVolume>;
   // The Open Library work description, or "" when it has none.
   openLibraryDescription(workKey: string, options?: LookupOptions): Promise<string>;
 }
@@ -55,8 +57,14 @@ const BAD_CATEGORY = /study aids|comics|graphic novels|literary criticism|langua
 const ENGLISH = /\b(the|and|of|is|her|his|with|that|was|as|he|she)\b/gi;
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, "").trim();
+// A line break or block tag separates words; an inline one (`<i>The New Yorker</i>`) does not.
 const stripHtml = (s: string) =>
-  s.replace(/<[^>]+>/g, " ").replace(/&[a-z#0-9]+;/gi, " ").replace(/\s+/g, " ").trim();
+  s
+    .replace(/<\/?(br|p|div|li|ul|ol|h[1-6]|blockquote)\b[^>]*>/gi, " ")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&[a-z#0-9]+;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 const looksEnglish = (t: string) => (t.match(ENGLISH) ?? []).length >= t.split(" ").length / 15;
 
 // Title and primary-author match, English only, no study guides/adaptations/criticism/box sets;
@@ -89,6 +97,18 @@ export function pickGoogleBooksDescription(
     .sort((a, b) => b.description.length - a.description.length);
 
   return good[0] ?? null;
+}
+
+// Google's description of the volume, fetched for one Enrichment run and then discarded: Google's
+// terms forbid keeping copies of it (#44). "" when the fetch failed or the volume has none.
+export async function googleBooksDescription(gateway: DescriptionGateway, volumeId: string): Promise<string> {
+  try {
+    const v = await gateway.googleBooksVolume(volumeId, { retry: BACKGROUND_BUDGET.retry });
+    return stripHtml(v.volumeInfo?.description ?? "");
+  } catch (err) {
+    console.error(err);
+    return "";
+  }
 }
 
 const volumeAuthors = (picked: { authors: string[] } | null) => (picked ? { volumeAuthors: picked.authors } : {});

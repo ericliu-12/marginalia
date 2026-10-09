@@ -85,7 +85,8 @@ export async function addBook(
             ...(work.originalAuthors && { originalAuthors: work.originalAuthors }),
             ...(work.authorAliases && { authorAliases: work.authorAliases }),
           },
-          description: found.description || null,
+          // Google's description is never stored, only the volume it came from (#44).
+          description: found.googleBooksVolumeId ? null : found.description || null,
           googleBooksVolumeId: found.googleBooksVolumeId,
         })
         .onConflictDoNothing({ target: book.openLibraryWorkKey });

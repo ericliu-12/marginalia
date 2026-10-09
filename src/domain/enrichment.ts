@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { book, enrichment } from "@/db/schema";
-import { BACKGROUND_BUDGET, describeBook, type DescriptionGateway } from "./description";
+import { BACKGROUND_BUDGET, describeBook, googleBooksDescription, type DescriptionGateway } from "./description";
 import { NotInLibraryError, findEntry } from "./library-entry";
 import type { JobQueue, Pipeline } from "./pipeline";
 
@@ -97,7 +97,8 @@ export function namesMatch(a: string, b: string): boolean {
 
 export type EnrichDeps = {
   model: EnrichmentModel;
-  // Looks up a missing description; without it a description-less Book is enriched conservatively.
+  // Fetches Google's description and looks up a missing one; without it a Book with no stored
+  // description is enriched conservatively.
   descriptions?: DescriptionGateway | null;
 };
 
@@ -116,31 +117,63 @@ export async function enrichBook(db: Db, deps: EnrichDeps, bookId: string): Prom
   const [current] = await db.select().from(enrichment).where(eq(enrichment.bookId, bookId));
 
   const requested = current?.requestedAt ?? null;
-  // A Book added without a description gets one fetched here, with full retries. Only until a run has
+  // Clears the "Try again" this run handles. One that arrived while it was in flight stays requested,
+  // so the job it queued still does its work.
+  const handled = sql`case when ${enrichment.requestedAt} is not distinct from ${requested} then null else ${enrichment.requestedAt} end`;
+  // Google's description is never stored (#44); a description stored beside a volume predates that and
+  // is Google's, so it is never read.
+  let stored = b.googleBooksVolumeId ? null : b.description;
+  // Google's description for this run only, once it has been fetched.
+  let fetched = "";
+  // A Book added without a description gets one looked up here, with full retries. Only until a run has
   // succeeded, or on a "Try again", so a Book nothing describes is not looked up on every run.
-  if (!b.description && b.openLibraryWorkKey && deps.descriptions && (!current?.descriptionHash || requested)) {
+  if (!stored && !b.googleBooksVolumeId && b.openLibraryWorkKey && deps.descriptions && (!current?.descriptionHash || requested)) {
     const found = await describeBook(
       deps.descriptions,
       { title: b.title, authors: b.authors, workKey: b.openLibraryWorkKey },
       BACKGROUND_BUDGET,
     );
-    if (found.description) {
-      [b] = await db
-        .update(book)
-        .set({ description: found.description, googleBooksVolumeId: found.googleBooksVolumeId })
-        .where(eq(book.id, bookId))
-        .returning();
+    if (found.googleBooksVolumeId) {
+      fetched = found.description;
+      [b] = await db.update(book).set({ googleBooksVolumeId: found.googleBooksVolumeId }).where(eq(book.id, bookId)).returning();
+    } else if (found.description) {
+      stored = found.description;
+      [b] = await db.update(book).set({ description: stored }).where(eq(book.id, bookId)).returning();
     }
   }
 
-  const descriptionHash = hash(b.description ?? "");
+  const descriptionHash = hash(stored ?? "");
   const metadataHash = hash(JSON.stringify([b.authors, b.firstPublishedYear]));
   if (current?.status === "ready" && !requested && current.descriptionHash === descriptionHash && current.metadataHash === metadataHash) return;
+
+  if (b.googleBooksVolumeId && !fetched && deps.descriptions) fetched = await googleBooksDescription(deps.descriptions, b.googleBooksVolumeId);
+  if (b.googleBooksVolumeId && !fetched) {
+    // Google is down, over quota or no longer describes the Book. An Enrichment a run has made is left
+    // as it was, and reads as ready again; the reader can "Try again" later.
+    if (current?.descriptionHash) {
+      console.warn(`Enrichment kept for "${b.title}": no Google Books description`);
+      await db
+        .update(enrichment)
+        .set({ status: "ready", attempts: 0, lastError: null, requestedAt: handled })
+        .where(eq(enrichment.bookId, bookId));
+      return;
+    }
+    // A first run goes ahead on Open Library's description, if it has one.
+    if (b.openLibraryWorkKey && deps.descriptions) {
+      stored = await deps.descriptions
+        .openLibraryDescription(b.openLibraryWorkKey, { retry: BACKGROUND_BUDGET.retry })
+        .then((d) => d.trim())
+        .catch((err) => {
+          console.error(err);
+          return "";
+        });
+    }
+  }
 
   const { model } = deps;
   const subjects = (b.snapshot as { subjects?: string[] } | null)?.subjects ?? [];
   try {
-    const r = await model.enrich({ title: b.title, authors: b.authors, description: b.description ?? "", subjects });
+    const r = await model.enrich({ title: b.title, authors: b.authors, description: fetched || stored || "", subjects });
     // Unrecognised stays empty: no summary or themes are kept for it.
     // Alternate names cover transliteration: "Murakami Haruki" is "Haruki Murakami".
     const aliases = (b.snapshot as { authorAliases?: string[] } | null)?.authorAliases ?? [];
@@ -156,7 +189,9 @@ export async function enrichBook(db: Db, deps: EnrichDeps, bookId: string): Prom
       // Any vector was made from the previous summary; it is re-embedded.
       embedding: null,
       embeddingModel: null,
-      descriptionHash,
+      googleBooksVolumeId: fetched ? b.googleBooksVolumeId : null,
+      // Without Google's description the run is not up to date, so the Book's next job tries again.
+      descriptionHash: b.googleBooksVolumeId && !fetched ? null : descriptionHash,
       metadataHash,
       believedAuthor: r.author,
       believedFirstPublishedYear: r.firstPublishedYear,
@@ -174,9 +209,7 @@ export async function enrichBook(db: Db, deps: EnrichDeps, bookId: string): Prom
       .values(values)
       .onConflictDoUpdate({
         target: enrichment.bookId,
-        // A "Try again" that arrived while this run was in flight stays requested, so the job it
-        // queued still does its work.
-        set: { ...values, requestedAt: sql`case when ${enrichment.requestedAt} is not distinct from ${requested} then null else ${enrichment.requestedAt} end` },
+        set: { ...values, requestedAt: handled },
       });
   } catch (err) {
     const failure = {
@@ -223,10 +256,9 @@ export async function readEnrichment(db: Db, bookId: string): Promise<Enrichment
       recognised: enrichment.recognised,
       summary: enrichment.summary,
       themes: enrichment.themes,
-      googleBooksVolumeId: book.googleBooksVolumeId,
+      googleBooksVolumeId: enrichment.googleBooksVolumeId,
     })
     .from(enrichment)
-    .innerJoin(book, eq(book.id, enrichment.bookId))
     .where(eq(enrichment.bookId, bookId));
   return row ?? null;
 }

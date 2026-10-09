@@ -268,7 +268,7 @@ export async function readingBook(title: string, googleBooksVolumeId?: string) {
   const [row] = await db.insert(book).values({ title, authors: ["A. Writer"], googleBooksVolumeId }).returning();
   const [entry] = await db.insert(libraryEntry).values({ userId, bookId: row.id, status: "reading" }).returning();
   await db.insert(readThrough).values({ libraryEntryId: entry.id, userId, startedAt: new Date() });
-  await db.insert(enrichment).values({ bookId: row.id, status: "ready", recognised: true, summary: `${title}.`, themes: ["memory"] });
+  await db.insert(enrichment).values({ bookId: row.id, status: "ready", recognised: true, summary: `${title}.`, themes: ["memory"], googleBooksVolumeId });
   await pool.end();
 }
 

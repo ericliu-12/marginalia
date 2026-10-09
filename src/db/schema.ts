@@ -48,8 +48,12 @@ export const book = pgTable(
     firstPublishedYear: integer("first_published_year"),
     coverUrl: text("cover_url"),
     openLibraryWorkKey: text("open_library_work_key").unique(),
+    // The Google Books volume whose description describes the Book. That description is never stored
+    // (Google's terms, #44): Enrichment fetches it for each run.
     googleBooksVolumeId: text("google_books_volume_id"),
-    // Fetched once at add-time; null when no source had one.
+    // Open Library's description, fetched once, or what the reader wrote for a Manual Book; null when
+    // neither had one or Google's describes the Book. One stored for a Book with a Google Books volume
+    // is Google's, from before #44, and is never read.
     description: text("description"),
     // Set only for Manual Books, which are private to their creator.
     createdByUserId: uuid("created_by_user_id").references(() => user.id),
@@ -75,11 +79,15 @@ export const enrichment = pgTable(
     // Connections for the Book tries again. Cleared once it has a vector.
     embedFailedAt: timestamp("embed_failed_at", { withTimezone: true }),
     // Inputs the last successful run saw; null until one has run.
+    // `descriptionHash` covers the stored description only; Google's is fetched, so a change on
+    // Google's side is picked up only by a run that happens anyway.
     descriptionHash: text("description_hash"),
     metadataHash: text("metadata_hash"),
     // Set by "Try again": the next run does the work whatever the hashes say. Cleared by the run
     // that handled it, so one that lands mid-run survives it.
     requestedAt: timestamp("requested_at", { withTimezone: true }),
+    // The Google Books volume whose description grounded the last run; null when none did.
+    googleBooksVolumeId: text("google_books_volume_id"),
     believedAuthor: text("believed_author"),
     believedFirstPublishedYear: integer("believed_first_published_year"),
     // Of the last run; null until one has run.

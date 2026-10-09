@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it, vi } from "vitest";
 import { addBook } from "../src/domain/add-book";
-import { ADD_TIME_BUDGET, BACKGROUND_BUDGET, describeBook } from "../src/domain/description";
+import { ADD_TIME_BUDGET, BACKGROUND_BUDGET, describeBook, googleBooksDescription } from "../src/domain/description";
 import { book } from "../src/db/schema";
 import { createDescriptionGateway } from "../src/lib/google-books";
 import { fakeDescriptions, prose, volume, work } from "./fakes";
@@ -16,11 +16,11 @@ describe("add-time description", () => {
     return row;
   };
 
-  it("queries Google Books with a plain `title author` query and stores description and volume id", async () => {
+  it("queries Google Books with a plain `title author` query and stores the volume id, never Google's description", async () => {
     const gw = fakeDescriptions({ volumes: [volume("gb1", { description: prose(700) })] });
     const row = await add(gw);
     expect(gw.queries).toEqual(["Stoner John Williams"]);
-    expect(row.description).toBe(prose(700));
+    expect(row.description).toBeNull();
     expect(row.googleBooksVolumeId).toBe("gb1");
   });
 
@@ -98,7 +98,7 @@ describe("add-time description", () => {
     const row = await add(
       fakeDescriptions({ volumes: [volume("thin", { description: prose(400) })], openLibrary: prose(300) }),
     );
-    expect(row.description).toBe(prose(400));
+    expect(row.description).toBeNull();
     expect(row.googleBooksVolumeId).toBe("thin");
   });
 
@@ -128,7 +128,7 @@ describe("add-time description", () => {
       fakeDescriptions({ volumes: [volume("thin", { description: prose(400) })], olError: true }),
       work({ workKey: "/works/two", title: "Stoner", authors: ["John Williams"] }),
     );
-    expect(row.description).toBe(prose(400));
+    expect(row).toMatchObject({ description: null, googleBooksVolumeId: "thin" });
   });
 
   it("adds the Book without a description when the lookup outlasts the timeout", async () => {
@@ -161,6 +161,18 @@ describe("add-time description", () => {
     expect(second.queries).toEqual([]);
     const [row] = await db.select().from(book).where(eq(book.openLibraryWorkKey, stoner.workKey));
     expect(row.googleBooksVolumeId).toBe("first");
+  });
+});
+
+describe("Google's description at run time", () => {
+  it("drops inline tags without adding spaces, and breaks lines on <br> and block tags", async () => {
+    const gw = fakeDescriptions({ volumes: [volume("gb1", { description: "<b>A “mind-bender” (<i>The New Yorker</i>).<br><br>Next</b><p>Last</p>" })] });
+    expect(await googleBooksDescription(gw, "gb1")).toBe("A “mind-bender” (The New Yorker). Next Last");
+  });
+
+  it("is empty when Google can't be reached", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await googleBooksDescription(fakeDescriptions({ gbError: true }), "gb1")).toBe("");
   });
 });
 
@@ -201,6 +213,15 @@ describe("Google Books gateway", () => {
       .mockResolvedValueOnce(Response.json({ items: items(3, "a") }));
     expect(await createDescriptionGateway({ ...opts, fetch }).googleBooksVolumes("x")).toHaveLength(3);
     expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("fetches one volume by id, retrying on 503", async () => {
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(new Response("", { status: 503 }))
+      .mockResolvedValueOnce(Response.json({ id: "gb1", volumeInfo: { description: "<p>Grey.</p>" } }));
+    const got = await createDescriptionGateway({ ...opts, fetch }).googleBooksVolume("gb1");
+    expect(got).toEqual({ id: "gb1", volumeInfo: { description: "<p>Grey.</p>" } });
+    expect(String(fetch.mock.calls[1][0])).toBe("https://www.googleapis.com/books/v1/volumes/gb1?key=k");
   });
 
   it("reads Open Library descriptions given as a string or a typed value", async () => {
