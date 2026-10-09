@@ -78,15 +78,20 @@ export async function editBookAction(bookId: string, input: ManualBookInput): Pr
   }
 }
 
-// `firstCompletion` when the move completed the Book's first Read-through, so its Connections are being found.
-export async function changeStatusAction(bookId: string, status: Status): Promise<{ ok: true; firstCompletion: boolean } | { ok: false }> {
+// `firstCompletion` when the move completed the Book's first Read-through, so its Connections are being
+// found; `paused` (the day it resumes) when they wait for the month's spending limit.
+export async function changeStatusAction(
+  bookId: string,
+  status: Status,
+): Promise<{ ok: true; firstCompletion: boolean; paused: string | null } | { ok: false }> {
   try {
     await requireSession();
     const db = appDb();
     const { firstCompletion } = await changeStatus(db, appPipeline(db), await getSeededUserId(db), bookId, status);
+    const pause = firstCompletion ? await readPause(db) : null;
     revalidatePath("/");
     revalidatePath("/graph");
-    return { ok: true, firstCompletion };
+    return { ok: true, firstCompletion, paused: pause?.resumesOn ?? null };
   } catch (err) {
     console.error(err);
     return { ok: false };

@@ -230,23 +230,25 @@ const STATUSES: Status[] = ["want", "reading", "read"];
 
 // The Book screen's Status: one tap between all three, shown at once. Read records today as the finish
 // date. When that completes the Book's first Read-through, the finish line says where its Connections
-// will be; it goes when the Status moves on, and a later Read-through never brings it back.
+// will be, or that they wait for the month's spending limit; it goes when the Status moves on, and a
+// later Read-through never brings it back.
 function StatusControl({ item }: { item: LibraryItem }) {
   const [shown, show] = useOptimistic(item.status);
   const [pending, start] = useTransition();
   const [error, setError] = useState(false);
-  const [finishLine, setFinishLine] = useState(false);
+  // Null, or the finish line: `paused` is the day Connections resume, when they wait for the spending limit.
+  const [finishLine, setFinishLine] = useState<{ paused: string | null } | null>(null);
 
   function move(to: Status) {
     if (pending || to === shown) return;
     setError(false);
     // Only the move's own answer can bring the line back, so a later Read-through never flashes it.
-    setFinishLine(false);
+    setFinishLine(null);
     start(async () => {
       show(to);
       const res = await changeStatusAction(item.bookId, to);
       if (!res.ok) return setError(true);
-      if (to === "read") setFinishLine(res.firstCompletion);
+      if (to === "read" && res.firstCompletion) setFinishLine({ paused: res.paused });
     });
   }
 
@@ -274,7 +276,10 @@ function StatusControl({ item }: { item: LibraryItem }) {
       <p role="status" className="mt-4 rounded-[3px] bg-paper-3 px-4 py-3 leading-snug empty:hidden motion-safe:animate-draw-in">
         {finishLine && shown === "read" && (
           <>
-            <span className="font-medium">Finished.</span> Connections are being found; they’ll gather below, and in the graph on a larger screen.
+            <span className="font-medium">Finished.</span>{" "}
+            {finishLine.paused
+              ? `Connections paused until ${finishLine.paused}; then they’ll gather below, and in the graph on a larger screen.`
+              : "Connections are being found; they’ll gather below, and in the graph on a larger screen."}
           </>
         )}
       </p>

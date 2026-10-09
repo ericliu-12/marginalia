@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { markFinding, overBudget, seedLibrary } from "./database";
+import { markFinding, overBudget, readingBook, seedLibrary } from "./database";
 
 // Past this month's spending limit, background work waits, and the quiet line by the wordmark says so in
 // place of the Books finding Connections. No worker runs here; the line reads what the worker would.
@@ -40,5 +40,14 @@ test.describe("on a phone", () => {
     expect((await shelfLine.boundingBox())!.height).toBeLessThan(30);
     await page.getByRole("button", { name: "Add a Book" }).click();
     await expect(page.getByRole("dialog", { name: "Add a Book" }).getByRole("status")).toHaveText(`Spending limit reached · resumes ${resumesOn}`);
+  });
+
+  test("finishing a Book says its Connections are paused until the month turns", async ({ page }) => {
+    await readingBook("Middlemarch");
+    await overBudget();
+    await page.goto("/");
+    await page.getByRole("main").getByRole("button", { name: /^Middlemarch/ }).click();
+    await page.getByRole("group", { name: /^Status of / }).getByRole("button", { name: "Read", exact: true }).click();
+    await expect(page.getByText(`Finished. Connections paused until ${resumesOn}; then they’ll gather below, and in the graph on a larger screen.`)).toBeVisible();
   });
 });
