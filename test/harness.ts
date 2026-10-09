@@ -21,7 +21,7 @@ export function useTestDb() {
   const ctx = { db, userId: "", jobs: memoryQueue(db), pipeline: undefined as unknown as Pipeline };
 
   beforeEach(async () => {
-    await db.execute(sql`TRUNCATE "user" CASCADE`);
+    await db.execute(sql`TRUNCATE "user", verification, allowed_email CASCADE`);
     ctx.userId = (await seedUser(db)).id;
     ctx.jobs = memoryQueue(db);
     ctx.pipeline = createPipeline(db, ctx.jobs);
