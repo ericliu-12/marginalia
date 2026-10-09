@@ -72,8 +72,8 @@ describe("sign-in limit", () => {
     expect(limit.retryAfterMs("fresh")).toBeGreaterThan(0);
   });
 
-  it("takes the address the edge appended, not one the client wrote", () => {
-    expect(clientAddress(new Headers({ "x-forwarded-for": "1.1.1.1, 9.9.9.9" }))).toBe("9.9.9.9");
+  it("takes the client the edge put first, not Railway's later hops", () => {
+    expect(clientAddress(new Headers({ "x-forwarded-for": "47.230.198.188, 152.233.47.66" }))).toBe("47.230.198.188");
     expect(clientAddress(new Headers({ "x-real-ip": "8.8.8.8" }))).toBe("8.8.8.8");
     expect(clientAddress(new Headers())).toBe("unknown");
   });

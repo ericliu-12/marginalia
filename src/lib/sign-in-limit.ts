@@ -34,9 +34,10 @@ export function createSignInLimit(now: () => number = Date.now) {
 
 export const signInLimit = createSignInLimit();
 
-// The address Railway's edge saw: it appends the client to X-Forwarded-For, so the last entry is the
-// one a client can't write for itself.
+// The address Railway's edge saw. The edge replaces any X-Forwarded-For a client sends and puts the
+// client first; later entries are Railway's own hops (the last one, read at first, was a Railway
+// address, not the client's). X-Real-IP can carry a CDN's address instead, so it is only the fallback.
 export function clientAddress(headers: Headers): string {
-  const forwarded = headers.get("x-forwarded-for")?.split(",").map((s) => s.trim()).filter(Boolean);
-  return forwarded?.at(-1) ?? headers.get("x-real-ip") ?? "unknown";
+  const forwarded = headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  return forwarded || headers.get("x-real-ip") || "unknown";
 }
