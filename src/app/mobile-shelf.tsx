@@ -12,6 +12,7 @@ import { MobileAdd } from "./mobile-add";
 import { hasDraft } from "./note-draft";
 import { focusNote, NoteSheet } from "./note-sheet";
 import { quietLink } from "./quiet-link";
+import { ReaderLink } from "./reader-link";
 
 const SECTIONS = [
   { status: "want", label: "Want to read" },
@@ -38,7 +39,7 @@ const chevron = (
 // The pen on a Reading row opens the Note sheet for that Book over the shelf.
 // The Book screen is a URL (/?book=<id>), and so are Add (/?add) and the Note sheet (/?note=<id>), so the
 // phone's back gesture returns to the screen before.
-export function MobileShelf({ items, finding, paused }: { items: LibraryItem[]; finding: number; paused: string | null }) {
+export function MobileShelf({ items, finding, paused, signedIn }: { items: LibraryItem[]; finding: number; paused: string | null; signedIn: boolean }) {
   const params = useSearchParams();
   const bookId = params.get("book");
   const adding = !bookId && params.has("add");
@@ -193,10 +194,14 @@ export function MobileShelf({ items, finding, paused }: { items: LibraryItem[]; 
       ) : (
         <>
           <main inert={adding || !!noteBook} className="mx-auto max-w-[40rem] px-6 pt-[max(1.25rem,env(safe-area-inset-top))] pb-36">
-            {/* A line too long to sit beside the wordmark drops under it whole, rather than wrapping. */}
-            <div className="flex min-h-11 flex-wrap items-baseline gap-x-4 gap-y-1">
-              <p className="text-[1.75rem] leading-none font-medium tracking-[-0.01em] italic">Marginalia</p>
-              <FindingIndicator initial={finding} paused={paused} className="shrink-0" />
+            {/* A line too long to sit beside the wordmark drops under it whole, rather than wrapping; Sign in
+                stays at the end of the wordmark's row. */}
+            <div className="flex items-baseline gap-x-4">
+              <div className="flex min-h-11 flex-1 flex-wrap items-baseline gap-x-4 gap-y-1">
+                <p className="text-[1.75rem] leading-none font-medium tracking-[-0.01em] italic">Marginalia</p>
+                <FindingIndicator initial={finding} paused={paused} className="shrink-0" />
+              </div>
+              <ReaderLink signedIn={signedIn} />
             </div>
             <h1 ref={headingRef} tabIndex={-1} className="mt-6 text-[2rem] leading-tight font-medium outline-none">Reading</h1>
             {reading.length > 0 ? (

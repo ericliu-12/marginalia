@@ -6,9 +6,10 @@ import { FindingIndicator } from "./connections";
 import { LibraryList } from "./library-list";
 import { BookPanel } from "./book-panel";
 import { SearchPane } from "./search-pane";
+import { ReaderLink } from "./reader-link";
 import { ViewSwitch } from "./view-switch";
 
-export function LibraryWorkspace({ items, finding, paused }: { items: LibraryItem[]; finding: number; paused: string | null }) {
+export function LibraryWorkspace({ items, finding, paused, signedIn }: { items: LibraryItem[]; finding: number; paused: string | null; signedIn: boolean }) {
   const [searchOpen, setSearchOpen] = useState(true);
   const [bookId, setBookId] = useState<string | null>(null);
   // The Book last removed: search says so and fetches again, so its result stops saying it is in the library.
@@ -18,12 +19,13 @@ export function LibraryWorkspace({ items, finding, paused }: { items: LibraryIte
 
   return (
     <div className="flex min-h-screen flex-col lg:h-screen">
-      <header className="flex flex-wrap items-baseline justify-between gap-y-2 px-8 pt-7 pb-5 lg:px-12">
+      <header className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 px-8 pt-7 pb-5 lg:px-12">
         <div className="mr-auto flex items-baseline gap-8">
           <h1 className="text-[1.75rem] leading-none font-medium tracking-[-0.01em] italic">Marginalia</h1>
           <ViewSwitch current="library" />
           <FindingIndicator initial={finding} paused={paused} />
         </div>
+        <ReaderLink signedIn={signedIn} />
         {!searchOpen && (
           <button
             ref={openRef}

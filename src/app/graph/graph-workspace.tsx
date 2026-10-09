@@ -10,6 +10,7 @@ import { graphStatusAction } from "../actions";
 import { BookPanel } from "../book-panel";
 import { FindingIndicator } from "../connections";
 import { POLL_MS, usePoll } from "../use-poll";
+import { ReaderLink } from "../reader-link";
 import { ViewSwitch } from "../view-switch";
 import { arriving, drawOrder, justFinished } from "./arrival";
 import { ClusterPanel } from "./cluster-panel";
@@ -47,6 +48,7 @@ export function GraphWorkspace({
   paused,
   userId,
   loneThemes,
+  signedIn,
 }: {
   graph: GraphView;
   items: LibraryItem[];
@@ -55,6 +57,7 @@ export function GraphWorkspace({
   userId: string;
   // With a single Finished Book, its Enrichment themes, where it has any.
   loneThemes: string[];
+  signedIn: boolean;
 }) {
   const router = useRouter();
   const wide = useWide(true);
@@ -183,6 +186,9 @@ export function GraphWorkspace({
           <ViewSwitch current="graph" />
         </div>
         <FindingIndicator initial={finding} paused={paused} />
+        <div data-graph-chrome className="pointer-events-auto ml-auto">
+          <ReaderLink signedIn={signedIn} />
+        </div>
       </header>
 
       {!wide && (
