@@ -67,8 +67,19 @@ export function createAuth(db: Db, config: AuthConfig) {
     // Delete your account (#68). Better Auth refuses a session that isn't fresh (signed in a day or more ago),
     // then deletes the Reader's user row, which takes everything they own with it (#93), and every session.
     // Their allowlist row goes after, so signing up again takes a fresh invitation; a deletion that fails
-    // leaves it, with any budget kept on it.
-    user: { deleteUser: { enabled: true, afterDelete: (reader) => uninvite(db, reader.email) } },
+    // leaves it, with any budget kept on it. By then the Reader is gone, so a failure here is logged, not
+    // returned: the reply still says they were deleted. Logged by id, and with Postgres's own error, since
+    // Drizzle's carries the query's params, the email among them.
+    user: {
+      deleteUser: {
+        enabled: true,
+        afterDelete: async (reader) => {
+          await uninvite(db, reader.email).catch((err: Error) =>
+            console.error(`Deleted Reader ${reader.id} but could not take them off the allowlist`, err.cause ?? err.name),
+          );
+        },
+      },
+    },
     hooks: {
       // An email that may not sign in gets the reply everyone gets, and no code is made or sent, so the
       // reply doesn't reveal who is on the allowlist and strangers can't use our sender. Its limits come

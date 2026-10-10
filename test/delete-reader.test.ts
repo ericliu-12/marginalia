@@ -1,5 +1,5 @@
 import { eq, sql } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { addBook, addManualBook } from "../src/domain/add-book";
 import { invite } from "../src/domain/allowlist";
 import { recomputeClusters } from "../src/domain/clusters";
@@ -139,6 +139,28 @@ describe("Deleting a Reader", () => {
     expect((await ctx.db.select({ userId: paidCall.userId }).from(paidCall)).map((r) => r.userId).sort()).toEqual([b, null].sort());
     // Off the allowlist: signing up again takes a fresh invitation.
     expect((await ctx.db.select().from(allowedEmail)).map((r) => r.email)).toEqual(["b@example.com"]);
+  });
+
+  it("still deletes, and says so, when taking them off the allowlist fails; the log names the Reader by id, not email", async () => {
+    const cookie = await signIn("reader@marginalia.local");
+    // Postgres refuses to delete any allowlist row, as a failing database would.
+    await ctx.db.execute(sql`CREATE FUNCTION refuse_delete() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION 'refused'; END $$ LANGUAGE plpgsql`);
+    await ctx.db.execute(sql`CREATE TRIGGER refuse_delete BEFORE DELETE ON allowed_email FOR EACH ROW EXECUTE FUNCTION refuse_delete()`);
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const res = await deleteAccount(cookie, "delete");
+      expect(res.status).toBe(200);
+      expect(await ctx.db.select().from(user).where(eq(user.id, a))).toEqual([]);
+      expect((await ctx.db.select().from(allowedEmail)).map((r) => r.email).sort()).toEqual(["b@example.com", "reader@marginalia.local"]);
+      expect(logged).toHaveBeenCalledTimes(1);
+      const line = logged.mock.calls[0].map((arg) => (arg instanceof Error ? `${arg.message} ${arg.stack}` : String(arg))).join(" ");
+      expect(line).toContain(a);
+      expect(line).not.toContain("reader@marginalia.local");
+    } finally {
+      logged.mockRestore();
+      await ctx.db.execute(sql`DROP TRIGGER refuse_delete ON allowed_email`);
+      await ctx.db.execute(sql`DROP FUNCTION refuse_delete`);
+    }
   });
 
   it("refuses without the typed delete, and keeps everything", async () => {
