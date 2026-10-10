@@ -1,18 +1,22 @@
 import { SIGNED_OUT, signInPath } from "@/lib/signed-out";
 import * as server from "./actions";
 
-// The Server Functions as the client calls them. One refused for want of a live session (a missing,
-// forged or expired cookie: the proxy's SIGNED_OUT) sends the Reader to sign-in, coming back to this page
-// after, instead of failing where it was called.
+// A call refused for want of a live session (a missing, forged or expired cookie: the proxy's 401) sends
+// the Reader to sign-in, coming back to this page after, instead of failing where it was called. The page
+// is leaving, so the returned promise never settles: the caller neither succeeds nor shows a failure.
+export function goToSignIn(): Promise<never> {
+  window.location.assign(signInPath(window.location.pathname + window.location.search));
+  return new Promise<never>(() => {});
+}
+
+// The Server Functions as the client calls them, each going to sign-in when refused as signed out.
 function untilSignedOut<A extends unknown[], R>(action: (...args: A) => Promise<R>): (...args: A) => Promise<R> {
   return async (...args) => {
     try {
       return await action(...args);
     } catch (err) {
       if (!(err instanceof Error && err.message === SIGNED_OUT)) throw err;
-      window.location.assign(signInPath(window.location.pathname + window.location.search));
-      // The page is leaving: the caller neither succeeds nor shows a failure.
-      return new Promise<R>(() => {});
+      return goToSignIn();
     }
   };
 }

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import type { Lookalike } from "@/domain/lookalike";
 import type { SearchResult, Status } from "@/domain/search";
-import { addBookAction, addManualBookAction, findLookalikeAction } from "./client-actions";
+import { addBookAction, addManualBookAction, findLookalikeAction, goToSignIn } from "./client-actions";
 import { field } from "./book-panel";
 import { CO_AUTHOR_HINT, EMPTY_BOOK, draftError, invalidProps, withScheme, type BookDraft, type DraftError } from "./book-draft";
 import { Cover } from "./cover";
@@ -223,6 +223,7 @@ export function useBookSearch(query: string, again?: unknown) {
     const timer = setTimeout(async () => {
       try {
         const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`, { signal: ctrl.signal });
+        if (res.status === 401) return goToSignIn();
         if (!res.ok) throw new Error(String(res.status));
         setResults(await res.json());
         setPhase("done");

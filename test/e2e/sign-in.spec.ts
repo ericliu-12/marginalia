@@ -63,4 +63,13 @@ test.describe("signed in until the session runs out", () => {
     await expect(page).toHaveURL(/\/sign-in(\?|$)/);
     expect(new URL(page.url()).searchParams.get("next") ?? "/").toBe(at.pathname + at.search);
   });
+
+  test("a search with an expired session sends the Reader to sign-in too", async ({ page }) => {
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+    await expireSession(READER_A);
+    await page.getByRole("searchbox", { name: "Search by title and author" }).fill("stoner");
+    await expect(page).toHaveURL(/\/sign-in$/);
+    await expect(page.getByLabel("Email")).toBeVisible();
+  });
 });
