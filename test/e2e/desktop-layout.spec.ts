@@ -6,18 +6,19 @@ import { addNoteThatGaveUp, seedLibrary } from "./database";
 
 test.beforeEach(async () => {
   await seedLibrary();
-  // Stoner's panel runs long; Candide's is short.
+  // Stoner's panel runs long; Candide's is short. Notes that gave up on their vector, so Connections stay as seeded.
   for (let i = 0; i < 12; i++) await addNoteThatGaveUp("Stoner", `A long Note on Stoner, ${i}. `.repeat(20));
 });
 
 const library = (page: Page) => page.getByRole("main");
 const pageScrolls = (page: Page) => page.evaluate(() => document.documentElement.scrollHeight > innerHeight);
-
-for (const size of [
+const SIZES = [
   { width: 1440, height: 900 },
   { width: 1024, height: 600 },
   { width: 1280, height: 1400 },
-]) {
+];
+
+for (const size of SIZES) {
   test(`at ${size.width}×${size.height} the page doesn't scroll past an open Book; a long one scrolls inside its panel`, async ({ page }) => {
     await page.setViewportSize(size);
     await page.goto("/");
@@ -27,7 +28,10 @@ for (const size of [
     const stoner = page.getByRole("complementary", { name: "Notes on Stoner" });
     await expect(stoner.getByText("A long Note on Stoner, 11.").first()).toBeVisible();
     expect(await pageScrolls(page)).toBe(false);
-    const panelScrolls = await stoner.evaluate((panel) => [...panel.querySelectorAll("div")].some((d) => getComputedStyle(d).overflowY === "auto" && d.scrollHeight > d.clientHeight));
+    // Some part of the panel scrolls: the Notes below its heading.
+    const panelScrolls = await stoner.evaluate((panel) =>
+      [...panel.querySelectorAll("div")].some((d) => getComputedStyle(d).overflowY === "auto" && d.scrollHeight > d.clientHeight),
+    );
     expect(panelScrolls).toBe(true);
 
     await library(page).getByRole("button", { name: "Candide", exact: true }).click();
@@ -36,17 +40,21 @@ for (const size of [
   });
 }
 
-test("the library stays put as Add closes and opens", async ({ page }) => {
-  await page.goto("/");
-  const firstRow = library(page).getByRole("listitem").first();
-  const top = async () => (await firstRow.boundingBox())!.y;
-  const before = await top();
+for (const size of SIZES) {
+  test(`at ${size.width}×${size.height} the library stays put as Add closes and opens`, async ({ page }) => {
+    await page.setViewportSize(size);
+    // Add is open when the library loads.
+    await page.goto("/");
+    const firstRow = library(page).getByRole("listitem").first();
+    const top = async () => (await firstRow.boundingBox())!.y;
+    const before = await top();
 
-  await page.getByRole("button", { name: "Close search" }).click();
-  await expect(page.getByRole("complementary", { name: "Add a book" })).toBeHidden();
-  expect(await top()).toBe(before);
+    await page.getByRole("button", { name: "Close search" }).click();
+    await expect(page.getByRole("complementary", { name: "Add a book" })).toBeHidden();
+    expect(await top()).toBe(before);
 
-  await page.getByRole("button", { name: "Add a book" }).click();
-  await expect(page.getByRole("complementary", { name: "Add a book" })).toBeVisible();
-  expect(await top()).toBe(before);
-});
+    await page.getByRole("button", { name: "Add a book" }).click();
+    await expect(page.getByRole("complementary", { name: "Add a book" })).toBeVisible();
+    expect(await top()).toBe(before);
+  });
+}
