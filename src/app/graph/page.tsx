@@ -5,7 +5,7 @@ import { readEntryEnrichment } from "@/domain/enrichment";
 import { readGraph } from "@/domain/graph";
 import { readLibrary } from "@/domain/library";
 import { readPause } from "@/domain/spend";
-import { hasSession, signedInReader } from "@/lib/signed-in";
+import { signedInReader } from "@/lib/signed-in";
 import { GraphWorkspace } from "./graph-workspace";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +13,6 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Graph · Marginalia" };
 
 export default async function GraphPage() {
-  if (!(await hasSession())) redirect("/login");
   const userId = await signedInReader();
   if (!userId) redirect("/sign-in?next=%2Fgraph");
   const db = appDb();

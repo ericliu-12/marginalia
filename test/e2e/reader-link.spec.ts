@@ -1,10 +1,10 @@
 import { expect, test } from "@playwright/test";
 import { seedLibrary } from "./database";
 import { clearOutbox, codeSentTo } from "./mail";
-import { pastTheGate, READER_A } from "./session";
+import { signedOut, READER_A } from "./session";
 
 // The library and the graph are a signed-in Reader's. The home-screen app has no address bar, so the
-// wordmark carries Sign out, until #67's account page. Past the password gate, as every spec starts.
+// wordmark carries Sign out, until #67's account page.
 
 let address = 0;
 test.beforeEach(async ({ page }) => {
@@ -28,7 +28,7 @@ test("Sign out ends the session, and the library then asks the Reader to sign in
 });
 
 test.describe("signed out", () => {
-  test.use({ storageState: pastTheGate() });
+  test.use({ storageState: signedOut() });
 
   test("the graph goes to sign-in, and signing in comes back to the graph", async ({ page }) => {
     await page.goto("/graph");

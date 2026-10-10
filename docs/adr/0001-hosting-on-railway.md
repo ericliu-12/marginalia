@@ -4,7 +4,7 @@ Status: accepted, 2026-10-09 (#43)
 
 ## Context
 
-Marginalia has three running parts: the Next app, the pg-boss worker (Enrichment, embeddings, Connections, the graph job), and Postgres with pgvector. The first deploy is private: one reader, behind a password. Opening it to others waits on #45.
+Marginalia has three running parts: the Next app, the pg-boss worker (Enrichment, embeddings, Connections, the graph job), and Postgres with pgvector. The first deploy was private: one reader, behind a shared password. Readers now sign in with Better Auth (ADR 0002), which replaced the password (#69); opening signup to others waits on #45.
 
 Options weighed (October 2026 prices, one reader):
 
@@ -30,7 +30,7 @@ A hosted queue (Inngest, Trigger.dev, QStash) calling serverless functions was a
   | Start command | `pnpm start` | `pnpm worker` | — (the Dockerfile's `CMD`) | — |
   | Cron schedule | — | — | `0 3 * * *` (03:00 UTC) | — |
   | Watch paths | — | — | `/backup/**` | — |
-  | Healthcheck path | `/login` | — | — | — |
+  | Healthcheck path | `/privacy` | — | — | — |
   | Restart policy | On failure, 5 retries | Always | Never | On failure, 5 retries |
   | Volume | — | — | — | `/var/lib/postgresql/data` |
   | Networking | `inkmarginalia.com` (custom domain, port 8080), plus Railway's `web-production-fd25da.up.railway.app` | private only | private only | private only, no TCP proxy |
@@ -41,7 +41,7 @@ A hosted queue (Inngest, Trigger.dev, QStash) calling serverless functions was a
 
   web, worker and backup reach it by reference, with the password kept out of the URL (it holds characters a URL would need escaped): `DATABASE_URL=postgresql://${{postgres.POSTGRES_USER}}@${{postgres.RAILWAY_PRIVATE_DOMAIN}}:5432/${{postgres.POSTGRES_DB}}` and `PGPASSWORD=${{postgres.POSTGRES_PASSWORD}}`, which node-postgres, pg-boss and pg_dump all read when the URL has none. web and worker also take `MONTHLY_AI_BUDGET_USD=8`; web takes Better Auth's `BETTER_AUTH_URL=https://inkmarginalia.com`, `BETTER_AUTH_SECRET` and `RESEND_API_KEY`, and `SIGNUP_MODE` when signup opens (#45); backup takes `R2_BUCKET=marginalia-backups` and `RAILWAY_DOCKERFILE_PATH`.
 - **Keep pg-boss.**
-- **The gate**: `APP_PASSWORD` and `SESSION_SECRET` (at least 32 characters). A signed, HttpOnly cookie lasts 90 days and is renewed daily as the app is used, so the iPhone home-screen app stays signed in. Five wrong passwords from one address, or fifty overall, stop sign-in for fifteen minutes. In production, a missing or short value lets no one in.
+- **The gate**: Better Auth's sign-in, in allowlist mode (ADR 0002), is the only one; the shared password, `APP_PASSWORD` and `SESSION_SECRET` are gone (#69). A page without a Reader's session cookie goes to `/sign-in`, and a Server Function or API call without one gets a 401; each also checks the session itself. Its cookie lasts 90 days and is renewed daily as the app is used, so the iPhone home-screen app stays signed in. Sign-in, Better Auth's endpoints, `/privacy`, `/terms`, the icons and the manifest need no session. The healthcheck is `/privacy`: public, and served by the app.
 - **Spend**: every Claude and Voyage call is logged in `paid_call` at list price. At `MONTHLY_AI_BUDGET_USD` ($8) for the UTC month, the worker holds every job (re-queued every 30 minutes, using up no attempts) and the app says so by the wordmark. Hard caps sit outside the app: an Anthropic workspace limit of $10, a Railway hard limit of $15, a Google Books key restricted to that API with a lowered daily quota. Voyage has no spending cap; its key is kept apart from development's.
 
 ## Backups
@@ -73,6 +73,5 @@ The dumps are only worth having if one restores. Now and then (after a schema ch
 - One vendor and one bill, with a hard cap at every layer.
 - A single backup layer, a day apart: a restore can lose up to a day's Notes and Books. Revisit (Railway Pro's volume backups, or a more frequent dump) when the data or the readers grow.
 - Migrations run before the web deploy, but the worker deploys from the same commit at the same time, so a migration that the old worker can't run against needs the worker stopped first.
-- The sign-in limit lives in the web process's memory; a restart forgets it.
 - `/privacy` and `/terms` (#62) name these services and the 30-day backup retention, so a change to either is a change to those pages. They are plain-language and written by us, not legal advice.
 - Opening the app to other readers (#45) reopens this: real accounts, per-reader spend, and Voyage's lack of a cap.
