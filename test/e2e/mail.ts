@@ -15,11 +15,15 @@ export async function outbox(): Promise<Mail[]> {
   return text.split("\n").filter(Boolean).map((line) => JSON.parse(line));
 }
 
+// How long asking for a code may take: Turnstile's check with Cloudflare (seconds, when its script is
+// fetched cold), siteverify, and the server's 1 s minimum reply (#65).
+export const SEND_TIMEOUT = 15_000;
+
 // The code in the latest email to `to`. Sending isn't awaited by the server, so this waits for it.
 export async function codeSentTo(to: string): Promise<string> {
   let code: string | undefined;
   await expect
-    .poll(async () => (code = (await outbox()).findLast((m) => m.to === to)?.text.match(/\b\d{6}\b/)?.[0]), { message: `a code sent to ${to}` })
+    .poll(async () => (code = (await outbox()).findLast((m) => m.to === to)?.text.match(/\b\d{6}\b/)?.[0]), { message: `a code sent to ${to}`, timeout: SEND_TIMEOUT })
     .toBeTruthy();
   return code!;
 }

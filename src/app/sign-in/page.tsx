@@ -18,7 +18,12 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
   return (
     <main className="flex min-h-dvh justify-center px-6 pt-[max(18vh,calc(env(safe-area-inset-top)+3rem))] pb-12">
       <div className="w-full max-w-[19rem]">
-        <CodeSignIn next={next} callbackURL={new URL(next, siteUrl()).toString()} googleFailed={Boolean(error)} />
+        <CodeSignIn
+          next={next}
+          callbackURL={new URL(next, siteUrl()).toString()}
+          googleFailed={Boolean(error)}
+          turnstileSiteKey={process.env.TURNSTILE_SITE_KEY ?? ""}
+        />
         <nav aria-label="Privacy and terms" className="mt-10 flex items-center gap-4">
           <Link href="/privacy" className={`${quietLink} inline-flex items-center`}>
             Privacy

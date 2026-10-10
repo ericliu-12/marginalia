@@ -38,7 +38,7 @@ export async function createE2eDatabase() {
 
 // Readers A and B, each signed in (the session their cookie in session.ts names), and nobody else.
 async function seedReaders(db: ReturnType<typeof createDb>["db"]) {
-  await db.execute(sql`TRUNCATE "user", verification, allowed_email CASCADE`);
+  await db.execute(sql`TRUNCATE "user", verification, allowed_email, rate_limit, code_request CASCADE`);
   for (const r of [READER_A, READER_B]) {
     await db.insert(user).values({ id: r.id, email: r.email, emailVerified: true });
     await db.insert(session).values({ userId: r.id, token: r.token, expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) });

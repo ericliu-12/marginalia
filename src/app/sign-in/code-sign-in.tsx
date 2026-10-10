@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { field } from "../book-panel";
 import { quietLink } from "../quiet-link";
+import { useTurnstile } from "./turnstile";
 
 // One code a minute per email (#65), so "Send a new code" rests for as long after each send.
 const RESEND_AFTER_S = 60;
@@ -18,9 +19,9 @@ const label = "block font-sans text-[0.8rem] font-medium text-ink-2";
 const quietText = "font-sans text-[0.8rem] text-ink-3";
 
 // Relative paths only: the page's own origin is the site's, and nothing absolute is built here.
-async function post(path: string, body: object): Promise<Response | null> {
+async function post(path: string, body: object, headers: Record<string, string> = {}): Promise<Response | null> {
   try {
-    return await fetch(`/api/auth${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    return await fetch(`/api/auth${path}`, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(body) });
   } catch {
     return null;
   }
@@ -29,6 +30,15 @@ async function post(path: string, body: object): Promise<Response | null> {
 const UNREACHABLE = "Couldn’t reach Marginalia. Try again.";
 // Better Auth's rate limit, the same for every email.
 const TOO_MANY = "Too many tries. Wait a minute, then try again.";
+// The limits on asking for codes (#65) can last up to an hour, so the server's own wait is given.
+const tooManyCodes = (res: Response) => {
+  const minutes = Math.min(60, Math.ceil(Number(res.headers.get("x-retry-after") || 60) / 60));
+  const wait = minutes === 60 ? "an hour" : minutes > 1 ? `${minutes} minutes` : "a minute";
+  return `Too many codes requested. Try again in ${wait}.`;
+};
+// Turnstile failed, or its script was blocked. Not "reload": the iPhone home-screen app can't.
+const NOT_CHECKED = "Couldn’t check this browser. Try again, or continue with Google.";
+const BAD_EMAIL = "That doesn’t look like an email address.";
 // The same whatever went wrong, so it never tells an invited email from another.
 const GOOGLE_FAILED = "That didn’t sign you in. Try again, or sign in with an email code below.";
 const looksLikeEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
@@ -64,12 +74,28 @@ function GoogleMark() {
 }
 
 // `callbackURL` is where Google returns the Reader, already absolute on the site's own address.
-export function CodeSignIn({ next, callbackURL, googleFailed }: { next: string; callbackURL: string; googleFailed: boolean }) {
+export function CodeSignIn({
+  next,
+  callbackURL,
+  googleFailed,
+  turnstileSiteKey,
+}: {
+  next: string;
+  callbackURL: string;
+  googleFailed: boolean;
+  turnstileSiteKey: string;
+}) {
   const [step, setStep] = useState<"email" | "code">("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [pending, setPending] = useState(false);
+  // `error` is about what was typed, and marks its field; `notice` is about the request (the check, the
+  // limits, the connection), and leaves the field alone. One line shows either.
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
+  // Who the latest code went to: asking again for the same email while it lasts goes back to it.
+  const [sentTo, setSentTo] = useState("");
   const [sentAt, setSentAt] = useState(0);
   const [now, setNow] = useState(0);
   const [resent, setResent] = useState(false);
@@ -78,6 +104,7 @@ export function CodeSignIn({ next, callbackURL, googleFailed }: { next: string; 
   const emailInput = useRef<HTMLInputElement>(null);
   const codeInput = useRef<HTMLInputElement>(null);
   const codeForm = useRef<HTMLFormElement>(null);
+  const turnstile = useTurnstile(turnstileSiteKey);
 
   // Set after the page loads, so the alert is a change a screen reader announces; and taken out of the
   // address, so a reload doesn't show it again.
@@ -101,6 +128,7 @@ export function CodeSignIn({ next, callbackURL, googleFailed }: { next: string; 
     const saved = readSaved();
     if (!saved) return;
     setEmail(saved.email);
+    setSentTo(saved.email);
     setSentAt(saved.sentAt);
     setNow(Date.now());
     setStep("code");
@@ -114,16 +142,26 @@ export function CodeSignIn({ next, callbackURL, googleFailed }: { next: string; 
   }, [step, waitS]);
 
   // The same reply whatever the email: the server sends a code only if it may sign in.
-  async function sendCode(address: string) {
-    setPending(true);
+  async function sendCode(address: string, setBusy: (busy: boolean) => void) {
+    setBusy(true);
     setError(null);
-    const res = await post("/email-otp/send-verification-otp", { email: address, type: "sign-in" });
-    setPending(false);
+    setNotice(null);
+    const token = await turnstile.token().catch(() => null);
+    if (!token) {
+      setBusy(false);
+      setNotice(NOT_CHECKED);
+      return false;
+    }
+    const res = await post("/email-otp/send-verification-otp", { email: address, type: "sign-in" }, { "x-captcha-response": token });
+    turnstile.used();
+    setBusy(false);
     if (!res?.ok) {
-      setError(res?.status === 400 ? "That doesn’t look like an email address." : res?.status === 429 ? TOO_MANY : UNREACHABLE);
+      if (res?.status === 400) setError(BAD_EMAIL);
+      else setNotice(res?.status === 429 ? tooManyCodes(res) : res?.status === 403 ? NOT_CHECKED : UNREACHABLE);
       return false;
     }
     const at = Date.now();
+    setSentTo(address);
     setSentAt(at);
     setNow(at);
     writeSaved({ email: address, sentAt: at });
@@ -149,16 +187,24 @@ export function CodeSignIn({ next, callbackURL, googleFailed }: { next: string; 
     const address = email.trim().toLowerCase();
     setEmail(address);
     if (!address) return (setError("Enter your email."), emailInput.current?.focus());
-    if (!looksLikeEmail(address)) return (setError("That doesn’t look like an email address."), emailInput.current?.select());
-    if (!(await sendCode(address))) return emailInput.current?.select();
+    if (!looksLikeEmail(address)) return (setError(BAD_EMAIL), emailInput.current?.select());
+    // Back after "Use a different email" with the same one: its code is still good, so no new one is asked for.
+    if (address === sentTo && Date.now() - sentAt < CODE_LASTS_MS) {
+      writeSaved({ email: address, sentAt });
+      setNow(Date.now());
+      setError(null);
+      setNotice(null);
+      return setStep("code");
+    }
+    if (!(await sendCode(address, setPending))) return;
     setCode("");
     setResent(false);
     setStep("code");
   }
 
   async function onResend() {
-    if (pending || waitS > 0) return;
-    if (await sendCode(email)) {
+    if (pending || resending || waitS > 0) return;
+    if (await sendCode(email, setResending)) {
       setResent(true);
       setCode("");
       codeInput.current?.focus();
@@ -168,6 +214,7 @@ export function CodeSignIn({ next, callbackURL, googleFailed }: { next: string; 
   function differentEmail() {
     writeSaved(null);
     setError(null);
+    setNotice(null);
     setStep("email");
   }
 
@@ -177,6 +224,7 @@ export function CodeSignIn({ next, callbackURL, googleFailed }: { next: string; 
     if (code.length !== CODE_LENGTH) return (setError(`The code is ${CODE_LENGTH} digits.`), codeInput.current?.focus());
     setPending(true);
     setError(null);
+    setNotice(null);
     const res = await post("/sign-in/email-otp", { email, otp: code });
     if (res?.ok) {
       writeSaved(null);
@@ -205,7 +253,7 @@ export function CodeSignIn({ next, callbackURL, googleFailed }: { next: string; 
 
   const message = (
     <p id="sign-in-message" role="alert" className="mt-2 min-h-5 font-sans text-sm text-pretty text-contrast">
-      {error}
+      {error ?? notice}
     </p>
   );
   const wordmark = <h1 className="text-[1.75rem] leading-none font-medium tracking-[-0.01em] italic">Marginalia</h1>;
@@ -243,12 +291,14 @@ export function CodeSignIn({ next, callbackURL, googleFailed }: { next: string; 
           onChange={(e) => {
             setEmail(e.target.value);
             setError(null);
+            setNotice(null);
           }}
           aria-invalid={error ? true : undefined}
-          aria-describedby={error ? "sign-in-message" : undefined}
+          aria-describedby={error || notice ? "sign-in-message" : undefined}
           className={`${field} mt-1 font-sans text-[0.95rem]`}
         />
         {message}
+        <div ref={turnstile.container} />
         <button type="submit" disabled={pending} className={button}>
           {pending ? "Sending…" : "Send code"}
         </button>
@@ -280,9 +330,10 @@ export function CodeSignIn({ next, callbackURL, googleFailed }: { next: string; 
         onChange={(e) => {
           setCode(e.target.value.replace(/\D/g, "").slice(0, CODE_LENGTH));
           setError(null);
+          setNotice(null);
         }}
         aria-invalid={error ? true : undefined}
-        aria-describedby={error ? "code-sent sign-in-message" : "code-sent"}
+        aria-describedby={error || notice ? "code-sent sign-in-message" : "code-sent"}
         className={`${field} mt-1 font-sans text-[1.0625rem] tracking-[0.3em] tabular-nums`}
       />
       {message}
@@ -297,11 +348,12 @@ export function CodeSignIn({ next, callbackURL, googleFailed }: { next: string; 
             {resent ? "Sent. You can send another" : "You can send a new code"} in {waitS}s
           </p>
         ) : (
-          <button type="button" onClick={onResend} disabled={pending} className={quietLink}>
-            Send a new code
+          <button type="button" onClick={onResend} disabled={pending || resending} className={quietLink}>
+            {resending ? "Sending…" : "Send a new code"}
           </button>
         )}
       </div>
+      <div ref={turnstile.container} />
       {/* Said once when a new code goes out, not with every tick of the countdown. */}
       <p aria-live="polite" className="sr-only">
         {resent ? "A new code is on its way." : ""}

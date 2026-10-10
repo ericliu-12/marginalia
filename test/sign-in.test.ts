@@ -15,7 +15,7 @@ const GOOGLE = { clientId: "client-id", clientSecret: "client-secret" };
 describe("Signing in with an email code", () => {
   const ctx = useTestDb();
   let mailer: ReturnType<typeof fakeMailer>;
-  const auth = (signupMode: SignupMode = "allowlist") => createAuth(ctx.db, { mailer, signupMode, baseURL: BASE_URL, secret: "s".repeat(32), google: GOOGLE });
+  const auth = (signupMode: SignupMode = "allowlist") => createAuth(ctx.db, { mailer, signupMode, baseURL: BASE_URL, secret: "s".repeat(32), google: GOOGLE, turnstileSecretKey: "secret", codeReplyMs: 0 });
   const sendCode = (email: string, signupMode?: SignupMode) => auth(signupMode).api.sendVerificationOTP({ body: { email, type: "sign-in" } });
   const signIn = (email: string, otp: string, signupMode?: SignupMode) => auth(signupMode).api.signInEmailOTP({ body: { email, otp } });
 
@@ -118,7 +118,7 @@ describe("A sign-in code that fails to send", () => {
   it("is logged with Resend's error, since the request doesn't wait for it", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response('{"message":"The domain is not verified"}', { status: 403 })));
     const logged = vi.spyOn(console, "error").mockImplementation(() => {});
-    const auth = createAuth(ctx.db, { mailer: resendMailer("re_test"), signupMode: "open", baseURL: BASE_URL, secret: "s".repeat(32), google: GOOGLE });
+    const auth = createAuth(ctx.db, { mailer: resendMailer("re_test"), signupMode: "open", baseURL: BASE_URL, secret: "s".repeat(32), google: GOOGLE, turnstileSecretKey: "secret", codeReplyMs: 0 });
 
     expect(await auth.api.sendVerificationOTP({ body: { email: "friend@example.com", type: "sign-in" } })).toEqual({ success: true });
     await vi.waitFor(() => expect(logged).toHaveBeenCalled());
