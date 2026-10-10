@@ -1,9 +1,9 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useState } from "react";
 import type { LibraryItem } from "@/domain/library";
 import type { Status } from "@/domain/search";
-import { changeStatusAction } from "./client-actions";
+import { useStatusMove } from "./use-status-move";
 import { Cover } from "./cover";
 
 // Quiet one-click moves per Status, on each row and in the Book panel.
@@ -80,22 +80,7 @@ export function LibraryList({ items, openBookId, onOpen }: { items: LibraryItem[
 }
 
 function Row({ item, open, onOpen }: { item: LibraryItem; open: boolean; onOpen: (bookId: string) => void }) {
-  const [pending, start] = useTransition();
-  const [error, setError] = useState(false);
-  const [moving, setMoving] = useState<Status | null>(null);
-  // The latest move: only its answer may show an error.
-  const latest = useRef(0);
-
-  // A click while a move is still saving goes through too: Next sends them in order, so the last one stands.
-  function move(to: Status) {
-    const id = ++latest.current;
-    setError(false);
-    setMoving(to);
-    start(async () => {
-      const res = await changeStatusAction(item.bookId, to);
-      if (id === latest.current && !res.ok) setError(true);
-    });
-  }
+  const { pending, moving, error, move } = useStatusMove(item.bookId);
 
   return (
     <li aria-busy={pending} className="group flex items-start gap-4 py-3">

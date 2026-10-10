@@ -22,6 +22,7 @@ import { ConnectionsSection } from "./connections";
 import { MOVES } from "./library-list";
 import { EMPTY, loadDraft, newNoteId, sameDraft, saveDraft, type Draft } from "./note-draft";
 import { useInlineConfirm } from "./use-inline-confirm";
+import { useStatusMove } from "./use-status-move";
 import { POLL_MS, usePoll } from "./use-poll";
 import { Cover } from "./cover";
 import { dangerLink, quietLink } from "./quiet-link";
@@ -194,22 +195,7 @@ const STATUS_LABEL: Record<Status, string> = { want: "Want to read", reading: "R
 // Where the Book stands, and the same one-click moves as its library row: "Read again" starts a new
 // Read-through for a finished Book.
 function StatusMoves({ item }: { item: LibraryItem }) {
-  const [pending, start] = useTransition();
-  const [moving, setMoving] = useState<Status | null>(null);
-  const [error, setError] = useState(false);
-  // The latest move: only its answer may show an error.
-  const latest = useRef(0);
-
-  // A click while a move is still saving goes through too: Next sends them in order, so the last one stands.
-  function move(to: Status) {
-    const id = ++latest.current;
-    setError(false);
-    setMoving(to);
-    start(async () => {
-      const res = await changeStatusAction(item.bookId, to);
-      if (id === latest.current && !res.ok) setError(true);
-    });
-  }
+  const { pending, moving, error, move } = useStatusMove(item.bookId);
 
   return (
     <div aria-busy={pending} className="mt-1.5">

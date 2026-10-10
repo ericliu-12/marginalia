@@ -329,10 +329,7 @@ export function GraphWorkspace({
                   </>
                 }
                 withheldConnections={arrival?.books.includes(item.bookId) ? withheld : undefined}
-                onRemoved={() => {
-                  close();
-                  router.refresh();
-                }}
+                onRemoved={close}
               />
             )
           )}
