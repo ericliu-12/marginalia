@@ -32,11 +32,13 @@ const UNREACHABLE = "Couldn’t reach Marginalia. Try again.";
 const TOO_MANY = "Too many tries. Wait a minute, then try again.";
 // The limits on asking for codes (#65) can last up to an hour, so the server's own wait is given.
 const tooManyCodes = (res: Response) => {
-  const minutes = Math.ceil(Number(res.headers.get("x-retry-after") ?? 60) / 60);
-  return `Too many codes requested. Try again in ${minutes > 1 ? `${minutes} minutes` : "a minute"}.`;
+  const minutes = Math.min(60, Math.ceil(Number(res.headers.get("x-retry-after") || 60) / 60));
+  const wait = minutes === 60 ? "an hour" : minutes > 1 ? `${minutes} minutes` : "a minute";
+  return `Too many codes requested. Try again in ${wait}.`;
 };
-// Turnstile failed, or its script was blocked.
-const NOT_CHECKED = "Couldn’t check that you’re not a bot. Reload the page, then try again.";
+// Turnstile failed, or its script was blocked. Not "reload": the iPhone home-screen app can't.
+const NOT_CHECKED = "Couldn’t check this browser. Try again, or continue with Google.";
+const BAD_EMAIL = "That doesn’t look like an email address.";
 // The same whatever went wrong, so it never tells an invited email from another.
 const GOOGLE_FAILED = "That didn’t sign you in. Try again, or sign in with an email code below.";
 const looksLikeEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
@@ -87,7 +89,13 @@ export function CodeSignIn({
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [pending, setPending] = useState(false);
+  // `error` is about what was typed, and marks its field; `notice` is about the request (the check, the
+  // limits, the connection), and leaves the field alone. One line shows either.
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
+  // Who the latest code went to: asking again for the same email while it lasts goes back to it.
+  const [sentTo, setSentTo] = useState("");
   const [sentAt, setSentAt] = useState(0);
   const [now, setNow] = useState(0);
   const [resent, setResent] = useState(false);
@@ -120,6 +128,7 @@ export function CodeSignIn({
     const saved = readSaved();
     if (!saved) return;
     setEmail(saved.email);
+    setSentTo(saved.email);
     setSentAt(saved.sentAt);
     setNow(Date.now());
     setStep("code");
@@ -133,31 +142,26 @@ export function CodeSignIn({
   }, [step, waitS]);
 
   // The same reply whatever the email: the server sends a code only if it may sign in.
-  async function sendCode(address: string) {
-    setPending(true);
+  async function sendCode(address: string, setBusy: (busy: boolean) => void) {
+    setBusy(true);
     setError(null);
+    setNotice(null);
     const token = await turnstile.token().catch(() => null);
     if (!token) {
-      setPending(false);
-      setError(NOT_CHECKED);
+      setBusy(false);
+      setNotice(NOT_CHECKED);
       return false;
     }
     const res = await post("/email-otp/send-verification-otp", { email: address, type: "sign-in" }, { "x-captcha-response": token });
     turnstile.used();
-    setPending(false);
+    setBusy(false);
     if (!res?.ok) {
-      setError(
-        res?.status === 400
-          ? "That doesn’t look like an email address."
-          : res?.status === 429
-            ? tooManyCodes(res)
-            : res?.status === 403
-              ? NOT_CHECKED
-              : UNREACHABLE,
-      );
+      if (res?.status === 400) setError(BAD_EMAIL);
+      else setNotice(res?.status === 429 ? tooManyCodes(res) : res?.status === 403 ? NOT_CHECKED : UNREACHABLE);
       return false;
     }
     const at = Date.now();
+    setSentTo(address);
     setSentAt(at);
     setNow(at);
     writeSaved({ email: address, sentAt: at });
@@ -183,16 +187,24 @@ export function CodeSignIn({
     const address = email.trim().toLowerCase();
     setEmail(address);
     if (!address) return (setError("Enter your email."), emailInput.current?.focus());
-    if (!looksLikeEmail(address)) return (setError("That doesn’t look like an email address."), emailInput.current?.select());
-    if (!(await sendCode(address))) return emailInput.current?.select();
+    if (!looksLikeEmail(address)) return (setError(BAD_EMAIL), emailInput.current?.select());
+    // Back after "Use a different email" with the same one: its code is still good, so no new one is asked for.
+    if (address === sentTo && Date.now() - sentAt < CODE_LASTS_MS) {
+      writeSaved({ email: address, sentAt });
+      setNow(Date.now());
+      setError(null);
+      setNotice(null);
+      return setStep("code");
+    }
+    if (!(await sendCode(address, setPending))) return;
     setCode("");
     setResent(false);
     setStep("code");
   }
 
   async function onResend() {
-    if (pending || waitS > 0) return;
-    if (await sendCode(email)) {
+    if (pending || resending || waitS > 0) return;
+    if (await sendCode(email, setResending)) {
       setResent(true);
       setCode("");
       codeInput.current?.focus();
@@ -202,6 +214,7 @@ export function CodeSignIn({
   function differentEmail() {
     writeSaved(null);
     setError(null);
+    setNotice(null);
     setStep("email");
   }
 
@@ -211,6 +224,7 @@ export function CodeSignIn({
     if (code.length !== CODE_LENGTH) return (setError(`The code is ${CODE_LENGTH} digits.`), codeInput.current?.focus());
     setPending(true);
     setError(null);
+    setNotice(null);
     const res = await post("/sign-in/email-otp", { email, otp: code });
     if (res?.ok) {
       writeSaved(null);
@@ -239,7 +253,7 @@ export function CodeSignIn({
 
   const message = (
     <p id="sign-in-message" role="alert" className="mt-2 min-h-5 font-sans text-sm text-pretty text-contrast">
-      {error}
+      {error ?? notice}
     </p>
   );
   const wordmark = <h1 className="text-[1.75rem] leading-none font-medium tracking-[-0.01em] italic">Marginalia</h1>;
@@ -277,9 +291,10 @@ export function CodeSignIn({
           onChange={(e) => {
             setEmail(e.target.value);
             setError(null);
+            setNotice(null);
           }}
           aria-invalid={error ? true : undefined}
-          aria-describedby={error ? "sign-in-message" : undefined}
+          aria-describedby={error || notice ? "sign-in-message" : undefined}
           className={`${field} mt-1 font-sans text-[0.95rem]`}
         />
         {message}
@@ -317,7 +332,7 @@ export function CodeSignIn({
           setError(null);
         }}
         aria-invalid={error ? true : undefined}
-        aria-describedby={error ? "code-sent sign-in-message" : "code-sent"}
+        aria-describedby={error || notice ? "code-sent sign-in-message" : "code-sent"}
         className={`${field} mt-1 font-sans text-[1.0625rem] tracking-[0.3em] tabular-nums`}
       />
       {message}
@@ -332,8 +347,8 @@ export function CodeSignIn({
             {resent ? "Sent. You can send another" : "You can send a new code"} in {waitS}s
           </p>
         ) : (
-          <button type="button" onClick={onResend} disabled={pending} className={quietLink}>
-            Send a new code
+          <button type="button" onClick={onResend} disabled={pending || resending} className={quietLink}>
+            {resending ? "Sending…" : "Send a new code"}
           </button>
         )}
       </div>

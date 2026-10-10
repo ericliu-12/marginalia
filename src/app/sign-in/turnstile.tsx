@@ -36,7 +36,7 @@ type Waiter = { resolve: (token: string) => void; reject: () => void };
 // `token()` waits for a pass and rejects if the check failed. A token is good for one request, so
 // `used()` after each starts the next check.
 export function useTurnstile(siteKey: string) {
-  const state = useRef<{ token?: string; failed: boolean; widget?: string; waiters: Waiter[] }>({ failed: false, waiters: [] });
+  const state = useRef<{ token?: string; failed: boolean; widget?: string; el?: HTMLDivElement; waiters: Waiter[] }>({ failed: false, waiters: [] });
 
   const settle = (token: string | null) => {
     const s = state.current;
@@ -45,10 +45,12 @@ export function useTurnstile(siteKey: string) {
     for (const w of s.waiters.splice(0)) token === null ? w.reject() : w.resolve(token);
   };
 
-  const container = useCallback(
+  // Renders the widget into `el` once the script is in; `retry` starts again after a failure.
+  const mount = useCallback(
     (el: HTMLDivElement) => {
       let gone = false;
       let widget: string | undefined;
+      state.current.el = el;
       loadTurnstile().then(
         (api) => {
           if (gone) return;
@@ -75,13 +77,31 @@ export function useTurnstile(siteKey: string) {
     },
     [siteKey],
   );
+  const unmount = useRef<() => void>(undefined);
+  const container = useCallback(
+    (el: HTMLDivElement) => {
+      unmount.current = mount(el);
+      return () => unmount.current?.();
+    },
+    [mount],
+  );
+  const retry = () => {
+    const s = state.current;
+    s.failed = false;
+    if (s.widget) loading?.then((api) => api.reset(s.widget!));
+    else if (s.el) {
+      unmount.current?.();
+      unmount.current = mount(s.el);
+    }
+  };
 
   const token = () =>
     new Promise<string>((resolve, reject) => {
       const s = state.current;
-      if (s.token) resolve(s.token);
-      else if (s.failed) reject();
-      else s.waiters.push({ resolve, reject });
+      if (s.token) return resolve(s.token);
+      // Failed last time (a blip, or the script was blocked): check again rather than give up at once.
+      if (s.failed) retry();
+      s.waiters.push({ resolve, reject });
     });
 
   const used = () => {

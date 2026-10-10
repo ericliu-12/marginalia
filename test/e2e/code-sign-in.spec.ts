@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { seedLibrary } from "./database";
-import { clearOutbox, codeSentTo, outbox } from "./mail";
+import { clearOutbox, codeSentTo, outbox, SEND_TIMEOUT } from "./mail";
 import { READER_A, signedOut } from "./session";
 import { TURNSTILE_FAILS, TURNSTILE_PASSES, TURNSTILE_TEST_TOKEN } from "./turnstile";
 import { E2E_PORT } from "../worktree";
@@ -24,6 +24,7 @@ test.beforeEach(async ({ page }) => {
 const sendCodeTo = async (page: Page, email: string) => {
   await page.getByLabel("Email").fill(email);
   await page.getByRole("button", { name: "Send code" }).click();
+  await expect(page.getByRole("button", { name: "Sending…" })).toHaveCount(0, { timeout: SEND_TIMEOUT });
 };
 const reply = (page: Page) => page.getByText(/can sign in here, a code is on its way/);
 
@@ -81,18 +82,25 @@ test("with Turnstile's failing key, the form says so and sends nothing", async (
   });
   await page.goto("/sign-in");
   await sendCodeTo(page, READER_A.email);
-  await expect(page.locator("#sign-in-message")).toHaveText("Couldn’t check that you’re not a bot. Reload the page, then try again.");
+  await expect(page.locator("#sign-in-message")).toHaveText("Couldn’t check this browser. Try again, or continue with Google.");
   await expect(reply(page)).toHaveCount(0);
   expect(await outbox()).toEqual([]);
 });
 
-test("a second code for the same email within a minute is refused, saying how long to wait", async ({ page }) => {
+test("the same email again goes back to its code, and a second code for it within a minute is refused, saying how long to wait", async ({ page, context }) => {
   await page.goto("/sign-in");
   await sendCodeTo(page, READER_A.email);
   await expect(reply(page)).toBeVisible();
   await page.getByRole("button", { name: "Use a different email" }).click();
   await sendCodeTo(page, READER_A.email);
-  await expect(page.locator("#sign-in-message")).toHaveText("Too many codes requested. Try again in a minute.");
+  await expect(reply(page)).toBeVisible();
+
+  // Another tab knows nothing of that code, so it asks for one, and is refused.
+  const other = await context.newPage();
+  await other.goto("/sign-in");
+  await sendCodeTo(other, READER_A.email);
+  await expect(other.locator("#sign-in-message")).toHaveText("Too many codes requested. Try again in a minute.");
+  await expect(other.getByLabel("Email")).not.toHaveAttribute("aria-invalid");
   expect((await outbox()).map((m) => m.to)).toEqual([READER_A.email]);
 });
 
