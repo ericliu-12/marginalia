@@ -40,7 +40,6 @@ export function createAuth(db: Db, config: AuthConfig) {
     baseURL: config.baseURL,
     secret: config.secret,
     database: drizzleAdapter(db, { provider: "pg", schema }),
-    // Uuids, as our ids are; not "uuid", which would also replace the ids Better Auth sets itself.
     // About 90 days, renewed once a day as the app is used, so the iPhone home-screen app stays signed in.
     session: { expiresIn: 90 * DAY_SECONDS, updateAge: DAY_SECONDS },
     // Google's callback is ${baseURL}/api/auth/callback/google, the redirect URI on the Google OAuth client.
@@ -54,6 +53,7 @@ export function createAuth(db: Db, config: AuthConfig) {
     // In the database, so a restart doesn't reset them. The client's address is the one Railway's proxy
     // puts in x-forwarded-for (Cloudflare's DNS isn't proxied, so there's no cf-connecting-ip).
     rateLimit: { enabled: true, storage: "database", customRules: { [SEND_CODE]: { window: 60 * 60, max: 20 } } },
+    // Uuids, as our ids are; not "uuid", which would also replace the ids Better Auth sets itself.
     advanced: { database: { generateId: () => randomUUID() }, ipAddress: { ipAddressHeaders: ["x-forwarded-for"] } },
     hooks: {
       // An email that may not sign in gets the reply everyone gets, and no code is made or sent, so the
@@ -88,7 +88,9 @@ export function createAuth(db: Db, config: AuthConfig) {
   });
 
   async function handler(request: Request) {
-    if (new URL(request.url).pathname !== `/api/auth${SEND_CODE}`) return auth.handler(request);
+    // As Better Auth matches paths: extra and trailing slashes reach the same endpoint.
+    const path = new URL(request.url).pathname.replace(/\/{2,}/g, "/").replace(/(.)\/$/, "$1");
+    if (path !== `/api/auth${SEND_CODE}`) return auth.handler(request);
     const held = new Promise((resolve) => setTimeout(resolve, config.codeReplyMs));
     const response = await auth.handler(request);
     await held;

@@ -330,6 +330,7 @@ export function CodeSignIn({
         onChange={(e) => {
           setCode(e.target.value.replace(/\D/g, "").slice(0, CODE_LENGTH));
           setError(null);
+          setNotice(null);
         }}
         aria-invalid={error ? true : undefined}
         aria-describedby={error || notice ? "code-sent sign-in-message" : "code-sent"}
