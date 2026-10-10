@@ -12,7 +12,7 @@ import { MobileAdd } from "./mobile-add";
 import { hasDraft } from "./note-draft";
 import { focusNote, NoteSheet } from "./note-sheet";
 import { quietLink } from "./quiet-link";
-import { ReaderLink } from "./reader-link";
+import { AccountLink } from "./account-link";
 import type { Pause } from "@/domain/spend";
 
 const SECTIONS = [
@@ -203,7 +203,7 @@ export function MobileShelf({ items, finding, paused }: { items: LibraryItem[]; 
                 <p className="text-[1.75rem] leading-none font-medium tracking-[-0.01em] italic">Marginalia</p>
                 <FindingIndicator initial={finding} paused={paused} className="max-w-[calc(100vw-3rem)] shrink-0" />
               </div>
-              <ReaderLink />
+              <AccountLink />
             </div>
             <h1 ref={headingRef} tabIndex={-1} className="mt-6 text-[2rem] leading-tight font-medium outline-none">Reading</h1>
             {reading.length > 0 ? (

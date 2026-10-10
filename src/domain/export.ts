@@ -7,6 +7,9 @@ import { book, connection, libraryEntry, note, readThrough } from "@/db/schema";
 // point to them unambiguously; a Manual Book's description is in, since the Reader wrote it. Dates are
 // ISO strings. Dismissed Connections are kept, marked with when.
 
+type Entry = typeof libraryEntry.$inferSelect;
+type Connection = typeof connection.$inferSelect;
+
 type ExportBook = { id: string; title: string; authors: string[]; firstPublishedYear: number | null; openLibraryWorkKey: string | null };
 
 export type ReaderExport = {
@@ -14,7 +17,7 @@ export type ReaderExport = {
   exportedAt: string;
   libraryEntries: {
     book: ExportBook;
-    status: "want" | "reading" | "read";
+    status: Entry["status"];
     titleOverride: string | null;
     authorOverride: string | null;
     addedAt: string;
@@ -25,8 +28,8 @@ export type ReaderExport = {
   connections: {
     bookA: ExportBook;
     bookB: ExportBook;
-    type: "thematic" | "contrast" | "context";
-    strength: "strong" | "moderate" | "weak";
+    type: Connection["type"];
+    strength: Connection["strength"];
     explanation: string;
     createdAt: string;
     dismissedAt: string | null;
@@ -44,7 +47,7 @@ const bookColumns = {
 const iso = (d: Date | null) => d?.toISOString() ?? null;
 
 export async function exportReaderData(db: Db, userId: string, now = new Date()): Promise<ReaderExport> {
-  const [entries, passes, notes, manualBooks, connections] = await Promise.all([
+  const [entries, readThroughs, notes, manualBooks, connections] = await Promise.all([
     db
       .select({ entry: libraryEntry, book: bookColumns })
       .from(libraryEntry)
@@ -74,9 +77,9 @@ export async function exportReaderData(db: Db, userId: string, now = new Date())
       titleOverride: entry.titleOverride,
       authorOverride: entry.authorOverride,
       addedAt: entry.createdAt.toISOString(),
-      readThroughs: passes
-        .filter((p) => p.libraryEntryId === entry.id)
-        .map((p) => ({ startedAt: iso(p.startedAt), finishedAt: iso(p.finishedAt), completed: p.completedAt !== null })),
+      readThroughs: readThroughs
+        .filter((r) => r.libraryEntryId === entry.id)
+        .map((r) => ({ startedAt: iso(r.startedAt), finishedAt: iso(r.finishedAt), completed: r.completedAt !== null })),
       notes: notes
         .filter((n) => n.libraryEntryId === entry.id)
         .map((n) => ({ text: n.body, quote: n.quote, page: n.page, createdAt: n.createdAt.toISOString(), updatedAt: n.updatedAt.toISOString() })),

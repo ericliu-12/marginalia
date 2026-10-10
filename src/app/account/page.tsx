@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { appDb } from "@/db/client";
 import { user } from "@/db/schema";
 import { signedInReader } from "@/lib/signed-in";
+import { signInPath } from "@/lib/signed-out";
 import { PaperColumn, Ruled, Section } from "../legal";
 import { DownloadExport } from "./download-export";
 import { SignOut } from "./sign-out";
@@ -14,7 +15,7 @@ export const metadata = { title: "Account · Marginalia" };
 // The Reader's account (#67): their data to take away, and Sign out. #68's Delete your account goes last.
 export default async function AccountPage() {
   const userId = await signedInReader();
-  if (!userId) redirect("/sign-in?next=%2Faccount");
+  if (!userId) redirect(signInPath("/account"));
   const [reader] = await appDb().select({ email: user.email }).from(user).where(eq(user.id, userId));
   return (
     <PaperColumn

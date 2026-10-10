@@ -6,7 +6,7 @@ import { FindingIndicator } from "./connections";
 import { LibraryList } from "./library-list";
 import { BookPanel } from "./book-panel";
 import { SearchPane } from "./search-pane";
-import { ReaderLink } from "./reader-link";
+import { AccountLink } from "./account-link";
 import { ViewSwitch } from "./view-switch";
 import type { Pause } from "@/domain/spend";
 
@@ -26,7 +26,7 @@ export function LibraryWorkspace({ items, finding, paused }: { items: LibraryIte
           <ViewSwitch current="library" />
           <FindingIndicator initial={finding} paused={paused} />
         </div>
-        <ReaderLink />
+        <AccountLink />
         {!searchOpen && (
           <button
             ref={openRef}
