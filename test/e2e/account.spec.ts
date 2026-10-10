@@ -97,7 +97,7 @@ test("a Reader signed in more than a day ago signs in again before deleting, and
   await signedInHoursAgo(READER_A, 25);
   await page.goto("/account");
   const del = page.getByRole("region", { name: "Delete your account" });
-  await expect(del.getByText("To delete your account, sign in again first.")).toBeVisible();
+  await expect(del.getByText(/^To delete your account, sign in again first: .* This signs you out here, then brings you back to this page\.$/)).toBeVisible();
   await expect(del.getByLabel("Type delete to confirm")).toHaveCount(0);
   await del.getByRole("button", { name: "Sign in again" }).click();
   await expect(page).toHaveURL(/\/sign-in\?next=%2Faccount%23delete-account$/);
@@ -114,7 +114,7 @@ test("a page left open past the day asks the Reader to sign in again when they d
   const del = page.getByRole("region", { name: "Delete your account" });
   await del.getByLabel("Type delete to confirm").fill("delete");
   await del.getByRole("button", { name: "Delete account" }).click();
-  await expect(del.getByRole("button", { name: "Sign in again" })).toBeVisible();
+  await expect(del.getByRole("button", { name: "Sign in again" })).toBeFocused();
   await page.goto("/account");
   await expect(page.getByText(`Signed in as ${READER_A.email}`)).toBeVisible();
 });

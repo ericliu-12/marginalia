@@ -5,7 +5,7 @@ import { appDb } from "@/db/client";
 import { user } from "@/db/schema";
 import { appAuth, FRESH_SESSION_S } from "@/lib/auth";
 import { signInPath } from "@/lib/signed-out";
-import { PaperColumn, Ruled, Section } from "../legal";
+import { PaperColumn, proseLink, Ruled, Section } from "../legal";
 import { DeleteAccount } from "./delete-account";
 import { DownloadExport } from "./download-export";
 import { SignOut } from "./sign-out";
@@ -56,8 +56,12 @@ export default async function AccountPage() {
       <div className="mt-14 border-t border-rule">
         <Section id="delete-account" title="Delete your account">
           <p className="text-ink-2">
-            Your library, Notes, the Books you added by hand, your Connections and Clusters are deleted, and you’re signed out on every
-            device. This can’t be undone, so download your export first if you want to keep any of it.
+            Deleting your account removes your library, Notes, the Books you added by hand, your Connections and Clusters, and signs you
+            out on every device. It can’t be undone, so{" "}
+            <a href="#your-data" className={proseLink}>
+              download your export
+            </a>{" "}
+            first if you want to keep any of it. If you come back later, you’ll start with an empty library.
           </p>
           <DeleteAccount fresh={fresh} />
         </Section>

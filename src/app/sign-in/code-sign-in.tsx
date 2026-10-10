@@ -268,8 +268,11 @@ export function CodeSignIn({
     return (
       <form onSubmit={onEmail} noValidate className="w-full max-w-[19rem]">
         {wordmark}
-        <p id="google-message" role="alert" className={`mt-8 min-h-5 font-sans text-sm text-pretty ${googleError ? "text-contrast" : "text-ink-2"}`}>
-          {googleError ?? (deleted ? "Your account has been deleted." : null)}
+        <p role="status" className={`text-[1.0625rem] leading-normal text-pretty text-ink-2 ${deleted ? "mt-8" : ""}`}>
+          {deleted ? "Your account has been deleted." : null}
+        </p>
+        <p id="google-message" role="alert" className="mt-8 min-h-5 font-sans text-sm text-pretty text-contrast">
+          {googleError}
         </p>
         <button type="button" onClick={onGoogle} disabled={googlePending} aria-describedby={googleError ? "google-message" : undefined} className={`${googleButton} mt-2`}>
           <GoogleMark />
