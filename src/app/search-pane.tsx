@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import type { Lookalike } from "@/domain/lookalike";
 import type { SearchResult, Status } from "@/domain/search";
-import { addBookAction, addManualBookAction, findLookalikeAction } from "./actions";
+import { addBookAction, addManualBookAction, findLookalikeAction } from "./client-actions";
 import { field } from "./book-panel";
 import { CO_AUTHOR_HINT, EMPTY_BOOK, draftError, invalidProps, withScheme, type BookDraft, type DraftError } from "./book-draft";
 import { Cover } from "./cover";

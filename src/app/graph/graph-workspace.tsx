@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "r
 import { otherBook } from "@/domain/connection-pair";
 import { visibleConnections, type GraphView } from "@/domain/graph";
 import type { LibraryItem } from "@/domain/library";
-import { graphStatusAction } from "../actions";
+import { graphStatusAction } from "../client-actions";
 import { BookPanel } from "../book-panel";
 import { FindingIndicator } from "../connections";
 import { POLL_MS, usePoll } from "../use-poll";

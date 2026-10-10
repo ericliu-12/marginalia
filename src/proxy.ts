@@ -1,5 +1,7 @@
 import { getSessionCookie } from "better-auth/cookies";
 import { NextResponse, type NextRequest } from "next/server";
+import { appAuth } from "@/lib/auth";
+import { SIGNED_OUT, signInPath } from "@/lib/signed-out";
 import { siteUrl } from "@/lib/site-url";
 
 // Railway's own domain (*.up.railway.app). Sign-in belongs to the site's domain alone, so every request
@@ -14,15 +16,19 @@ const isPublic = (pathname: string) =>
   /^\/(?:sign-in|privacy|terms)$/.test(pathname) ||
   /^\/(?:api\/auth\/|_next\/static|_next\/image|favicon\.ico|icon\.png|apple-icon\.png|manifest\.webmanifest|icons\/)/.test(pathname);
 
-// Everything else needs a Reader's session cookie. A page without one goes to sign-in and comes back
-// after; a Server Function or API call is refused. Only the cookie's presence is checked here: each page
-// and Server Function checks the session itself (requireReader).
-export function proxy(request: NextRequest) {
+// A call without a live session, whether its cookie is missing, forged or expired, gets this one answer,
+// which the client's Server Functions turn into a trip to sign-in (see client-actions.ts).
+const signedOut = () => new NextResponse(SIGNED_OUT, { status: 401, headers: { "content-type": "text/plain" } });
+
+// Everything else needs a Reader's session. A page without its cookie goes to sign-in and comes back
+// after; a page with a stale one checks the session itself (requireReader). A Server Function or API call
+// is checked here in full, so a stale cookie is refused just as a missing one is.
+export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   if (isRailwayHost(request.headers.get("host"))) return NextResponse.redirect(new URL(pathname + search, siteUrl()), 308);
-  if (isPublic(pathname) || getSessionCookie(request)) return NextResponse.next();
-  if (request.method !== "GET" || pathname.startsWith("/api/")) return new NextResponse(null, { status: 401 });
-  const signIn = new URL("/sign-in", siteUrl());
-  if (pathname !== "/" || search) signIn.searchParams.set("next", pathname + search);
-  return NextResponse.redirect(signIn);
+  if (isPublic(pathname)) return NextResponse.next();
+  const isCall = request.method !== "GET" || pathname.startsWith("/api/");
+  if (!getSessionCookie(request)) return isCall ? signedOut() : NextResponse.redirect(new URL(signInPath(pathname + search), siteUrl()));
+  if (isCall && !(await appAuth().api.getSession({ headers: request.headers }))) return signedOut();
+  return NextResponse.next();
 }

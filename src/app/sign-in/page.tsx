@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { appAuth } from "@/lib/auth";
-import { safeNext } from "@/lib/safe-next";
+import { safeNext } from "@/lib/signed-out";
 import { siteUrl } from "@/lib/site-url";
 import { quietLink } from "../quiet-link";
 import { CodeSignIn } from "./code-sign-in";

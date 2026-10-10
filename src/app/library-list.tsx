@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import type { LibraryItem } from "@/domain/library";
 import type { Status } from "@/domain/search";
-import { changeStatusAction } from "./actions";
+import { changeStatusAction } from "./client-actions";
 import { Cover } from "./cover";
 
 // Quiet one-click moves per Status, on each row and in the Book panel.
