@@ -202,12 +202,16 @@ export function DismissConnection({
   );
 }
 
+// Where a narrow phone wraps the line, it wraps at the dot, never inside the date.
+const unbroken = (text: string) => text.replaceAll(" ", "\u00a0");
+
 // While paused, and nothing is finding Connections, the line checks back this often for the month to turn.
 const PAUSED_POLL_MS = 60_000;
 
 // The quiet line beside the wordmark while Books are finding their Connections, or while the Reader's
 // background work is paused at a spending limit, which it says instead: a new Reader's first-month
-// limit by name, so it doesn't read as something broken. `className` places it; by default it sits
+// limit by name, and that it is their Connections that wait, so it reads as neither a fault nor a block
+// on adding Books. `className` places it; by default it sits
 // after the wordmark.
 export function FindingIndicator({ initial, paused: initialPaused, className }: { initial: number; paused: Pause | null; className?: string }) {
   const [seen, setSeen] = useState({ initial, initialPaused });
@@ -231,8 +235,8 @@ export function FindingIndicator({ initial, paused: initialPaused, className }: 
   usePoll(poll, count > 0 ? POLL_MS : PAUSED_POLL_MS, count > 0 || paused !== null);
   const line = paused
     ? paused.firstMonth
-      ? `First-month limit reached · lifts ${paused.resumesOn}`
-      : `Spending limit reached · resumes ${paused.resumesOn}`
+      ? `First-month limit · ${unbroken(`Connections back ${paused.resumesOn}`)}`
+      : `Spending limit reached · ${unbroken(`resumes ${paused.resumesOn}`)}`
     : count > 0 ? `${count} ${count === 1 ? "Book" : "Books"} finding Connections` : null;
   // The live region stays mounted so the line is announced when it appears.
   return (

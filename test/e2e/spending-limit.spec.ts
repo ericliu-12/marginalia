@@ -33,7 +33,7 @@ test("a new Reader at their first-month limit is told it is one, and when it lif
   const firstMonthEnds = new Date(joined.getTime() + 30 * 24 * 60 * 60 * 1000);
   await atFirstMonthLimit(READER_A, joined);
   await page.goto("/");
-  await expect(line(page)).toHaveText(`First-month limit reached · lifts ${day(firstMonthEnds < monthTurns ? firstMonthEnds : monthTurns)}`);
+  await expect(line(page)).toHaveText(`First-month limit · Connections back ${day(firstMonthEnds < monthTurns ? firstMonthEnds : monthTurns)}`);
 
   const other = await (await browser.newContext({ storageState: signedIn(READER_B) })).newPage();
   await other.goto("/");
