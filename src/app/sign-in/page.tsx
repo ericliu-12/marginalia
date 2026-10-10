@@ -1,8 +1,10 @@
 import { headers } from "next/headers";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { appAuth } from "@/lib/auth";
 import { safeNext } from "@/lib/session";
 import { siteUrl } from "@/lib/site-url";
+import { quietLink } from "../quiet-link";
 import { CodeSignIn } from "./code-sign-in";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +17,17 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
   if (await appAuth().api.getSession({ headers: await headers() })) redirect(next);
   return (
     <main className="flex min-h-dvh justify-center px-6 pt-[max(18vh,calc(env(safe-area-inset-top)+3rem))] pb-12">
-      <CodeSignIn next={next} callbackURL={new URL(next, siteUrl()).toString()} googleFailed={Boolean(error)} />
+      <div className="w-full max-w-[19rem]">
+        <CodeSignIn next={next} callbackURL={new URL(next, siteUrl()).toString()} googleFailed={Boolean(error)} />
+        <nav aria-label="Privacy and terms" className="mt-10 flex items-center gap-4">
+          <Link href="/privacy" className={`${quietLink} inline-flex items-center`}>
+            Privacy
+          </Link>
+          <Link href="/terms" className={`${quietLink} inline-flex items-center`}>
+            Terms
+          </Link>
+        </nav>
+      </div>
     </main>
   );
 }
