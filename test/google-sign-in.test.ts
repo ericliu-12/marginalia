@@ -31,6 +31,8 @@ describe("Continue with Google", () => {
       baseURL: BASE_URL,
       secret: "s".repeat(32),
       google: { clientId: "client-id", clientSecret: "client-secret" },
+      turnstileSecretKey: "secret",
+      codeReplyMs: 0,
     });
 
   beforeEach(() => {

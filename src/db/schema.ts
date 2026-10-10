@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   index,
   integer,
   jsonb,
@@ -91,6 +92,27 @@ export const verification = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [index("verification_identifier_idx").on(t.identifier)],
+);
+
+// Better Auth's rate limits, one row per client IP and path, so a restart doesn't reset them (#65).
+// `last_request` is milliseconds since the epoch, as Better Auth keeps it.
+export const rateLimit = pgTable("rate_limit", {
+  id: id(),
+  key: text("key").notNull().unique(),
+  count: integer("count").notNull(),
+  lastRequest: bigint("last_request", { mode: "number" }).notNull(),
+});
+
+// Each sign-in code asked for, by email, whether or not a code went out, so an email is held to its
+// limits however many places ask (#65). Kept an hour.
+export const codeRequest = pgTable(
+  "code_request",
+  {
+    id: id(),
+    email: text("email").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("code_request_email_created_at_idx").on(t.email, t.createdAt)],
 );
 
 // Emails that may become Readers while signup is allowlist-only (`pnpm invite`), with the monthly AI

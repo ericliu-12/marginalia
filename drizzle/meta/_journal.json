@@ -141,6 +141,13 @@
       "when": 1791596028061,
       "tag": "0019_paid_call_reader",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1791599222628,
+      "tag": "0020_sign_in_rate_limits",
+      "breakpoints": true
     }
   ]
 }
