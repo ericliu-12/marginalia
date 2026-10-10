@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useOptimistic, useRef, useState, useTransition, type ReactNode, type RefObject } from "react";
 import { flushSync } from "react-dom";
-import { useRouter } from "next/navigation";
 import type { LibraryItem } from "@/domain/library";
 import type { Status } from "@/domain/search";
 import type { EnrichmentView } from "@/domain/enrichment";
@@ -198,13 +197,17 @@ function StatusMoves({ item }: { item: LibraryItem }) {
   const [pending, start] = useTransition();
   const [moving, setMoving] = useState<Status | null>(null);
   const [error, setError] = useState(false);
+  // The latest move: only its answer may show an error.
+  const latest = useRef(0);
 
+  // A click while a move is still saving goes through too: Next sends them in order, so the last one stands.
   function move(to: Status) {
+    const id = ++latest.current;
     setError(false);
     setMoving(to);
     start(async () => {
       const res = await changeStatusAction(item.bookId, to);
-      if (!res.ok) setError(true);
+      if (id === latest.current && !res.ok) setError(true);
     });
   }
 
@@ -213,7 +216,7 @@ function StatusMoves({ item }: { item: LibraryItem }) {
       <div role="group" aria-label={`Status of ${item.title}`} className="flex flex-wrap items-baseline gap-x-4">
         <span className="font-sans text-sm text-ink-2">{item.reReading ? "Re-reading" : STATUS_LABEL[item.status]}</span>
         {MOVES[item.status].map(({ label, to }) => (
-          <button key={to} type="button" disabled={pending} onClick={() => move(to)} className={quietLink}>
+          <button key={to} type="button" onClick={() => move(to)} className={quietLink}>
             {pending && moving === to ? "Moving…" : label}
           </button>
         ))}
@@ -234,7 +237,6 @@ const STATUSES: Status[] = ["want", "reading", "read"];
 // will be, or that they wait for the month's spending limit; it goes when the Status moves on, and a
 // later Read-through never brings it back.
 function StatusControl({ item }: { item: LibraryItem }) {
-  const router = useRouter();
   const [shown, show] = useOptimistic(item.status);
   const [pending, start] = useTransition();
   const [error, setError] = useState(false);
@@ -250,13 +252,9 @@ function StatusControl({ item }: { item: LibraryItem }) {
     setError(false);
     // Only the move's own answer can bring the line back, so a later Read-through never flashes it.
     setFinishLine(null);
-    const from = window.location.href;
     start(async () => {
       show(to);
       const res = await changeStatusAction(item.bookId, to);
-      // Left before the move landed (back to Add, say): Next can apply its return to that screen, built
-      // from the library before the move, over the move's own refresh. Fetch the library again.
-      if (window.location.href !== from) router.refresh();
       if (id !== latest.current) return;
       if (!res.ok) return setError(true);
       if (to === "read" && res.firstCompletion) setFinishLine({ paused: res.paused });

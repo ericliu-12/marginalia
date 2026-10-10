@@ -21,12 +21,29 @@ function untilSignedOut<A extends unknown[], R>(action: (...args: A) => Promise<
   };
 }
 
-export const addBookAction = untilSignedOut(server.addBookAction);
-export const addManualBookAction = untilSignedOut(server.addManualBookAction);
+// How the router fetches the page again: set by <RefreshAfterSaves />, which the root layout renders.
+let refreshRouter: (() => void) | null = null;
+export function setRefreshRouter(refresh: (() => void) | null) {
+  refreshRouter = refresh;
+}
+
+// A save that revalidates fetches the page again once it lands. Next sends Server Functions one at a
+// time, so a save can wait behind another; when the Reader changes screen meanwhile, Next can apply that
+// screen as it was before the save over the save's own refresh, and nothing fetches again.
+function refreshing<A extends unknown[], R>(action: (...args: A) => Promise<R>): (...args: A) => Promise<R> {
+  return async (...args) => {
+    const res = await action(...args);
+    refreshRouter?.();
+    return res;
+  };
+}
+
+export const addBookAction = refreshing(untilSignedOut(server.addBookAction));
+export const addManualBookAction = refreshing(untilSignedOut(server.addManualBookAction));
 export const findLookalikeAction = untilSignedOut(server.findLookalikeAction);
-export const editBookAction = untilSignedOut(server.editBookAction);
-export const changeStatusAction = untilSignedOut(server.changeStatusAction);
-export const removeFromLibraryAction = untilSignedOut(server.removeFromLibraryAction);
+export const editBookAction = refreshing(untilSignedOut(server.editBookAction));
+export const changeStatusAction = refreshing(untilSignedOut(server.changeStatusAction));
+export const removeFromLibraryAction = refreshing(untilSignedOut(server.removeFromLibraryAction));
 export const listNotesAction = untilSignedOut(server.listNotesAction);
 export const addNoteAction = untilSignedOut(server.addNoteAction);
 export const updateNoteAction = untilSignedOut(server.updateNoteAction);
@@ -37,5 +54,5 @@ export const getConnectionsAction = untilSignedOut(server.getConnectionsAction);
 export const getConnectionAction = untilSignedOut(server.getConnectionAction);
 export const graphStatusAction = untilSignedOut(server.graphStatusAction);
 export const backgroundStatusAction = untilSignedOut(server.backgroundStatusAction);
-export const dismissConnectionAction = untilSignedOut(server.dismissConnectionAction);
-export const refreshConnectionsAction = untilSignedOut(server.refreshConnectionsAction);
+export const dismissConnectionAction = refreshing(untilSignedOut(server.dismissConnectionAction));
+export const refreshConnectionsAction = refreshing(untilSignedOut(server.refreshConnectionsAction));

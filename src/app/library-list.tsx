@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import type { LibraryItem } from "@/domain/library";
 import type { Status } from "@/domain/search";
 import { changeStatusAction } from "./client-actions";
@@ -83,13 +83,17 @@ function Row({ item, open, onOpen }: { item: LibraryItem; open: boolean; onOpen:
   const [pending, start] = useTransition();
   const [error, setError] = useState(false);
   const [moving, setMoving] = useState<Status | null>(null);
+  // The latest move: only its answer may show an error.
+  const latest = useRef(0);
 
+  // A click while a move is still saving goes through too: Next sends them in order, so the last one stands.
   function move(to: Status) {
+    const id = ++latest.current;
     setError(false);
     setMoving(to);
     start(async () => {
       const res = await changeStatusAction(item.bookId, to);
-      if (!res.ok) setError(true);
+      if (id === latest.current && !res.ok) setError(true);
     });
   }
 
@@ -122,10 +126,9 @@ function Row({ item, open, onOpen }: { item: LibraryItem; open: boolean; onOpen:
             <button
               key={to}
               type="button"
-              disabled={pending}
               aria-label={`${label}: ${item.title}`}
               onClick={() => move(to)}
-              className="min-h-11 rounded-[3px] border border-ink/70 px-2.5 font-sans text-[0.8rem] font-medium text-ink transition-colors duration-150 hover:bg-ink hover:text-paper disabled:border-rule disabled:text-ink-3 disabled:hover:bg-transparent disabled:hover:text-ink-3 [@media(hover:hover)]:min-h-0 [@media(hover:hover)]:border-transparent [@media(hover:hover)]:px-0 [@media(hover:hover)]:py-0 [@media(hover:hover)]:text-ink-3 [@media(hover:hover)]:underline [@media(hover:hover)]:decoration-rule [@media(hover:hover)]:underline-offset-4 [@media(hover:hover)]:hover:bg-transparent [@media(hover:hover)]:hover:text-ink [@media(hover:hover)]:hover:decoration-ink">
+              className="min-h-11 rounded-[3px] border border-ink/70 px-2.5 font-sans text-[0.8rem] font-medium text-ink transition-colors duration-150 hover:bg-ink hover:text-paper [@media(hover:hover)]:min-h-0 [@media(hover:hover)]:border-transparent [@media(hover:hover)]:px-0 [@media(hover:hover)]:py-0 [@media(hover:hover)]:text-ink-3 [@media(hover:hover)]:underline [@media(hover:hover)]:decoration-rule [@media(hover:hover)]:underline-offset-4 [@media(hover:hover)]:hover:bg-transparent [@media(hover:hover)]:hover:text-ink [@media(hover:hover)]:hover:decoration-ink">
               {pending && moving === to ? "Moving…" : label}
             </button>
           ))}
