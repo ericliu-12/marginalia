@@ -67,7 +67,7 @@ describe("Embeddings", () => {
   it("embeds a Note's text and quote; saving a Note queues a re-embed and clears the old vector", async () => {
     const id = await enriched("/works/g", "G");
     const n = await addNote(ctx.db, ctx.pipeline, ctx.userId, id, { body: "Lonely.", quote: "He was alone." });
-    expect(ctx.jobs.sent.filter((j) => j.kind === "embed")).toEqual([{ kind: "embed", target: { kind: "note", id: n.id } }]);
+    expect(ctx.jobs.sent.filter((j) => j.kind === "embed")).toEqual([{ kind: "embed", target: { kind: "note", id: n.id }, userId: ctx.userId }]);
 
     const embedder = fakeEmbedder(AXES);
     await embedNote(ctx.db, embedder, n.id);
