@@ -196,7 +196,7 @@ export function MobileShelf({ items, finding, paused }: { items: LibraryItem[]; 
         <>
           <main inert={adding || !!noteBook} className="mx-auto max-w-[40rem] px-6 pt-[max(1.25rem,env(safe-area-inset-top))] pb-36">
             {/* A line too long to sit beside the wordmark drops under it whole, rather than wrapping, running
-                under Sign out; it wraps only past the page's width (a 320px phone). Sign out stays at the end of the
+                under Account; it wraps only past the page's width (a 320px phone). Account stays at the end of the
                 wordmark's row. */}
             <div className="flex items-baseline gap-x-4">
               <div className="flex min-h-11 flex-1 flex-wrap items-baseline gap-x-4 gap-y-1">

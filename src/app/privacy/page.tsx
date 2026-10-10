@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
-import { Bullets, Email, LegalPage, Ruled, Section } from "../legal";
+import Link from "next/link";
+import { Bullets, Email, LegalPage, proseLink, Ruled, Section } from "../legal";
 
 export const metadata: Metadata = { title: "Privacy · Marginalia" };
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy" other={{ href: "/terms", label: "Terms" }}>
+    <LegalPage title="Privacy" updated="10 October 2026" other={{ href: "/terms", label: "Terms" }}>
       <p className="mt-8 text-ink-2">
         Marginalia is a private place for your reading. This page says what it keeps, who else sees any of it, and how to take it back.
       </p>
@@ -66,7 +67,12 @@ export default function PrivacyPage() {
 
       <Section id="your-data" title="Exporting and deleting your data">
         <p>
-          To export or delete your data, write to <Email /> from the email address you sign in with. We’ll do it within 30 days.
+          To export your data, choose Download export on{" "}
+          <Link href="/account#your-data" className={proseLink}>
+            your account page
+          </Link>
+          : one file with your library, Notes and Connections. To delete your data, write to <Email /> from the email address you sign in
+          with. We’ll do it within 30 days.
         </p>
       </Section>
 

@@ -5,7 +5,6 @@ import { quietLink } from "./quiet-link";
 // deciding whether to sign in. One serif column; every section has an id, so a part can be linked to.
 
 const CONTACT = "hello@inkmarginalia.com";
-const UPDATED = "9 October 2026";
 
 export const proseLink = "text-ink underline decoration-rule underline-offset-4 transition-colors duration-150 hover:decoration-ink";
 
@@ -17,7 +16,27 @@ export function Email({ className = proseLink }: { className?: string }) {
   );
 }
 
-export function LegalPage({ title, other, children }: { title: string; other: { href: string; label: string }; children: React.ReactNode }) {
+export function LegalPage({
+  title,
+  updated,
+  other,
+  children,
+}: {
+  title: string;
+  updated: string;
+  other: { href: string; label: string };
+  children: React.ReactNode;
+}) {
+  return (
+    <PaperColumn title={title} subtitle={`Updated ${updated}`} links={[other]}>
+      {children}
+    </PaperColumn>
+  );
+}
+
+// The column /privacy, /terms and /account share: the wordmark with Back to Marginalia, a serif title over
+// a line of small print, and a hairline footer of links and the email.
+export function PaperColumn({ title, subtitle, links, children }: { title: string; subtitle: React.ReactNode; links: { href: string; label: string }[]; children: React.ReactNode }) {
   return (
     <div className="flex min-h-dvh justify-center px-6 pt-[max(10vh,calc(env(safe-area-inset-top)+2.5rem))] pb-[max(4rem,env(safe-area-inset-bottom))]">
       <div className="w-full max-w-[36rem] text-[1.0625rem] leading-[1.6] text-pretty">
@@ -29,13 +48,15 @@ export function LegalPage({ title, other, children }: { title: string; other: { 
         </header>
         <main>
           <h1 className="mt-12 text-[2rem] leading-tight font-medium text-balance">{title}</h1>
-          <p className="mt-1 font-sans text-[0.8rem] text-ink-3">Updated {UPDATED}</p>
+          <p className="mt-1 font-sans text-[0.8rem] text-ink-3">{subtitle}</p>
           {children}
         </main>
         <footer className="mt-16 flex flex-wrap items-center gap-x-4 border-t border-rule pt-4 font-sans text-[0.8rem] text-ink-3">
-          <Link href={other.href} className={`${quietLink} inline-flex items-center`}>
-            {other.label}
-          </Link>
+          {links.map((link) => (
+            <Link key={link.href} href={link.href} className={`${quietLink} inline-flex items-center`}>
+              {link.label}
+            </Link>
+          ))}
           <Email className={`${quietLink} inline-flex items-center`} />
         </footer>
       </div>
