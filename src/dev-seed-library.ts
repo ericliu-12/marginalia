@@ -5,7 +5,7 @@ import { normaliseEmail } from "@/domain/allowlist";
 import { addBook, DuplicateBookError } from "@/domain/add-book";
 import { searchBooks } from "@/domain/search";
 import { bookSearchGateway, descriptionGateway } from "@/lib/book-search";
-import { appPipeline } from "@/lib/jobs";
+import { bulkPipeline } from "@/lib/jobs";
 
 // Dev only: `pnpm dev:seed-library <email>` fills that Reader's library with Books marked Already read,
 // through the real add path, so Enrichment and embeddings are queued for the worker (`pnpm worker`) to run.
@@ -37,7 +37,7 @@ if (!reader) throw new Error("Usage: pnpm dev:seed-library <email of a Reader wh
 const userId = reader.id;
 const gateway = bookSearchGateway();
 const descriptions = descriptionGateway();
-const pipeline = appPipeline(db);
+const pipeline = bulkPipeline(db);
 
 for (const query of QUERIES) {
   const [top] = await searchBooks(db, userId, gateway, query);
