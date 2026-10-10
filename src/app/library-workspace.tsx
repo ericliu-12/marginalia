@@ -27,18 +27,17 @@ export function LibraryWorkspace({ items, finding, paused }: { items: LibraryIte
           <FindingIndicator initial={finding} paused={paused} />
         </div>
         <AccountLink />
-        {!searchOpen && (
-          <button
-            ref={openRef}
-            type="button"
-            aria-expanded={false}
-            aria-controls="add-a-book"
-            onClick={() => setSearchOpen(true)}
-            className="rounded-[3px] bg-ink px-4 py-2 font-sans text-sm font-medium text-paper transition-colors hover:bg-ink-2"
-          >
-            Add a book
-          </button>
-        )}
+        {/* Kept in place, unseen, while search is open: the header keeps its height, so the library doesn't move. */}
+        <button
+          ref={openRef}
+          type="button"
+          aria-expanded={false}
+          aria-controls="add-a-book"
+          onClick={() => setSearchOpen(true)}
+          className={`rounded-[3px] bg-ink px-4 py-2 font-sans text-sm font-medium text-paper transition-colors hover:bg-ink-2 ${searchOpen ? "invisible" : ""}`}
+        >
+          Add a book
+        </button>
       </header>
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <main className="min-w-0 flex-1 overflow-y-auto px-8 pt-4 pb-16 lg:px-12">
