@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { seedLibrary } from "./database";
 import { clearOutbox, codeSentTo } from "./mail";
-import { signedOut, READER_A } from "./session";
+import { READER_A, signedOut } from "./session";
 
 // The library and the graph are a signed-in Reader's. The home-screen app has no address bar, so the
 // wordmark carries Sign out, until #67's account page.

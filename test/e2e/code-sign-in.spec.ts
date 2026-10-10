@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { seedLibrary } from "./database";
 import { clearOutbox, codeSentTo, outbox } from "./mail";
-import { signedOut, READER_A } from "./session";
+import { READER_A, signedOut } from "./session";
 import { E2E_PORT } from "../worktree";
 
 // Signing in with an email code (#60). The server's mailer writes to a file
@@ -87,19 +87,19 @@ test.describe("with a Host and forwarded headers that don't match the server's a
   });
 
   test("no redirect or cookie is built from the request's address", async ({ playwright }) => {
-    const signedOut = await playwright.request.newContext({ extraHTTPHeaders: headers("inkmarginalia.example") });
-    const gate = await signedOut.get(direct("/graph"), { maxRedirects: 0 });
-    expect(gate.status()).toBe(307);
-    expect(gate.headers().location).toBe(`${SITE}/sign-in?next=%2Fgraph`);
-    await signedOut.dispose();
+    const visitor = await playwright.request.newContext({ extraHTTPHeaders: headers("inkmarginalia.example") });
+    const toSignIn = await visitor.get(direct("/graph"), { maxRedirects: 0 });
+    expect(toSignIn.status()).toBe(307);
+    expect(toSignIn.headers().location).toBe(`${SITE}/sign-in?next=%2Fgraph`);
+    await visitor.dispose();
 
-    const signedIn = await playwright.request.newContext();
-    const send = await signedIn.post(direct("/api/auth/email-otp/send-verification-otp"), {
+    const browser = await playwright.request.newContext();
+    const send = await browser.post(direct("/api/auth/email-otp/send-verification-otp"), {
       headers: { ...headers("inkmarginalia.example"), origin: SITE },
       data: { email: READER_A.email, type: "sign-in" },
     });
     expect(send.status()).toBe(200);
-    const signIn = await signedIn.post(direct("/api/auth/sign-in/email-otp"), {
+    const signIn = await browser.post(direct("/api/auth/sign-in/email-otp"), {
       headers: { ...headers("inkmarginalia.example"), origin: SITE },
       data: { email: READER_A.email, otp: await codeSentTo(READER_A.email) },
     });
@@ -110,13 +110,13 @@ test.describe("with a Host and forwarded headers that don't match the server's a
     expect(cookie!.value).not.toMatch(/domain=/i);
 
     // Google is told to return to the site, and a return it can't match goes back to the site's sign-in page.
-    const google = await signedIn.post(direct("/api/auth/sign-in/social"), {
+    const google = await browser.post(direct("/api/auth/sign-in/social"), {
       headers: { ...headers("inkmarginalia.example"), origin: SITE },
       data: { provider: "google", callbackURL: `${SITE}/` },
     });
     expect(new URL((await google.json()).url).searchParams.get("redirect_uri")).toBe(`${SITE}/api/auth/callback/google`);
-    const back = await signedIn.get(direct("/api/auth/callback/google?code=code&state=forged"), { headers: headers("inkmarginalia.example"), maxRedirects: 0 });
+    const back = await browser.get(direct("/api/auth/callback/google?code=code&state=forged"), { headers: headers("inkmarginalia.example"), maxRedirects: 0 });
     expect(back.headers().location).toMatch(new RegExp(`^${SITE}/sign-in\\?error=`));
-    await signedIn.dispose();
+    await browser.dispose();
   });
 });
