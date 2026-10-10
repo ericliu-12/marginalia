@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { seedLibrary } from "./database";
 import { clearOutbox, codeSentTo, outbox } from "./mail";
 import { READER_A, signedOut } from "./session";
+import { TURNSTILE_FAILS, TURNSTILE_PASSES, TURNSTILE_TEST_TOKEN } from "./turnstile";
 import { E2E_PORT } from "../worktree";
 
 // Signing in with an email code (#60). The server's mailer writes to a file
@@ -71,6 +72,30 @@ test("a wrong code says so and is selected to be typed over", async ({ page }) =
   await expect(page).toHaveURL(/\/$/);
 });
 
+// Abuse protection (#65). The server's Turnstile key always passes; for the failing key, the sign-in page
+// reaches the browser with Cloudflare's always-failing site key in its place.
+test("with Turnstile's failing key, the form says so and sends nothing", async ({ page }) => {
+  await page.route("/sign-in", async (route) => {
+    const res = await route.fetch();
+    await route.fulfill({ response: res, body: (await res.text()).replaceAll(TURNSTILE_PASSES, TURNSTILE_FAILS) });
+  });
+  await page.goto("/sign-in");
+  await sendCodeTo(page, READER_A.email);
+  await expect(page.locator("#sign-in-message")).toHaveText("Couldn’t check that you’re not a bot. Reload the page, then try again.");
+  await expect(reply(page)).toHaveCount(0);
+  expect(await outbox()).toEqual([]);
+});
+
+test("a second code for the same email within a minute is refused, saying how long to wait", async ({ page }) => {
+  await page.goto("/sign-in");
+  await sendCodeTo(page, READER_A.email);
+  await expect(reply(page)).toBeVisible();
+  await page.getByRole("button", { name: "Use a different email" }).click();
+  await sendCodeTo(page, READER_A.email);
+  await expect(page.locator("#sign-in-message")).toHaveText("Too many codes requested. Try again in a minute.");
+  expect((await outbox()).map((m) => m.to)).toEqual([READER_A.email]);
+});
+
 // As behind Railway's proxy: the server is reached at one address while Host and the forwarded headers
 // name another. Anything absolute built from the request would land on 127.0.0.1 or the Host, not the site.
 test.describe("with a Host and forwarded headers that don't match the server's address", () => {
@@ -95,7 +120,7 @@ test.describe("with a Host and forwarded headers that don't match the server's a
 
     const browser = await playwright.request.newContext();
     const send = await browser.post(direct("/api/auth/email-otp/send-verification-otp"), {
-      headers: { ...headers("inkmarginalia.example"), origin: SITE },
+      headers: { ...headers("inkmarginalia.example"), origin: SITE, "x-captcha-response": TURNSTILE_TEST_TOKEN },
       data: { email: READER_A.email, type: "sign-in" },
     });
     expect(send.status()).toBe(200);

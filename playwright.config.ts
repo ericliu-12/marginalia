@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 import { e2eDatabaseUrl } from "./test/e2e/database";
 import { E2E_OUTBOX } from "./test/e2e/mail";
+import { TURNSTILE_PASSES } from "./test/e2e/turnstile";
 import { E2E_CATALOG } from "./test/e2e/open-library";
 import { E2E_AUTH_SECRET, signedIn } from "./test/e2e/session";
 import { E2E_PORT } from "./test/worktree";
@@ -34,6 +35,9 @@ export default defineConfig({
       GOOGLE_CLIENT_SECRET: "e2e-no-calls",
       BETTER_AUTH_URL: `http://localhost:${PORT}`,
       BETTER_AUTH_SECRET: E2E_AUTH_SECRET,
+      // Cloudflare's test keys: a site key that always passes, and a secret that accepts its token.
+      TURNSTILE_SITE_KEY: TURNSTILE_PASSES,
+      TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA",
       MAIL_OUTBOX_FILE: E2E_OUTBOX,
       OPEN_LIBRARY_FIXTURE_FILE: E2E_CATALOG,
     },

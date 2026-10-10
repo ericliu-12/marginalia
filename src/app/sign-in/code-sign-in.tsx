@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { field } from "../book-panel";
 import { quietLink } from "../quiet-link";
+import { useTurnstile } from "./turnstile";
 
 // One code a minute per email (#65), so "Send a new code" rests for as long after each send.
 const RESEND_AFTER_S = 60;
@@ -18,9 +19,9 @@ const label = "block font-sans text-[0.8rem] font-medium text-ink-2";
 const quietText = "font-sans text-[0.8rem] text-ink-3";
 
 // Relative paths only: the page's own origin is the site's, and nothing absolute is built here.
-async function post(path: string, body: object): Promise<Response | null> {
+async function post(path: string, body: object, headers: Record<string, string> = {}): Promise<Response | null> {
   try {
-    return await fetch(`/api/auth${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    return await fetch(`/api/auth${path}`, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(body) });
   } catch {
     return null;
   }
@@ -29,6 +30,13 @@ async function post(path: string, body: object): Promise<Response | null> {
 const UNREACHABLE = "Couldn’t reach Marginalia. Try again.";
 // Better Auth's rate limit, the same for every email.
 const TOO_MANY = "Too many tries. Wait a minute, then try again.";
+// The limits on asking for codes (#65) can last up to an hour, so the server's own wait is given.
+const tooManyCodes = (res: Response) => {
+  const minutes = Math.ceil(Number(res.headers.get("x-retry-after") ?? 60) / 60);
+  return `Too many codes requested. Try again in ${minutes > 1 ? `${minutes} minutes` : "a minute"}.`;
+};
+// Turnstile failed, or its script was blocked.
+const NOT_CHECKED = "Couldn’t check that you’re not a bot. Reload the page, then try again.";
 // The same whatever went wrong, so it never tells an invited email from another.
 const GOOGLE_FAILED = "That didn’t sign you in. Try again, or sign in with an email code below.";
 const looksLikeEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
@@ -64,7 +72,17 @@ function GoogleMark() {
 }
 
 // `callbackURL` is where Google returns the Reader, already absolute on the site's own address.
-export function CodeSignIn({ next, callbackURL, googleFailed }: { next: string; callbackURL: string; googleFailed: boolean }) {
+export function CodeSignIn({
+  next,
+  callbackURL,
+  googleFailed,
+  turnstileSiteKey,
+}: {
+  next: string;
+  callbackURL: string;
+  googleFailed: boolean;
+  turnstileSiteKey: string;
+}) {
   const [step, setStep] = useState<"email" | "code">("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -78,6 +96,7 @@ export function CodeSignIn({ next, callbackURL, googleFailed }: { next: string; 
   const emailInput = useRef<HTMLInputElement>(null);
   const codeInput = useRef<HTMLInputElement>(null);
   const codeForm = useRef<HTMLFormElement>(null);
+  const turnstile = useTurnstile(turnstileSiteKey);
 
   // Set after the page loads, so the alert is a change a screen reader announces; and taken out of the
   // address, so a reload doesn't show it again.
@@ -117,10 +136,25 @@ export function CodeSignIn({ next, callbackURL, googleFailed }: { next: string; 
   async function sendCode(address: string) {
     setPending(true);
     setError(null);
-    const res = await post("/email-otp/send-verification-otp", { email: address, type: "sign-in" });
+    const token = await turnstile.token().catch(() => null);
+    if (!token) {
+      setPending(false);
+      setError(NOT_CHECKED);
+      return false;
+    }
+    const res = await post("/email-otp/send-verification-otp", { email: address, type: "sign-in" }, { "x-captcha-response": token });
+    turnstile.used();
     setPending(false);
     if (!res?.ok) {
-      setError(res?.status === 400 ? "That doesn’t look like an email address." : res?.status === 429 ? TOO_MANY : UNREACHABLE);
+      setError(
+        res?.status === 400
+          ? "That doesn’t look like an email address."
+          : res?.status === 429
+            ? tooManyCodes(res)
+            : res?.status === 403
+              ? NOT_CHECKED
+              : UNREACHABLE,
+      );
       return false;
     }
     const at = Date.now();
@@ -249,6 +283,7 @@ export function CodeSignIn({ next, callbackURL, googleFailed }: { next: string; 
           className={`${field} mt-1 font-sans text-[0.95rem]`}
         />
         {message}
+        <div ref={turnstile.container} />
         <button type="submit" disabled={pending} className={button}>
           {pending ? "Sending…" : "Send code"}
         </button>
@@ -302,6 +337,7 @@ export function CodeSignIn({ next, callbackURL, googleFailed }: { next: string; 
           </button>
         )}
       </div>
+      <div ref={turnstile.container} />
       {/* Said once when a new code goes out, not with every tick of the countdown. */}
       <p aria-live="polite" className="sr-only">
         {resent ? "A new code is on its way." : ""}
