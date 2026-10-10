@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Hanken_Grotesk, Newsreader } from "next/font/google";
 import "./globals.css";
+import { RefreshAfterSaves } from "./refresh-after-saves";
 
 export const metadata: Metadata = { title: "Marginalia", appleWebApp: { capable: true, title: "Marginalia", statusBarStyle: "default" } };
 
@@ -14,7 +15,10 @@ const sans = Hanken_Grotesk({ subsets: ["latin"], variable: "--nf-sans", display
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${serif.variable} ${sans.variable}`}>
-      <body>{children}</body>
+      <body>
+        <RefreshAfterSaves />
+        {children}
+      </body>
     </html>
   );
 }

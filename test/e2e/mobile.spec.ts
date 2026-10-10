@@ -103,6 +103,38 @@ test("Add adds a Book in one tap, stays open with the search selected for the ne
   await expect(shelf(page).getByRole("button", { name: "Read 6" })).toHaveAttribute("aria-expanded", "false");
 });
 
+// Holds the next Server Function call, as on a slow connection, until it is let go. Next sends them one
+// at a time, so a save made meanwhile waits behind it.
+const holdNextCall = async (page: Page) => {
+  const held: import("@playwright/test").Route[] = [];
+  await page.route("**/*", (route) =>
+    route.request().method() === "POST" && route.request().headers()["next-action"] && held.length === 0 ? void held.push(route) : route.fallback(),
+  );
+  return {
+    held: () => expect.poll(() => held.length).toBe(1),
+    release: () => held[0].fallback(),
+  };
+};
+
+test("a Book added just before Done is on the shelf once its add lands", async ({ page }) => {
+  await answerSearch(page);
+  await page.getByRole("button", { name: "Add a Book" }).click();
+  await searchbox(page).fill("Piranesi");
+  // The hand-add form's lookalike check hangs, so the add waits behind it.
+  await addScreen(page).getByRole("button", { name: "Add it by hand" }).click();
+  const form = addScreen(page).getByRole("form", { name: "Add a book by hand" });
+  const call = await holdNextCall(page);
+  await form.getByLabel("Author").fill("A. Author");
+  await call.held();
+  await form.getByRole("button", { name: "Cancel" }).click();
+  await addScreen(page).getByRole("group", { name: "Add Piranesi" }).getByRole("button", { name: "Reading" }).click();
+
+  await addScreen(page).getByRole("button", { name: "Done" }).click();
+  await expect(addScreen(page)).toHaveCount(0);
+  await call.release();
+  await expect(shelf(page).getByRole("button", { name: /^Piranesi/ })).toBeVisible();
+});
+
 test("Add's search shows its caret once Add has risen, not while it moves", async ({ page }) => {
   await page.getByRole("button", { name: "Add a Book" }).click();
   await expect(searchbox(page)).toBeFocused();
@@ -255,6 +287,35 @@ test("Read on the Book screen finishes the Book, and only the first finish shows
   await expect(shelf(page).getByRole("button", { name: "Read 7" })).toHaveAttribute("aria-expanded", "true");
   await expect(shelf(page).getByRole("button", { name: /^Middlemarch/ })).toBeFocused();
   await expect(page.getByText("1 Book finding Connections")).toBeVisible();
+});
+
+test("a Status move that lands after leaving the Book shows, also on coming back to it", async ({ page }) => {
+  const middlemarch = shelf(page).getByRole("button", { name: /^Middlemarch/ });
+  // The Book screen's first loader hangs, so each move waits behind it.
+  let call = await holdNextCall(page);
+  await middlemarch.click();
+  await call.held();
+  await status(page).getByRole("button", { name: "Read", exact: true }).click();
+  await page.getByRole("button", { name: "Back to library" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Reading");
+  await call.release();
+  await expect(shelf(page).getByRole("button", { name: "Read 7" })).toBeVisible();
+
+  // Back to the same Book before the move lands.
+  await page.unrouteAll();
+  call = await holdNextCall(page);
+  await shelf(page).getByRole("button", { name: "Read 7" }).click();
+  await middlemarch.click();
+  await call.held();
+  await status(page).getByRole("button", { name: "Reading" }).click();
+  await page.getByRole("button", { name: "Back to library" }).click();
+  await middlemarch.click();
+  await expect(page.getByRole("heading", { level: 2 })).toHaveText("Middlemarch");
+  await call.release();
+  await expect(status(page).getByRole("button", { name: "Reading" })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Back to library" }).click();
+  await expect(shelf(page).getByRole("button", { name: /^Middlemarch/ })).toBeVisible();
+  await expect(shelf(page).getByRole("button", { name: "Read 6" })).toBeVisible();
 });
 
 test("the Book screen is a URL, and browser back returns to the shelf where it was", async ({ page }) => {
