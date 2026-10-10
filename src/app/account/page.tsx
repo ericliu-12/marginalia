@@ -1,10 +1,12 @@
 import { eq } from "drizzle-orm";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { appDb } from "@/db/client";
 import { user } from "@/db/schema";
-import { signedInReader } from "@/lib/signed-in";
+import { appAuth, FRESH_SESSION_SECONDS } from "@/lib/auth";
 import { signInPath } from "@/lib/signed-out";
-import { PaperColumn, Ruled, Section } from "../legal";
+import { PaperColumn, proseLink, Ruled, Section } from "../legal";
+import { DeleteAccount } from "./delete-account";
 import { DownloadExport } from "./download-export";
 import { SignOut } from "./sign-out";
 
@@ -12,11 +14,13 @@ export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Account · Marginalia" };
 
-// The Reader's account (#67): their data to take away, and Sign out. #68's Delete your account goes last.
+// The Reader's account (#67): their data to take away, Sign out, and last, Delete your account (#68).
 export default async function AccountPage() {
-  const userId = await signedInReader();
-  if (!userId) redirect(signInPath("/account"));
-  const [reader] = await appDb().select({ email: user.email }).from(user).where(eq(user.id, userId));
+  const signedIn = await appAuth().api.getSession({ headers: await headers() });
+  if (!signedIn) redirect(signInPath("/account"));
+  const [reader] = await appDb().select({ email: user.email }).from(user).where(eq(user.id, signedIn.user.id));
+  // As Better Auth judges it on deleting: signed in within the day.
+  const fresh = Date.now() - new Date(signedIn.session.createdAt).getTime() < FRESH_SESSION_SECONDS * 1000;
   return (
     <PaperColumn
       title="Account"
@@ -48,6 +52,20 @@ export default async function AccountPage() {
         <p className="text-ink-2">Sign out of Marginalia on this device. Your library stays as it is.</p>
         <SignOut />
       </Section>
+
+      <div className="mt-14 border-t border-rule">
+        <Section id="delete-account" title="Delete your account">
+          <p className="text-ink-2">
+            Deleting your account removes your library, Notes, the Books you added by hand, your Connections and Clusters, and signs you
+            out on every device. It can’t be undone, so{" "}
+            <a href="#your-data" className={proseLink}>
+              download your export
+            </a>{" "}
+            first if you want to keep any of it. If you come back later, you’ll start with an empty library.
+          </p>
+          <DeleteAccount fresh={fresh} />
+        </Section>
+      </div>
     </PaperColumn>
   );
 }

@@ -71,8 +71,12 @@ export default function PrivacyPage() {
           <Link href="/account#your-data" className={proseLink}>
             your account page
           </Link>
-          : one file with your library, your Notes, the Books you added by hand, and your Connections. To delete your data, write to <Email /> from the email address you sign in
-          with. We’ll do it within 30 days.
+          : one file with your library, your Notes, the Books you added by hand, and your Connections. To delete your account and everything
+          in it, choose Delete account on{" "}
+          <Link href="/account#delete-account" className={proseLink}>
+            the same page
+          </Link>
+          . It’s deleted at once.
         </p>
       </Section>
 

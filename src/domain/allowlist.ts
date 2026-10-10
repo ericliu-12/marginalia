@@ -14,6 +14,11 @@ export async function invite(db: Db, email: string, baseURL: string): Promise<st
   return new URL("/sign-in", baseURL).toString();
 }
 
+// Takes the email off the allowlist, as deleting its Reader does (#68).
+export async function uninvite(db: Db, email: string) {
+  await db.delete(allowedEmail).where(eq(allowedEmail.email, normaliseEmail(email)));
+}
+
 // `pnpm reader-budget`: sets the monthly budget of the Reader (or invited email) with this email, or
 // clears it (null) so the usual rule applies. The override is kept on their allowlist row, as the
 // invited budget is. False when nobody has the email.

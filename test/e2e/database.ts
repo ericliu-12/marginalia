@@ -4,7 +4,8 @@ import { createDb } from "../../src/db/client";
 import { runMigrations } from "../../src/db/migrate";
 import { layoutGraph } from "../../src/domain/graph";
 import { runGraphJob } from "../../src/domain/graph-job";
-import { book, bookPosition, clusterLabel, connection, enrichment, libraryEntry, note, paidCall, readThrough, session, user } from "../../src/db/schema";
+import { invite, normaliseEmail } from "../../src/domain/allowlist";
+import { allowedEmail, book, bookPosition, clusterLabel, connection, enrichment, libraryEntry, note, paidCall, readThrough, session, user } from "../../src/db/schema";
 import { perWorktree } from "../worktree";
 import { READER_A, READER_B, type Reader } from "./session";
 
@@ -50,6 +51,34 @@ export async function expireSession(reader: Reader) {
   const { db, pool } = createDb(e2eDatabaseUrl());
   await db.update(session).set({ expiresAt: new Date(Date.now() - 1000) }).where(eq(session.token, reader.token));
   await pool.end();
+}
+
+// The Reader signed in on another device too, with this session.
+export async function addSession(reader: Reader) {
+  const { db, pool } = createDb(e2eDatabaseUrl());
+  await db.insert(session).values({ userId: reader.id, token: reader.token, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) });
+  await pool.end();
+}
+
+// The Reader signed in this many hours ago, on this session.
+export async function signedInHoursAgo(reader: Reader, hours: number) {
+  const { db, pool } = createDb(e2eDatabaseUrl());
+  await db.update(session).set({ createdAt: new Date(Date.now() - hours * 60 * 60 * 1000) }).where(eq(session.token, reader.token));
+  await pool.end();
+}
+
+// `pnpm invite`: the email may sign up while signup is allowlist-only, as the e2e server's is.
+export async function inviteEmail(email: string) {
+  const { db, pool } = createDb(e2eDatabaseUrl());
+  await invite(db, email, "http://localhost");
+  await pool.end();
+}
+
+export async function isInvited(email: string) {
+  const { db, pool } = createDb(e2eDatabaseUrl());
+  const rows = await db.select().from(allowedEmail).where(eq(allowedEmail.email, normaliseEmail(email)));
+  await pool.end();
+  return rows.length > 0;
 }
 
 // A small finished library, laid out left to right as a chain of Connections: each Book links to the
