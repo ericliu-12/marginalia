@@ -240,10 +240,13 @@ function StatusControl({ item }: { item: LibraryItem }) {
   const [error, setError] = useState(false);
   // Null, or the finish line: `paused` is the day Connections resume, when they wait for the spending limit.
   const [finishLine, setFinishLine] = useState<{ paused: string | null } | null>(null);
+  // The latest move: only its answer may show the finish line or an error.
+  const latest = useRef(0);
 
   function move(to: Status) {
     // A tap while a move is still saving goes through too: Next sends them in order, so the last one stands.
     if (to === shown) return;
+    const id = ++latest.current;
     setError(false);
     // Only the move's own answer can bring the line back, so a later Read-through never flashes it.
     setFinishLine(null);
@@ -254,6 +257,7 @@ function StatusControl({ item }: { item: LibraryItem }) {
       // Left before the move landed (back to Add, say): Next can apply its return to that screen, built
       // from the library before the move, over the move's own refresh. Fetch the library again.
       if (window.location.href !== from) router.refresh();
+      if (id !== latest.current) return;
       if (!res.ok) return setError(true);
       if (to === "read" && res.firstCompletion) setFinishLine({ paused: res.paused });
     });
