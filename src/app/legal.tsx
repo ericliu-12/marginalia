@@ -4,14 +4,14 @@ import { quietLink } from "./quiet-link";
 // The shell of /privacy and /terms (#62): public pages read by Google's consent screen and by anyone
 // deciding whether to sign in. One serif column; every section has an id, so a part can be linked to.
 
-export const CONTACT = "hello@inkmarginalia.com";
-export const UPDATED = "9 October 2026";
+const CONTACT = "hello@inkmarginalia.com";
+const UPDATED = "9 October 2026";
 
 export const proseLink = "text-ink underline decoration-rule underline-offset-4 transition-colors duration-150 hover:decoration-ink";
 
-export function Email() {
+export function Email({ className = proseLink }: { className?: string }) {
   return (
-    <a href={`mailto:${CONTACT}`} className={`${proseLink} wrap-anywhere`}>
+    <a href={`mailto:${CONTACT}`} className={`${className} wrap-anywhere`}>
       {CONTACT}
     </a>
   );
@@ -36,9 +36,7 @@ export function LegalPage({ title, other, children }: { title: string; other: { 
           <Link href={other.href} className={`${quietLink} inline-flex items-center`}>
             {other.label}
           </Link>
-          <a href={`mailto:${CONTACT}`} className={`${quietLink} inline-flex items-center wrap-anywhere`}>
-            {CONTACT}
-          </a>
+          <Email className={`${quietLink} inline-flex items-center`} />
         </footer>
       </div>
     </div>
@@ -49,7 +47,6 @@ export function Section({ id, title, children }: { id: string; title: string; ch
   return (
     <section id={id} aria-labelledby={`${id}-heading`} className="group mt-10 scroll-mt-8 [&>p]:mt-3">
       <h2 id={`${id}-heading`} className="text-[1.35rem] leading-[1.2] font-medium text-balance">
-        {/* Each heading links to its own section, so a part can be copied and shared (/privacy#services). */}
         <a
           href={`#${id}`}
           className="underline decoration-transparent underline-offset-4 transition-colors duration-150 group-target:decoration-rule hover:decoration-rule"

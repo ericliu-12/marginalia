@@ -24,7 +24,7 @@ export default function PrivacyPage() {
             "Your library: the Books you add, their Status, when you read them, and any titles or authors you change.",
             "Your Notes, with any quoted passages and page numbers.",
             "The Connections and Clusters Marginalia finds among your Books.",
-            "For each signed-in device: the IP address and browser it signed in from, until you sign out or 90 days pass without a visit.",
+            "For each signed-in device: the IP address and browser it signed in from.",
           ]}
         />
         <p>Sign-in codes are stored scrambled and expire after 5 minutes.</p>
@@ -43,7 +43,7 @@ export default function PrivacyPage() {
           items={[
             {
               name: "Anthropic",
-              text: "Your Notes, and your Books’ titles, authors and descriptions, when Claude summarises a Book, judges how two Books connect and names your Clusters.",
+              text: "Your Notes, when Claude judges how two Books connect. Your Books’ titles, authors and descriptions, when it summarises a Book and names your Clusters.",
             },
             {
               name: "Voyage AI",
@@ -58,7 +58,7 @@ export default function PrivacyPage() {
             { name: "Cloudflare R2", text: "Everything, in the nightly backups of the database." },
             {
               name: "Open Library and Google Books",
-              text: "What you search for when adding a Book, sent from our server with nothing that identifies you. Book covers load from Open Library straight to your browser, so it sees your IP address when one is shown.",
+              text: "Open Library gets what you search for when adding a Book, and Google Books the title and author of a Book you add, to find its description. Both are sent from our server with nothing that identifies you. Book covers load from Open Library straight to your browser, so it sees your IP address when one is shown.",
             },
           ]}
         />
@@ -72,8 +72,8 @@ export default function PrivacyPage() {
 
       <Section id="backups" title="Backups">
         <p>
-          The database is backed up every night, and each backup is kept for 30 days. A deleted account is gone from Marginalia at once,
-          but stays in the backups for up to 30 days, until they expire.
+          The database is backed up every night, and each backup is kept for 30 days. Once your account is deleted it’s gone from Marginalia,
+          but it stays in the backups for up to 30 days, until they expire.
         </p>
       </Section>
 

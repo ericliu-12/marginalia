@@ -49,7 +49,7 @@ export default function TermsPage() {
         <Bullets
           items={[
             "use Marginalia to break the law;",
-            "try to reach another Reader’s account or data;",
+            "try to reach another Reader’s library or data;",
             "overload, scrape or attack the service.",
           ]}
         />
