@@ -8,6 +8,7 @@ import { appDb, type Db } from "@/db/client";
 import * as schema from "@/db/schema";
 import { mayBecomeReader } from "@/domain/allowlist";
 import { takeCodeRequest } from "@/domain/code-requests";
+import { clientAddress } from "./client-address";
 import { appMailer, signInCodeMail, type Mailer } from "./mailer";
 import { siteUrl } from "./site-url";
 
@@ -15,6 +16,8 @@ import { siteUrl } from "./site-url";
 
 const DAY_SECONDS = 24 * 60 * 60;
 const SEND_CODE = "/email-otp/send-verification-otp";
+// Where the handler puts the client's address for Better Auth, as clientAddress reads it.
+const CLIENT_ADDRESS = "x-client-address";
 // Every reply to a code request takes at least this long, longer than the work behind any of them, so
 // its timing doesn't tell an email that may sign in from one that may not (#65).
 const CODE_REPLY_MS = 1000;
@@ -50,11 +53,13 @@ export function createAuth(db: Db, config: AuthConfig) {
     account: { accountLinking: { enabled: true } },
     // A sign-in with Google that fails, for whatever reason, comes back to the sign-in page with `?error=`.
     onAPIError: { errorURL: new URL("/sign-in", config.baseURL).toString() },
-    // In the database, so a restart doesn't reset them. The client's address is the one Railway's proxy
-    // puts in x-forwarded-for (Cloudflare's DNS isn't proxied, so there's no cf-connecting-ip).
+    // In the database, so a restart doesn't reset them.
     rateLimit: { enabled: true, storage: "database", customRules: { [SEND_CODE]: { window: 60 * 60, max: 20 } } },
     // Uuids, as our ids are; not "uuid", which would also replace the ids Better Auth sets itself.
-    advanced: { database: { generateId: () => randomUUID() }, ipAddress: { ipAddressHeaders: ["x-forwarded-for"] } },
+    // The client's address is the first in x-forwarded-for, which Railway's edge sets (Cloudflare's DNS
+    // isn't proxied, so there's no cf-connecting-ip). Better Auth would refuse a list of addresses and put
+    // every such request in one shared bucket, so the handler reads it with clientAddress instead.
+    advanced: { database: { generateId: () => randomUUID() }, ipAddress: { ipAddressHeaders: [CLIENT_ADDRESS] } },
     hooks: {
       // An email that may not sign in gets the reply everyone gets, and no code is made or sent, so the
       // reply doesn't reveal who is on the allowlist and strangers can't use our sender. Its limits come
@@ -87,7 +92,11 @@ export function createAuth(db: Db, config: AuthConfig) {
     ],
   });
 
-  async function handler(request: Request) {
+  async function handler(received: Request) {
+    // Set on every request, over any a client sent itself.
+    const headers = new Headers(received.headers);
+    headers.set(CLIENT_ADDRESS, clientAddress(received.headers));
+    const request = new Request(received, { headers });
     // As Better Auth matches paths: extra and trailing slashes reach the same endpoint.
     const path = new URL(request.url).pathname.replace(/\/{2,}/g, "/").replace(/(.)\/$/, "$1");
     if (path !== `/api/auth${SEND_CODE}`) return auth.handler(request);

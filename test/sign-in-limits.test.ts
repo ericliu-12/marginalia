@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { rateLimit } from "../src/db/schema";
 import { invite } from "../src/domain/allowlist";
 import { createAuth } from "../src/lib/auth";
+import { clientAddress } from "../src/lib/client-address";
 import { fakeMailer } from "./fakes";
 import { useTestDb } from "./harness";
 
@@ -17,11 +18,11 @@ describe("Asking for a sign-in code", () => {
   let mailer: ReturnType<typeof fakeMailer>;
   const auth = (codeReplyMs = 0) =>
     createAuth(ctx.db, { mailer, signupMode: "allowlist", baseURL: BASE_URL, secret: "s".repeat(32), google: GOOGLE, turnstileSecretKey: "secret", codeReplyMs });
-  const requestCode = (email: string, { ip = "203.0.113.1", token = PASSING as string | null, via = auth() } = {}) =>
+  const requestCode = (email: string, { ip = "203.0.113.1", token = PASSING as string | null, via = auth(), headers = {} as Record<string, string> } = {}) =>
     via.handler(
       new Request(`${BASE_URL}/api/auth/email-otp/send-verification-otp`, {
         method: "POST",
-        headers: { origin: BASE_URL, "content-type": "application/json", "x-forwarded-for": ip, ...(token && { "x-captcha-response": token }) },
+        headers: { origin: BASE_URL, "content-type": "application/json", "x-forwarded-for": ip, ...(token && { "x-captcha-response": token }), ...headers },
         body: JSON.stringify({ email, type: "sign-in" }),
       }),
     );
@@ -104,6 +105,14 @@ describe("Asking for a sign-in code", () => {
     expect((await requestCode("stranger20@example.com")).status).toBe(200);
   });
 
+  it("counts a client by the first address in x-forwarded-for, as Railway's edge puts it, not by Railway's later hops", async () => {
+    // The same client through different Railway hops, and a client's own guess at our header, which is ignored.
+    for (let i = 0; i < 20; i++)
+      expect((await requestCode(`stranger${i}@example.com`, { ip: `47.230.198.188, 10.0.0.${i}`, headers: { "x-client-address": `198.51.100.${i}` } })).status).toBe(200);
+    expect((await requestCode("friend@example.com", { ip: "47.230.198.188, 10.0.0.99" })).status).toBe(429);
+    expect((await requestCode("friend@example.com", { ip: "47.230.198.189, 10.0.0.1" })).status).toBe(200);
+  });
+
   it("is refused without a Turnstile token, or with one Cloudflare rejects, and sends nothing", async () => {
     expect((await requestCode("friend@example.com", { token: null })).status).toBe(400);
     expect((await requestCode("friend@example.com", { token: "turnstile-fail" })).status).toBe(403);
@@ -119,5 +128,13 @@ describe("Asking for a sign-in code", () => {
       }),
     );
     expect(res.status).toBe(200);
+  });
+});
+
+describe("clientAddress", () => {
+  it("takes the client the edge put first, not Railway's later hops", () => {
+    expect(clientAddress(new Headers({ "x-forwarded-for": "47.230.198.188, 152.233.47.66" }))).toBe("47.230.198.188");
+    expect(clientAddress(new Headers({ "x-real-ip": "8.8.8.8" }))).toBe("8.8.8.8");
+    expect(clientAddress(new Headers())).toBe("unknown");
   });
 });
