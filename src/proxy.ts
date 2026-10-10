@@ -7,9 +7,10 @@ import { siteUrl } from "@/lib/site-url";
 // visitor used; the request's URL is the server's own.
 const isRailwayHost = (host: string | null) => /\.up\.railway\.app$/.test(host?.split(":")[0] ?? "");
 
-// /login, the build's static files, and the icons and manifest (fetched without the cookie when the app
-// is added to the home screen) need no session.
+// /login, /privacy and /terms (read by Google's consent screen), the build's static files, and the icons
+// and manifest (fetched without the cookie when the app is added to the home screen) need no session.
 const isPublic = (pathname: string) =>
+  /^\/(?:privacy|terms)$/.test(pathname) ||
   /^\/(?:login|_next\/static|_next\/image|favicon\.ico|icon\.png|apple-icon\.png|manifest\.webmanifest|icons\/)/.test(pathname);
 
 // Everything else needs the session cookie. A page without one goes to /login and comes back after;

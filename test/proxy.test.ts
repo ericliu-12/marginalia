@@ -27,4 +27,12 @@ describe("proxy", () => {
     expect(response.headers.get("location")).toBeNull();
     expect(response.headers.get("x-middleware-next")).toBe("1");
   });
+
+  it("lets /privacy and /terms through without a session, for Google's consent screen, and nothing that only starts like them", () => {
+    vi.stubEnv("BETTER_AUTH_URL", "https://inkmarginalia.com");
+    vi.stubEnv("APP_PASSWORD", "password");
+    vi.stubEnv("SESSION_SECRET", "a-session-secret-at-least-32-characters");
+    for (const path of ["/privacy", "/terms"]) expect(proxy(fromRailway(path, "inkmarginalia.com")).headers.get("x-middleware-next"), path).toBe("1");
+    for (const path of ["/privacy-x", "/termsheet"]) expect(proxy(fromRailway(path, "inkmarginalia.com")).headers.get("location"), path).toMatch(/\/login\?next=/);
+  });
 });
