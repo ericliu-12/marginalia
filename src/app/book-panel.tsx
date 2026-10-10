@@ -122,7 +122,9 @@ export function BookPanel({
         {variant === "screen" && <div className="mt-2">{editLink}</div>}
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 pt-5 pb-10">
+      {/* Positioned, so what is placed absolutely inside (the Note's hidden label) scrolls with it rather than
+          against the page, where it would make the page taller than the screen. */}
+      <div className="relative min-h-0 flex-1 overflow-y-auto px-6 pt-5 pb-10">
         {editingBook && (
           <EditBookForm
             item={item}
