@@ -1,0 +1,1 @@
+ALTER TABLE "cluster_label" ADD COLUMN "described_member_book_ids" uuid[];

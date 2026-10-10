@@ -116,23 +116,31 @@ describe("Cluster naming", () => {
       return recompute(fakeNamer(() => ({ name: "New Name", description: "New." })));
     }
 
-    it("keeps the name under 30% change, though two Books joined", async () => {
+    it("keeps the name under 30% change, though two Books joined, and redescribes it", async () => {
       const namer = await grow(10, 2);
-      expect(namer.inputs).toHaveLength(0);
-      expect((await clusters())[0].name).toBe("Old Name");
+      expect(namer.inputs).toHaveLength(1);
+      expect(namer.inputs[0]).toMatchObject({ previousName: "Old Name", keepName: true });
+      expect(namer.inputs[0].books).toHaveLength(12);
+      expect((await clusters())[0]).toMatchObject({ name: "Old Name", description: "New." });
       expect((await clusters())[0].bookIds).toHaveLength(12);
     });
 
-    it("keeps the name when one Book joined, though that is 30% or more", async () => {
+    it("keeps the name when one Book joined, though that is 30% or more, and redescribes it", async () => {
       const namer = await grow(3, 1);
-      expect(namer.inputs).toHaveLength(0);
-      expect((await clusters())[0].name).toBe("Old Name");
+      expect(namer.inputs).toHaveLength(1);
+      expect(namer.inputs[0].keepName).toBe(true);
+      expect((await clusters())[0]).toMatchObject({ name: "Old Name", description: "New." });
+    });
+
+    it("redescribes a Cluster only once for one change", async () => {
+      await grow(3, 1);
+      expect((await recompute()).inputs).toHaveLength(0);
     });
 
     it("renames at 30% change and two Books, showing the call the old name", async () => {
       const namer = await grow(3, 2);
       expect(namer.inputs).toHaveLength(1);
-      expect(namer.inputs[0].previousName).toBe("Old Name");
+      expect(namer.inputs[0]).toMatchObject({ previousName: "Old Name", keepName: false });
       expect(namer.inputs[0].books).toHaveLength(5);
       expect((await clusters())[0]).toMatchObject({ name: "New Name", description: "New." });
     });
@@ -142,9 +150,9 @@ describe("Cluster naming", () => {
       await clique(five);
       await recompute(fakeNamer(() => ({ name: "Old Name" })));
       await removeFromLibrary(ctx.db, ctx.pipeline, ctx.userId, five[3]);
-      expect((await recompute()).inputs).toHaveLength(0);
+      expect((await recompute()).inputs.map((i) => i.keepName)).toEqual([true]);
       await removeFromLibrary(ctx.db, ctx.pipeline, ctx.userId, five[4]);
-      expect((await recompute()).inputs).toHaveLength(1);
+      expect((await recompute()).inputs.map((i) => i.keepName)).toEqual([false]);
     });
 
     it("measures change against the membership at naming time, so small changes add up", async () => {
@@ -153,10 +161,23 @@ describe("Cluster naming", () => {
       await recompute(fakeNamer(() => ({ name: "Old Name" })));
       const [n0, n1] = await books("N0 N1");
       for (const m of first) await connect(n0, m);
-      expect((await recompute()).inputs).toHaveLength(0);
+      expect((await recompute()).inputs.map((i) => i.keepName)).toEqual([true]);
       for (const m of [...first, n0]) await connect(n1, m);
-      expect((await recompute()).inputs).toHaveLength(1);
+      expect((await recompute()).inputs.map((i) => i.keepName)).toEqual([false]);
     });
+  });
+
+  it("keeps the name below the threshold even when the call returns another", async () => {
+    const first = await books("A B C");
+    await clique(first);
+    await recompute(fakeNamer(() => ({ name: "Old Name" })));
+    const [d] = await books("D");
+    await clique([...first, d]);
+    await recompute(fakeNamer(() => ({ name: "Drifted Name", description: "Fresh." })));
+
+    expect((await clusters())[0]).toMatchObject({ name: "Old Name", description: "Fresh." });
+    const [row] = await ctx.db.select().from(clusterLabel);
+    expect(row.namedMemberBookIds).toHaveLength(3);
   });
 
   it("keeps the old name when the call keeps it, and measures the next change from now", async () => {
@@ -209,6 +230,18 @@ describe("Cluster naming", () => {
       await clique([...first, ...more]);
       await recompute(failing());
       expect((await clusters())[0].name).toBe("Old Name");
+    });
+
+    it("tries a failed redescription again at the next recompute", async () => {
+      const first = await books("A B C");
+      await clique(first);
+      await recompute(fakeNamer(() => ({ name: "Old Name", description: "Old." })));
+      const [d] = await books("D");
+      await clique([...first, d]);
+      await recompute(failing());
+      expect((await clusters())[0].description).toBe("Old.");
+      await recompute(fakeNamer(() => ({ description: "New." })));
+      expect((await clusters())[0]).toMatchObject({ name: "Old Name", description: "New." });
     });
   });
 });

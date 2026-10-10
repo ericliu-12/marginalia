@@ -5,6 +5,7 @@ import { MODELS } from "../src/lib/models";
 
 const input = {
   previousName: "Quiet Lives",
+  keepName: false,
   books: [
     { title: "Stoner", authors: ["John Williams"], themes: ["work", "solitude"] },
     { title: "Lonely", authors: [], themes: [] },
@@ -32,6 +33,10 @@ describe("Claude Cluster namer", () => {
     expect(prompt).toContain("- Stoner by John Williams; themes: work; solitude\n- Lonely by (unknown); themes: (unavailable)");
     expect(prompt).toContain("CONNECTIONS\n- Stoner / Lonely: Both are quiet.");
     expect(clusterNamingPrompt({ ...input, previousName: null })).toContain("PREVIOUS NAME: (none, a new Cluster)\n\nBOOKS");
+  });
+
+  it("marks a name the call must keep, writing only a description", () => {
+    expect(clusterNamingPrompt({ ...input, keepName: true })).toContain("NAME (keep exactly, describe only): Quiet Lives\n\nBOOKS");
   });
 
   it("returns the name and description with tokens and cost, on the naming model", async () => {

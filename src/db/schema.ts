@@ -274,7 +274,7 @@ export const clusterLabel = pgTable("cluster_label", {
   name: text("name"),
   description: text("description"),
   memberBookIds: uuid("member_book_ids").array().notNull(),
-  // Of the naming call that set `name`; null until one has succeeded.
+  // Of the last naming call, which set `description` and perhaps `name`; null until one has succeeded.
   model: text("model"),
   promptVersion: text("prompt_version"),
   inputTokens: integer("input_tokens").notNull().default(0),
@@ -282,6 +282,9 @@ export const clusterLabel = pgTable("cluster_label", {
   costUsd: doublePrecision("cost_usd").notNull().default(0),
   // Membership at naming time, for the 30% rename rule.
   namedMemberBookIds: uuid("named_member_book_ids").array(),
+  // Membership the description was written for, so any change redescribes it; null means
+  // `namedMemberBookIds`, as for a Cluster named before this was kept.
+  describedMemberBookIds: uuid("described_member_book_ids").array(),
   // Which of the graph's wash colours it is drawn in, given when it forms and kept with its identity.
   wash: integer("wash").notNull().default(0),
   createdAt: createdAt(),
