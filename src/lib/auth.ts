@@ -6,7 +6,7 @@ import { captcha } from "better-auth/plugins";
 import { emailOTP } from "better-auth/plugins/email-otp";
 import { appDb, type Db } from "@/db/client";
 import * as schema from "@/db/schema";
-import { mayBecomeReader } from "@/domain/allowlist";
+import { mayBecomeReader, uninvite } from "@/domain/allowlist";
 import { takeCodeRequest } from "@/domain/code-requests";
 import { clientAddress } from "./client-address";
 import { appMailer, signInCodeMail, type Mailer } from "./mailer";
@@ -16,6 +16,7 @@ import { siteUrl } from "./site-url";
 
 const DAY_SECONDS = 24 * 60 * 60;
 const SEND_CODE = "/email-otp/send-verification-otp";
+const DELETE_ACCOUNT = "/delete-user";
 // Where the handler puts the client's address for Better Auth, as clientAddress reads it.
 const CLIENT_ADDRESS = "x-client-address";
 // Every reply to a code request takes at least this long, longer than the work behind any of them, so
@@ -60,11 +61,18 @@ export function createAuth(db: Db, config: AuthConfig) {
     // isn't proxied, so there's no cf-connecting-ip). Better Auth would refuse a list of addresses and put
     // every such request in one shared bucket, so the handler reads it with clientAddress instead.
     advanced: { database: { generateId: () => randomUUID() }, ipAddress: { ipAddressHeaders: [CLIENT_ADDRESS] } },
+    // Delete your account (#68). Better Auth refuses a session signed in a day or more ago (its freshAge),
+    // then deletes the user row, which takes everything the Reader owns with it (#93), and every session.
+    // Their allowlist row goes too, so signing up again takes a fresh invitation.
+    user: { deleteUser: { enabled: true, beforeDelete: (reader) => uninvite(db, reader.email) } },
     hooks: {
       // An email that may not sign in gets the reply everyone gets, and no code is made or sent, so the
       // reply doesn't reveal who is on the allowlist and strangers can't use our sender. Its limits come
       // first, and are the same for every email.
       before: createAuthMiddleware(async (ctx) => {
+        // Only once the Reader has typed `delete`.
+        if (ctx.path === DELETE_ACCOUNT && ctx.body?.confirm !== "delete")
+          throw new APIError("BAD_REQUEST", { message: "Type delete to delete your account.", code: "NOT_CONFIRMED" });
         if (ctx.path !== SEND_CODE) return;
         const email = typeof ctx.body?.email === "string" ? ctx.body.email : "";
         const refused = await takeCodeRequest(db, email);

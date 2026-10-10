@@ -1,16 +1,22 @@
 import { eq, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { addBook, addManualBook } from "../src/domain/add-book";
+import { invite } from "../src/domain/allowlist";
 import { recomputeClusters } from "../src/domain/clusters";
 import { layoutGraph } from "../src/domain/graph";
 import { addNote } from "../src/domain/notes";
 import {
-  book, bookPosition, clusterLabel, connection, connectionRun, enrichment, graphJob, libraryEntry, note, paidCall, readThrough, session, user,
+  allowedEmail, book, bookPosition, clusterLabel, connection, connectionRun, enrichment, graphJob, libraryEntry, note, paidCall, readThrough, session, user,
 } from "../src/db/schema";
-import { work } from "./fakes";
+import { createAuth } from "../src/lib/auth";
+import { fakeMailer, work } from "./fakes";
 import { addReader, useTestDb } from "./harness";
 
-// Deleting a Reader's `user` row removes everything they own, and nothing of anyone else's.
+// Deleting a Reader's `user` row removes everything they own, and nothing of anyone else's. A Reader
+// deletes their own from the account page (#68), through Better Auth's delete-user.
+
+const BASE_URL = "https://marginalia.test";
+const HOUR = 60 * 60 * 1000;
 
 // Every foreign key to `user`: the referencing table, its column, and what a deletion does to it
 // (pg_constraint.confdeltype: c = cascade, n = set null, a = no action, r = restrict, d = set default).
@@ -27,6 +33,11 @@ const TABLES = { user, session, book, enrichment, libraryEntry, readThrough, not
 
 describe("Deleting a Reader", () => {
   const ctx = useTestDb();
+  const mailer = fakeMailer();
+  const auth = () =>
+    createAuth(ctx.db, {
+      mailer, signupMode: "allowlist", baseURL: BASE_URL, secret: "s".repeat(32), google: { clientId: "id", clientSecret: "secret" }, turnstileSecretKey: "secret", codeReplyMs: 0,
+    });
   let a: string;
   let b: string;
   const manual: Record<string, string> = {};
@@ -60,6 +71,23 @@ describe("Deleting a Reader", () => {
     await ctx.db.insert(paidCall).values({ userId, provider: "anthropic", model: "m", purpose: "judge", inputTokens: 1, outputTokens: 1, costUsd: 0.01 });
   }
 
+  // The Reader signs in with a code; their session cookie.
+  async function signIn(email: string) {
+    await auth().api.sendVerificationOTP({ body: { email, type: "sign-in" } });
+    const { headers } = await auth().api.signInEmailOTP({ body: { email, otp: mailer.codeFor(email) }, returnHeaders: true });
+    return headers.getSetCookie().map((c) => c.split(";")[0]).join("; ");
+  }
+
+  // Delete your account, as the account page asks for it, with what the Reader typed to confirm it.
+  const deleteAccount = (cookie: string, confirm: string) =>
+    auth().handler(
+      new Request(`${BASE_URL}/api/auth/delete-user`, {
+        method: "POST",
+        headers: { cookie, origin: BASE_URL, "content-type": "application/json", "x-forwarded-for": "203.0.113.1" },
+        body: JSON.stringify({ confirm }),
+      }),
+    );
+
   // Every row of the tables a Reader's data lives in, as text, less those `drop` picks out.
   const snapshot = async (drop: (row: Record<string, unknown>) => boolean = () => false) =>
     Object.fromEntries(
@@ -74,6 +102,8 @@ describe("Deleting a Reader", () => {
   beforeEach(async () => {
     a = ctx.userId;
     b = (await addReader(ctx.db, "b@example.com")).id;
+    await invite(ctx.db, "reader@marginalia.local", BASE_URL);
+    await invite(ctx.db, "b@example.com", BASE_URL);
     await populate(a, "A");
     await populate(b, "B");
   });
@@ -87,6 +117,7 @@ describe("Deleting a Reader", () => {
   });
 
   it("removes everything they own, keeps their paid calls unattributed, and leaves the other Reader and the shared Books alone", async () => {
+    const cookie = await signIn("reader@marginalia.local");
     const theirs = (r: Record<string, unknown>) =>
       r.userId === a || r.id === a || r.createdByUserId === a || r.bookId === manual[a];
     const withoutA = await snapshot(theirs);
@@ -94,7 +125,10 @@ describe("Deleting a Reader", () => {
     const all = await snapshot();
     for (const name of Object.keys(TABLES)) expect(all[name].length, name).toBeGreaterThan(withoutA[name].length);
 
-    await ctx.db.delete(user).where(eq(user.id, a));
+    const res = await deleteAccount(cookie, "delete");
+    expect(res.status).toBe(200);
+    // Signed out here, and (their sessions gone) on every other device.
+    expect(res.headers.getSetCookie().some((c) => /session_token=;/.test(c))).toBe(true);
 
     for (const { table, column } of (await ctx.db.execute<UserForeignKey>(userForeignKeys)).rows) {
       const { rows } = await ctx.db.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM ${sql.raw(table)} WHERE ${sql.identifier(column)} = ${a}`);
@@ -103,5 +137,25 @@ describe("Deleting a Reader", () => {
     expect(await snapshot()).toEqual(withoutA);
     expect((await ctx.db.select({ title: book.title }).from(book)).map((r) => r.title).sort()).toEqual(["B's Diary", "Beloved", "Stoner"]);
     expect((await ctx.db.select({ userId: paidCall.userId }).from(paidCall)).map((r) => r.userId).sort()).toEqual([b, null].sort());
+    // Off the allowlist: signing up again takes a fresh invitation.
+    expect((await ctx.db.select().from(allowedEmail)).map((r) => r.email)).toEqual(["b@example.com"]);
+  });
+
+  it("refuses without the typed delete, and keeps everything", async () => {
+    const cookie = await signIn("reader@marginalia.local");
+    const before = await snapshot();
+    for (const typed of ["", "Delete it", "yes"]) expect((await deleteAccount(cookie, typed)).status).toBe(400);
+    expect(await snapshot()).toEqual(before);
+  });
+
+  it("refuses a session signed in more than 24 hours ago, and keeps everything", async () => {
+    const cookie = await signIn("reader@marginalia.local");
+    await ctx.db.update(session).set({ createdAt: new Date(Date.now() - 25 * HOUR) }).where(eq(session.userId, a));
+    const before = await snapshot();
+    const res = await deleteAccount(cookie, "delete");
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ code: "SESSION_EXPIRED" });
+    expect(await snapshot()).toEqual(before);
+    expect(await ctx.db.select().from(allowedEmail)).toHaveLength(2);
   });
 });
