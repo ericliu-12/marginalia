@@ -1,10 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { pastTheGate } from "./session";
+import { signedOut } from "./session";
 
 // /privacy and /terms (#62): public, for Google's consent screen and anyone deciding whether to sign in.
 
-test.describe("with no session at all, not even past the gate", () => {
-  test.use({ storageState: { cookies: [], origins: [] } });
+test.describe("signed out", () => {
+  test.use({ storageState: signedOut() });
 
   test("the privacy and terms pages load, each section can be linked to, and each page links to the other", async ({ page }) => {
     await page.goto("/privacy#services");
@@ -18,10 +18,6 @@ test.describe("with no session at all, not even past the gate", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Terms" })).toBeVisible();
     await expect(page.locator("#law")).toContainText("New York");
   });
-});
-
-test.describe("past the gate, signed out", () => {
-  test.use({ storageState: pastTheGate() });
 
   test("the sign-in page links to both", async ({ page }) => {
     await page.goto("/sign-in");

@@ -16,7 +16,7 @@ import {
   removeFromLibraryAction,
   tryAgainAction,
   updateNoteAction,
-} from "./actions";
+} from "./client-actions";
 import { CO_AUTHOR_HINT, draftError, invalidProps, withScheme, type BookDraft, type DraftError } from "./book-draft";
 import { ConnectionsSection } from "./connections";
 import { MOVES } from "./library-list";

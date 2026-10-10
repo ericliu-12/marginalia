@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import type { LibraryItem } from "@/domain/library";
 import type { SearchResult, Status } from "@/domain/search";
-import { addBookAction, removeFromLibraryAction } from "./actions";
+import { addBookAction, removeFromLibraryAction } from "./client-actions";
 import { EMPTY_BOOK, type BookDraft } from "./book-draft";
 import { FindingIndicator } from "./connections";
 import { Cover } from "./cover";

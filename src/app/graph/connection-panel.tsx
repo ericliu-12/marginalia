@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ConnectionDetail } from "@/domain/connections";
-import { getConnectionAction } from "../actions";
+import { getConnectionAction } from "../client-actions";
 import { DismissConnection, titleLink } from "../connections";
 import { EDGE_WIDTH, STRENGTH_LABEL, TYPE_COLOR, TYPE_LABEL } from "./graph-style";
 

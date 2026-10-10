@@ -3,13 +3,12 @@ import { appDb } from "@/db/client";
 import { countFindingConnections } from "@/domain/connections";
 import { readLibrary } from "@/domain/library";
 import { readPause } from "@/domain/spend";
-import { hasSession, signedInReader } from "@/lib/signed-in";
+import { signedInReader } from "@/lib/signed-in";
 import { Library } from "./library";
 
 export const dynamic = "force-dynamic";
 
 export default async function LibraryPage() {
-  if (!(await hasSession())) redirect("/login");
   const userId = await signedInReader();
   if (!userId) redirect("/sign-in");
   const db = appDb();

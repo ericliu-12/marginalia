@@ -2,7 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 import { e2eDatabaseUrl } from "./test/e2e/database";
 import { E2E_OUTBOX } from "./test/e2e/mail";
 import { E2E_CATALOG } from "./test/e2e/open-library";
-import { E2E_PASSWORD, E2E_SESSION_SECRET, signedIn } from "./test/e2e/session";
+import { E2E_AUTH_SECRET, signedIn } from "./test/e2e/session";
 import { E2E_PORT } from "./test/worktree";
 
 // A production build on its own port and database, so it runs beside `pnpm dev` (and, in a ticket's
@@ -29,13 +29,11 @@ export default defineConfig({
       ANTHROPIC_API_KEY: "e2e-no-calls",
       VOYAGE_API_KEY: "e2e-no-calls",
       GOOGLE_BOOKS_API_KEY: "",
-      APP_PASSWORD: E2E_PASSWORD,
-      SESSION_SECRET: E2E_SESSION_SECRET,
       MONTHLY_AI_BUDGET_USD: "8",
       GOOGLE_CLIENT_ID: "e2e-no-calls",
       GOOGLE_CLIENT_SECRET: "e2e-no-calls",
       BETTER_AUTH_URL: `http://localhost:${PORT}`,
-      BETTER_AUTH_SECRET: E2E_SESSION_SECRET,
+      BETTER_AUTH_SECRET: E2E_AUTH_SECRET,
       MAIL_OUTBOX_FILE: E2E_OUTBOX,
       OPEN_LIBRARY_FIXTURE_FILE: E2E_CATALOG,
     },

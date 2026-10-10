@@ -4,10 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Every Server Function and API route acts as the signed-in Reader, so each must refuse a request
 // without one before it touches anything. Found by walking src/app: a new one fails here until it
-// calls requireReader. Only the two sign-ins themselves are open.
+// calls requireReader. Only Better Auth's own endpoints are open.
 const PUBLIC = new Set([
-  // The password gate's own sign-in (until #69).
-  "src/app/login/actions.ts",
   // Better Auth's sign-in, sign-out and Google callback.
   "src/app/api/auth/[...all]/route.ts",
 ]);
@@ -15,7 +13,6 @@ const PUBLIC = new Set([
 const touched = vi.hoisted(() => ({ db: 0, sessionChecks: 0 }));
 vi.mock("next/headers", () => ({
   headers: async () => new Headers(),
-  cookies: async () => ({ get: () => undefined }),
 }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 // No Reader session: Better Auth finds nobody.
@@ -44,9 +41,6 @@ const routeModules = files.filter((f) => /(^|\/)route\.ts$/.test(f));
 
 describe("Every Server Function and API route requires a Reader", () => {
   beforeEach(() => {
-    // The password gate open, as in development, so only the Reader's session decides.
-    vi.stubEnv("APP_PASSWORD", undefined);
-    vi.stubEnv("SESSION_SECRET", undefined);
     touched.db = 0;
     touched.sessionChecks = 0;
   });

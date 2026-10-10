@@ -6,7 +6,7 @@ import { layoutGraph } from "../../src/domain/graph";
 import { runGraphJob } from "../../src/domain/graph-job";
 import { book, bookPosition, clusterLabel, connection, enrichment, libraryEntry, note, paidCall, readThrough, session, user } from "../../src/db/schema";
 import { perWorktree } from "../worktree";
-import { READER_A, READER_B } from "./session";
+import { READER_A, READER_B, type Reader } from "./session";
 
 // The browser tests' own database on the docker-compose Postgres, apart from the app's and the unit tests'.
 // The web server is handed this database as DATABASE_URL, so creating it goes through Postgres's own
@@ -43,6 +43,13 @@ async function seedReaders(db: ReturnType<typeof createDb>["db"]) {
     await db.insert(user).values({ id: r.id, email: r.email, emailVerified: true });
     await db.insert(session).values({ userId: r.id, token: r.token, expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) });
   }
+}
+
+// The Reader's session runs out, as one left 90 days unused does; their cookie stays in the browser.
+export async function expireSession(reader: Reader) {
+  const { db, pool } = createDb(e2eDatabaseUrl());
+  await db.update(session).set({ expiresAt: new Date(Date.now() - 1000) }).where(eq(session.token, reader.token));
+  await pool.end();
 }
 
 // A small finished library, laid out left to right as a chain of Connections: each Book links to the
