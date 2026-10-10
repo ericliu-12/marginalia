@@ -143,7 +143,7 @@ export const book = pgTable(
     // neither had one or Google's describes the Book.
     description: text("description"),
     // Set only for Manual Books, which are private to their creator.
-    createdByUserId: uuid("created_by_user_id").references(() => user.id),
+    createdByUserId: uuid("created_by_user_id").references(() => user.id, { onDelete: "cascade" }),
     // Add-time snapshot (filtered subjects etc.).
     snapshot: jsonb("snapshot"),
     createdAt: createdAt(),
@@ -197,7 +197,7 @@ export const libraryEntry = pgTable(
   "library_entry",
   {
     id: id(),
-    userId: uuid("user_id").notNull().references(() => user.id),
+    userId: uuid("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
     bookId: uuid("book_id").notNull().references(() => book.id),
     status: statusEnum("status").notNull(),
     connectionsStatus: connectionsStatusEnum("connections_status").notNull().default("idle"),
@@ -214,7 +214,7 @@ export const readThrough = pgTable("read_through", {
   libraryEntryId: uuid("library_entry_id")
     .notNull()
     .references(() => libraryEntry.id, { onDelete: "cascade" }),
-  userId: uuid("user_id").notNull().references(() => user.id),
+  userId: uuid("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
   startedAt: timestamp("started_at", { withTimezone: true }),
   finishedAt: timestamp("finished_at", { withTimezone: true }),
   // Marks a completed pass; null while the read-through is open.
@@ -229,7 +229,7 @@ export const note = pgTable(
     libraryEntryId: uuid("library_entry_id")
       .notNull()
       .references(() => libraryEntry.id, { onDelete: "cascade" }),
-    userId: uuid("user_id").notNull().references(() => user.id),
+    userId: uuid("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
     body: text("body").notNull(),
     quote: text("quote"),
     page: integer("page"),
@@ -248,7 +248,7 @@ export const connection = pgTable(
   "connection",
   {
     id: id(),
-    userId: uuid("user_id").notNull().references(() => user.id),
+    userId: uuid("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
     bookAId: uuid("book_a_id").notNull().references(() => book.id),
     bookBId: uuid("book_b_id").notNull().references(() => book.id),
     type: connectionTypeEnum("type").notNull(),
@@ -273,7 +273,7 @@ export const connection = pgTable(
 // and cost, even when the run found nothing.
 export const connectionRun = pgTable("connection_run", {
   id: id(),
-  userId: uuid("user_id").notNull().references(() => user.id),
+  userId: uuid("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
   libraryEntryId: uuid("library_entry_id")
     .notNull()
     .references(() => libraryEntry.id, { onDelete: "cascade" }),
@@ -292,7 +292,7 @@ export const connectionRun = pgTable("connection_run", {
 
 export const clusterLabel = pgTable("cluster_label", {
   id: id(),
-  userId: uuid("user_id").notNull().references(() => user.id),
+  userId: uuid("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
   name: text("name"),
   description: text("description"),
   memberBookIds: uuid("member_book_ids").array().notNull(),
@@ -318,7 +318,7 @@ export const bookPosition = pgTable("book_position", {
   libraryEntryId: uuid("library_entry_id")
     .primaryKey()
     .references(() => libraryEntry.id, { onDelete: "cascade" }),
-  userId: uuid("user_id").notNull().references(() => user.id),
+  userId: uuid("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
   x: doublePrecision("x").notNull(),
   y: doublePrecision("y").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
