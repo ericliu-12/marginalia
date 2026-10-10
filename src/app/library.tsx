@@ -4,10 +4,11 @@ import type { LibraryItem } from "@/domain/library";
 import { LibraryWorkspace } from "./library-workspace";
 import { MobileShelf } from "./mobile-shelf";
 import { useWide } from "./use-wide";
+import type { Pause } from "@/domain/spend";
 
 // The server can't tell the screen's width, so it renders both and CSS shows the right one; once the
 // browser knows, only that one stays mounted.
-export function Library(props: { items: LibraryItem[]; finding: number; paused: string | null }) {
+export function Library(props: { items: LibraryItem[]; finding: number; paused: Pause | null }) {
   const wide = useWide(null);
   return (
     <>

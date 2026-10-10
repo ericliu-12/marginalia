@@ -21,14 +21,16 @@ import {
 import { enrichBook, enrichmentGaveUp, readEnrichment, requestEnrichment, type EnrichmentModel } from "./enrichment";
 import { nameClusters, recomputeClusters, type ClusterNamer } from "./clusters";
 import { layoutGraph } from "./graph";
+import { chargeTo } from "./spend";
 import { graphJobGaveUp, requestGraph, requestGraphAfter, runGraphJob } from "./graph-job";
 
 // The background work, one job at a time: Enrichment for a Book, a vector for an Enrichment or a
 // Note (`id` is a Book id for an Enrichment), Connections for a reader's Book, and a reader's graph:
-// their Clusters, and a place for each newly Finished Book.
+// their Clusters, and a place for each newly Finished Book. `userId` is the Reader whose action caused
+// the job, who pays for it; none for a bulk script (or a job queued before jobs carried one).
 export type Job =
-  | { kind: "enrich"; bookId: string }
-  | { kind: "embed"; target: EmbeddingTarget }
+  | { kind: "enrich"; bookId: string; userId?: string }
+  | { kind: "embed"; target: EmbeddingTarget; userId?: string }
   | { kind: "connections"; userId: string; bookId: string }
   | { kind: "graph"; userId: string };
 
@@ -75,14 +77,15 @@ export function createPipeline(db: Db, queue: JobQueue) {
     }
   }
   return {
-    // Enrichment is generated once per Book; the job is a no-op when the Book is already enriched.
-    async bookAdded(bookId: string) {
-      await requestEnrichment(db, queue, bookId, false);
+    // Enrichment is generated once per Book, charged to the Reader who caused it; the job is a no-op
+    // when the Book is already enriched.
+    async bookAdded(userId: string, bookId: string) {
+      await requestEnrichment(db, queue, userId, bookId, false);
     },
     // A Book's first completed Read-through. Its Connections wait on its Enrichment, which a Book
     // added before Enrichment existed has never been asked for.
     async bookFinished(userId: string, bookId: string) {
-      if (!(await readEnrichment(db, bookId))) await requestEnrichment(db, queue, bookId, false);
+      if (!(await readEnrichment(db, bookId))) await requestEnrichment(db, queue, userId, bookId, false);
       await startConnections(db, queue, userId, bookId, false);
     },
     // Also the retry after a failed run, or a Note or Enrichment that gave up on its vector: those are
@@ -93,9 +96,9 @@ export function createPipeline(db: Db, queue: JobQueue) {
     },
     // No vector is coming when the job can't be queued, so the Note is marked as given up and stops
     // holding Connections back; the backfill embeds it later.
-    async noteSaved(noteId: string) {
+    async noteSaved(userId: string, noteId: string) {
       try {
-        await queue.send({ kind: "embed", target: { kind: "note", id: noteId } });
+        await queue.send({ kind: "embed", target: { kind: "note", id: noteId }, userId });
       } catch (err) {
         console.error(err);
         await noteEmbeddingFailed(db, noteId);
@@ -103,13 +106,13 @@ export function createPipeline(db: Db, queue: JobQueue) {
       }
     },
     // The reader's "Try again". False when no job is coming.
-    async enrichmentRetried(bookId: string): Promise<boolean> {
-      return requestEnrichment(db, queue, bookId, true);
+    async enrichmentRetried(userId: string, bookId: string): Promise<boolean> {
+      return requestEnrichment(db, queue, userId, bookId, true);
     },
     // A Manual Book's title, author or description changed: its Enrichment runs again on what the reader
     // wrote. Its existing Connections change only through a Refresh.
-    async manualBookEdited(bookId: string) {
-      await requestEnrichment(db, queue, bookId, true);
+    async manualBookEdited(userId: string, bookId: string) {
+      await requestEnrichment(db, queue, userId, bookId, true);
     },
     connectionsChanged,
     // A removed Library Entry: its Connections job, if one is waiting or running, is cancelled.
@@ -128,13 +131,17 @@ export function createPipeline(db: Db, queue: JobQueue) {
 // retries. Connections waiting on an Enrichment or a Note's vector are queued again once it is done (or,
 // in jobGaveUp, has failed for good). A Connections job is followed by the reader's graph job, so their
 // Clusters are current (and named) and a newly Finished Book has a stored place even when it found
-// nothing; the graph stays pending until all of it is done.
-export async function runJob(db: Db, deps: JobDeps, queue: JobQueue, job: Job): Promise<void> {
+// nothing; the graph stays pending until all of it is done. What the job pays for is charged to its Reader.
+export function runJob(db: Db, deps: JobDeps, queue: JobQueue, job: Job): Promise<void> {
+  return chargeTo(job.userId ?? null, () => run(db, deps, queue, job));
+}
+
+async function run(db: Db, deps: JobDeps, queue: JobQueue, job: Job): Promise<void> {
   if (job.kind === "enrich") {
     await enrichBook(db, { model: deps.model, descriptions: deps.descriptions }, job.bookId);
     // Always queued, and a no-op for an unrecognised or already-embedded Enrichment, so a retry
-    // after a failed send still gets its embedding.
-    await queue.send({ kind: "embed", target: { kind: "enrichment", id: job.bookId } });
+    // after a failed send still gets its embedding. Charged to whoever the Enrichment was.
+    await queue.send({ kind: "embed", target: { kind: "enrichment", id: job.bookId }, userId: job.userId });
     await refreshAfterEnrichment(db, queue, job.bookId);
     await resumeConnections(db, queue, job.bookId);
   } else if (job.kind === "embed" && job.target.kind === "note") {

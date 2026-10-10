@@ -4,7 +4,7 @@ import { createPipeline, RETRIES, jobGaveUp, jobKey, runJob, type Job, type JobD
 import { readPause } from "@/domain/spend";
 
 // pg-boss queue names, and the data each job carries, are kept as they were before the Pipeline so
-// jobs already waiting still run.
+// jobs already waiting still run. Enrich and embed jobs queued before they carried a Reader have none.
 const QUEUE: Record<Job["kind"], string> = { enrich: "enrich-book", embed: "embed", connections: "connections", graph: "layout" };
 // Where pg-boss puts a copy of a job it has given up on: its last attempt failed, or it expired.
 const GAVE_UP: Record<Job["kind"], string> = Object.fromEntries(
@@ -21,9 +21,9 @@ const KINDS = Object.keys(QUEUE) as Job["kind"][];
 
 const dataOf = (job: Job): object =>
   job.kind === "enrich"
-    ? { bookId: job.bookId }
+    ? { bookId: job.bookId, userId: job.userId }
     : job.kind === "embed"
-      ? job.target
+      ? { ...job.target, userId: job.userId }
       : job.kind === "graph"
         ? { userId: job.userId }
         : { userId: job.userId, bookId: job.bookId };
@@ -96,7 +96,8 @@ export const appPipeline = (db: Db) => createPipeline(db, appJobQueue);
 export type WorkerOptions = JobDeps & {
   connectionString: string;
   db: Db;
-  // This month's spend, in dollars, at which every job waits (each may pay for a model call); none by default.
+  // This month's spend on everyone, in dollars, at which every job waits (each may pay for a model call);
+  // none by default. A job a Reader caused also waits while that Reader is at their own budget.
   budgetUsd?: number | null;
   pollingIntervalSeconds?: number;
   pausedRecheckSeconds?: number;
@@ -112,12 +113,12 @@ export async function startWorker(options: WorkerOptions) {
   await ensureQueues(boss);
   const queue = queueFor(boss);
   const polling = pollingIntervalSeconds && { pollingIntervalSeconds };
-  // Each queue, and the queue of the jobs it gave up on. Over budget, a job is sent again for later
-  // instead of run, so it uses up none of its attempts however long the month has left.
+  // Each queue, and the queue of the jobs it gave up on. Over budget (everyone's, or its Reader's), a job
+  // is sent again for later instead of run, so it uses up none of its attempts however long the month has left.
   const work = async (kind: Job["kind"], localConcurrency: number, toJob: (data: never) => Job) => {
     await boss.work(QUEUE[kind], { localConcurrency, ...polling }, async ([job]) => {
       const next = toJob(job.data as never);
-      if (await readPause(db, budgetUsd)) {
+      if (await readPause(db, next.userId ?? null, { globalBudgetUsd: budgetUsd })) {
         await boss.send(QUEUE[kind], dataOf(next), { singletonKey: jobKey(next), startAfter: pausedRecheckSeconds });
         return;
       }
@@ -125,8 +126,12 @@ export async function startWorker(options: WorkerOptions) {
     });
     await boss.work(GAVE_UP[kind], { ...polling }, async ([job]) => jobGaveUp(db, queue, toJob(job.data as never)));
   };
-  await work("enrich", ENRICH_CONCURRENCY, ({ bookId }: { bookId: string }) => ({ kind: "enrich", bookId }));
-  await work("embed", ENRICH_CONCURRENCY, (target: Extract<Job, { kind: "embed" }>["target"]) => ({ kind: "embed", target }));
+  await work("enrich", ENRICH_CONCURRENCY, ({ bookId, userId }: { bookId: string; userId?: string }) => ({ kind: "enrich", bookId, userId }));
+  await work("embed", ENRICH_CONCURRENCY, ({ userId, ...target }: Extract<Job, { kind: "embed" }>["target"] & { userId?: string }) => ({
+    kind: "embed",
+    target,
+    userId,
+  }));
   // Serial: a burst of finishes (a backfill) queues rather than running in parallel.
   await work("connections", 1, ({ userId, bookId }: { userId: string; bookId: string }) => ({ kind: "connections", userId, bookId }));
   await work("graph", 1, ({ userId }: { userId: string }) => ({ kind: "graph", userId }));

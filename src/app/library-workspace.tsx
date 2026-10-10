@@ -8,8 +8,9 @@ import { BookPanel } from "./book-panel";
 import { SearchPane } from "./search-pane";
 import { ReaderLink } from "./reader-link";
 import { ViewSwitch } from "./view-switch";
+import type { Pause } from "@/domain/spend";
 
-export function LibraryWorkspace({ items, finding, paused }: { items: LibraryItem[]; finding: number; paused: string | null }) {
+export function LibraryWorkspace({ items, finding, paused }: { items: LibraryItem[]; finding: number; paused: Pause | null }) {
   const [searchOpen, setSearchOpen] = useState(true);
   const [bookId, setBookId] = useState<string | null>(null);
   // The Book last removed: search says so and fetches again, so its result stops saying it is in the library.

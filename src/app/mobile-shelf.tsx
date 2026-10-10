@@ -13,6 +13,7 @@ import { hasDraft } from "./note-draft";
 import { focusNote, NoteSheet } from "./note-sheet";
 import { quietLink } from "./quiet-link";
 import { ReaderLink } from "./reader-link";
+import type { Pause } from "@/domain/spend";
 
 const SECTIONS = [
   { status: "want", label: "Want to read" },
@@ -39,7 +40,7 @@ const chevron = (
 // The pen on a Reading row opens the Note sheet for that Book over the shelf.
 // The Book screen is a URL (/?book=<id>), and so are Add (/?add) and the Note sheet (/?note=<id>), so the
 // phone's back gesture returns to the screen before.
-export function MobileShelf({ items, finding, paused }: { items: LibraryItem[]; finding: number; paused: string | null }) {
+export function MobileShelf({ items, finding, paused }: { items: LibraryItem[]; finding: number; paused: Pause | null }) {
   const params = useSearchParams();
   const bookId = params.get("book");
   const adding = !bookId && params.has("add");

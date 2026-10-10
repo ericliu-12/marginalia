@@ -134,6 +134,13 @@
       "when": 1791570619617,
       "tag": "0018_cluster_described_members",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791596028061,
+      "tag": "0019_paid_call_reader",
+      "breakpoints": true
     }
   ]
 }

@@ -20,6 +20,7 @@ import { DRAW_FIRST_MS, DRAW_STEP_MS, DRAW_UNHURRIED, TYPE_COLOR, TYPE_LABEL } f
 import { CLOSED, panelState } from "./panel-state";
 import { TrailCrumbs } from "./trail-crumbs";
 import { WIDE, useWide } from "../use-wide";
+import type { Pause } from "@/domain/spend";
 
 // The floating panel: 27rem, as the library's right pane, inset from the canvas edge.
 const PANEL_INSET = 27 * 17 + 24;
@@ -52,7 +53,7 @@ export function GraphWorkspace({
   graph: GraphView;
   items: LibraryItem[];
   finding: number;
-  paused: string | null;
+  paused: Pause | null;
   userId: string;
   // With a single Finished Book, its Enrichment themes, where it has any.
   loneThemes: string[];

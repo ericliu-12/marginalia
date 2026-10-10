@@ -314,14 +314,17 @@ export const graphJob = pgTable("graph_job", {
   laidOut: boolean("laid_out").notNull().default(false),
 });
 
-// --- Spend (not per reader) ---
+// --- Spend ---
 
 // One row per paid model call, Claude or Voyage, at list price, so the month's spend can be held to
-// MONTHLY_AI_BUDGET_USD. Voyage reports tokens, not cost; its cost is the tokens at its list price.
+// MONTHLY_AI_BUDGET_USD, and each Reader's to their own budget. Voyage reports tokens, not cost; its cost is the tokens at its list price.
 export const paidCall = pgTable(
   "paid_call",
   {
     id: id(),
+    // The Reader whose action caused the call; null for a bulk script, or once the Reader is deleted
+    // (the call still counts toward the month).
+    userId: uuid("user_id").references(() => user.id, { onDelete: "set null" }),
     provider: text("provider", { enum: ["anthropic", "voyage"] }).notNull(),
     model: text("model").notNull(),
     purpose: text("purpose", { enum: ["enrichment", "judge", "cluster-naming", "embedding"] }).notNull(),
@@ -330,5 +333,5 @@ export const paidCall = pgTable(
     costUsd: doublePrecision("cost_usd").notNull(),
     createdAt: createdAt(),
   },
-  (t) => [index("paid_call_created_at_idx").on(t.createdAt)],
+  (t) => [index("paid_call_created_at_idx").on(t.createdAt), index("paid_call_user_id_created_at_idx").on(t.userId, t.createdAt)],
 );

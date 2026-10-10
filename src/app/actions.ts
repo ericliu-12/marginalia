@@ -10,7 +10,7 @@ import { readEntryEnrichment, tryAgain, type EnrichmentView } from "@/domain/enr
 import { countFindingConnections, dismissConnection, readConnection, readConnections, type ConnectionDetail, type ConnectionsView } from "@/domain/connections";
 import { readGraphStatus, type GraphStatus } from "@/domain/graph-job";
 import { changeStatus, removeFromLibrary } from "@/domain/library-entry";
-import { readPause } from "@/domain/spend";
+import { readPause, type Pause } from "@/domain/spend";
 import { appPipeline } from "@/lib/jobs";
 import { requireReader } from "@/lib/signed-in";
 import { addNote, deleteNote, listNotes, updateNote, type Note, type NoteInput } from "@/domain/notes";
@@ -86,7 +86,7 @@ export async function changeStatusAction(
     const userId = await requireReader();
     const db = appDb();
     const { firstCompletion } = await changeStatus(db, appPipeline(db), userId, bookId, status);
-    const pause = firstCompletion ? await readPause(db) : null;
+    const pause = firstCompletion ? await readPause(db, userId) : null;
     revalidatePath("/");
     revalidatePath("/graph");
     return { ok: true, firstCompletion, paused: pause?.resumesOn ?? null };
@@ -216,14 +216,14 @@ export async function graphStatusAction(): Promise<GraphStatus | null> {
   }
 }
 
-// The quiet line by the wordmark: Books finding Connections, and whether background work is paused at
-// this month's spending limit (`paused` is the day it resumes).
-export async function backgroundStatusAction(): Promise<{ finding: number; paused: string | null } | null> {
+// The quiet line by the wordmark: Books finding Connections, and whether the Reader's background work is
+// paused at this month's spending limit, or their own.
+export async function backgroundStatusAction(): Promise<{ finding: number; paused: Pause | null } | null> {
   try {
     const userId = await requireReader();
     const db = appDb();
-    const [finding, pause] = await Promise.all([countFindingConnections(db, userId), readPause(db)]);
-    return { finding, paused: pause?.resumesOn ?? null };
+    const [finding, pause] = await Promise.all([countFindingConnections(db, userId), readPause(db, userId)]);
+    return { finding, paused: pause };
   } catch (err) {
     console.error(err);
     return null;
