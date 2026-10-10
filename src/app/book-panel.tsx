@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useOptimistic, useRef, useState, useTransition, type ReactNode, type RefObject } from "react";
 import { flushSync } from "react-dom";
+import { useRouter } from "next/navigation";
 import type { LibraryItem } from "@/domain/library";
 import type { Status } from "@/domain/search";
 import type { EnrichmentView } from "@/domain/enrichment";
@@ -233,6 +234,7 @@ const STATUSES: Status[] = ["want", "reading", "read"];
 // will be, or that they wait for the month's spending limit; it goes when the Status moves on, and a
 // later Read-through never brings it back.
 function StatusControl({ item }: { item: LibraryItem }) {
+  const router = useRouter();
   const [shown, show] = useOptimistic(item.status);
   const [pending, start] = useTransition();
   const [error, setError] = useState(false);
@@ -240,13 +242,18 @@ function StatusControl({ item }: { item: LibraryItem }) {
   const [finishLine, setFinishLine] = useState<{ paused: string | null } | null>(null);
 
   function move(to: Status) {
-    if (pending || to === shown) return;
+    // A tap while a move is still saving goes through too: Next sends them in order, so the last one stands.
+    if (to === shown) return;
     setError(false);
     // Only the move's own answer can bring the line back, so a later Read-through never flashes it.
     setFinishLine(null);
+    const from = window.location.href;
     start(async () => {
       show(to);
       const res = await changeStatusAction(item.bookId, to);
+      // Left before the move landed (back to Add, say): Next can apply its return to that screen, built
+      // from the library before the move, over the move's own refresh. Fetch the library again.
+      if (window.location.href !== from) router.refresh();
       if (!res.ok) return setError(true);
       if (to === "read" && res.firstCompletion) setFinishLine({ paused: res.paused });
     });
