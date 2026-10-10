@@ -24,7 +24,7 @@ export default function PrivacyPage() {
             "Your library: the Books you add, their Status, when you read them, and any titles or authors you change.",
             "Your Notes, with any quoted passages and page numbers.",
             "The Connections and Clusters Marginalia finds among your Books.",
-            "For each signed-in device: the IP address and browser it signed in from.",
+            "For each signed-in device: the IP address and browser it signed in from, until you sign out or 90 days pass without a visit.",
           ]}
         />
         <p>Sign-in codes are stored scrambled and expire after 5 minutes.</p>
@@ -33,7 +33,7 @@ export default function PrivacyPage() {
       <Section id="use" title="How it’s used">
         <p>
           Only to run Marginalia for you: to show your library, find Connections between your Books, and sign you in. There are no ads,
-          no analytics and no tracking. Your data is never sold. One cookie keeps you signed in.
+          no analytics and no tracking. Your data is never sold. The only cookies are the ones that keep you signed in.
         </p>
       </Section>
 
@@ -41,20 +41,32 @@ export default function PrivacyPage() {
         <p>These services do part of the work, and see only what they need for it:</p>
         <Ruled
           items={[
-            { name: "Anthropic", text: "Your Notes and the titles of your Books, when Claude judges how two Books connect and names your Clusters." },
-            { name: "Voyage AI", text: "Your Notes and descriptions of your Books, turned into embeddings that help find Books that might connect." },
+            {
+              name: "Anthropic",
+              text: "Your Notes, and your Books’ titles, authors and descriptions, when Claude summarises a Book, judges how two Books connect and names your Clusters.",
+            },
+            {
+              name: "Voyage AI",
+              text: "Your Notes and the quoted passages in them, and summaries of your Books, turned into embeddings that help find Books that might connect.",
+            },
             { name: "Resend", text: "Your email address, to send your sign-in codes." },
-            { name: "Google", text: "Your sign-in, if you choose Continue with Google." },
+            {
+              name: "Google",
+              text: "Your sign-in, if you choose Continue with Google. The name, email and picture Google shares are used only to sign you in, under Google’s API Services User Data Policy, including its Limited Use requirements.",
+            },
             { name: "Railway", text: "Everything: it hosts Marginalia and its database." },
             { name: "Cloudflare R2", text: "Everything, in the nightly backups of the database." },
-            { name: "Open Library and Google Books", text: "What you search for when adding a Book, with nothing that identifies you." },
+            {
+              name: "Open Library and Google Books",
+              text: "What you search for when adding a Book, sent from our server with nothing that identifies you. Book covers load from Open Library straight to your browser, so it sees your IP address when one is shown.",
+            },
           ]}
         />
       </Section>
 
       <Section id="your-data" title="Exporting and deleting your data">
         <p>
-          To export or delete your data, write to <Email /> from the email address you sign in with.
+          To export or delete your data, write to <Email /> from the email address you sign in with. We’ll do it within 30 days.
         </p>
       </Section>
 
@@ -70,7 +82,7 @@ export default function PrivacyPage() {
       </Section>
 
       <Section id="changes" title="Changes">
-        <p>If this page changes, its date above changes too. For a change that affects what happens to your data, we’ll email you first.</p>
+        <p>If this page changes, its date above changes too. For a change that affects what happens to your data, we’ll email you at least 30 days before it takes effect.</p>
       </Section>
     </LegalPage>
   );

@@ -44,7 +44,7 @@ export default function TermsPage() {
         </p>
       </Section>
 
-      <Section id="use" title="Fair use">
+      <Section id="use" title="Acceptable use">
         <p>Please don’t:</p>
         <Bullets
           items={[
@@ -59,25 +59,26 @@ export default function TermsPage() {
       <Section id="availability" title="The service as it is">
         <p>
           Marginalia is offered as it is, without warranties. It may change, pause or stop. If it’s going to shut down, we’ll tell you
-          first and give you time to take your data with you.
+          at least 30 days ahead, so you have time to take your data with you.
         </p>
         <p>
-          As far as the law allows, we aren’t liable for indirect or consequential losses, or for losing data, from your use of Marginalia.
+          As far as the law allows, we aren’t liable for indirect or consequential losses, or for losing data, from your use of Marginalia, and
+          our total liability is limited to what you’ve paid us, if anything, in the past 12 months.
         </p>
       </Section>
 
       <Section id="ending" title="Leaving">
         <p>
-          You can stop using Marginalia at any time. To delete your account and data, write to <Email />.
+          You can stop using Marginalia at any time. To delete your account and data, write to <Email />; we’ll do it within 30 days.
         </p>
       </Section>
 
       <Section id="law" title="Governing law">
-        <p>These terms are governed by the laws of the State of New York, and any dispute is settled in its courts.</p>
+        <p>These terms are governed by the laws of the State of New York, and any dispute is settled in the state or federal courts in New York County.</p>
       </Section>
 
       <Section id="changes" title="Changes">
-        <p>If these terms change, the date above changes too. For a change that matters, we’ll email you first.</p>
+        <p>If these terms change, the date above changes too. For a change that matters, we’ll email you at least 30 days before it takes effect.</p>
       </Section>
     </LegalPage>
   );
