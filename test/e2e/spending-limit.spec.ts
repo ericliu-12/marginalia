@@ -1,15 +1,14 @@
 import { expect, test, type Page } from "@playwright/test";
-import { markFinding, overBudget, readingBook, seedLibrary } from "./database";
+import { atFirstMonthLimit, markFinding, overBudget, readingBook, seedLibrary } from "./database";
+import { READER_A, READER_B, signedIn } from "./session";
 
 // Past this month's spending limit, background work waits, and the quiet line by the wordmark says so in
 // place of the Books finding Connections. No worker runs here; the line reads what the worker would.
 
 const now = new Date();
-const resumesOn = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)).toLocaleDateString("en-GB", {
-  day: "numeric",
-  month: "long",
-  timeZone: "UTC",
-});
+const day = (d: Date) => d.toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "UTC" });
+const monthTurns = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+const resumesOn = day(monthTurns);
 const line = (page: Page) => page.getByRole("status").filter({ hasText: /\S/ });
 
 test.beforeEach(async () => {
@@ -26,6 +25,22 @@ test("the library and the graph say spending is paused, and when it resumes, ins
   await expect(line(page)).toHaveText(`Spending limit reached · resumes ${resumesOn}`);
   await page.goto("/graph");
   await expect(line(page)).toHaveText(`Spending limit reached · resumes ${resumesOn}`);
+});
+
+test("a new Reader at their first-month limit is told it is one, and when it lifts; another Reader sees nothing paused", async ({ page, browser }) => {
+  // Joined ten days ago: the limit lifts when their account is 30 days old, or as the month turns if sooner.
+  const joined = new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000);
+  const firstMonthEnds = new Date(joined.getTime() + 30 * 24 * 60 * 60 * 1000);
+  await atFirstMonthLimit(READER_A, joined);
+  await page.goto("/");
+  await expect(line(page)).toHaveText(`First-month limit reached · lifts ${day(firstMonthEnds < monthTurns ? firstMonthEnds : monthTurns)}`);
+
+  const other = await (await browser.newContext({ storageState: signedIn(READER_B) })).newPage();
+  await other.goto("/");
+  // The line by the wordmark is there, and says nothing about a limit.
+  await expect(other.getByRole("status").first()).toBeAttached();
+  await expect(other.getByRole("status").filter({ hasText: /limit/ })).toHaveCount(0);
+  await other.context().close();
 });
 
 test.describe("on a phone", () => {
