@@ -153,6 +153,8 @@ export type NamingInput = {
   // The Cluster's current name, which the call may keep; null for a new Cluster. Its description is
   // not passed, so facts it stated are never carried into the next one.
   previousName: string | null;
+  // The rename threshold is not met: the call must keep `previousName` and write only a description.
+  keepName: boolean;
   books: NamingBook[];
   // Between two of `books`, by title.
   connections: { a: string; b: string; explanation: string }[];
@@ -166,8 +168,9 @@ export interface ClusterNamer {
   name(input: NamingInput): Promise<NamingResult>;
 }
 
-// A named Cluster is named again only once its membership has changed by both this share of its
-// membership at naming time and this many Books, added and removed counted together.
+// A named Cluster is described again whenever its membership changes, but renamed only once it has
+// changed by both this share of its membership at naming time and this many Books, added and removed
+// counted together.
 const RENAME_SHARE = 0.3;
 const RENAME_MIN_BOOKS = 2;
 export const NAME_MAX_WORDS = 4;
@@ -176,16 +179,25 @@ export const NAMING_ATTEMPTS = 3;
 // The strongest Connections among a Cluster's Books that the call sees.
 const NAMING_CONNECTIONS = 40;
 
-function needsName(c: { name: string | null; members: string[]; named: string[] | null }) {
-  if (c.name === null || c.named === null) return true;
-  const [now, then] = [new Set(c.members), new Set(c.named)];
-  const changed = c.members.filter((b) => !then.has(b)).length + c.named.filter((b) => !now.has(b)).length;
-  return changed >= RENAME_MIN_BOOKS && changed >= RENAME_SHARE * c.named.length;
+type Label = { name: string | null; members: string[]; named: string[] | null; described: string[] | null };
+
+// Books added to and removed from `then` to give `now`.
+function changed(now: string[], then: string[]) {
+  const [n, t] = [new Set(now), new Set(then)];
+  return now.filter((b) => !t.has(b)).length + then.filter((b) => !n.has(b)).length;
 }
+
+function needsName(c: Label) {
+  if (c.name === null || c.named === null) return true;
+  const n = changed(c.members, c.named);
+  return n >= RENAME_MIN_BOOKS && n >= RENAME_SHARE * c.named.length;
+}
+
+const needsDescription = (c: Label) => needsName(c) || changed(c.members, c.described ?? c.named!) > 0;
 
 // The reader's titles and authors for `members`, their Enrichment themes, and the strongest
 // non-dismissed Connections among them.
-async function namingInput(db: Db, userId: string, members: string[], previousName: string | null): Promise<NamingInput> {
+async function namingInput(db: Db, userId: string, members: string[], previousName: string | null, keepName: boolean): Promise<NamingInput> {
   const rows = await db
     .select({ id: book.id, title: book.title, authors: book.authors, entry: libraryEntry, themes: enrichment.themes, recognised: enrichment.recognised })
     .from(book)
@@ -201,18 +213,20 @@ async function namingInput(db: Db, userId: string, members: string[], previousNa
     .slice(0, NAMING_CONNECTIONS);
   return {
     previousName,
+    keepName,
     books: rows.map((r) => ({ ...displayed(r, r.entry), themes: r.recognised ? (r.themes ?? []) : [] })),
     connections: connections.map((c) => ({ a: title.get(c.a)!, b: title.get(c.b)!, explanation: c.explanation })),
   };
 }
 
 // One Cluster's name, trying up to NAMING_ATTEMPTS times; a reply that is not a name of at most
-// NAME_MAX_WORDS words with a description counts as a failure. Null when every attempt failed.
+// NAME_MAX_WORDS words with a description counts as a failure. A name the call had to keep is kept,
+// whatever it replied. Null when every attempt failed.
 async function nameOne(namer: ClusterNamer, input: NamingInput): Promise<NamingResult | null> {
   for (let attempt = 1; attempt <= NAMING_ATTEMPTS; attempt++) {
     try {
       const r = await namer.name(input);
-      const [name, description] = [r.name.trim(), r.description.trim()];
+      const [name, description] = [input.keepName ? input.previousName! : r.name.trim(), r.description.trim()];
       const words = name.split(/\s+/).filter(Boolean).length;
       if (words === 0 || words > NAME_MAX_WORDS || !description) throw new Error(`Not a Cluster name: ${JSON.stringify(r.name)}`);
       return { ...r, name, description };
@@ -224,25 +238,34 @@ async function nameOne(namer: ClusterNamer, input: NamingInput): Promise<NamingR
 }
 
 // Domain seam, run by the worker after a recompute: names each of the reader's Clusters that is new,
-// or unnamed, or has changed enough since it was named. Never throws for a failed name: that Cluster
+// or unnamed, or has changed enough since it was named, and describes again, keeping its name, each
+// whose membership has changed at all since it was described. Never throws for a failed name: that Cluster
 // keeps what it had (a new one shows unnamed) and is tried again after the next recompute. A name is
 // stored only while the Cluster still has the membership it was given for; one that changed meanwhile
 // is named by the job that change queued.
 export async function nameClusters(db: Db, namer: ClusterNamer, userId: string): Promise<void> {
   const rows = await db
-    .select({ id: clusterLabel.id, members: clusterLabel.memberBookIds, named: clusterLabel.namedMemberBookIds, name: clusterLabel.name })
+    .select({
+      id: clusterLabel.id,
+      members: clusterLabel.memberBookIds,
+      named: clusterLabel.namedMemberBookIds,
+      described: clusterLabel.describedMemberBookIds,
+      name: clusterLabel.name,
+    })
     .from(clusterLabel)
     .where(eq(clusterLabel.userId, userId))
     .orderBy(asc(clusterLabel.createdAt), asc(clusterLabel.id));
-  for (const c of rows.filter(needsName)) {
-    const r = await nameOne(namer, await namingInput(db, userId, c.members, c.name));
+  for (const c of rows.filter(needsDescription)) {
+    const keepName = !needsName(c);
+    const r = await nameOne(namer, await namingInput(db, userId, c.members, c.name, keepName));
     if (!r) continue;
     await db
       .update(clusterLabel)
       .set({
         name: r.name,
         description: r.description,
-        namedMemberBookIds: c.members,
+        ...(keepName ? {} : { namedMemberBookIds: c.members }),
+        describedMemberBookIds: c.members,
         model: namer.model,
         promptVersion: namer.promptVersion,
         inputTokens: r.inputTokens,
