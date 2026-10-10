@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import type { Db } from "@/db/client";
-import { user } from "@/db/schema";
+import { libraryEntry, user } from "@/db/schema";
 import {
   connectionsGaveUp,
   generateConnections,
@@ -138,16 +138,22 @@ export function createPipeline(db: Db, queue: JobQueue) {
 // Clusters are current (and named) and a newly Finished Book has a stored place even when it found
 // nothing; the graph stays pending until all of it is done. What the job pays for is charged to its Reader.
 export async function runJob(db: Db, deps: JobDeps, queue: JobQueue, job: Job): Promise<void> {
-  if (await readerGone(db, job)) return;
+  if (await dropIfReaderGone(db, queue, job)) return;
   return chargeTo(job.userId ?? null, () => run(db, deps, queue, job));
 }
 
-// A job whose Reader has been deleted since it was queued does nothing: it pays for no call, writes
-// no row and sends no job. One that names no Reader runs.
-export async function readerGone(db: Db, job: Job): Promise<boolean> {
+// A job whose Reader has been deleted since it was queued is dropped: it pays for no call, writes no
+// row and sends no job. But an Enrichment for a Book other Readers still have is queued again with no
+// payer (charged to nobody, still under the cap on everyone), so theirs doesn't stay pending. True when
+// the job was dropped; one that names no Reader runs.
+export async function dropIfReaderGone(db: Db, queue: JobQueue, job: Job): Promise<boolean> {
   if (!job.userId) return false;
-  const [row] = await db.select({ id: user.id }).from(user).where(eq(user.id, job.userId));
-  return !row;
+  const [reader] = await db.select({ id: user.id }).from(user).where(eq(user.id, job.userId));
+  if (reader) return false;
+  if (job.kind === "enrich" && (await db.select({ id: libraryEntry.id }).from(libraryEntry).where(eq(libraryEntry.bookId, job.bookId)).limit(1)).length) {
+    await queue.send({ kind: "enrich", bookId: job.bookId });
+  }
+  return true;
 }
 
 async function run(db: Db, deps: JobDeps, queue: JobQueue, job: Job): Promise<void> {
@@ -180,9 +186,9 @@ async function run(db: Db, deps: JobDeps, queue: JobQueue, job: Job): Promise<vo
 
 // A job the queue will not attempt again: its last attempt failed, or its worker died and the attempt
 // expired. Whatever it leaves behind is marked failed, so nothing waits on a job that is not coming,
-// and the work that waited on it goes ahead. Safe to run more than once. Nothing, once its Reader is gone.
+// and the work that waited on it goes ahead. Safe to run more than once. Dropped, as runJob drops it, once its Reader is gone.
 export async function jobGaveUp(db: Db, queue: JobQueue, job: Job): Promise<void> {
-  if (await readerGone(db, job)) return;
+  if (await dropIfReaderGone(db, queue, job)) return;
   if (job.kind === "enrich") {
     await enrichmentGaveUp(db, job.bookId);
     await resumeConnections(db, queue, job.bookId);
