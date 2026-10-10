@@ -3,8 +3,8 @@ import { redirect } from "next/navigation";
 import { appDb } from "@/db/client";
 import { user } from "@/db/schema";
 import { signedInReader } from "@/lib/signed-in";
-import { PaperColumn, Section } from "../legal";
-import { quietButton } from "./quiet-button";
+import { PaperColumn, Ruled, Section } from "../legal";
+import { DownloadExport } from "./download-export";
 import { SignOut } from "./sign-out";
 
 export const dynamic = "force-dynamic";
@@ -30,13 +30,17 @@ export default async function AccountPage() {
       ]}
     >
       <Section id="your-data" title="Your data">
-        <p className="text-ink-2">
-          Everything you’ve written or chosen here, in one JSON file: your library, with each Book’s Status, when you read it and any title
-          or author you changed; your Notes; the Books you added by hand; and the Connections between your Books, dismissed ones included.
-        </p>
-        <a href="/api/export" download className={`${quietButton} mt-4`}>
-          Download export
-        </a>
+        <p className="text-ink-2">Everything you’ve written or chosen here, in one file to keep:</p>
+        <Ruled
+          items={[
+            { name: "Library", text: "Each Book, its Status, when you read it, and any title or author you changed." },
+            { name: "Notes", text: "Every Note, with its quoted passage and page." },
+            { name: "Books added by hand", text: "The Books you made yourself, with what you wrote about them." },
+            { name: "Connections", text: "The Connections between your Books and why they connect, dismissed ones included." },
+          ]}
+        />
+        <p className="font-sans text-[0.8rem] text-ink-3">Covers, descriptions and summaries come from elsewhere, so they aren’t in it.</p>
+        <DownloadExport />
       </Section>
 
       <Section id="sign-out" title="Sign out">

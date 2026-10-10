@@ -42,7 +42,7 @@ export function PaperColumn({ title, subtitle, links, children }: { title: strin
       <div className="w-full max-w-[36rem] text-[1.0625rem] leading-[1.6] text-pretty">
         <header className="flex items-baseline justify-between gap-4">
           <p className="text-[1.75rem] leading-none font-medium tracking-[-0.01em] italic">Marginalia</p>
-          <Link href="/" className={`${quietLink} inline-flex items-center`}>
+          <Link href="/" className={`${quietLink} inline-flex shrink-0 items-center whitespace-nowrap`}>
             Back to Marginalia
           </Link>
         </header>

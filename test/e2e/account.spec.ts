@@ -25,7 +25,11 @@ test("Account opens the account page, whose export downloads the Reader's Notes 
   await expect(page.getByRole("contentinfo").getByRole("link", { name: "Privacy" })).toHaveAttribute("href", "/privacy");
   await expect(page.getByRole("contentinfo").getByRole("link", { name: "Terms" })).toHaveAttribute("href", "/terms");
 
-  const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("link", { name: "Download export" }).click()]);
+  // An export that fails says so, and can be tried again.
+  await page.route("**/api/export", (route) => route.fulfill({ status: 500 }), { times: 1 });
+  await page.getByRole("link", { name: "Download export" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Couldn’t prepare your export." })).toBeVisible();
+  const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("link", { name: "Try again" }).click()]);
   expect(download.suggestedFilename()).toMatch(/^marginalia-export-\d{4}-\d{2}-\d{2}\.json$/);
   const data = JSON.parse(await readFile((await download.path())!, "utf8"));
   const stoner = data.libraryEntries.find((e: { book: { title: string } }) => e.book.title === "Stoner");
