@@ -10,6 +10,7 @@ import { Cover } from "./cover";
 import { quietLink } from "./quiet-link";
 import { addButton, addChoices, LABELS, LookalikeNote, ManualBookForm, useBookSearch } from "./search-pane";
 import { useVisibleViewport } from "./use-visible-viewport";
+import type { Pause } from "@/domain/spend";
 
 // A Book added while Add is open: it can be undone until Done. `workKey` is null for one added by hand.
 type Added = { bookId: string; workKey: string | null; title: string; byline: string; coverUrl: string | null; status: Status };
@@ -40,7 +41,7 @@ export function MobileAdd({
 }: {
   items: LibraryItem[];
   finding: number;
-  paused: string | null;
+  paused: Pause | null;
   hidden: boolean;
   onDone: () => void;
   onOpenBook: (bookId: string) => void;

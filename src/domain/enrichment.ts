@@ -231,13 +231,13 @@ export async function enrichmentGaveUp(db: Db, bookId: string): Promise<void> {
 
 // Asks for the Book's Enrichment: pending until a job runs, or failed when none could be queued. A
 // `retry` runs whatever the hashes say; otherwise an Enrichment that is already there is left alone.
-// False when no job is coming.
-export async function requestEnrichment(db: Db, queue: JobQueue, bookId: string, retry: boolean): Promise<boolean> {
+// The Reader asking pays for it. False when no job is coming.
+export async function requestEnrichment(db: Db, queue: JobQueue, userId: string, bookId: string, retry: boolean): Promise<boolean> {
   const values = { bookId, status: "pending" as const, ...(retry && { requestedAt: new Date() }) };
   const insert = db.insert(enrichment).values(values);
   await (retry ? insert.onConflictDoUpdate({ target: enrichment.bookId, set: values }) : insert.onConflictDoNothing());
   try {
-    await queue.send({ kind: "enrich", bookId });
+    await queue.send({ kind: "enrich", bookId, userId });
     return true;
   } catch (err) {
     console.error(err);
@@ -272,5 +272,5 @@ export async function readEntryEnrichment(db: Db, userId: string, bookId: string
 // whatever changed. False when no job could be queued.
 export async function tryAgain(db: Db, pipeline: Pipeline, userId: string, bookId: string): Promise<boolean> {
   if (!(await findEntry(db, userId, bookId))) throw new NotInLibraryError(bookId);
-  return pipeline.enrichmentRetried(bookId);
+  return pipeline.enrichmentRetried(userId, bookId);
 }

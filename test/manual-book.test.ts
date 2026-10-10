@@ -36,7 +36,7 @@ describe("Manual Books, lookalikes and overrides", () => {
       expect(await readLibrary(ctx.db, ctx.userId)).toMatchObject([
         { bookId, title: "Notes from a Kitchen", authors: ["June Ash"], manual: true, description: "Recipes and grief." },
       ]);
-      expect(enrichJobs()).toEqual([{ kind: "enrich", bookId }]);
+      expect(enrichJobs()).toEqual([{ kind: "enrich", bookId, userId: ctx.userId }]);
     });
 
     it("trims its fields and stores missing optional ones as null", async () => {
@@ -103,7 +103,7 @@ describe("Manual Books, lookalikes and overrides", () => {
         ctx.jobs.sent.length = 0;
         const [current] = await readLibrary(ctx.db, ctx.userId);
         await edit(bookId, { title: current.title, author: current.authors[0], description: current.description ?? "", ...change });
-        expect(enrichJobs()).toEqual([{ kind: "enrich", bookId }]);
+        expect(enrichJobs()).toEqual([{ kind: "enrich", bookId, userId: ctx.userId }]);
         await enrichBook(ctx.db, { model }, bookId);
       }
 

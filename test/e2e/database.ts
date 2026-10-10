@@ -287,6 +287,14 @@ export async function overBudget() {
   await pool.end();
 }
 
+// The Reader joined on `joined` and has spent their whole first-month budget ($1) this month.
+export async function atFirstMonthLimit(reader: Reader, joined: Date) {
+  const { db, pool } = createDb(e2eDatabaseUrl());
+  await db.update(user).set({ createdAt: joined }).where(eq(user.id, reader.id));
+  await db.insert(paidCall).values({ userId: reader.id, provider: "anthropic", model: "e2e", purpose: "judge", inputTokens: 0, outputTokens: 0, costUsd: 1 });
+  await pool.end();
+}
+
 // The Book with this title.
 export async function bookIdOf(title: string) {
   const { db, pool } = createDb(e2eDatabaseUrl());

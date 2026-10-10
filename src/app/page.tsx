@@ -12,6 +12,6 @@ export default async function LibraryPage() {
   const userId = await signedInReader();
   if (!userId) redirect("/sign-in");
   const db = appDb();
-  const [items, finding, pause] = await Promise.all([readLibrary(db, userId), countFindingConnections(db, userId), readPause(db)]);
-  return <Library items={items} finding={finding} paused={pause?.resumesOn ?? null} />;
+  const [items, finding, pause] = await Promise.all([readLibrary(db, userId), countFindingConnections(db, userId), readPause(db, userId)]);
+  return <Library items={items} finding={finding} paused={pause} />;
 }

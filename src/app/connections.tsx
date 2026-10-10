@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState, useTransition } from "react";
 import type { ConnectionCard, ConnectionsView } from "@/domain/connections";
+import type { Pause } from "@/domain/spend";
 import { backgroundStatusAction, dismissConnectionAction, getConnectionsAction, refreshConnectionsAction } from "./client-actions";
 import { dangerLink, quietLink } from "./quiet-link";
 import { useInlineConfirm } from "./use-inline-confirm";
@@ -201,13 +202,18 @@ export function DismissConnection({
   );
 }
 
+// Where a narrow phone wraps the line, it wraps at the dot, never inside the date.
+const unbroken = (text: string) => text.replaceAll(" ", "\u00a0");
+
 // While paused, and nothing is finding Connections, the line checks back this often for the month to turn.
 const PAUSED_POLL_MS = 60_000;
 
-// The quiet line beside the wordmark while Books are finding their Connections, or while background
-// work is paused at this month's spending limit (`paused` is the day it resumes), which it says instead.
-// `className` places it; by default it sits after the wordmark.
-export function FindingIndicator({ initial, paused: initialPaused, className }: { initial: number; paused: string | null; className?: string }) {
+// The quiet line beside the wordmark while Books are finding their Connections, or while the Reader's
+// background work is paused at a spending limit, which it says instead: a new Reader's first-month
+// limit by name, and that it is their Connections that wait, so it reads as neither a fault nor a block
+// on adding Books. `className` places it; by default it sits
+// after the wordmark.
+export function FindingIndicator({ initial, paused: initialPaused, className }: { initial: number; paused: Pause | null; className?: string }) {
   const [seen, setSeen] = useState({ initial, initialPaused });
   const [count, setCount] = useState(initial);
   const [paused, setPaused] = useState(initialPaused);
@@ -227,7 +233,11 @@ export function FindingIndicator({ initial, paused: initialPaused, className }: 
     [],
   );
   usePoll(poll, count > 0 ? POLL_MS : PAUSED_POLL_MS, count > 0 || paused !== null);
-  const line = paused !== null ? `Spending limit reached · resumes ${paused}` : count > 0 ? `${count} ${count === 1 ? "Book" : "Books"} finding Connections` : null;
+  const line = paused
+    ? paused.firstMonth
+      ? `First-month limit · ${unbroken(`Connections back ${paused.resumesOn}`)}`
+      : `Spending limit reached · ${unbroken(`resumes ${paused.resumesOn}`)}`
+    : count > 0 ? `${count} ${count === 1 ? "Book" : "Books"} finding Connections` : null;
   // The live region stays mounted so the line is announced when it appears.
   return (
     <p role="status" className={`font-serif text-sm text-ink-3 italic ${className ?? `mr-auto ${line ? "ml-4" : ""}`}`}>

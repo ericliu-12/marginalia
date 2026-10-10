@@ -55,7 +55,7 @@ export async function addNote(db: Db, pipeline: Pipeline, userId: string, bookId
     })
     .returning(columns);
   if (!created) throw new NoteNotFoundError(id!);
-  await pipeline.noteSaved(created.id);
+  await pipeline.noteSaved(userId, created.id);
   return created;
 }
 
@@ -77,7 +77,7 @@ export async function updateNote(db: Db, pipeline: Pipeline, userId: string, not
     .where(and(eq(note.id, noteId), ownedBy(db, userId)))
     .returning(columns);
   if (!updated) throw new NoteNotFoundError(noteId);
-  await pipeline.noteSaved(updated.id);
+  await pipeline.noteSaved(userId, updated.id);
   return updated;
 }
 

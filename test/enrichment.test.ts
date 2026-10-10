@@ -69,7 +69,7 @@ describe("Enrichment", () => {
     await enrichBook(ctx.db, { model }, b.id);
     ctx.jobs.sent.length = 0;
     expect(await tryAgain(ctx.db, ctx.pipeline, ctx.userId, b.id)).toBe(true);
-    expect(ctx.jobs.sent).toEqual([{ kind: "enrich", bookId: b.id }]);
+    expect(ctx.jobs.sent).toEqual([{ kind: "enrich", bookId: b.id, userId: ctx.userId }]);
     expect(await readEnrichment(ctx.db, b.id)).toMatchObject({ status: "pending" });
     await enrichBook(ctx.db, { model }, b.id);
     expect(model.inputs).toHaveLength(2);

@@ -20,6 +20,7 @@
     "embed:backfill": "tsx --env-file-if-exists=.env src/backfill-embeddings.ts",
     "graph:layout": "tsx --env-file-if-exists=.env src/layout-graph.ts",
     "invite": "tsx --env-file-if-exists=.env src/invite.ts",
+    "reader-budget": "tsx --env-file-if-exists=.env src/reader-budget.ts",
     "eval": "tsx --env-file-if-exists=.env scripts/eval/judge-eval.ts",
     "bench:graph": "tsx --env-file-if-exists=.env scripts/bench/graph-bench.ts",
     "db:generate": "drizzle-kit generate",

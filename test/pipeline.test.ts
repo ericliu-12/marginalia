@@ -44,7 +44,7 @@ describe("Pipeline", () => {
 
   it("enriches a Book once when it is queued twice before running", async () => {
     const { bookId } = await add("a");
-    await ctx.pipeline.bookAdded(bookId);
+    await ctx.pipeline.bookAdded(ctx.userId, bookId);
     const model = fakeEnricher();
     await ctx.jobs.drain(deps({ model }));
     expect(model.inputs).toHaveLength(1);
@@ -187,7 +187,7 @@ describe("Pipeline", () => {
       expect((await runs()).at(-1)).toMatchObject({ withoutEnrichment: false });
 
       // Once only: nothing more runs.
-      await ctx.pipeline.bookAdded(stuck);
+      await ctx.pipeline.bookAdded(ctx.userId, stuck);
       await ctx.jobs.drain(deps({ judge }));
       expect(judge.inputs).toHaveLength(1);
       expect((await readConnections(ctx.db, ctx.userId, other)).status).toBe("idle");
@@ -332,7 +332,7 @@ describe("Pipeline", () => {
       expect(await readConnections(ctx.db, ctx.userId, bookId)).toMatchObject({ status: "failed", leftOut: { notes: 0, enrichment: true } });
 
       await ctx.pipeline.refreshRequested(ctx.userId, bookId);
-      expect(ctx.jobs.sent.at(-2)).toEqual({ kind: "embed", target: { kind: "enrichment", id: bookId } });
+      expect(ctx.jobs.sent.at(-2)).toEqual({ kind: "embed", target: { kind: "enrichment", id: bookId }, userId: ctx.userId });
       await ctx.jobs.drain(deps());
       expect(await enrichmentRow(bookId)).toMatchObject({ embeddingModel: "fake-voyage", embedFailedAt: null });
       expect(await readConnections(ctx.db, ctx.userId, bookId)).toMatchObject({ status: "idle", leftOut: { enrichment: false } });

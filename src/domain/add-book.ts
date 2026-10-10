@@ -105,7 +105,7 @@ export async function addBook(
     if (isUniqueViolation(err)) throw new DuplicateBookError(work.workKey);
     throw err;
   }
-  await pipeline.bookAdded(result.bookId);
+  await pipeline.bookAdded(userId, result.bookId);
   // Adding a Book directly as read is its first completion, so a backfill add finds Connections too.
   if (result.firstCompletion) await pipeline.bookFinished(userId, result.bookId);
   return result;
@@ -136,7 +136,7 @@ export async function addManualBook(db: Db, pipeline: Pipeline, userId: string, 
     const { entry, firstCompletion } = await enterLibrary(tx, userId, row.id, status);
     return { ...entry, firstCompletion };
   });
-  await pipeline.bookAdded(result.bookId);
+  await pipeline.bookAdded(userId, result.bookId);
   if (result.firstCompletion) await pipeline.bookFinished(userId, result.bookId);
   return result;
 }

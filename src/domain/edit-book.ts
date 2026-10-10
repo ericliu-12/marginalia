@@ -33,5 +33,5 @@ export async function editBook(db: Db, pipeline: Pipeline, userId: string, bookI
   await db.update(book).set(fields).where(eq(book.id, bookId));
   const changed =
     fields.title !== b.title || fields.authors.join(", ") !== b.authors.join(", ") || fields.description !== b.description;
-  if (changed) await pipeline.manualBookEdited(bookId);
+  if (changed) await pipeline.manualBookEdited(userId, bookId);
 }

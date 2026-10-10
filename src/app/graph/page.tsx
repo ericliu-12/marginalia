@@ -16,8 +16,8 @@ export default async function GraphPage() {
   const userId = await signedInReader();
   if (!userId) redirect("/sign-in?next=%2Fgraph");
   const db = appDb();
-  const [graph, items, finding, pause] = await Promise.all([readGraph(db, userId), readLibrary(db, userId), countFindingConnections(db, userId), readPause(db)]);
+  const [graph, items, finding, pause] = await Promise.all([readGraph(db, userId), readLibrary(db, userId), countFindingConnections(db, userId), readPause(db, userId)]);
   // A lone Book's themes stand in for the Connections it has yet to make.
   const lone = graph.books.length === 1 ? await readEntryEnrichment(db, userId, graph.books[0].bookId) : null;
-  return <GraphWorkspace graph={graph} items={items} finding={finding} paused={pause?.resumesOn ?? null} userId={userId} loneThemes={lone?.themes ?? []} />;
+  return <GraphWorkspace graph={graph} items={items} finding={finding} paused={pause} userId={userId} loneThemes={lone?.themes ?? []} />;
 }

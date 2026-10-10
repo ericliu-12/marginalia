@@ -67,7 +67,7 @@ export async function retryEmbeddings(db: Db, queue: JobQueue, userId: string, b
     .returning({ id: note.id });
   for (const { id } of notes) {
     try {
-      await queue.send({ kind: "embed", target: { kind: "note", id } });
+      await queue.send({ kind: "embed", target: { kind: "note", id }, userId });
     } catch (err) {
       console.error(err);
       await noteEmbeddingFailed(db, id);
@@ -80,7 +80,7 @@ export async function retryEmbeddings(db: Db, queue: JobQueue, userId: string, b
     .returning({ id: enrichment.bookId });
   if (!gaveUp) return;
   try {
-    await queue.send({ kind: "embed", target: { kind: "enrichment", id: bookId } });
+    await queue.send({ kind: "embed", target: { kind: "enrichment", id: bookId }, userId });
   } catch (err) {
     console.error(err);
     await enrichmentEmbeddingFailed(db, bookId);
