@@ -15,6 +15,8 @@ import { siteUrl } from "./site-url";
 // Readers sign in with Better Auth, in our Postgres (ADR 0002).
 
 const DAY_SECONDS = 24 * 60 * 60;
+// Deleting the account takes a session signed in less than this long ago (#68).
+export const FRESH_SESSION_S = DAY_SECONDS;
 const SEND_CODE = "/email-otp/send-verification-otp";
 const DELETE_ACCOUNT = "/delete-user";
 // Where the handler puts the client's address for Better Auth, as clientAddress reads it.
@@ -45,7 +47,7 @@ export function createAuth(db: Db, config: AuthConfig) {
     secret: config.secret,
     database: drizzleAdapter(db, { provider: "pg", schema }),
     // About 90 days, renewed once a day as the app is used, so the iPhone home-screen app stays signed in.
-    session: { expiresIn: 90 * DAY_SECONDS, updateAge: DAY_SECONDS },
+    session: { expiresIn: 90 * DAY_SECONDS, updateAge: DAY_SECONDS, freshAge: FRESH_SESSION_S },
     // Google's callback is ${baseURL}/api/auth/callback/google, the redirect URI on the Google OAuth client.
     // Google always asks which account, so a Reader with two isn't signed in with the wrong one unasked.
     socialProviders: { google: { ...config.google, prompt: "select_account" } },
@@ -61,7 +63,7 @@ export function createAuth(db: Db, config: AuthConfig) {
     // isn't proxied, so there's no cf-connecting-ip). Better Auth would refuse a list of addresses and put
     // every such request in one shared bucket, so the handler reads it with clientAddress instead.
     advanced: { database: { generateId: () => randomUUID() }, ipAddress: { ipAddressHeaders: [CLIENT_ADDRESS] } },
-    // Delete your account (#68). Better Auth refuses a session signed in a day or more ago (its freshAge),
+    // Delete your account (#68). Better Auth refuses a session that isn't fresh (signed in a day or more ago),
     // then deletes the user row, which takes everything the Reader owns with it (#93), and every session.
     // Their allowlist row goes too, so signing up again takes a fresh invitation.
     user: { deleteUser: { enabled: true, beforeDelete: (reader) => uninvite(db, reader.email) } },

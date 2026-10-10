@@ -78,11 +78,13 @@ export function CodeSignIn({
   next,
   callbackURL,
   googleFailed,
+  accountDeleted,
   turnstileSiteKey,
 }: {
   next: string;
   callbackURL: string;
   googleFailed: boolean;
+  accountDeleted: boolean;
   turnstileSiteKey: string;
 }) {
   const [step, setStep] = useState<"email" | "code">("email");
@@ -101,6 +103,8 @@ export function CodeSignIn({
   const [resent, setResent] = useState(false);
   const [googlePending, setGooglePending] = useState(false);
   const [googleError, setGoogleError] = useState<string | null>(null);
+  // Arrived from deleting their account (#68).
+  const [deleted, setDeleted] = useState(false);
   const emailInput = useRef<HTMLInputElement>(null);
   const codeInput = useRef<HTMLInputElement>(null);
   const codeForm = useRef<HTMLFormElement>(null);
@@ -109,12 +113,14 @@ export function CodeSignIn({
   // Set after the page loads, so the alert is a change a screen reader announces; and taken out of the
   // address, so a reload doesn't show it again.
   useEffect(() => {
-    if (!googleFailed) return;
-    setGoogleError(GOOGLE_FAILED);
+    if (!googleFailed && !accountDeleted) return;
+    if (googleFailed) setGoogleError(GOOGLE_FAILED);
+    else setDeleted(true);
     const url = new URL(window.location.href);
     url.searchParams.delete("error");
+    url.searchParams.delete("deleted");
     window.history.replaceState(null, "", url);
-  }, [googleFailed]);
+  }, [googleFailed, accountDeleted]);
 
   // Back from Google without signing in (Done on the iPhone's sheet, or the back button), the page may be
   // restored as it was left, still opening Google.
@@ -262,8 +268,8 @@ export function CodeSignIn({
     return (
       <form onSubmit={onEmail} noValidate className="w-full max-w-[19rem]">
         {wordmark}
-        <p id="google-message" role="alert" className="mt-8 min-h-5 font-sans text-sm text-pretty text-contrast">
-          {googleError}
+        <p id="google-message" role="alert" className={`mt-8 min-h-5 font-sans text-sm text-pretty ${googleError ? "text-contrast" : "text-ink-2"}`}>
+          {googleError ?? (deleted ? "Your account has been deleted." : null)}
         </p>
         <button type="button" onClick={onGoogle} disabled={googlePending} aria-describedby={googleError ? "google-message" : undefined} className={`${googleButton} mt-2`}>
           <GoogleMark />

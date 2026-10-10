@@ -1,11 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
-import { addNoteThatGaveUp, seedLibrary } from "./database";
+import { addNoteThatGaveUp, addSession, inviteEmail, isInvited, seedLibrary, signedInHoursAgo } from "./database";
 import { clearOutbox, codeSentTo } from "./mail";
-import { READER_A, signedOut } from "./session";
+import { READER_A, READER_B, signedIn, signedOut } from "./session";
 
 // The account page (#67), reached from Account beside the wordmark, since the home-screen app has no
-// address bar: the Reader's export, and Sign out.
+// address bar: the Reader's export, Sign out, and Delete your account (#68).
 
 let address = 0;
 test.beforeEach(async ({ page }) => {
@@ -47,6 +47,76 @@ test("Sign out ends the session, and the library then asks the Reader to sign in
   expect((await context.cookies()).map((c) => c.name)).not.toContain("better-auth.session_token");
   await page.goto("/");
   await expect(page).toHaveURL(/\/sign-in$/);
+});
+
+test("Delete your account, once delete is typed, signs the Reader out everywhere; signing up again starts an empty library", async ({ page, browser }) => {
+  await inviteEmail(READER_A.email);
+  // A's phone, signed in on its own session.
+  const phone = { ...READER_A, token: "e2e-reader-a-phone" };
+  await addSession(phone);
+  const other = await (await browser.newContext({ storageState: signedIn(phone) })).newPage();
+  await other.goto("/account");
+  await expect(other.getByText(`Signed in as ${READER_A.email}`)).toBeVisible();
+
+  await page.goto("/account");
+  const del = page.getByRole("region", { name: "Delete your account" });
+  const button = del.getByRole("button", { name: "Delete account" });
+  await expect(button).toBeDisabled();
+  await del.getByLabel("Type delete to confirm").fill("delet");
+  await expect(button).toBeDisabled();
+  await del.getByLabel("Type delete to confirm").fill("delete");
+
+  // A deletion that fails says so, deletes nothing, and can be tried again.
+  await page.route("**/api/auth/delete-user", (route) => route.fulfill({ status: 500 }), { times: 1 });
+  await button.click();
+  await expect(del.getByRole("status")).toHaveText("Couldn’t delete your account. Check your connection and try again.");
+  await del.getByRole("button", { name: "Try again" }).click();
+
+  await expect(page).toHaveURL(/\/sign-in$/);
+  await expect(page.getByText("Your account has been deleted.")).toBeVisible();
+  expect(await isInvited(READER_A.email)).toBe(false);
+  await other.goto("/");
+  await expect(other).toHaveURL(/\/sign-in$/);
+
+  // Invited again, A signs in to an empty library.
+  await inviteEmail(READER_A.email);
+  await page.getByLabel("Email").fill(READER_A.email);
+  await page.getByRole("button", { name: "Send code" }).click();
+  await page.getByLabel("Code").fill(await codeSentTo(READER_A.email));
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("link", { name: "Account" })).toBeVisible();
+  for (const title of ["Stoner", "Beloved"]) await expect(page.getByText(title)).toHaveCount(0);
+
+  // B's library is as it was.
+  const b = await (await browser.newContext({ storageState: signedIn(READER_B) })).newPage();
+  await b.goto("/account");
+  await expect(b.getByText(`Signed in as ${READER_B.email}`)).toBeVisible();
+});
+
+test("a Reader signed in more than a day ago signs in again before deleting, and comes back to it", async ({ page }) => {
+  await signedInHoursAgo(READER_A, 25);
+  await page.goto("/account");
+  const del = page.getByRole("region", { name: "Delete your account" });
+  await expect(del.getByText("To delete your account, sign in again first.")).toBeVisible();
+  await expect(del.getByLabel("Type delete to confirm")).toHaveCount(0);
+  await del.getByRole("button", { name: "Sign in again" }).click();
+  await expect(page).toHaveURL(/\/sign-in\?next=%2Faccount%23delete-account$/);
+  await page.getByLabel("Email").fill(READER_A.email);
+  await page.getByRole("button", { name: "Send code" }).click();
+  await page.getByLabel("Code").fill(await codeSentTo(READER_A.email));
+  await expect(page).toHaveURL(/\/account#delete-account$/);
+  await expect(del.getByLabel("Type delete to confirm")).toBeVisible();
+});
+
+test("a page left open past the day asks the Reader to sign in again when they delete", async ({ page }) => {
+  await page.goto("/account");
+  await signedInHoursAgo(READER_A, 25);
+  const del = page.getByRole("region", { name: "Delete your account" });
+  await del.getByLabel("Type delete to confirm").fill("delete");
+  await del.getByRole("button", { name: "Delete account" }).click();
+  await expect(del.getByRole("button", { name: "Sign in again" })).toBeVisible();
+  await page.goto("/account");
+  await expect(page.getByText(`Signed in as ${READER_A.email}`)).toBeVisible();
 });
 
 test("the graph's wordmark row carries Account", async ({ page }) => {
