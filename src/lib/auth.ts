@@ -10,13 +10,14 @@ import { mayBecomeReader, uninvite } from "@/domain/allowlist";
 import { takeCodeRequest } from "@/domain/code-requests";
 import { clientAddress } from "./client-address";
 import { appMailer, signInCodeMail, type Mailer } from "./mailer";
+import { CONFIRM_DELETE } from "./signed-out";
 import { siteUrl } from "./site-url";
 
 // Readers sign in with Better Auth, in our Postgres (ADR 0002).
 
 const DAY_SECONDS = 24 * 60 * 60;
 // Deleting the account takes a session signed in less than this long ago (#68).
-export const FRESH_SESSION_S = DAY_SECONDS;
+export const FRESH_SESSION_SECONDS = DAY_SECONDS;
 const SEND_CODE = "/email-otp/send-verification-otp";
 const DELETE_ACCOUNT = "/delete-user";
 // Where the handler puts the client's address for Better Auth, as clientAddress reads it.
@@ -47,7 +48,7 @@ export function createAuth(db: Db, config: AuthConfig) {
     secret: config.secret,
     database: drizzleAdapter(db, { provider: "pg", schema }),
     // About 90 days, renewed once a day as the app is used, so the iPhone home-screen app stays signed in.
-    session: { expiresIn: 90 * DAY_SECONDS, updateAge: DAY_SECONDS, freshAge: FRESH_SESSION_S },
+    session: { expiresIn: 90 * DAY_SECONDS, updateAge: DAY_SECONDS, freshAge: FRESH_SESSION_SECONDS },
     // Google's callback is ${baseURL}/api/auth/callback/google, the redirect URI on the Google OAuth client.
     // Google always asks which account, so a Reader with two isn't signed in with the wrong one unasked.
     socialProviders: { google: { ...config.google, prompt: "select_account" } },
@@ -64,16 +65,17 @@ export function createAuth(db: Db, config: AuthConfig) {
     // every such request in one shared bucket, so the handler reads it with clientAddress instead.
     advanced: { database: { generateId: () => randomUUID() }, ipAddress: { ipAddressHeaders: [CLIENT_ADDRESS] } },
     // Delete your account (#68). Better Auth refuses a session that isn't fresh (signed in a day or more ago),
-    // then deletes the user row, which takes everything the Reader owns with it (#93), and every session.
-    // Their allowlist row goes too, so signing up again takes a fresh invitation.
-    user: { deleteUser: { enabled: true, beforeDelete: (reader) => uninvite(db, reader.email) } },
+    // then deletes the Reader's user row, which takes everything they own with it (#93), and every session.
+    // Their allowlist row goes after, so signing up again takes a fresh invitation; a deletion that fails
+    // leaves it, with any budget kept on it.
+    user: { deleteUser: { enabled: true, afterDelete: (reader) => uninvite(db, reader.email) } },
     hooks: {
       // An email that may not sign in gets the reply everyone gets, and no code is made or sent, so the
       // reply doesn't reveal who is on the allowlist and strangers can't use our sender. Its limits come
       // first, and are the same for every email.
       before: createAuthMiddleware(async (ctx) => {
         // Only once the Reader has typed `delete`.
-        if (ctx.path === DELETE_ACCOUNT && ctx.body?.confirm !== "delete")
+        if (ctx.path === DELETE_ACCOUNT && ctx.body?.confirm !== CONFIRM_DELETE)
           throw new APIError("BAD_REQUEST", { message: "Type delete to delete your account.", code: "NOT_CONFIRMED" });
         if (ctx.path !== SEND_CODE) return;
         const email = typeof ctx.body?.email === "string" ? ctx.body.email : "";

@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { appDb } from "@/db/client";
 import { user } from "@/db/schema";
-import { appAuth, FRESH_SESSION_S } from "@/lib/auth";
+import { appAuth, FRESH_SESSION_SECONDS } from "@/lib/auth";
 import { signInPath } from "@/lib/signed-out";
 import { PaperColumn, proseLink, Ruled, Section } from "../legal";
 import { DeleteAccount } from "./delete-account";
@@ -20,7 +20,7 @@ export default async function AccountPage() {
   if (!signedIn) redirect(signInPath("/account"));
   const [reader] = await appDb().select({ email: user.email }).from(user).where(eq(user.id, signedIn.user.id));
   // As Better Auth judges it on deleting: signed in within the day.
-  const fresh = Date.now() - new Date(signedIn.session.createdAt).getTime() < FRESH_SESSION_S * 1000;
+  const fresh = Date.now() - new Date(signedIn.session.createdAt).getTime() < FRESH_SESSION_SECONDS * 1000;
   return (
     <PaperColumn
       title="Account"

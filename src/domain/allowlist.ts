@@ -14,7 +14,7 @@ export async function invite(db: Db, email: string, baseURL: string): Promise<st
   return new URL("/sign-in", baseURL).toString();
 }
 
-// Takes the email off the allowlist, as deleting its Reader's account does (#68).
+// Takes the email off the allowlist, as deleting its Reader does (#68).
 export async function uninvite(db: Db, email: string) {
   await db.delete(allowedEmail).where(eq(allowedEmail.email, normaliseEmail(email)));
 }

@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { signInPath } from "@/lib/signed-out";
+import { CONFIRM_DELETE, signInPath } from "@/lib/signed-out";
 import { field } from "../book-panel";
-
-const CONFIRM = "delete";
 
 // The quiet button in rust: a hairline that fills with rust on hover, 44px tall on touch.
 const dangerButton =
@@ -18,7 +16,7 @@ export function DeleteAccount({ fresh: freshAtLoad }: { fresh: boolean }) {
   const [fresh, setFresh] = useState(freshAtLoad);
   const [typed, setTyped] = useState("");
   const [state, setState] = useState<"idle" | "pending" | "failed">("idle");
-  const confirmed = typed.trim().toLowerCase() === CONFIRM;
+  const confirmed = typed.trim().toLowerCase() === CONFIRM_DELETE;
   // Turned stale on deleting: the form is gone, so focus goes to what replaces it.
   const turnedStale = useRef(false);
   const signInAgainButton = useRef<HTMLButtonElement>(null);
@@ -40,7 +38,7 @@ export function DeleteAccount({ fresh: freshAtLoad }: { fresh: boolean }) {
     const res = await fetch("/api/auth/delete-user", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ confirm: CONFIRM }),
+      body: JSON.stringify({ confirm: CONFIRM_DELETE }),
     }).catch(() => null);
     if (res?.ok) return window.location.assign("/sign-in?deleted");
     if (res?.status === 401) return window.location.assign(signInPath("/account#delete-account"));
@@ -54,17 +52,11 @@ export function DeleteAccount({ fresh: freshAtLoad }: { fresh: boolean }) {
     setState("failed");
   }
 
+  const failed = fresh ? "Couldn’t delete your account. Check your connection and try again." : "Couldn’t sign you out. Check your connection and try again.";
   const message = (
     <p id="delete-message" role="status" className="mt-2 min-h-5 font-sans text-[0.8rem] text-pretty text-contrast">
-      {state === "failed" ? (
-        fresh ? (
-          "Couldn’t delete your account. Check your connection and try again."
-        ) : (
-          "Couldn’t sign you out. Check your connection and try again."
-        )
-      ) : state === "pending" && fresh ? (
-        <span className="sr-only">Deleting your account…</span>
-      ) : null}
+      {state === "failed" && failed}
+      {state === "pending" && fresh && <span className="sr-only">Deleting your account…</span>}
     </p>
   );
 

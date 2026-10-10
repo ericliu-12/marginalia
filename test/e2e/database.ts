@@ -4,7 +4,7 @@ import { createDb } from "../../src/db/client";
 import { runMigrations } from "../../src/db/migrate";
 import { layoutGraph } from "../../src/domain/graph";
 import { runGraphJob } from "../../src/domain/graph-job";
-import { invite } from "../../src/domain/allowlist";
+import { invite, normaliseEmail } from "../../src/domain/allowlist";
 import { allowedEmail, book, bookPosition, clusterLabel, connection, enrichment, libraryEntry, note, paidCall, readThrough, session, user } from "../../src/db/schema";
 import { perWorktree } from "../worktree";
 import { READER_A, READER_B, type Reader } from "./session";
@@ -76,7 +76,7 @@ export async function inviteEmail(email: string) {
 
 export async function isInvited(email: string) {
   const { db, pool } = createDb(e2eDatabaseUrl());
-  const rows = await db.select().from(allowedEmail).where(eq(allowedEmail.email, email));
+  const rows = await db.select().from(allowedEmail).where(eq(allowedEmail.email, normaliseEmail(email)));
   await pool.end();
   return rows.length > 0;
 }
