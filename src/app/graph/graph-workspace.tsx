@@ -10,7 +10,7 @@ import { graphStatusAction } from "../client-actions";
 import { BookPanel } from "../book-panel";
 import { FindingIndicator } from "../connections";
 import { POLL_MS, usePoll } from "../use-poll";
-import { ReaderLink } from "../reader-link";
+import { AccountLink } from "../account-link";
 import { ViewSwitch } from "../view-switch";
 import { arriving, drawOrder, justFinished } from "./arrival";
 import { ClusterPanel } from "./cluster-panel";
@@ -186,7 +186,7 @@ export function GraphWorkspace({
         </div>
         <FindingIndicator initial={finding} paused={paused} />
         <div data-graph-chrome className="pointer-events-auto ml-auto">
-          <ReaderLink />
+          <AccountLink />
         </div>
       </header>
 
