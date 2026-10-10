@@ -38,9 +38,12 @@ export type Job =
 export const RETRIES: Record<Job["kind"], number> = { enrich: 3, embed: 5, connections: 2, graph: 2 };
 
 // Jobs with the same key coalesce: at most one waits per key, while one with the key may be running.
+// A shared Book's Enrichment and its vector are keyed per Reader too, so a job held at one Reader's
+// budget never holds another's; whichever runs second finds the work done and pays nothing.
 export function jobKey(job: Job): string {
-  if (job.kind === "enrich") return job.bookId;
-  if (job.kind === "embed") return `${job.target.kind}:${job.target.id}`;
+  const reader = (job.kind === "enrich" || job.kind === "embed") && job.userId ? `:${job.userId}` : "";
+  if (job.kind === "enrich") return `${job.bookId}${reader}`;
+  if (job.kind === "embed") return `${job.target.kind}:${job.target.id}${reader}`;
   if (job.kind === "graph") return job.userId;
   return `${job.userId}:${job.bookId}`;
 }

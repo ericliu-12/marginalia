@@ -15,11 +15,13 @@ export interface SpendLog {
 const chargedReader = new AsyncLocalStorage<string | null>();
 export const chargeTo = <T>(userId: string | null, run: () => Promise<T>): Promise<T> => chargedReader.run(userId, run);
 
-// Never throws: the call has already been paid for, and failing the job would only pay for it again.
+// Never throws: the call has already been paid for, and failing the job would only pay for it again. A
+// Reader deleted since their job was queued is charged as nobody, so the call still counts.
 export function spendLog(db: Db): SpendLog {
   return {
     async record(call) {
-      const values = { ...call, userId: chargedReader.getStore() ?? null };
+      const reader = chargedReader.getStore() ?? null;
+      const values = { ...call, userId: reader && sql<string>`(select ${user.id} from ${user} where ${user.id} = ${reader})` };
       try {
         await db.insert(paidCall).values(values);
       } catch (err) {

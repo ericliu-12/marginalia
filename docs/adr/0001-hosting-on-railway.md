@@ -74,4 +74,4 @@ The dumps are only worth having if one restores. Now and then (after a schema ch
 - A single backup layer, a day apart: a restore can lose up to a day's Notes and Books. Revisit (Railway Pro's volume backups, or a more frequent dump) when the data or the readers grow.
 - Migrations run before the web deploy, but the worker deploys from the same commit at the same time, so a migration that the old worker can't run against needs the worker stopped first.
 - `/privacy` and `/terms` (#62) name these services and the 30-day backup retention, so a change to either is a change to those pages. They are plain-language and written by us, not legal advice.
-- Opening the app to other readers (#45) reopens this: real accounts and per-Reader spend are in place (ADR 0002, #66); Voyage still has no cap.
+- Opening the app to other readers (#45) reopens this: sign-in and per-Reader spend are in place (ADR 0002, #66); Voyage still has no cap.

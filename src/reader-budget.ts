@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { createDb } from "./db/client";
 import { normaliseEmail, setReaderBudget } from "./domain/allowlist";
 
@@ -7,7 +8,7 @@ import { normaliseEmail, setReaderBudget } from "./domain/allowlist";
 const [email = "", amount = ""] = process.argv.slice(2);
 const usd = amount === "clear" ? null : Number(amount);
 const valid = usd === null || (amount.trim() !== "" && Number.isFinite(usd) && usd >= 0);
-if (!email.trim() || !valid) {
+if (!z.email().safeParse(email.trim()).success || !valid) {
   console.error("Usage: pnpm reader-budget <email> <usd>, or pnpm reader-budget <email> clear");
   process.exit(1);
 }

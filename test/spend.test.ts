@@ -112,6 +112,13 @@ describe("Spend", () => {
     expect(await ctx.db.select().from(allowedEmail).where(eq(allowedEmail.email, "stranger@marginalia.local"))).toEqual([]);
   });
 
+  it("still counts a call made for a Reader deleted since their job was queued, charged to nobody", async () => {
+    const gone = (await addReader(ctx.db, "gone@marginalia.local")).id;
+    await ctx.db.delete(user).where(eq(user.id, gone));
+    await chargeTo(gone, () => spendLog(ctx.db).record(call(2)));
+    expect(await ctx.db.select({ userId: paidCall.userId, costUsd: paidCall.costUsd }).from(paidCall)).toEqual([{ userId: null, costUsd: 2 }]);
+  });
+
   it("charges a paid call to the Reader a job runs for, and a shared Enrichment once, to the Reader who caused it", async () => {
     await spendLog(ctx.db).record(call(1));
     await chargeTo(ctx.userId, () => spendLog(ctx.db).record(call(2)));
@@ -224,6 +231,18 @@ describe("Spend", () => {
       await ctx.db.delete(paidCall);
       for (let i = 0; i < 40 && (await readEnrichment(ctx.db, held.bookId))?.status !== "ready"; i++) await new Promise((r) => setTimeout(r, 250));
       expect((await readEnrichment(ctx.db, held.bookId))?.status).toBe("ready");
+    }, 20_000);
+
+    it("doesn't hold a shared Book's Enrichment for another Reader because its first Reader is at their budget", async () => {
+      const other = (await addReader(ctx.db, "other@marginalia.local")).id;
+      await ctx.db.insert(paidCall).values({ ...call(1), userId: ctx.userId });
+      const shared = work({ workKey: "/works/sh1", title: "Emma", authors: ["Jane Austen"] });
+      const { bookId } = await addBook(ctx.db, pipeline, ctx.userId, shared, "want");
+      // Long enough for the held job to be put back for later.
+      await new Promise((r) => setTimeout(r, 1500));
+      await addBook(ctx.db, pipeline, other, shared, "want");
+      for (let i = 0; i < 40 && (await readEnrichment(ctx.db, bookId))?.status !== "ready"; i++) await new Promise((r) => setTimeout(r, 250));
+      expect((await readEnrichment(ctx.db, bookId))?.status).toBe("ready");
     }, 20_000);
   });
 });

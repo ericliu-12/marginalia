@@ -317,7 +317,8 @@ export const graphJob = pgTable("graph_job", {
 // --- Spend ---
 
 // One row per paid model call, Claude or Voyage, at list price, so the month's spend can be held to
-// MONTHLY_AI_BUDGET_USD, and each Reader's to their own budget. Voyage reports tokens, not cost; its cost is the tokens at its list price.
+// MONTHLY_AI_BUDGET_USD, and each Reader's to their own budget. Voyage reports tokens, not cost; its
+// cost is the tokens at its list price.
 export const paidCall = pgTable(
   "paid_call",
   {
