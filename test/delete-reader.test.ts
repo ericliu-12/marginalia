@@ -82,15 +82,17 @@ describe("Deleting a Reader", () => {
     const { rows } = await ctx.db.execute<UserForeignKey>(userForeignKeys);
     expect(rows.length).toBeGreaterThan(0);
     expect(rows.filter((r) => !["c", "n"].includes(r.onDelete))).toEqual([]);
+    // Spend outlives the Reader: the call still counts toward the month.
+    expect(rows.filter((r) => r.onDelete === "n").map((r) => r.table)).toEqual(["paid_call"]);
   });
 
   it("removes everything they own, keeps their paid calls unattributed, and leaves the other Reader and the shared Books alone", async () => {
     const theirs = (r: Record<string, unknown>) =>
       r.userId === a || r.id === a || r.createdByUserId === a || r.bookId === manual[a];
-    const others = await snapshot(theirs);
+    const withoutA = await snapshot(theirs);
     // Seeding gave A a row in each table, so the check below proves something.
     const all = await snapshot();
-    for (const name of Object.keys(TABLES)) expect(all[name].length, name).toBeGreaterThan(others[name].length);
+    for (const name of Object.keys(TABLES)) expect(all[name].length, name).toBeGreaterThan(withoutA[name].length);
 
     await ctx.db.delete(user).where(eq(user.id, a));
 
@@ -98,7 +100,7 @@ describe("Deleting a Reader", () => {
       const { rows } = await ctx.db.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM ${sql.raw(table)} WHERE ${sql.identifier(column)} = ${a}`);
       expect(rows[0].n, `${table}.${column}`).toBe(0);
     }
-    expect(await snapshot()).toEqual(others);
+    expect(await snapshot()).toEqual(withoutA);
     expect((await ctx.db.select({ title: book.title }).from(book)).map((r) => r.title).sort()).toEqual(["B's Diary", "Beloved", "Stoner"]);
     expect((await ctx.db.select({ userId: paidCall.userId }).from(paidCall)).map((r) => r.userId).sort()).toEqual([b, null].sort());
   });
