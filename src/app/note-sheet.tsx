@@ -5,7 +5,7 @@ import type { LibraryItem } from "@/domain/library";
 import type { Note } from "@/domain/notes";
 import { NoteForm } from "./book-panel";
 import { quietLink } from "./quiet-link";
-import { useVisibleViewport } from "./use-visible-viewport";
+import { useScrollLock, useVisibleViewport } from "./use-visible-viewport";
 
 // Focus the sheet's text with the caret after any kept draft. Inside a tap, this raises a phone's keyboard.
 export function focusNote(text: HTMLTextAreaElement | null) {
@@ -47,20 +47,13 @@ export function NoteSheet({
     if (!bodyRef.current?.closest("[role=dialog]")?.contains(document.activeElement)) focusNote(bodyRef.current);
   }, [bodyRef]);
 
-  // The shelf behind stays where it was rather than scrolling under the reader's thumb.
-  useEffect(() => {
-    const html = document.documentElement;
-    const was = html.style.overflow;
-    html.style.overflow = "hidden";
-    return () => {
-      html.style.overflow = was;
-    };
-  }, []);
+  useScrollLock(true);
 
   return (
     <div
-      className="fixed inset-x-0 z-30 flex flex-col justify-end"
-      style={view ? { top: view.top, height: view.height } : { top: 0, height: "100dvh" }}
+      className="fixed inset-0 z-30 flex flex-col justify-end"
+      // The layer covers the whole page; the sheet inside rides on top of the keyboard.
+      style={view ? { paddingTop: view.top, paddingBottom: view.bottom } : undefined}
     >
       <div aria-hidden onClick={() => leave(onClose)} className={`absolute inset-0 bg-ink/30 ${leaving ? "animate-fade-out" : "motion-safe:animate-fade-in"}`} />
       <div

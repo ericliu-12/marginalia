@@ -399,8 +399,8 @@ test("a Note that fails to save stays in the sheet with a quiet way to try again
   await expect(page.getByRole("status").filter({ hasText: "Note saved on Middlemarch" })).toBeVisible();
 });
 
-test("the Note sheet rides on top of the on-screen keyboard", async ({ page }) => {
-  // Playwright has no on-screen keyboard; this stands in for the visual viewport a phone shrinks to.
+// Playwright has no on-screen keyboard; this stands in for the visual viewport a phone shrinks to.
+const fakeKeyboard = async (page: Page) => {
   await page.addInitScript(() => {
     // The page's own size until a keyboard is "raised".
     let raised: { height: number; offsetTop: number } | null = null;
@@ -417,6 +417,37 @@ test("the Note sheet rides on top of the on-screen keyboard", async ({ page }) =
     };
   });
   await page.reload();
+};
+const raiseKeyboard = (page: Page, height: number, offsetTop = 0) =>
+  page.evaluate(([h, t]) => (window as unknown as { keyboard: (h: number, t?: number) => void }).keyboard(h, t), [height, offsetTop]);
+
+test("Add covers the whole shelf with the keyboard up, and keeps its search in view above it", async ({ page }) => {
+  await fakeKeyboard(page);
+  await page.getByRole("button", { name: "Add a Book" }).click();
+  await expect(addScreen(page)).toBeVisible();
+  // Every point on the screen, the strip above the keyboard and the keyboard's own place included, is Add.
+  const shelfShows = () =>
+    page.evaluate(() => {
+      const add = document.querySelector('[aria-labelledby="mobile-add-heading"]')!;
+      const ys = Array.from({ length: 46 }, (_, i) => i * 20 + 5);
+      return ys.filter((y) => [5, 206, 407].some((x) => !add.contains(document.elementFromPoint(x, y))));
+    });
+  for (const [height, offsetTop] of [
+    [480, 0],
+    [480, 120],
+  ]) {
+    await raiseKeyboard(page, height, offsetTop);
+    await expect.poll(shelfShows).toEqual([]);
+    // Nor can the shelf scroll under it, by the reader's thumb or by iOS reaching for the search.
+    await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
+    const search = (await searchbox(page).boundingBox())!;
+    expect(search.y).toBeGreaterThanOrEqual(offsetTop);
+    expect(search.y + search.height).toBeLessThanOrEqual(offsetTop + height);
+  }
+});
+
+test("the Note sheet rides on top of the on-screen keyboard", async ({ page }) => {
+  await fakeKeyboard(page);
   await pen(page, "Middlemarch").click();
   const bottom = async () => {
     const box = (await sheet(page).boundingBox())!;
@@ -424,10 +455,10 @@ test("the Note sheet rides on top of the on-screen keyboard", async ({ page }) =
   };
   await expect.poll(bottom).toBeCloseTo(915, 0);
 
-  await page.evaluate(() => (window as unknown as { keyboard: (h: number, t?: number) => void }).keyboard(480));
+  await raiseKeyboard(page, 480);
   await expect.poll(bottom).toBeCloseTo(480, 0);
   // iOS may also scroll the page under the keyboard; the sheet follows what is visible.
-  await page.evaluate(() => (window as unknown as { keyboard: (h: number, t?: number) => void }).keyboard(480, 120));
+  await raiseKeyboard(page, 480, 120);
   await expect.poll(bottom).toBeCloseTo(600, 0);
   expect((await sheet(page).boundingBox())!.y).toBeGreaterThanOrEqual(120);
 });

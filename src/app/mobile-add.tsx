@@ -9,7 +9,7 @@ import { FindingIndicator } from "./connections";
 import { Cover } from "./cover";
 import { quietLink } from "./quiet-link";
 import { addButton, addChoices, LABELS, LookalikeNote, ManualBookForm, useBookSearch } from "./search-pane";
-import { useVisibleViewport } from "./use-visible-viewport";
+import { useScrollLock, useVisibleViewport } from "./use-visible-viewport";
 import type { Pause } from "@/domain/spend";
 
 // A Book added while Add is open: it can be undone until Done. `workKey` is null for one added by hand.
@@ -71,6 +71,7 @@ export function MobileAdd({
   const [manualDraft, setManualDraft] = useState<BookDraft | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const view = useVisibleViewport();
+  useScrollLock(!hidden);
   // Until Add has risen, the search's caret is hidden: iOS draws it apart from the page, so it lags and
   // jitters behind the moving field. Without motion there is no rise, and the caret shows at once.
   const [risen, setRisen] = useState(false);
@@ -131,10 +132,11 @@ export function MobileAdd({
         if (e.target === inputRef.current && query) setQuery("");
         else onDone();
       }}
-      // Fitted to what the keyboard leaves visible, as the Note sheet is, so the heading and search stay in view.
-      style={view ? { top: view.top, height: view.height } : { top: 0, height: "100dvh" }}
+      // Covers the whole page, so no strip of the shelf shows above the keyboard; inside, it is fitted to
+      // what the keyboard leaves visible, as the Note sheet is, so the heading and search stay in view.
+      style={view ? { paddingTop: view.top, paddingBottom: view.bottom } : undefined}
       onAnimationEnd={(e) => e.target === e.currentTarget && setRisen(true)}
-      className="fixed inset-x-0 z-10 flex flex-col bg-paper motion-safe:animate-sheet-up"
+      className="fixed inset-0 z-10 flex flex-col bg-paper motion-safe:animate-sheet-up"
     >
       <div className="mx-auto w-full max-w-[40rem] flex-none px-6 pt-[max(1rem,env(safe-area-inset-top))]">
         <div className="flex min-h-11 items-center justify-between">
