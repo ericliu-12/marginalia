@@ -1,4 +1,6 @@
+import { eq } from "drizzle-orm";
 import type { Db } from "@/db/client";
+import { user } from "@/db/schema";
 import {
   connectionsGaveUp,
   generateConnections,
@@ -135,8 +137,17 @@ export function createPipeline(db: Db, queue: JobQueue) {
 // in jobGaveUp, has failed for good). A Connections job is followed by the reader's graph job, so their
 // Clusters are current (and named) and a newly Finished Book has a stored place even when it found
 // nothing; the graph stays pending until all of it is done. What the job pays for is charged to its Reader.
-export function runJob(db: Db, deps: JobDeps, queue: JobQueue, job: Job): Promise<void> {
+export async function runJob(db: Db, deps: JobDeps, queue: JobQueue, job: Job): Promise<void> {
+  if (await readerGone(db, job)) return;
   return chargeTo(job.userId ?? null, () => run(db, deps, queue, job));
+}
+
+// A job whose Reader has been deleted since it was queued does nothing: it pays for no call, writes
+// no row and sends no job. One that names no Reader runs.
+export async function readerGone(db: Db, job: Job): Promise<boolean> {
+  if (!job.userId) return false;
+  const [row] = await db.select({ id: user.id }).from(user).where(eq(user.id, job.userId));
+  return !row;
 }
 
 async function run(db: Db, deps: JobDeps, queue: JobQueue, job: Job): Promise<void> {
@@ -169,8 +180,9 @@ async function run(db: Db, deps: JobDeps, queue: JobQueue, job: Job): Promise<vo
 
 // A job the queue will not attempt again: its last attempt failed, or its worker died and the attempt
 // expired. Whatever it leaves behind is marked failed, so nothing waits on a job that is not coming,
-// and the work that waited on it goes ahead. Safe to run more than once.
+// and the work that waited on it goes ahead. Safe to run more than once. Nothing, once its Reader is gone.
 export async function jobGaveUp(db: Db, queue: JobQueue, job: Job): Promise<void> {
+  if (await readerGone(db, job)) return;
   if (job.kind === "enrich") {
     await enrichmentGaveUp(db, job.bookId);
     await resumeConnections(db, queue, job.bookId);

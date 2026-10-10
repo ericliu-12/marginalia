@@ -1,6 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { allowedEmail, paidCall, user } from "../src/db/schema";
 import { addBook } from "../src/domain/add-book";
 import { setReaderBudget } from "../src/domain/allowlist";
@@ -216,6 +216,26 @@ describe("Spend", () => {
       for (let i = 0; i < 40 && (await readEnrichment(ctx.db, entry.bookId))?.status !== "ready"; i++) await new Promise((r) => setTimeout(r, 250));
       expect((await readEnrichment(ctx.db, entry.bookId))?.status).toBe("ready");
       expect(model.inputs).toHaveLength(1);
+    }, 20_000);
+
+    it("drops a held job, rather than sending it again, once its Reader is deleted", async () => {
+      await spendLog(ctx.db).record(call(2.2));
+      const gone = (await addReader(ctx.db, "gone@marginalia.local")).id;
+      const { bookId } = await addBook(ctx.db, pipeline, gone, work({ workKey: "/works/g1", title: "Villette", authors: ["Charlotte Brontë"] }), "want");
+      const waiting = async () =>
+        (
+          await ctx.db.execute<{ n: number }>(
+            sql`SELECT count(*)::int AS n FROM pgboss.job WHERE name = 'enrich-book' AND singleton_key = ${`${bookId}:${gone}`} AND state IN ('created', 'retry', 'active')`,
+          )
+        ).rows[0].n;
+      // Long enough for the held job to be put back for later.
+      await new Promise((r) => setTimeout(r, 1500));
+      expect(await waiting()).toBe(1);
+
+      await ctx.db.delete(user).where(eq(user.id, gone));
+      for (let i = 0; i < 40 && (await waiting()) > 0; i++) await new Promise((r) => setTimeout(r, 250));
+      expect(await waiting()).toBe(0);
+      expect(model.inputs.filter((i) => i.title === "Villette")).toHaveLength(0);
     }, 20_000);
 
     it("holds only the jobs of a Reader at their own budget; another Reader's run", async () => {

@@ -1,6 +1,6 @@
 import { PgBoss } from "pg-boss";
 import type { Db } from "@/db/client";
-import { createPipeline, RETRIES, jobGaveUp, jobKey, runJob, type Job, type JobDeps, type JobQueue } from "@/domain/pipeline";
+import { createPipeline, RETRIES, jobGaveUp, jobKey, readerGone, runJob, type Job, type JobDeps, type JobQueue } from "@/domain/pipeline";
 import { readPause } from "@/domain/spend";
 
 // pg-boss queue names, and the data each job carries, are kept as they were before the Pipeline so
@@ -114,10 +114,12 @@ export async function startWorker(options: WorkerOptions) {
   const queue = queueFor(boss);
   const polling = pollingIntervalSeconds && { pollingIntervalSeconds };
   // Each queue, and the queue of the jobs it gave up on. Over budget (everyone's, or its Reader's), a job
-  // is sent again for later instead of run, so it uses up none of its attempts however long the month has left.
+  // is sent again for later instead of run, so it uses up none of its attempts however long the month has
+  // left; one whose Reader is gone is dropped instead.
   const work = async (kind: Job["kind"], localConcurrency: number, toJob: (data: never) => Job) => {
     await boss.work(QUEUE[kind], { localConcurrency, ...polling }, async ([job]) => {
       const next = toJob(job.data as never);
+      if (await readerGone(db, next)) return;
       if (await readPause(db, next.userId ?? null, { globalBudgetUsd: budgetUsd })) {
         await boss.send(QUEUE[kind], dataOf(next), { singletonKey: jobKey(next), startAfter: pausedRecheckSeconds });
         return;
