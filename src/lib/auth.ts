@@ -2,7 +2,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { APIError, createAuthMiddleware } from "better-auth/api";
+import { APIError, createAuthMiddleware, isAPIError } from "better-auth/api";
 import { captcha } from "better-auth/plugins";
 import { emailOTP } from "better-auth/plugins/email-otp";
 import { appDb, type Db } from "@/db/client";
@@ -43,6 +43,17 @@ type AuthConfig = {
   codeReplyMs: number;
 };
 
+// How Better Auth's errors are logged (#106): by name and message, and Postgres's own error, Drizzle's cause.
+// Drizzle's message ends with the query's params, the email among them, so that part is cut, and any email
+// left (Postgres's message can quote a value) is masked.
+function loggable(value: unknown): string {
+  if (!(value instanceof Error)) return redact(String(value));
+  const cause = value.cause instanceof Error ? ` (cause: ${loggable(value.cause)})` : "";
+  return `${value.name}: ${redact(value.message)}${cause}`;
+}
+const redact = (text: string) => text.replace(/\nparams: [\s\S]*/, "").replace(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g, "[email]");
+const logAuth = (level: "debug" | "info" | "warn" | "error", ...args: unknown[]) => console[level]("[Better Auth]", ...args.map(loggable));
+
 export function createAuth(db: Db, config: AuthConfig) {
   // Whether this request's code failed to send. Better Auth swallows an error from sendVerificationOTP and
   // replies with success, so the handler reads it from here instead.
@@ -61,8 +72,21 @@ export function createAuth(db: Db, config: AuthConfig) {
     // Google joins the Reader with the same email, if Google has verified it (it isn't a trusted provider,
     // so its say-so alone isn't enough) and so has an email code. A code finds a Google Reader by email too.
     account: { accountLinking: { enabled: true } },
+    logger: { log: logAuth },
     // A sign-in with Google that fails, for whatever reason, comes back to the sign-in page with `?error=`.
-    onAPIError: { errorURL: new URL("/sign-in", config.baseURL).toString() },
+    // Any other error is logged as Better Auth would, but through logAuth. One that isn't an APIError (a
+    // database failure) is replied to as a bare 500 APIError, since better-call would log it in full.
+    onAPIError: {
+      errorURL: new URL("/sign-in", config.baseURL).toString(),
+      onError: (err) => {
+        if (isAPIError(err)) {
+          if (err.status === "INTERNAL_SERVER_ERROR") logAuth("error", err.status, err);
+          return;
+        }
+        logAuth("error", err);
+        throw new APIError("INTERNAL_SERVER_ERROR");
+      },
+    },
     // In the database, so a restart doesn't reset them.
     rateLimit: { enabled: true, storage: "database", customRules: { [SEND_CODE]: { window: 60 * 60, max: 20 } } },
     // Uuids, as our ids are; not "uuid", which would also replace the ids Better Auth sets itself.

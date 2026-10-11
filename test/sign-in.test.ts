@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from "vitest";
 import { allowedEmail, session, user, verification } from "../src/db/schema";
 import { invite } from "../src/domain/allowlist";
@@ -170,5 +170,27 @@ describe("A sign-in code that fails to send", () => {
     await vi.waitFor(() => expect(logged).toHaveBeenCalled());
     expect(loggedText()).toContain("429 daily_quota_exceeded");
     expect(loggedText()).not.toContain(EMAIL);
+  });
+
+  // Better Auth logs this one itself (#106). Drizzle's error carries the query's params, the identifier
+  // sign-in-otp-<email> among them, and here Postgres's own message names the email too.
+  it("logs a database failure while storing the code by its message and name, never the email", async () => {
+    resendReplies(quotaReached);
+    await ctx.db.execute(sql`CREATE FUNCTION refuse_code() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION 'refused %', NEW.identifier; END $$ LANGUAGE plpgsql`);
+    await ctx.db.execute(sql`CREATE TRIGGER refuse_code BEFORE INSERT ON verification FOR EACH ROW EXECUTE FUNCTION refuse_code()`);
+    const elsewhere = [vi.spyOn(console, "warn").mockImplementation(() => {}), vi.spyOn(console, "log").mockImplementation(() => {})];
+    try {
+      const res = await requestCode("open");
+
+      expect(res.status).toBe(500);
+      const text = [logged, ...elsewhere].flatMap((spy) => spy.mock.calls.flat()).map((arg) => (arg instanceof Error ? `${arg.message} ${arg.stack}` : String(arg))).join(" ");
+      expect(text).toContain('Error: Failed query: insert into "verification"');
+      expect(text).toContain("(cause: error: refused");
+      expect(text).not.toContain(EMAIL);
+      expect(text).not.toContain("params");
+    } finally {
+      await ctx.db.execute(sql`DROP TRIGGER refuse_code ON verification`);
+      await ctx.db.execute(sql`DROP FUNCTION refuse_code`);
+    }
   });
 });
