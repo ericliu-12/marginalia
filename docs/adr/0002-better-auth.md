@@ -10,4 +10,5 @@ Sign-in is a code, not a magic link, because the iPhone home-screen app keeps co
 
 - Better Auth's `user` is our existing `user` table, with the columns it needs added. Ids stay uuids.
 - Auth callbacks use `https://inkmarginalia.com`. The Railway host redirects there with a 308, so it never signs anyone in.
-- While signup is allowlist-only, a code is sent only to an allowlisted email or an existing Reader's, and every other email gets the same neutral reply. That way the reply doesn't reveal who is on the list, and strangers can't use our sender to email other people.
+- While signup is allowlist-only, a code is sent only to an allowlisted email or an existing Reader's, and every other email gets the same neutral reply. That way the reply doesn't reveal who is on the list, and strangers can't use our sender to email other people. A code that fails to send still gets that reply, logged without the email.
+- With signup open (#70), every email is sent a code, so the reply says so plainly, and a code that fails to send gets a 503 the sign-in page turns into a nudge to Google.

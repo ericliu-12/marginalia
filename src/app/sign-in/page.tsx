@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { appAuth } from "@/lib/auth";
+import { appAuth, signupMode } from "@/lib/auth";
 import { safeNext } from "@/lib/signed-out";
 import { siteUrl } from "@/lib/site-url";
 import { quietLink } from "../quiet-link";
@@ -24,6 +24,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
           googleFailed={Boolean(error)}
           accountDeleted={deleted !== undefined}
           turnstileSiteKey={process.env.TURNSTILE_SITE_KEY ?? ""}
+          openSignup={signupMode() === "open"}
         />
         <nav aria-label="Privacy and terms" className="mt-10 flex items-center gap-4">
           <Link href="/privacy" className={`${quietLink} inline-flex items-center`}>

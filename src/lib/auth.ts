@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -25,6 +26,8 @@ const CLIENT_ADDRESS = "x-client-address";
 // Every reply to a code request takes at least this long, longer than the work behind any of them, so
 // its timing doesn't tell an email that may sign in from one that may not (#65).
 const CODE_REPLY_MS = 1000;
+// The reply when no code could be sent (#70), which the sign-in page turns into a nudge to Google.
+const CODE_NOT_SENT = "CODE_NOT_SENT";
 
 // `allowlist` (the default): only an invited email or an existing Reader's may sign in. `open`: anyone.
 export type SignupMode = "allowlist" | "open";
@@ -41,6 +44,9 @@ type AuthConfig = {
 };
 
 export function createAuth(db: Db, config: AuthConfig) {
+  // Whether this request's code failed to send. Better Auth swallows an error from sendVerificationOTP and
+  // replies with success, so the handler reads it from here instead.
+  const codeSend = new AsyncLocalStorage<{ failed: boolean }>();
   const allowed = (email: string) => config.signupMode === "open" || mayBecomeReader(db, email);
   const auth = betterAuth({
     // Every absolute URL comes from here, never from the request (see siteUrl).
@@ -107,9 +113,16 @@ export function createAuth(db: Db, config: AuthConfig) {
         expiresIn: 5 * 60,
         allowedAttempts: 3,
         storeOTP: "hashed",
-        // Not awaited, so the reply takes as long whether or not an email goes out.
+        // A failure is logged without the email. In open mode it's awaited, so the Reader hears no code went
+        // out (#70). While allowlist-only it isn't: the reply takes as long, and reads the same, whether or not
+        // an email goes out, so it doesn't reveal who is invited.
         async sendVerificationOTP({ email, otp }) {
-          config.mailer.send(signInCodeMail(email, otp)).catch((err) => console.error(`Could not send a sign-in code to ${email}`, err));
+          const outcome = codeSend.getStore();
+          const sent = config.mailer.send(signInCodeMail(email, otp)).catch((err: Error) => {
+            console.error("Could not send a sign-in code:", err.message);
+            if (outcome) outcome.failed = true;
+          });
+          if (config.signupMode === "open") await sent;
         },
       }),
     ],
@@ -124,8 +137,11 @@ export function createAuth(db: Db, config: AuthConfig) {
     const path = new URL(request.url).pathname.replace(/\/{2,}/g, "/").replace(/(.)\/$/, "$1");
     if (path !== `/api/auth${SEND_CODE}`) return auth.handler(request);
     const held = new Promise((resolve) => setTimeout(resolve, config.codeReplyMs));
-    const response = await auth.handler(request);
+    const outcome = { failed: false };
+    const response = await codeSend.run(outcome, () => auth.handler(request));
     await held;
+    if (outcome.failed && config.signupMode === "open")
+      return Response.json({ code: CODE_NOT_SENT, message: "Could not send a sign-in code." }, { status: 503 });
     return response;
   }
   return { ...auth, handler };

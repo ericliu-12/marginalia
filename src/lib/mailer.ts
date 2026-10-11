@@ -24,7 +24,11 @@ export function resendMailer(apiKey: string): Mailer {
         headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
         body: JSON.stringify(mail),
       });
-      if (!res.ok) throw new Error(`Resend refused the email: ${res.status} ${await res.text()}`);
+      // Resend's status and error name (daily_quota_exceeded, say), not its message, which can hold an address.
+      if (!res.ok) {
+        const { name } = (await res.json().catch(() => ({}))) as { name?: string };
+        throw new Error(`Resend refused the email: ${res.status} ${name ?? "(no error name)"}`);
+      }
     },
   };
 }

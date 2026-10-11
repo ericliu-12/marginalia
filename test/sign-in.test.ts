@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from "vitest";
 import { allowedEmail, session, user, verification } from "../src/db/schema";
 import { invite } from "../src/domain/allowlist";
 import { createAuth, type SignupMode } from "../src/lib/auth";
@@ -108,23 +108,67 @@ describe("pnpm invite", () => {
   });
 });
 
+// Resend refuses (a quota or rate limit reached, a key revoked) or can't be reached (#70). Asked for as
+// the browser asks, through the handler, with Turnstile's siteverify faked to pass.
 describe("A sign-in code that fails to send", () => {
   const ctx = useTestDb();
+  const EMAIL = "friend@example.com";
+  let logged: MockInstance<typeof console.error>;
+  const requestCode = (signupMode: SignupMode) =>
+    createAuth(ctx.db, { mailer: resendMailer("re_test"), signupMode, baseURL: BASE_URL, secret: "s".repeat(32), google: GOOGLE, turnstileSecretKey: "secret", codeReplyMs: 0 }).handler(
+      new Request(`${BASE_URL}/api/auth/email-otp/send-verification-otp`, {
+        method: "POST",
+        headers: { origin: BASE_URL, "content-type": "application/json", "x-forwarded-for": "203.0.113.1", "x-captcha-response": "token" },
+        body: JSON.stringify({ email: EMAIL, type: "sign-in" }),
+      }),
+    );
+  const resendReplies = (reply: () => Response) =>
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => (String(url).startsWith("https://api.resend.com") ? reply() : Response.json({ success: true }))),
+    );
+  // Resend's error for a quota, with an address in its message, as some of its messages have.
+  const quotaReached = () => Response.json({ statusCode: 429, name: "daily_quota_exceeded", message: `Could not send to ${EMAIL}: daily quota exceeded.` }, { status: 429 });
+  const loggedText = () => logged.mock.calls.flat().map(String).join(" ");
+
+  beforeEach(() => {
+    logged = vi.spyOn(console, "error").mockImplementation(() => {});
+  });
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
-  it("is logged with Resend's error, since the request doesn't wait for it", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response('{"message":"The domain is not verified"}', { status: 403 })));
-    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
-    const auth = createAuth(ctx.db, { mailer: resendMailer("re_test"), signupMode: "open", baseURL: BASE_URL, secret: "s".repeat(32), google: GOOGLE, turnstileSecretKey: "secret", codeReplyMs: 0 });
+  it("in open mode, tells the browser no code went out, and logs Resend's status and error name but never the email", async () => {
+    resendReplies(quotaReached);
+    const res = await requestCode("open");
 
-    expect(await auth.api.sendVerificationOTP({ body: { email: "friend@example.com", type: "sign-in" } })).toEqual({ success: true });
+    expect(res.status).toBe(503);
+    expect(await res.json()).toMatchObject({ code: "CODE_NOT_SENT" });
+    expect(logged).toHaveBeenCalledOnce();
+    expect(loggedText()).toContain("429 daily_quota_exceeded");
+    expect(loggedText()).not.toContain(EMAIL);
+  });
+
+  it("in open mode, says the same when Resend can't be reached", async () => {
+    resendReplies(() => {
+      throw new TypeError("fetch failed");
+    });
+    const res = await requestCode("open");
+
+    expect(res.status).toBe(503);
+    expect(loggedText()).not.toContain(EMAIL);
+  });
+
+  it("while allowlist-only, gives the reply everyone gets, so a failure doesn't reveal who is invited, and logs it without the email", async () => {
+    await invite(ctx.db, EMAIL, BASE_URL);
+    resendReplies(quotaReached);
+    const res = await requestCode("allowlist");
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ success: true });
     await vi.waitFor(() => expect(logged).toHaveBeenCalled());
-    const [message, error] = logged.mock.calls[0];
-    expect(message).toBe("Could not send a sign-in code to friend@example.com");
-    expect(String(error)).toContain("403");
-    expect(String(error)).toContain("The domain is not verified");
+    expect(loggedText()).toContain("429 daily_quota_exceeded");
+    expect(loggedText()).not.toContain(EMAIL);
   });
 });

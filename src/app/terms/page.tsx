@@ -6,7 +6,7 @@ export const metadata: Metadata = { title: "Terms · Marginalia" };
 
 export default function TermsPage() {
   return (
-    <LegalPage title="Terms" updated="9 October 2026" other={{ href: "/privacy", label: "Privacy" }}>
+    <LegalPage title="Terms" updated="11 October 2026" other={{ href: "/privacy", label: "Privacy" }}>
       <p className="mt-8 text-ink-2">The agreement between you and Marginalia, in plain words. By using Marginalia, you agree to it.</p>
 
       <Section id="who" title="Who runs Marginalia">
@@ -69,7 +69,11 @@ export default function TermsPage() {
 
       <Section id="ending" title="Leaving">
         <p>
-          You can stop using Marginalia at any time. To delete your account and data, write to <Email />; we’ll do it within 30 days.
+          You can stop using Marginalia at any time. To delete your account and data, choose Delete account on{" "}
+          <Link href="/account#delete-account" className={proseLink}>
+            your account page
+          </Link>
+          . It’s deleted at once.
         </p>
       </Section>
 
