@@ -26,6 +26,7 @@ describe("Enrichment through the queue", () => {
   let beforeJudging: ((input: JudgeInput) => Promise<void>) | undefined;
   let queue: JobQueue;
   let pipeline: Pipeline;
+  let bulkPipeline: Pipeline;
   let stop: () => Promise<void>;
 
   beforeAll(async () => {
@@ -41,6 +42,7 @@ describe("Enrichment through the queue", () => {
     });
     queue = worker.queue;
     pipeline = createPipeline(ctx.db, queue);
+    bulkPipeline = createPipeline(ctx.db, worker.bulkQueue);
     stop = worker.stop;
   });
   afterAll(() => stop());
@@ -156,4 +158,60 @@ describe("Enrichment through the queue", () => {
     await new Promise((r) => setTimeout(r, 1000));
     expect((await states()).filter((s) => s !== "completed" && s !== "cancelled")).toEqual([]);
   });
+
+  // Three Books (`${prefix}3` to `${prefix}5`) a Reader has read, with one Finished Book to connect them to, and
+  // the serial Connections queue held on a fourth while the test queues work behind it. `release` lets
+  // it go; `judged` is the order the three are judged in once each has its Connections.
+  async function heldConnectionsQueue(prefix: string) {
+    const add = (n: number, status: "read" | "reading") =>
+      addBook(ctx.db, pipeline, ctx.userId, work({ workKey: `/works/${prefix}${n}`, title: `${prefix}${n}`, authors: ["A"] }), status);
+    const generated = async (bookId: string) =>
+      (await ctx.db.select().from(libraryEntry).where(eq(libraryEntry.bookId, bookId)))[0].connectionsGeneratedAt;
+    const ready = async (bookId: string) =>
+      (await ctx.db.select().from(enrichment).where(eq(enrichment.bookId, bookId)))[0]?.embeddingModel === "fake-voyage";
+    const first = await add(1, "read");
+    await until(async () => (await generated(first.bookId)) !== null);
+    const [blocker, ...books] = await Promise.all([2, 3, 4, 5].map((n) => add(n, "reading")));
+    for (const { bookId } of [blocker, ...books]) await until(() => ready(bookId));
+
+    let release!: () => void;
+    const held = new Promise<void>((r) => (release = r));
+    let holding = false;
+    beforeJudging = async () => {
+      beforeJudging = undefined;
+      holding = true;
+      await held;
+    };
+    await changeStatus(ctx.db, pipeline, ctx.userId, blocker.bookId, "read");
+    await until(async () => holding);
+    return {
+      bookIds: books.map((b) => b.bookId),
+      release,
+      async judged() {
+        for (const { bookId } of books) await until(async () => (await generated(bookId)) !== null);
+        const titles = [3, 4, 5].map((n) => `${prefix}${n}`);
+        return judge.inputs.map((i) => i.book.title).filter((t) => titles.includes(t));
+      },
+    };
+  }
+  // Read with nothing listening, so the backfill picks them up.
+  const silent = () => createPipeline(ctx.db, { send: async () => {}, cancel: async () => {} });
+
+  it("runs a Reader's direct action ahead of a backfill queued before it", async () => {
+    const { bookIds: [bulkA, bulkB, direct], release, judged } = await heldConnectionsQueue("p");
+    for (const bookId of [bulkA, bulkB]) await changeStatus(ctx.db, silent(), ctx.userId, bookId, "read");
+    await backfillConnections(ctx.db, bulkPipeline, ctx.userId);
+    await changeStatus(ctx.db, pipeline, ctx.userId, direct, "read");
+    release();
+    expect((await judged())[0]).toBe("p5");
+  }, 20_000);
+
+  it("a Refresh on a Book the backfill already queued runs ahead of the rest of the backfill", async () => {
+    const { bookIds, release, judged } = await heldConnectionsQueue("f");
+    for (const bookId of bookIds) await changeStatus(ctx.db, silent(), ctx.userId, bookId, "read");
+    await backfillConnections(ctx.db, bulkPipeline, ctx.userId);
+    await pipeline.refreshRequested(ctx.userId, bookIds[2]);
+    release();
+    expect((await judged())[0]).toBe("f5");
+  }, 20_000);
 });

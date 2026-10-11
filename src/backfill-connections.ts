@@ -1,7 +1,7 @@
 import { appDb } from "@/db/client";
 import { user } from "@/db/schema";
 import { backfillConnections } from "@/domain/connections";
-import { appPipeline } from "@/lib/jobs";
+import { bulkPipeline } from "@/lib/jobs";
 
 if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is not set.");
 
@@ -10,6 +10,6 @@ if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is not set.");
 // worker (`pnpm worker`) to run one at a time.
 const db = appDb();
 let queued = 0;
-for (const { id } of await db.select({ id: user.id }).from(user)) queued += await backfillConnections(db, appPipeline(db), id);
+for (const { id } of await db.select({ id: user.id }).from(user)) queued += await backfillConnections(db, bulkPipeline(db), id);
 console.log(`Queued Connections for ${queued} Finished Books; the worker (pnpm worker) runs them.`);
 process.exit(0);

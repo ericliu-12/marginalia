@@ -18,6 +18,11 @@ const ENRICH_CONCURRENCY = 3;
 // While this month's spend is at the budget, a job is put back to be looked at again this much later.
 const PAUSED_RECHECK_SECONDS = 30 * 60;
 const KINDS = Object.keys(QUEUE) as Job["kind"][];
+// pg-boss claims a higher priority first. Direct work (what a Reader does in the app) runs ahead of bulk
+// work (the backfill and seed scripts), so a backfill never holds up a Reader's add or Refresh. A job
+// sent while running another (an Enrichment's vector, a resumed Connections run, the graph) takes that
+// job's priority.
+const PRIORITY = { direct: 1, bulk: 0 };
 
 const dataOf = (job: Job): object =>
   job.kind === "enrich"
@@ -54,11 +59,27 @@ async function ensureQueues(boss: PgBoss) {
 
 const LIVE = new Set(["created", "retry", "active"]);
 
-function queueFor(boss: PgBoss): JobQueue {
+async function send(boss: PgBoss, job: Job, priority: number, startAfter?: number) {
+  const id = await boss.send(QUEUE[job.kind], dataOf(job), { singletonKey: jobKey(job), priority, startAfter });
+  if (!id) await raiseWaiting(boss, job, priority);
+}
+
+// A send that coalesced into a waiting job with the same key lifts that job to the send's priority, so a
+// Refresh on a Book the backfill has queued runs as direct work. Never lowers it, and leaves a running or
+// finished job alone. Writes pg-boss's own job table: pg-boss has no call for this.
+async function raiseWaiting(boss: PgBoss, job: Job, priority: number) {
+  await boss
+    .getDb()
+    .executeSql(`UPDATE pgboss.job SET priority = $3 WHERE name = $1 AND singleton_key = $2 AND state < 'active' AND priority < $3`, [
+      QUEUE[job.kind],
+      jobKey(job),
+      priority,
+    ]);
+}
+
+function queueFor(boss: PgBoss, priority: number): JobQueue {
   return {
-    async send(job) {
-      await boss.send(QUEUE[job.kind], dataOf(job), { singletonKey: jobKey(job) });
-    },
+    send: (job) => send(boss, job, priority),
     // A cancelled job is never retried or given up on. A running one's heartbeat finds it cancelled. A
     // copy already given up on (it keeps the key) is cancelled too, so it can't settle a newer job's work.
     async cancel(job) {
@@ -70,28 +91,32 @@ function queueFor(boss: PgBoss): JobQueue {
   };
 }
 
-let shared: Promise<JobQueue> | undefined;
+let shared: Promise<PgBoss> | undefined;
 
 // The web app's producer: sends jobs, never runs them or the queue's maintenance. Connects on the
 // first send; a send while pg-boss is unreachable throws, and the next one tries again.
-const sharedQueue = () => {
+const sharedBoss = () => {
   shared ??= (async () => {
     const boss = new PgBoss({ connectionString: process.env.DATABASE_URL!, supervise: false, schedule: false });
     boss.on("error", (err) => console.error(err));
     await boss.start();
     await ensureQueues(boss);
-    return queueFor(boss);
+    return boss;
   })();
   shared.catch(() => (shared = undefined));
   return shared;
 };
 
-export const appJobQueue: JobQueue = {
-  send: async (job) => (await sharedQueue()).send(job),
-  cancel: async (job) => (await sharedQueue()).cancel(job),
-};
+const sharedQueue = (priority: number): JobQueue => ({
+  send: async (job) => queueFor(await sharedBoss(), priority).send(job),
+  cancel: async (job) => queueFor(await sharedBoss(), priority).cancel(job),
+});
 
-export const appPipeline = (db: Db) => createPipeline(db, appJobQueue);
+// The app's producer, for direct work, and the backfill and seed scripts', for bulk work.
+export const directJobQueue = sharedQueue(PRIORITY.direct);
+export const directPipeline = (db: Db) => createPipeline(db, directJobQueue);
+export const bulkJobQueue = sharedQueue(PRIORITY.bulk);
+export const bulkPipeline = (db: Db) => createPipeline(db, bulkJobQueue);
 
 export type WorkerOptions = JobDeps & {
   connectionString: string;
@@ -103,30 +128,33 @@ export type WorkerOptions = JobDeps & {
   pausedRecheckSeconds?: number;
 };
 
-// The long-running worker: owns queue maintenance and runs every job. Returns the queue it serves
-// and a way to stop it.
+// The long-running worker: owns queue maintenance and runs every job. Returns the queue it serves (for
+// direct work, and for bulk), and a way to stop it.
 export async function startWorker(options: WorkerOptions) {
   const { connectionString, db, budgetUsd = null, pollingIntervalSeconds, pausedRecheckSeconds = PAUSED_RECHECK_SECONDS, ...deps } = options;
   const boss = new PgBoss({ connectionString });
   boss.on("error", (err) => console.error(err));
   await boss.start();
   await ensureQueues(boss);
-  const queue = queueFor(boss);
+  const queue = queueFor(boss, PRIORITY.direct);
   const polling = pollingIntervalSeconds && { pollingIntervalSeconds };
   // Each queue, and the queue of the jobs it gave up on. Over budget (everyone's, or its Reader's), a job
   // is sent again for later instead of run, so it uses up none of its attempts however long the month has
   // left; one whose Reader is gone is dropped instead (see dropIfReaderGone).
   const work = async (kind: Job["kind"], localConcurrency: number, toJob: (data: never) => Job) => {
-    await boss.work(QUEUE[kind], { localConcurrency, ...polling }, async ([job]) => {
+    await boss.work(QUEUE[kind], { localConcurrency, includeMetadata: true, ...polling }, async ([job]) => {
       const next = toJob(job.data as never);
-      if (await dropIfReaderGone(db, queue, next)) return;
+      const followOn = queueFor(boss, job.priority);
+      if (await dropIfReaderGone(db, followOn, next)) return;
       if (await readPause(db, next.userId ?? null, { globalBudgetUsd: budgetUsd })) {
-        await boss.send(QUEUE[kind], dataOf(next), { singletonKey: jobKey(next), startAfter: pausedRecheckSeconds });
+        await send(boss, next, job.priority, pausedRecheckSeconds);
         return;
       }
-      await runJob(db, deps, queue, next);
+      await runJob(db, deps, followOn, next);
     });
-    await boss.work(GAVE_UP[kind], { ...polling }, async ([job]) => jobGaveUp(db, queue, toJob(job.data as never)));
+    await boss.work(GAVE_UP[kind], { includeMetadata: true, ...polling }, async ([job]) =>
+      jobGaveUp(db, queueFor(boss, job.priority), toJob(job.data as never)),
+    );
   };
   await work("enrich", ENRICH_CONCURRENCY, ({ bookId, userId }: { bookId: string; userId?: string }) => ({ kind: "enrich", bookId, userId }));
   await work("embed", ENRICH_CONCURRENCY, ({ userId, ...target }: Extract<Job, { kind: "embed" }>["target"] & { userId?: string }) => ({
@@ -137,5 +165,5 @@ export async function startWorker(options: WorkerOptions) {
   // Serial: a burst of finishes (a backfill) queues rather than running in parallel.
   await work("connections", 1, ({ userId, bookId }: { userId: string; bookId: string }) => ({ kind: "connections", userId, bookId }));
   await work("graph", 1, ({ userId }: { userId: string }) => ({ kind: "graph", userId }));
-  return { queue, stop: () => boss.stop({ graceful: true }) };
+  return { queue, bulkQueue: queueFor(boss, PRIORITY.bulk), stop: () => boss.stop({ graceful: true }) };
 }
