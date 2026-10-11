@@ -22,6 +22,8 @@ export default defineConfig({
   workers: 1,
   fullyParallel: false,
   globalSetup: "./test/e2e/outbound.ts",
+  // A stray test.only fails CI rather than quietly skipping the rest.
+  forbidOnly: !!process.env.CI,
   // CI also writes playwright-report/, uploaded when a run fails (.github/workflows/ci.yml).
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
   use: { baseURL: `http://localhost:${PORT}`, trace: "retain-on-failure", storageState: signedIn() },
