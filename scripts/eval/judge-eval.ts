@@ -39,7 +39,7 @@ const dir = new URL("./", import.meta.url).pathname;
 const fixture: Fixture = JSON.parse(fs.readFileSync(dir + "fixtures/books.json", "utf8"));
 const baseline: Baseline = JSON.parse(fs.readFileSync(dir + "fixtures/baseline.json", "utf8"));
 const books = Object.fromEntries(fixture.books.map((b) => [b.slug, b]));
-const { runs: RUNS, capUsd } = evalOptions(process.argv.slice(2));
+const { runs, capUsd } = evalOptions(process.argv.slice(2));
 
 const adminUrl = process.env.DATABASE_URL;
 if (!adminUrl || !["localhost", "127.0.0.1"].includes(new URL(adminUrl).hostname)) {
@@ -75,7 +75,7 @@ try {
     },
   };
 
-  // Judges every input RUNS times and records what it was shown and each answer, before the pipeline's own
+  // Judges every input runs times and records what it was shown and each answer, before the pipeline's own
   // filtering. The pipeline carries on with the first answer, so every run sees the same inputs.
   const inner = claudeJudge(undefined, spend);
   const raw: { slug: string; input: JudgeInput; results: JudgeResult[] }[] = [];
@@ -85,7 +85,7 @@ try {
     promptVersion: inner.promptVersion,
     async judge(input: JudgeInput) {
       const results: JudgeResult[] = [];
-      for (let run = 0; run < RUNS; run++) {
+      for (let run = 0; run < runs; run++) {
         spend.check();
         results.push(await inner.judge(input));
       }
@@ -112,6 +112,8 @@ try {
     for (const body of b.notes) await addNote(db, pipeline, reader.id, entry.bookId, { body });
     current = slug;
     await jobs.drain({ model: unused, judge, embedder, descriptions: null, namer });
+    // The queue retries a job whose judge call hit the cap and then gives up on it quietly, so stop here.
+    spend.check();
     console.log(`${b.title}: ${raw.filter((r) => r.slug === slug).length ? "judged" : "no candidates"}`);
   }
 
@@ -128,10 +130,11 @@ try {
   const norm = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
   const QUOTED = /["“]([^"”]{8,})["”]/g;
   const RECOMMENDS = /\b(if you (liked|enjoyed|loved)|you might (enjoy|like)|consider (reading|revisiting)|worth (reading|revisiting)|offers? (a |another )?(similar|further|more))\b/i;
-  const perRun = Array.from({ length: RUNS }, (_, run) => {
+  type Pair = { explanation: string; strength: string; type: string; quoted: boolean };
+  const perRun = Array.from({ length: runs }, (_, run) => {
     let spans = 0, invalid = 0, quoting = 0, recommends = 0, unnamed = 0, rawCount = 0;
     const strengths: Record<string, number> = {};
-    const pairs = new Map<string, { explanation: string; strength: string; type: string; quoted: boolean }>();
+    const pairs = new Map<string, Pair>();
     for (const { input, results } of raw) {
       const notes = new Map<string, { body: string; title: string }>();
       for (const n of input.book.notes) notes.set(n.id, { body: n.body, title: input.book.title });
@@ -161,22 +164,19 @@ try {
   const basePairs = new Map(baseline.connections.map((c) => [baseKey(c), c]));
   const baseQuoting = baseline.connections.filter((c) => [...c.explanation.matchAll(QUOTED)].length > 0).length;
   const common = [...new Set(perRun.flatMap((r) => [...r.pairs.keys()]))].filter((k) => basePairs.has(k)).sort();
-  const vaguer = tally(perRun.map((r) => common.filter((k) => {
-    const n = r.pairs.get(k), o = basePairs.get(k)!;
-    if (!n) return false;
-    const lostQuote = [...o.explanation.matchAll(QUOTED)].length > 0 && !n.quoted;
-    return lostQuote || n.explanation.length < o.explanation.length * 0.7;
-  })));
-  const changed = tally(perRun.map((r) => common.filter((k) => {
-    const n = r.pairs.get(k), o = basePairs.get(k)!;
-    return n !== undefined && (n.strength !== o.strength || n.type !== o.type);
-  })));
-  const agreement = (counts: Map<string, number>, k: string) => `${counts.get(k) ?? 0}/${RUNS}`;
+  // How many runs flagged each pair, for a test of that run's Connection against the baseline's.
+  const flaggedBy = (test: (n: Pair, o: Baseline["connections"][number]) => boolean) =>
+    tally(perRun.map((r) => common.filter((k) => r.pairs.has(k) && test(r.pairs.get(k)!, basePairs.get(k)!))));
+  const checks: [string, Map<string, number>][] = [
+    ["possibly vaguer", flaggedBy((n, o) => ([...o.explanation.matchAll(QUOTED)].length > 0 && !n.quoted) || n.explanation.length < o.explanation.length * 0.7)],
+    ["changed", flaggedBy((n, o) => n.strength !== o.strength || n.type !== o.type)],
+  ];
+  const agreement = (counts: Map<string, number>, k: string) => `${counts.get(k) ?? 0}/${runs}`;
   const flags = (k: string) =>
-    [
-      vaguer.has(k) && `[${majority(vaguer.get(k)!, RUNS) ? "check: " : ""}possibly vaguer ${agreement(vaguer, k)}]`,
-      changed.has(k) && `[${majority(changed.get(k)!, RUNS) ? "check: " : ""}changed ${agreement(changed, k)}]`,
-    ].filter(Boolean).join(" ");
+    checks
+      .filter(([, counts]) => counts.has(k))
+      .map(([label, counts]) => `[${majority(counts.get(k)!, runs) ? "check: " : ""}${label} ${agreement(counts, k)}]`)
+      .join(" ");
   const comparison = common
     .map((k) => {
       const o = basePairs.get(k)!;
@@ -193,14 +193,16 @@ try {
 
   const count = (k: string) => stored.filter((s) => s.strength === k).length;
   const each = (f: (r: (typeof perRun)[number]) => string | number) => perRun.map(f).join(" / ");
-  const voted = (label: string, counts: Map<string, number>) => {
-    const agreed = common.filter((k) => majority(counts.get(k) ?? 0, RUNS));
+  const voted = ([label, counts]: (typeof checks)[number]) => {
+    const agreed = common.filter((k) => majority(counts.get(k) ?? 0, runs));
     const minority = common.filter((k) => counts.has(k) && !agreed.includes(k)).length;
-    return `${label}${agreed.length}${agreed.length ? "\n  " + agreed.map((k) => `${k} (${agreement(counts, k)})`).join("\n  ") : ""}${minority ? `\n  (${minority} more flagged by a minority of runs)` : ""}`;
+    const lines = [`${(label + ":").padEnd(23)}${agreed.length}`, ...agreed.map((k) => `  ${k} (${agreement(counts, k)})`)];
+    if (minority) lines.push(`  (${minority} more flagged by a minority of runs)`);
+    return lines.join("\n");
   };
   console.log(`
-Judge ${inner.model} (${inner.promptVersion}), ${raw.length} inputs judged ${RUNS} times each; figures per run are run 1 / run 2 / ...
-Cost (paid_call):      $${(judged.cost + embedded.cost).toFixed(3)} of the $${capUsd.toFixed(2)} cap: judge $${judged.cost.toFixed(3)} ($${(judged.cost / RUNS).toFixed(3)} per run; ${judged.calls} calls, ${judged.tin} in / ${judged.tout} out tokens), Voyage $${embedded.cost.toFixed(4)}
+Judge ${inner.model} (${inner.promptVersion}), ${raw.length} inputs judged ${runs} times each; figures per run are run 1 / run 2 / ...
+Cost (paid_call):      $${(judged.cost + embedded.cost).toFixed(3)} of the $${capUsd.toFixed(2)} cap: judge $${judged.cost.toFixed(3)} ($${(judged.cost / runs).toFixed(3)} per run; ${judged.calls} calls, ${judged.tin} in / ${judged.tout} out tokens), Voyage $${embedded.cost.toFixed(4)}
 
 Quote validity:        ${each((r) => r.invalid)} invalid of ${each((r) => r.spans)} quoted spans (baseline: 0 of 24 quoting Connections)
 Source Book unnamed:   ${each((r) => r.unnamed)} of ${each((r) => r.spans)} quoted spans
@@ -209,10 +211,9 @@ Raw Connections:       ${each((r) => `${r.rawCount} (${r.strengths.strong ?? 0}/
 Quoting Notes (raw):   ${each((r) => r.quoting)} of ${each((r) => r.rawCount)}; baseline ${baseQuoting} of ${baseline.connections.length}
 Stored (run 1):        ${stored.length} (strong ${count("strong")} / moderate ${count("moderate")} / weak ${count("weak")}); note-grounded ${stored.filter((s) => s.grounding === "notes").length}, enrichment ${stored.filter((s) => s.grounding === "enrichment").length}
 Pairs in baseline:     ${common.length} found by any run
-${voted("Possibly vaguer:       ", vaguer)}
-${voted("Strength/type changed: ", changed)}
+${checks.map(voted).join("\n")}
 
-Majority means more than half of the ${RUNS} runs. Read scripts/eval/out/comparison.md (every run side by side) before calling an explanation vaguer or not.`);
+Majority means more than half of the ${runs} runs. Read scripts/eval/out/comparison.md (every run side by side) before calling an explanation vaguer or not.`);
 } finally {
   await pool.end();
   await admin.query(`DROP DATABASE IF EXISTS ${SCRATCH} WITH (FORCE)`);

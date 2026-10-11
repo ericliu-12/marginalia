@@ -1,7 +1,7 @@
-// The eval's majority vote and cost cap. The judge's answers vary from run to run (claude-sonnet-5-5 takes
-// no temperature), so the eval judges each input several times and reports only what most runs agree on.
+// The eval's majority vote and cost cap. The judge's answers vary from run to run (its model takes no
+// temperature), so the eval judges each input several times and reports only what most runs agree on.
 import { parseArgs } from "node:util";
-import type { SpendLog } from "@/domain/spend";
+import type { PaidCall, SpendLog } from "@/domain/spend";
 
 // How many runs flagged each key, from each run's list of flagged keys.
 export function tally(flagged: Iterable<string>[]) {
@@ -25,12 +25,11 @@ export function evalOptions(argv: string[]) {
 }
 
 // Adds up what the eval has paid for. check() runs before each judge call, so the eval can go over the cap
-// by at most one call.
+// by at most one judge call (plus any Voyage calls in between).
 export function cappedSpend(capUsd: number, inner?: SpendLog) {
   let spent = 0;
   return {
-    spentUsd: () => spent,
-    async record(call: Parameters<SpendLog["record"]>[0]) {
+    async record(call: PaidCall) {
       spent += call.costUsd;
       await inner?.record(call);
     },

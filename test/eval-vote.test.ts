@@ -33,14 +33,15 @@ describe("eval options", () => {
 });
 
 describe("eval cost cap", () => {
-  it("passes each call on and adds up its cost", async () => {
+  it("passes each call on and stays under the cap until spend reaches it", async () => {
     const seen: number[] = [];
     const spend = cappedSpend(1, { async record(c) { seen.push(c.costUsd); } });
     await spend.record(call(0.25));
     await spend.record(call(0.5));
     expect(seen).toEqual([0.25, 0.5]);
-    expect(spend.spentUsd()).toBeCloseTo(0.75);
     expect(() => spend.check()).not.toThrow();
+    await spend.record(call(0.25));
+    expect(() => spend.check()).toThrow(/cap/);
   });
 
   it("stops once spend reaches the cap, saying how to raise it", async () => {
