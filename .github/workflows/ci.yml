@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# A new push to a PR cancels its run still in progress; runs on main all finish.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# Placeholders only, no secrets: no test calls Anthropic, Voyage, Resend or Google, and
+# test/outbound-guard.mjs fails any that tries. RESEND_API_KEY stays unset, so mail is not sent.
+env:
+  DATABASE_URL: postgres://marginalia:marginalia@localhost:5432/marginalia
+  ANTHROPIC_API_KEY: ci-no-calls
+  VOYAGE_API_KEY: ci-no-calls
+  GOOGLE_BOOKS_API_KEY: ""
+  GOOGLE_CLIENT_ID: ci-no-calls
+  GOOGLE_CLIENT_SECRET: ci-no-calls
+
+jobs:
+  test:
+    name: Typecheck and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres: &postgres
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: marginalia
+          POSTGRES_PASSWORD: marginalia
+          POSTGRES_DB: marginalia
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U marginalia"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: package.json
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+
+  # Only on PRs: what reaches main already passed on its PR.
+  e2e:
+    name: Browser tests
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres: *postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: package.json
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - id: playwright
+        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - id: browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium
+      - if: steps.browsers.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install --with-deps chromium
+      - if: steps.browsers.outputs.cache-hit == 'true'
+        run: pnpm exec playwright install-deps chromium
+      # Next's build cache, so the build is incremental.
+      - uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('src/**') }}
+          restore-keys: next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+      - run: pnpm e2e
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14

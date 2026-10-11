@@ -6,6 +6,10 @@ export default defineConfig({
   test: {
     include: ["test/**/*.test.ts"],
     globalSetup: ["./test/global-setup.ts"],
+    // No test reaches Anthropic, Voyage, Resend or Google (test/outbound-guard.mjs).
+    setupFiles: ["./test/setup.ts"],
+    // A stray it.only fails CI rather than quietly skipping the rest.
+    allowOnly: !process.env.CI,
     // One shared test database; files must not run concurrently.
     fileParallelism: false,
     // Every run also leaves a JSON report (each test's name, status and error) in vitest-results/: one
