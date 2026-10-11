@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from "vitest";
 import { allowedEmail, session, user, verification } from "../src/db/schema";
 import { invite } from "../src/domain/allowlist";
@@ -129,7 +129,7 @@ describe("A sign-in code that fails to send", () => {
     );
   // Resend's error for a quota, with an address in its message, as some of its messages have.
   const quotaReached = () => Response.json({ statusCode: 429, name: "daily_quota_exceeded", message: `Could not send to ${EMAIL}: daily quota exceeded.` }, { status: 429 });
-  const loggedText = () => logged.mock.calls.flat().map(String).join(" ");
+  const loggedText = (spies = [logged]) => spies.flatMap((spy) => spy.mock.calls.flat()).map(String).join(" ");
 
   beforeEach(() => {
     logged = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -170,5 +170,29 @@ describe("A sign-in code that fails to send", () => {
     await vi.waitFor(() => expect(logged).toHaveBeenCalled());
     expect(loggedText()).toContain("429 daily_quota_exceeded");
     expect(loggedText()).not.toContain(EMAIL);
+  });
+
+  // Better Auth logs this one itself (#106). Drizzle's error carries the query's params, the identifier
+  // sign-in-otp-<email> among them, and here Postgres's own message names the email too.
+  it("logs a database failure while storing the code by its name, message and Postgres's error, never the email or params", async () => {
+    // For Turnstile's siteverify; no mail goes out.
+    resendReplies(quotaReached);
+    await ctx.db.execute(sql`CREATE FUNCTION refuse_code() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION 'refused %', NEW.identifier; END $$ LANGUAGE plpgsql`);
+    await ctx.db.execute(sql`CREATE TRIGGER refuse_code BEFORE INSERT ON verification FOR EACH ROW EXECUTE FUNCTION refuse_code()`);
+    const warned = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const info = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      const res = await requestCode("open");
+
+      expect(res.status).toBe(500);
+      const text = loggedText([logged, warned, info]);
+      expect(text).toContain('Error: Failed query: insert into "verification"');
+      expect(text).toContain("(cause: error P0001: refused [email])");
+      expect(text).not.toContain(EMAIL);
+      expect(text).not.toContain("params:");
+    } finally {
+      await ctx.db.execute(sql`DROP TRIGGER refuse_code ON verification`);
+      await ctx.db.execute(sql`DROP FUNCTION refuse_code`);
+    }
   });
 });
