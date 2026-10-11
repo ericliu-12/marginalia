@@ -31,7 +31,7 @@ export function spendLog(db: Db): SpendLog {
   };
 }
 
-type Env = Record<string, string | undefined>;
+export type Env = Record<string, string | undefined>;
 
 const positive = (value: string | undefined) => {
   const usd = Number(value);
@@ -44,7 +44,7 @@ export function monthlyBudgetUsd(env: Env = process.env): number | null {
   return positive(env.MONTHLY_AI_BUDGET_USD);
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+export const DAY_MS = 24 * 60 * 60 * 1000;
 const FIRST_MONTH_DAYS = 30;
 const FIRST_MONTH_BUDGET_USD = 1;
 const READER_BUDGET_USD = 5;

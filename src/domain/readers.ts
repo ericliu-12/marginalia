@@ -1,26 +1,14 @@
 import { count, desc, eq, max, min, sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { account, allowedEmail, libraryEntry, session, user } from "@/db/schema";
-import { readerBudgetUsd, spentThisMonthByReaderUsd } from "@/domain/spend";
+import { DAY_MS, type Env, readerBudgetUsd, spentThisMonthByReaderUsd } from "@/domain/spend";
 
-type Env = Record<string, string | undefined>;
-type SignIn = "Google" | "email";
+export type SignIn = "google" | "email";
 
-export type ReaderRow = {
-  email: string;
-  joinedAt: Date;
-  signIn: SignIn[];
-  lastSessionAt: Date | null;
-  books: number;
-  spentUsd: number;
-  budgetUsd: number;
-};
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 // Google's account row is made in the same request as a Reader who joins with Google.
 const LINKED_LATER_MS = 60 * 1000;
 
-// `pnpm readers`: every Reader, newest first, for the owner. Reads only, and only what it prints: no
+// Every Reader, newest first, for the owner. Reads only, and only what it prints: no
 // tokens, passwords or codes.
 export async function listReaders(db: Db, now = new Date(), env: Env = process.env) {
   const books = db
@@ -67,12 +55,12 @@ export async function listReaders(db: Db, now = new Date(), env: Env = process.e
     spentThisMonthByReaderUsd(db, now),
   ]);
 
-  const readers: ReaderRow[] = rows.map((r) => {
+  const readers = rows.map((r) => {
     // An email code leaves no account row. A Reader who joined with one has no Google account from
     // the start; one who joined with Google and later used a code can't be told apart.
     const joinedByEmail = !r.googleLinkedAt || r.googleLinkedAt.getTime() - r.joinedAt.getTime() > LINKED_LATER_MS;
     const signIn: SignIn[] = [];
-    if (r.googleLinkedAt) signIn.push("Google");
+    if (r.googleLinkedAt) signIn.push("google");
     if (joinedByEmail || r.hasCredential) signIn.push("email");
     return {
       email: r.email,
@@ -85,5 +73,5 @@ export async function listReaders(db: Db, now = new Date(), env: Env = process.e
     };
   });
   const joinedWithin = (days: number) => readers.filter((r) => r.joinedAt.getTime() > now.getTime() - days * DAY_MS).length;
-  return { totals: { readers: readers.length, last7Days: joinedWithin(7), last30Days: joinedWithin(30) }, readers };
+  return { totals: { last7Days: joinedWithin(7), last30Days: joinedWithin(30) }, readers };
 }
