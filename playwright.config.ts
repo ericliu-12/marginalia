@@ -9,6 +9,8 @@ import { E2E_PORT } from "./test/worktree";
 // A production build on its own port and database, so it runs beside `pnpm dev` (and, in a ticket's
 // worktree, beside the other checkouts' e2e runs: see test/worktree.ts). The API keys are
 // placeholders: nothing the tests do calls out, and anything that tried would fail rather than spend.
+// The server also loads test/outbound-guard.mjs, which refuses those APIs' hosts by name (not the build:
+// next/font downloads the fonts from fonts.googleapis.com).
 // The Google Books key is blank, which turns off the description lookup when a Book is added from search,
 // and Open Library's works come from a file the tests write (test/e2e/open-library.ts).
 const PORT = E2E_PORT;
@@ -18,10 +20,12 @@ export default defineConfig({
   // One database, reset before each test.
   workers: 1,
   fullyParallel: false,
+  // CI also writes playwright-report/, uploaded when a run fails (.github/workflows/ci.yml).
+  reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
   use: { baseURL: `http://localhost:${PORT}`, trace: "retain-on-failure", storageState: signedIn() },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } }],
   webServer: {
-    command: `pnpm exec tsx test/e2e/create-database.ts && pnpm exec next build && pnpm exec next start --port ${PORT}`,
+    command: `pnpm exec tsx test/e2e/create-database.ts && pnpm exec next build && NODE_OPTIONS=--import=./test/outbound-guard.mjs pnpm exec next start --port ${PORT}`,
     url: `http://localhost:${PORT}`,
     reuseExistingServer: false,
     timeout: 180_000,
