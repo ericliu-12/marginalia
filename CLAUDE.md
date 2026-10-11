@@ -27,7 +27,7 @@ Before committing any UI change, run `pnpm e2e` (Playwright against a production
 
 ## Evals
 
-After any change to the Enrichment or connection-judge prompts, or to the judge's call settings or input layout, run `pnpm eval` (`scripts/eval/judge-eval.ts`, the 19-book set against the stored baseline; about $0.20, scratch database, local `DATABASE_URL` only) and report quote validity, how many Connections quote Notes, and any explanations that got vaguer (read `scripts/eval/out/comparison.md`), before committing. This is not an MVP ticket.
+After any change to the Enrichment or connection-judge prompts, or to the judge's call settings or input layout, run `pnpm eval` (`scripts/eval/judge-eval.ts`, the 19-book set against the stored baseline; scratch database, local `DATABASE_URL` only) and report quote validity, how many Connections quote Notes, and any explanations that got vaguer (read `scripts/eval/out/comparison.md`), before committing. The judge's answers vary from run to run, so the eval judges each input 3 times (`--runs N`) and flags a pair as possibly vaguer, or as changed in strength or type, only when a majority of runs agree; report each flag with its agreement (e.g. 2/3). It costs about $0.20 per run, about $0.60 by default, read from `paid_call`, and stops once spend reaches $1.50 (`--cap <usd>`). This is not an MVP ticket.
 
 After any change to the Cluster naming prompt, its call settings or input layout, re-name the dev Clusters (local `DATABASE_URL`; clear `named_member_book_ids` so each is due, then run `nameClusters` with `claudeClusterNamer`, so the call still sees the old name; a few cents) and show the user each Cluster's Books, name and description before committing.
 
