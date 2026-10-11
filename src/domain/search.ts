@@ -20,7 +20,7 @@ export type OpenLibraryWork = {
   authorAliases?: string[];
   firstPublishedYear: number | null;
   editionCount: number;
-  // Readers who have logged the work (want to read, reading, read): the popularity signal.
+  // Open Library users who have logged the work (want to read, reading, read): the popularity signal.
   readinglogCount: number;
   coverId: number | null;
   subjects: string[];

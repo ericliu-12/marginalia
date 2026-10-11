@@ -50,7 +50,7 @@ describe("a title word that is another author's surname", () => {
 });
 
 describe("popularity", () => {
-  it("ranks by readers who logged the work before edition count", () => {
+  it("ranks by Open Library users who logged the work before edition count", () => {
     const keys = rankWorks([
       work({ workKey: "/works/editions", title: "Normal People", editionCount: 51, readinglogCount: 14 }),
       work({ workKey: "/works/readers", title: "Normal People", editionCount: 27, readinglogCount: 1914 }),
