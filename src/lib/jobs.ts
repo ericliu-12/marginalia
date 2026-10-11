@@ -18,9 +18,10 @@ const ENRICH_CONCURRENCY = 3;
 // While this month's spend is at the budget, a job is put back to be looked at again this much later.
 const PAUSED_RECHECK_SECONDS = 30 * 60;
 const KINDS = Object.keys(QUEUE) as Job["kind"][];
-// pg-boss claims a higher priority first. What a Reader does in the app runs ahead of the backfill and
-// seed scripts, so one Reader's backfill never holds up another's add or Refresh. A job sent while
-// running another (an Enrichment's vector, a resumed Connections run, the graph) takes that job's priority.
+// pg-boss claims a higher priority first. Direct work (what a Reader does in the app) runs ahead of bulk
+// work (the backfill and seed scripts), so a backfill never holds up a Reader's add or Refresh. A job
+// sent while running another (an Enrichment's vector, a resumed Connections run, the graph) takes that
+// job's priority.
 const PRIORITY = { direct: 1, bulk: 0 };
 
 const dataOf = (job: Job): object =>
@@ -58,11 +59,27 @@ async function ensureQueues(boss: PgBoss) {
 
 const LIVE = new Set(["created", "retry", "active"]);
 
+async function send(boss: PgBoss, job: Job, priority: number, startAfter?: number) {
+  const id = await boss.send(QUEUE[job.kind], dataOf(job), { singletonKey: jobKey(job), priority, startAfter });
+  if (!id) await raiseWaiting(boss, job, priority);
+}
+
+// A send that coalesced into a waiting job with the same key lifts that job to the send's priority, so a
+// Refresh on a Book the backfill has queued runs as direct work. Never lowers it, and leaves a running or
+// finished job alone. Writes pg-boss's own job table: pg-boss has no call for this.
+async function raiseWaiting(boss: PgBoss, job: Job, priority: number) {
+  await boss
+    .getDb()
+    .executeSql(`UPDATE pgboss.job SET priority = $3 WHERE name = $1 AND singleton_key = $2 AND state < 'active' AND priority < $3`, [
+      QUEUE[job.kind],
+      jobKey(job),
+      priority,
+    ]);
+}
+
 function queueFor(boss: PgBoss, priority: number): JobQueue {
   return {
-    async send(job) {
-      await boss.send(QUEUE[job.kind], dataOf(job), { singletonKey: jobKey(job), priority });
-    },
+    send: (job) => send(boss, job, priority),
     // A cancelled job is never retried or given up on. A running one's heartbeat finds it cancelled. A
     // copy already given up on (it keeps the key) is cancelled too, so it can't settle a newer job's work.
     async cancel(job) {
@@ -95,9 +112,9 @@ const sharedQueue = (priority: number): JobQueue => ({
   cancel: async (job) => queueFor(await sharedBoss(), priority).cancel(job),
 });
 
-export const appJobQueue = sharedQueue(PRIORITY.direct);
-export const appPipeline = (db: Db) => createPipeline(db, appJobQueue);
-// The backfill and seed scripts' producer.
+// The app's producer, for direct work, and the backfill and seed scripts', for bulk work.
+export const directJobQueue = sharedQueue(PRIORITY.direct);
+export const directPipeline = (db: Db) => createPipeline(db, directJobQueue);
 export const bulkJobQueue = sharedQueue(PRIORITY.bulk);
 export const bulkPipeline = (db: Db) => createPipeline(db, bulkJobQueue);
 
@@ -111,8 +128,8 @@ export type WorkerOptions = JobDeps & {
   pausedRecheckSeconds?: number;
 };
 
-// The long-running worker: owns queue maintenance and runs every job. Returns the queue it serves (at
-// direct-action priority, and at the scripts'), and a way to stop it.
+// The long-running worker: owns queue maintenance and runs every job. Returns the queue it serves (for
+// direct work, and for bulk), and a way to stop it.
 export async function startWorker(options: WorkerOptions) {
   const { connectionString, db, budgetUsd = null, pollingIntervalSeconds, pausedRecheckSeconds = PAUSED_RECHECK_SECONDS, ...deps } = options;
   const boss = new PgBoss({ connectionString });
@@ -130,7 +147,7 @@ export async function startWorker(options: WorkerOptions) {
       const followOn = queueFor(boss, job.priority);
       if (await dropIfReaderGone(db, followOn, next)) return;
       if (await readPause(db, next.userId ?? null, { globalBudgetUsd: budgetUsd })) {
-        await boss.send(QUEUE[kind], dataOf(next), { singletonKey: jobKey(next), startAfter: pausedRecheckSeconds, priority: job.priority });
+        await send(boss, next, job.priority, pausedRecheckSeconds);
         return;
       }
       await runJob(db, deps, followOn, next);
