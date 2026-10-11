@@ -20,6 +20,8 @@ export type OpenLibraryWork = {
   authorAliases?: string[];
   firstPublishedYear: number | null;
   editionCount: number;
+  // Readers who have logged the work (want to read, reading, read): the popularity signal.
+  readinglogCount: number;
   coverId: number | null;
   subjects: string[];
 };
@@ -56,58 +58,56 @@ const lower = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerC
 // the results but is not one of its own authors, either as a possessive ("Kazuo Ishiguro's the
 // Remains of the Day", "Camus' The Stranger") or, when the query names that author, in any form.
 // Judged against the authors in the results, so "Bridget Jones's Diary" is not mistaken for one.
-function isAboutAnotherAuthor(w: OpenLibraryWork, knownAuthors: string[], query: string) {
+function isAboutAnotherAuthor(w: OpenLibraryWork, knownAuthors: string[], namedAuthors: Set<string>) {
   const title = lower(w.title);
   const titleWords = normName(w.title);
-  const queryWords = normName(query);
   return knownAuthors.some((author) => {
     const surname = normName(author).at(-1);
     if (!surname || surname.length < 3 || authorsMatch(author, w.authors)) return false;
-    return (
-      new RegExp(`\\b${surname}['\u2019]`).test(title) ||
-      (queryWords.includes(surname) && titleWords.includes(surname))
-    );
+    return new RegExp(`\\b${surname}['\u2019]`).test(title) || (namedAuthors.has(author) && titleWords.includes(surname));
   });
 }
 
 // Demoted works (adaptations, study guides, box sets, omnibus editions, books about an author) go
 // last. Within each group the title decides first: an exact match for the query, then a title
-// holding every query word. Within a title tier, works by an author the query names lead, and
-// edition count (more first, then earliest first-publish year) only breaks the remaining ties.
+// holding every query word. Within a title tier, works by an author the query names lead, then the
+// more popular: more readers who logged it, then more editions, then earliest first-publish year.
 export function rankWorks(works: OpenLibraryWork[], query = ""): OpenLibraryWork[] {
   const knownAuthors = [...new Set(works.flatMap((w) => w.authors))];
   const queryWords = normName(query);
+  // A leading article does not make a title a different one ("The Remains of the Day").
+  const wordsOf = (s: string) => lower(s).split(/[^a-z0-9]+/).filter(Boolean).filter((w, i) => i > 0 || !/^(the|a|an)$/.test(w));
+  const fullQuery = wordsOf(query);
+  const titlesOf = (w: OpenLibraryWork) => [w.title, w.originalTitle].filter((t): t is string => !!t).map(wordsOf);
+  const titledAsQuery = (w: OpenLibraryWork) => fullQuery.length > 0 && titlesOf(w).some((t) => t.join(" ") === fullQuery.join(" "));
+
+  // The authors the query names by surname. A surname that is only a word of a title the whole
+  // query names ("house of leaves", not by Silas House) does not, unless the query is just their name.
+  const namedAuthors = new Set(
+    knownAuthors.filter((a) => {
+      const names = normName(a);
+      const surname = names.at(-1);
+      if (!surname || surname.length < 3 || !queryWords.includes(surname)) return false;
+      return queryWords.every((x) => names.includes(x)) || !works.some((w) => titledAsQuery(w) && !w.authors.includes(a));
+    }),
+  );
+  const byQueriedAuthor = (w: OpenLibraryWork) => w.authors.some((a) => namedAuthors.has(a));
   // Subjects are noisy on the original itself (Open Library tags L'Étranger "Criticism and
   // interpretation"), so a work by an author the query names, or titled as the query is, is judged
   // by its title only.
-  const titledAsQuery = (w: OpenLibraryWork) =>
-    queryWords.length > 0 && [w.title, w.originalTitle].some((t) => t && normName(t).join(" ") === queryWords.join(" "));
-  const byQueriedAuthor = (w: OpenLibraryWork) =>
-    w.authors.some((a) => {
-      const surname = normName(a).at(-1);
-      return !!surname && surname.length >= 3 && queryWords.includes(surname);
-    });
   const isDemoted = (w: OpenLibraryWork) =>
     DEMOTED_TITLE.test(w.title) ||
     (!!w.originalTitle && DEMOTED_TITLE.test(w.originalTitle)) ||
     (!byQueriedAuthor(w) && !titledAsQuery(w) && w.subjects.some((s) => DEMOTED_SUBJECT.test(s))) ||
-    isAboutAnotherAuthor(w, knownAuthors, query);
+    isAboutAnotherAuthor(w, knownAuthors, namedAuthors);
   const demoted = new Map(works.map((w) => [w, isDemoted(w)]));
 
   // Title match: 0 when a title (English or original) is the query, 1 when it contains every query
   // word, else 2. When the query names an author, the title is also matched with their name left out.
-  const queriedAuthorWords = new Set(
-    knownAuthors.flatMap((a) => {
-      const names = normName(a);
-      return queryWords.includes(names.at(-1) ?? "") ? names : [];
-    }),
-  );
-  // A leading article does not make a title a different one ("The Remains of the Day").
-  const wordsOf = (s: string) => lower(s).split(/[^a-z0-9]+/).filter(Boolean).filter((w, i) => i > 0 || !/^(the|a|an)$/.test(w));
-  const fullQuery = wordsOf(query);
+  const queriedAuthorWords = new Set([...namedAuthors].flatMap(normName));
   const queries = [fullQuery, fullQuery.filter((x) => !queriedAuthorWords.has(x))].filter((q) => q.length > 0);
   const titleTier = (w: OpenLibraryWork) => {
-    const titles = [w.title, w.originalTitle].filter((t): t is string => !!t).map(wordsOf);
+    const titles = titlesOf(w);
     if (queries.some((q) => titles.some((t) => t.join(" ") === q.join(" ")))) return 0;
     return queries.some((q) => titles.some((t) => q.every((x) => t.includes(x)))) ? 1 : 2;
   };
@@ -118,6 +118,7 @@ export function rankWorks(works: OpenLibraryWork[], query = ""): OpenLibraryWork
       Number(demoted.get(a)) - Number(demoted.get(b)) ||
       tier.get(a)! - tier.get(b)! ||
       Number(!byQueriedAuthor(a)) - Number(!byQueriedAuthor(b)) ||
+      b.readinglogCount - a.readinglogCount ||
       b.editionCount - a.editionCount ||
       (a.firstPublishedYear ?? Infinity) - (b.firstPublishedYear ?? Infinity),
   );

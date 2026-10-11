@@ -7,6 +7,7 @@ const doc = (key: string) => ({
   author_name: ["John Williams"],
   first_publish_year: 1965,
   edition_count: 49,
+  readinglog_count: 120,
   cover_i: 5,
   subject: ["College teachers"],
 });
@@ -24,17 +25,18 @@ describe("Open Library gateway", () => {
     const fetch = stubFetch([doc("/works/OL1W")]);
     const gw = createOpenLibraryGateway({ ...opts, fetch });
     expect(await gw.searchWorks("stoner")).toEqual([
-      { workKey: "/works/OL1W", title: "Stoner", authors: ["John Williams"], firstPublishedYear: 1965, editionCount: 49, coverId: 5, subjects: ["College teachers"] },
+      { workKey: "/works/OL1W", title: "Stoner", authors: ["John Williams"], firstPublishedYear: 1965, editionCount: 49, readinglogCount: 120, coverId: 5, subjects: ["College teachers"] },
     ]);
     const [url, init] = fetch.mock.calls[0];
     expect(String(url)).toContain("q=stoner");
+    expect(new URL(String(url)).searchParams.get("fields")).toContain("readinglog_count");
     expect(init.headers["User-Agent"]).toBe(opts.userAgent);
   });
 
   it("tolerates thin docs", async () => {
     const fetch = stubFetch([{ key: "/works/OL2W", title: "Thin" }]);
     const [w] = await createOpenLibraryGateway({ ...opts, fetch }).searchWorks("thin");
-    expect(w).toMatchObject({ authors: [], firstPublishedYear: null, editionCount: 0, coverId: null, subjects: [] });
+    expect(w).toMatchObject({ authors: [], firstPublishedYear: null, editionCount: 0, readinglogCount: 0, coverId: null, subjects: [] });
   });
 
   it("falls back to a structured title query when free text finds nothing", async () => {

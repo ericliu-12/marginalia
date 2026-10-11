@@ -13,6 +13,7 @@ export function work(overrides: Partial<OpenLibraryWork> & { workKey: string }):
     authors: ["Anon"],
     firstPublishedYear: 2000,
     editionCount: 1,
+    readinglogCount: 0,
     coverId: null,
     subjects: [],
     ...overrides,
