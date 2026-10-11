@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { and, eq, gte, sql } from "drizzle-orm";
+import { and, eq, gte, isNotNull, sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { allowedEmail, paidCall, user } from "@/db/schema";
 
@@ -31,7 +31,7 @@ export function spendLog(db: Db): SpendLog {
   };
 }
 
-type Env = Record<string, string | undefined>;
+export type Env = Record<string, string | undefined>;
 
 const positive = (value: string | undefined) => {
   const usd = Number(value);
@@ -44,7 +44,7 @@ export function monthlyBudgetUsd(env: Env = process.env): number | null {
   return positive(env.MONTHLY_AI_BUDGET_USD);
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+export const DAY_MS = 24 * 60 * 60 * 1000;
 const FIRST_MONTH_DAYS = 30;
 const FIRST_MONTH_BUDGET_USD = 1;
 const READER_BUDGET_USD = 5;
@@ -74,6 +74,16 @@ export async function spentThisMonthUsd(db: Db, now = new Date(), userId?: strin
     .from(paidCall)
     .where(and(gte(paidCall.createdAt, monthStart(now)), userId ? eq(paidCall.userId, userId) : undefined));
   return row.usd;
+}
+
+// Each Reader's spend this month, by user id; a Reader who has spent nothing has no entry.
+export async function spentThisMonthByReaderUsd(db: Db, now = new Date()): Promise<Map<string, number>> {
+  const rows = await db
+    .select({ userId: paidCall.userId, usd: sql<number>`sum(${paidCall.costUsd})::float8` })
+    .from(paidCall)
+    .where(and(gte(paidCall.createdAt, monthStart(now)), isNotNull(paidCall.userId)))
+    .groupBy(paidCall.userId);
+  return new Map(rows.map((r) => [r.userId!, r.usd]));
 }
 
 // `resumesOn` is the day work starts again, e.g. "1 November". `firstMonth` when it is the Reader's
