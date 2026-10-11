@@ -90,7 +90,7 @@ try {
   const namer = { model: "unused", promptVersion: "x", async name() { return { name: "Unnamed", description: "Not named in the eval.", inputTokens: 0, outputTokens: 0, costUsd: 0 }; } };
   for (const slug of fixture.order) {
     const b = books[slug];
-    const work: OpenLibraryWork = { workKey: `/works/${slug}`, title: b.title, authors: [b.author], firstPublishedYear: null, editionCount: 1, coverId: null, subjects: [] };
+    const work: OpenLibraryWork = { workKey: `/works/${slug}`, title: b.title, authors: [b.author], firstPublishedYear: null, editionCount: 1, readinglogCount: 0, coverId: null, subjects: [] };
     const entry = await addBook(db, pipeline, reader.id, work, "read");
     // Seat the saved Enrichment through the real Enrichment module (hashes included), so the job does not redo it.
     const saved = { model: "eval", promptVersion: "saved", async enrich() {

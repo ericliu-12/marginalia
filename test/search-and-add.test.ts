@@ -143,7 +143,7 @@ describe("search ranking", () => {
     expect(keys).toEqual(["/works/bridget", "/works/revisited"]);
   });
 
-  describe("title match leads, edition count only breaks ties", () => {
+  describe("title match leads, popularity only breaks ties", () => {
     it("Set My Heart on Fire: the exact title beats a 408-edition book that merely turned up", async () => {
       const keys = await search(
         [

@@ -7,7 +7,7 @@ import { READER_B, signedIn } from "./session";
 // Two Readers, each in their own browser: A (the seeded library) adds a Book and a Note; B sees none of
 // it, nor any of A's library, anywhere. Search goes through the server, to the e2e Open Library.
 
-const AUSTERLITZ = { workKey: "/works/OL5W", title: "Austerlitz", authors: ["W. G. Sebald"], firstPublishedYear: 2001, editionCount: 30, coverId: null, subjects: [] };
+const AUSTERLITZ = { workKey: "/works/OL5W", title: "Austerlitz", authors: ["W. G. Sebald"], firstPublishedYear: 2001, editionCount: 30, readinglogCount: 0, coverId: null, subjects: [] };
 const NOTE = "The waiting rooms of Liverpool Street.";
 const phone = { viewport: { width: 412, height: 915 }, isMobile: true, hasTouch: true };
 

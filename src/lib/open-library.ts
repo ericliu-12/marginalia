@@ -6,13 +6,14 @@ type Doc = {
   author_name?: string[];
   first_publish_year?: number;
   edition_count?: number;
+  readinglog_count?: number;
   cover_i?: number;
   subject?: string[];
   author_alternative_name?: string[];
   language?: string[];
 };
 
-const FIELDS = "key,title,author_name,author_alternative_name,language,first_publish_year,edition_count,cover_i,subject";
+const FIELDS = "key,title,author_name,author_alternative_name,language,first_publish_year,edition_count,readinglog_count,cover_i,subject";
 
 // Open Library holds a work under the language of its first edition and its author under the
 // original script ("海辺のカフカ" by "村上春樹"). Readers, Google Books and the model all want the
@@ -84,6 +85,7 @@ export function createOpenLibraryGateway({
         ...(aliases.length > 0 && { authorAliases: aliases }),
         firstPublishedYear: d.first_publish_year ?? null,
         editionCount: d.edition_count ?? 0,
+        readinglogCount: d.readinglog_count ?? 0,
         coverId: d.cover_i ?? null,
         subjects: d.subject ?? [],
       };

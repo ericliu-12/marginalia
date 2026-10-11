@@ -40,6 +40,7 @@ const CATALOG = ["Piranesi", "Austerlitz", "The Peregrine"].map((title, i) => ({
   authors: ["A. Author"],
   firstPublishedYear: 2000 + i,
   editionCount: 10,
+  readinglogCount: 0,
   coverId: null,
   subjects: [],
   coverUrl: null,
