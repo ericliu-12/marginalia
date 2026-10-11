@@ -43,15 +43,17 @@ type AuthConfig = {
   codeReplyMs: number;
 };
 
-// How Better Auth's errors are logged (#106): by name and message, and Postgres's own error, Drizzle's cause.
-// Drizzle's message ends with the query's params, the email among them, so that part is cut, and any email
-// left (Postgres's message can quote a value) is masked.
+// How Better Auth's errors are logged (#106): each error's name, message and Postgres's error code, and the
+// same for its cause, which for Drizzle's error is Postgres's own. Drizzle's message ends with the query's
+// params, the email among them, so that part is cut, and any email left (Postgres's message can quote a
+// value) is masked.
+const redact = (text: string) => text.replace(/\nparams: [\s\S]*/, "").replace(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g, "[email]");
 function loggable(value: unknown): string {
   if (!(value instanceof Error)) return redact(String(value));
+  const code = "code" in value && typeof value.code === "string" ? ` ${value.code}` : "";
   const cause = value.cause instanceof Error ? ` (cause: ${loggable(value.cause)})` : "";
-  return `${value.name}: ${redact(value.message)}${cause}`;
+  return `${value.name}${code}: ${redact(value.message)}${cause}`;
 }
-const redact = (text: string) => text.replace(/\nparams: [\s\S]*/, "").replace(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g, "[email]");
 const logAuth = (level: "debug" | "info" | "warn" | "error", ...args: unknown[]) => console[level]("[Better Auth]", ...args.map(loggable));
 
 export function createAuth(db: Db, config: AuthConfig) {

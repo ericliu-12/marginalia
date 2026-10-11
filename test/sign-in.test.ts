@@ -129,7 +129,7 @@ describe("A sign-in code that fails to send", () => {
     );
   // Resend's error for a quota, with an address in its message, as some of its messages have.
   const quotaReached = () => Response.json({ statusCode: 429, name: "daily_quota_exceeded", message: `Could not send to ${EMAIL}: daily quota exceeded.` }, { status: 429 });
-  const loggedText = () => logged.mock.calls.flat().map(String).join(" ");
+  const loggedText = (spies = [logged]) => spies.flatMap((spy) => spy.mock.calls.flat()).map(String).join(" ");
 
   beforeEach(() => {
     logged = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -174,20 +174,22 @@ describe("A sign-in code that fails to send", () => {
 
   // Better Auth logs this one itself (#106). Drizzle's error carries the query's params, the identifier
   // sign-in-otp-<email> among them, and here Postgres's own message names the email too.
-  it("logs a database failure while storing the code by its message and name, never the email", async () => {
+  it("logs a database failure while storing the code by its name, message and Postgres's error, never the email or params", async () => {
+    // For Turnstile's siteverify; no mail goes out.
     resendReplies(quotaReached);
     await ctx.db.execute(sql`CREATE FUNCTION refuse_code() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION 'refused %', NEW.identifier; END $$ LANGUAGE plpgsql`);
     await ctx.db.execute(sql`CREATE TRIGGER refuse_code BEFORE INSERT ON verification FOR EACH ROW EXECUTE FUNCTION refuse_code()`);
-    const elsewhere = [vi.spyOn(console, "warn").mockImplementation(() => {}), vi.spyOn(console, "log").mockImplementation(() => {})];
+    const warned = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const info = vi.spyOn(console, "log").mockImplementation(() => {});
     try {
       const res = await requestCode("open");
 
       expect(res.status).toBe(500);
-      const text = [logged, ...elsewhere].flatMap((spy) => spy.mock.calls.flat()).map((arg) => (arg instanceof Error ? `${arg.message} ${arg.stack}` : String(arg))).join(" ");
+      const text = loggedText([logged, warned, info]);
       expect(text).toContain('Error: Failed query: insert into "verification"');
-      expect(text).toContain("(cause: error: refused");
+      expect(text).toContain("(cause: error P0001: refused [email])");
       expect(text).not.toContain(EMAIL);
-      expect(text).not.toContain("params");
+      expect(text).not.toContain("params:");
     } finally {
       await ctx.db.execute(sql`DROP TRIGGER refuse_code ON verification`);
       await ctx.db.execute(sql`DROP FUNCTION refuse_code`);
