@@ -87,6 +87,18 @@ test("with Turnstile's failing key, the form says so and sends nothing", async (
   expect(await outbox()).toEqual([]);
 });
 
+// The server's reply when Resend refuses in open mode (#70); the e2e server is allowlist-only, so it's faked.
+test("when no code could be sent, the form says so and points to Google", async ({ page }) => {
+  await page.route("/api/auth/email-otp/send-verification-otp", (route) =>
+    route.fulfill({ status: 503, json: { code: "CODE_NOT_SENT", message: "Could not send a sign-in code." } }),
+  );
+  await page.goto("/sign-in");
+  await sendCodeTo(page, READER_A.email);
+  await expect(page.locator("#sign-in-message")).toHaveText("Couldn’t send a code just now. Continue with Google instead, or try again later.");
+  await expect(reply(page)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Continue with Google" })).toBeEnabled();
+});
+
 test("the same email again goes back to its code, and a second code for it within a minute is refused, saying how long to wait", async ({ page, context }) => {
   await page.goto("/sign-in");
   await sendCodeTo(page, READER_A.email);

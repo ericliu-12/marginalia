@@ -38,6 +38,8 @@ const tooManyCodes = (res: Response) => {
 };
 // Turnstile failed, or its script was blocked. Not "reload": the iPhone home-screen app can't.
 const NOT_CHECKED = "Couldn’t check this browser. Try again, or continue with Google.";
+// Resend refused or couldn't be reached (#70): its limits can last the day, so Google is the way in.
+const NOT_SENT = "Couldn’t send a code just now. Continue with Google instead, or try again later.";
 const BAD_EMAIL = "That doesn’t look like an email address.";
 // The same whatever went wrong, so it never tells an invited email from another.
 const GOOGLE_FAILED = "That didn’t sign you in. Try again, or sign in with an email code below.";
@@ -80,12 +82,15 @@ export function CodeSignIn({
   googleFailed,
   accountDeleted,
   turnstileSiteKey,
+  openSignup,
 }: {
   next: string;
   callbackURL: string;
   googleFailed: boolean;
   accountDeleted: boolean;
   turnstileSiteKey: string;
+  // Anyone may sign up, so every email is sent a code and the reply needn't hedge.
+  openSignup: boolean;
 }) {
   const [step, setStep] = useState<"email" | "code">("email");
   const [email, setEmail] = useState("");
@@ -163,7 +168,7 @@ export function CodeSignIn({
     setBusy(false);
     if (!res?.ok) {
       if (res?.status === 400) setError(BAD_EMAIL);
-      else setNotice(res?.status === 429 ? tooManyCodes(res) : res?.status === 403 ? NOT_CHECKED : UNREACHABLE);
+      else setNotice(res?.status === 429 ? tooManyCodes(res) : res?.status === 403 ? NOT_CHECKED : res?.status === 503 ? NOT_SENT : UNREACHABLE);
       return false;
     }
     const at = Date.now();
@@ -318,7 +323,15 @@ export function CodeSignIn({
     <form ref={codeForm} onSubmit={onCode} noValidate className="w-full max-w-[19rem]">
       {wordmark}
       <p id="code-sent" className="mt-10 text-[1.0625rem] leading-normal text-pretty text-ink-2">
-        If <span className="wrap-anywhere text-ink">{email}</span> can sign in here, a code is on its way. It lasts 5 minutes.
+        {openSignup ? (
+          <>
+            A code is on its way to <span className="wrap-anywhere text-ink">{email}</span>. It lasts 5 minutes.
+          </>
+        ) : (
+          <>
+            If <span className="wrap-anywhere text-ink">{email}</span> can sign in here, a code is on its way. It lasts 5 minutes.
+          </>
+        )}
       </p>
       <button type="button" onClick={differentEmail} className={`${quietLink} mt-2 text-left`}>
         Use a different email
