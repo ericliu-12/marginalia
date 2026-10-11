@@ -152,7 +152,7 @@ export function CodeSignIn({
     return () => clearInterval(tick);
   }, [step, waitS]);
 
-  // The same reply whatever the email: the server sends a code only if it may sign in.
+  // While allowlist-only, the same reply whatever the email: the server sends a code only if it may sign in.
   async function sendCode(address: string, setBusy: (busy: boolean) => void) {
     setBusy(true);
     setError(null);

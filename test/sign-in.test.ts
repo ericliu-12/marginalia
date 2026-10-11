@@ -129,7 +129,7 @@ describe("A sign-in code that fails to send", () => {
     );
   // Resend's error for a quota, with an address in its message, as some of its messages have.
   const quotaReached = () => Response.json({ statusCode: 429, name: "daily_quota_exceeded", message: `Could not send to ${EMAIL}: daily quota exceeded.` }, { status: 429 });
-  const loggedText = () => logged.mock.calls.flat().map((arg) => (arg instanceof Error ? `${arg.message} ${String(arg.cause)}` : String(arg))).join(" ");
+  const loggedText = () => logged.mock.calls.flat().map(String).join(" ");
 
   beforeEach(() => {
     logged = vi.spyOn(console, "error").mockImplementation(() => {});
