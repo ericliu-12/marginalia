@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, notExists, or, sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { book, connection, connectionRun, enrichment, libraryEntry, note } from "@/db/schema";
 import { embedEnrichment, nearestBooks, type Embedder } from "./embeddings";
@@ -105,11 +105,17 @@ export async function resumeNoteConnections(db: Db, noteId: string): Promise<Con
   return n ? resumeConnections(db, n.bookId, n.entryId) : [];
 }
 
-// The Book's Enrichment is ready: Refreshes, once, each reader whose latest run judged the Book
-// without it. Only a recognised Enrichment reaches the judge, so an unrecognised one changes nothing.
-export async function refreshAfterEnrichment(db: Db, bookId: string): Promise<ConnectionsDue[]> {
+// What follows a Book's Enrichment: the Connections jobs due, and the Readers whose Connections changed.
+export type AfterEnrichment = { due: ConnectionsDue[]; changed: string[] };
+
+// The Book's Enrichment is ready. A recognised one Refreshes, once, each reader whose latest run judged
+// the Book without it. An unrecognised one means the Book connects through its Notes only: each
+// reader's Connections of the Book that quote none of their Notes on it are deleted, dismissed ones
+// too, with no Refresh.
+export async function refreshAfterEnrichment(db: Db, bookId: string): Promise<AfterEnrichment> {
   const [e] = await db.select().from(enrichment).where(eq(enrichment.bookId, bookId));
-  if (!isRecognised(e)) return [];
+  if (e?.status === "ready" && !e.recognised) return { due: [], changed: await dropUngrounded(db, bookId) };
+  if (!isRecognised(e)) return { due: [], changed: [] };
   const latest = await db
     .selectDistinctOn([connectionRun.libraryEntryId], { userId: libraryEntry.userId, withoutEnrichment: connectionRun.withoutEnrichment })
     .from(connectionRun)
@@ -118,7 +124,21 @@ export async function refreshAfterEnrichment(db: Db, bookId: string): Promise<Co
     .orderBy(connectionRun.libraryEntryId, desc(connectionRun.createdAt));
   const due: ConnectionsDue[] = [];
   for (const r of latest) if (r.withoutEnrichment) due.push(...(await startConnections(db, r.userId, bookId, true)));
-  return due;
+  return { due, changed: [] };
+}
+
+// Deletes the Book's Connections that quote none of the reader's Notes on it; returns the Readers who lost one.
+async function dropUngrounded(db: Db, bookId: string): Promise<string[]> {
+  const ownNotes = db
+    .select({ id: note.id })
+    .from(note)
+    .innerJoin(libraryEntry, eq(libraryEntry.id, note.libraryEntryId))
+    .where(and(eq(libraryEntry.userId, connection.userId), eq(libraryEntry.bookId, bookId), sql`${note.id} = any(${connection.quotedNoteIds})`));
+  const dropped = await db
+    .delete(connection)
+    .where(and(or(eq(connection.bookAId, bookId), eq(connection.bookBId, bookId)), notExists(ownNotes)))
+    .returning({ userId: connection.userId });
+  return [...new Set(dropped.map((d) => d.userId))];
 }
 
 // A run waits until the Book's Enrichment has settled (ready or failed) and each of its Notes has a

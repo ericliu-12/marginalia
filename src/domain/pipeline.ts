@@ -232,7 +232,10 @@ async function run(db: Db, deps: JobDeps, queue: JobQueue, job: Job): Promise<vo
     // Always queued, and a no-op for an unrecognised or already-embedded Enrichment, so a retry
     // after a failed send still gets its embedding. Charged to whoever the Enrichment was.
     await queue.send({ kind: "embed", target: { kind: "enrichment", id: job.bookId }, userId: job.userId });
-    await sendConnections(db, queue, await refreshAfterEnrichment(db, job.bookId));
+    const after = await refreshAfterEnrichment(db, job.bookId);
+    // An unrecognised Enrichment deletes Connections, so those Readers' Clusters are recomputed.
+    for (const userId of after.changed) await requestGraph(db, queue, userId);
+    await sendConnections(db, queue, after.due);
     await sendConnections(db, queue, await resumeConnections(db, job.bookId));
   } else if (job.kind === "embed" && job.target.kind === "note") {
     await embedNote(db, deps.embedder, job.target.id);

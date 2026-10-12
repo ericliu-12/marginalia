@@ -57,7 +57,7 @@ The Books a reader has followed in the graph, one Connection at a time, oldest f
 _Avoid_: Breadcrumbs, history, path, thread
 
 **Enrichment**:
-LLM-generated summary and themes attached to a Book. When the model does not recognise the Book, the Enrichment is empty (recognised or unrecognised); an unrecognised Book connects through its Notes only.
+LLM-generated summary and themes attached to a Book. When the model does not recognise the Book, the Enrichment is empty (recognised or unrecognised); an unrecognised Book connects through its Notes only. When a Book's Enrichment comes back unrecognised, each reader's Connections of it that quote none of their Notes on it are deleted, dismissed ones too, without a Refresh.
 _Avoid_: Metadata, annotation
 
 **Manual Book**:
