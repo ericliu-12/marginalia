@@ -4,8 +4,8 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import type { Lookalike } from "@/domain/lookalike";
 import type { SearchResult, Status } from "@/domain/search";
 import { addBookAction, addManualBookAction, findLookalikeAction, goToSignIn } from "./client-actions";
-import { field } from "./book-panel";
-import { CO_AUTHOR_HINT, EMPTY_BOOK, draftError, invalidProps, withScheme, type BookDraft, type DraftError } from "./book-draft";
+import { BookDetailsForm } from "./book-panel";
+import { EMPTY_BOOK, type BookDraft } from "./book-draft";
 import { Cover } from "./cover";
 import { quietLink } from "./quiet-link";
 
@@ -364,9 +364,8 @@ function useLookalike(title: string, author: string) {
 
 // A Manual Book: title and author, then the cover and description as quiet reveals, added with the
 // same Status choices as a search result. Enter adds it as Want to read, the first choice. Escape
-// closes it with the draft kept (`onClose(false)`); Cancel discards it. With `enterMovesOn` (the phone,
-// whose keyboard has no Tab), Enter goes to the next field instead, and the last puts the keyboard away.
-// `onChoose` hears a valid choice in the tap itself, before the add.
+// closes it with the draft kept (`onClose(false)`); Cancel discards it. `enterMovesOn` is for the phone
+// (see BookDetailsForm). `onChoose` hears a valid choice in the tap itself, before the add.
 export function ManualBookForm({
   draft,
   onChange,
@@ -384,170 +383,53 @@ export function ManualBookForm({
   enterMovesOn?: boolean;
   onChoose?: () => void;
 }) {
-  const [showCover, setShowCover] = useState(!!draft.coverUrl);
-  const [showDescription, setShowDescription] = useState(!!draft.description);
-  const [error, setError] = useState<DraftError | null>(null);
-  const [adding, setAdding] = useState<Status | null>(null);
-  const [pending, start] = useTransition();
-  const refs = {
-    title: useRef<HTMLInputElement>(null),
-    author: useRef<HTMLInputElement>(null),
-    coverUrl: useRef<HTMLInputElement>(null),
-    description: useRef<HTMLTextAreaElement>(null),
-  };
   const lookalike = useLookalike(draft.title, draft.author);
+  const statusOf = (choice: string) => (choice as Status) || "want";
 
-  // Into the first field still empty: the title usually comes from the search.
-  useEffect(() => (draft.title.trim() ? refs.author : refs.title).current?.focus(), []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  function change(patch: Partial<BookDraft>) {
-    onChange({ ...draft, ...patch });
-    setError(null);
-  }
-
-  function add(status: Status) {
-    const problem = draftError(draft, true);
-    if (problem) {
-      setError(problem);
-      if (problem.field) refs[problem.field].current?.focus();
-      return;
-    }
-    setError(null);
-    setAdding(status);
-    onChoose?.();
-    start(async () => {
-      const res = await addManualBookAction({ ...draft, coverUrl: withScheme(draft.coverUrl) }, status);
-      if (res.ok) onAdded(draft.title.trim(), res.bookId, status);
-      else setError({ field: null, message: "Couldn’t add this book. Try again." });
-    });
-  }
-
-  const label = "mt-3 block font-sans text-[0.8rem] font-medium text-ink-2";
-  const input = `${field} mt-1 font-sans text-[0.95rem]`;
-  const errorId = "manual-error";
   return (
-    <form
-      noValidate
+    <BookDetailsForm
+      id="manual"
+      errorId="manual-error"
       aria-labelledby="manual-heading"
-      onSubmit={(e) => {
-        e.preventDefault();
-        const submitter = (e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
-        add((submitter?.value as Status) || "want");
+      draft={draft}
+      onChange={onChange}
+      manual
+      reveal
+      // Into the first field still empty: the title usually comes from the search.
+      focus={draft.title.trim() ? "author" : "title"}
+      descriptionPlaceholder="What it’s about, from the jacket or in your words. It helps Marginalia know the book."
+      enterMovesOn={enterMovesOn}
+      onSubmit={async (sent, choice) => {
+        const status = statusOf(choice);
+        onChoose?.();
+        const res = await addManualBookAction(sent, status);
+        if (!res.ok) return "Couldn’t add this book. Try again.";
+        onAdded(sent.title.trim(), res.bookId, status);
       }}
-      onKeyDown={(e) => {
-        if (e.key === "Escape") {
-          e.stopPropagation();
-          onClose(false);
-        }
-        if (enterMovesOn && e.key === "Enter" && e.target instanceof HTMLInputElement) {
-          e.preventDefault();
-          const fields = [refs.title, refs.author, refs.coverUrl].flatMap((r) => (r.current ? [r.current] : []));
-          const next = fields[fields.indexOf(e.target) + 1];
-          if (next) next.focus();
-          else e.target.blur();
-        }
-      }}
-    >
-      <h3 id="manual-heading" className="text-[1.05rem] leading-snug font-medium">
-        Add a book by hand
-      </h3>
-      <p className="mt-0.5 max-w-[38ch] font-sans text-sm text-ink-2">It stays in your library alone, and you can change it later.</p>
-
-      <label htmlFor="manual-title" className={label}>
-        Title
-      </label>
-      <input ref={refs.title} id="manual-title" enterKeyHint={enterMovesOn ? "next" : undefined} value={draft.title} onChange={(e) => change({ title: e.target.value })} autoComplete="off" {...invalidProps(error, "title", errorId)} className={input} />
-      <label htmlFor="manual-author" className={label}>
-        Author
-      </label>
-      <input ref={refs.author} id="manual-author" enterKeyHint={enterMovesOn ? (showCover ? "next" : "done") : undefined} value={draft.author} onChange={(e) => change({ author: e.target.value })} autoComplete="off" {...invalidProps(error, "author", errorId, "manual-author-hint")} className={input} />
-      <p id="manual-author-hint" className="mt-1 font-sans text-[0.8rem] text-ink-3">
-        {CO_AUTHOR_HINT}
-      </p>
-
-      {showCover && (
+      onEscape={() => onClose(false)}
+      intro={
         <>
-          <label htmlFor="manual-cover" className={label}>
-            Cover image address
-          </label>
-          <input
-            ref={refs.coverUrl}
-            id="manual-cover"
-            enterKeyHint={enterMovesOn ? "done" : undefined}
-            type="url"
-            inputMode="url"
-            placeholder="https://"
-            value={draft.coverUrl}
-            onChange={(e) => change({ coverUrl: e.target.value })}
-            autoComplete="off"
-            {...invalidProps(error, "coverUrl", errorId)}
-            className={input}
-          />
+          <h3 id="manual-heading" className="text-[1.05rem] leading-snug font-medium">
+            Add a book by hand
+          </h3>
+          <p className="mt-0.5 max-w-[38ch] font-sans text-sm text-ink-2">It stays in your library alone, and you can change it later.</p>
         </>
-      )}
-      {showDescription && (
-        <>
-          <label htmlFor="manual-description" className={label}>
-            Description
-          </label>
-          <textarea
-            ref={refs.description}
-            id="manual-description"
-            rows={4}
-            value={draft.description}
-            onChange={(e) => change({ description: e.target.value })}
-            placeholder="What it’s about, from the jacket or in your words. It helps Marginalia know the book."
-            className={`${field} mt-1 resize-y`}
-          />
-        </>
-      )}
-      {(!showCover || !showDescription) && (
-        <div className="mt-2 flex flex-wrap gap-x-5">
-          {!showCover && (
-            <button
-              type="button"
-              onClick={() => {
-                setShowCover(true);
-                requestAnimationFrame(() => refs.coverUrl.current?.focus());
-              }}
-              className={quietLink}
-            >
-              Add a cover
-            </button>
-          )}
-          {!showDescription && (
-            <button
-              type="button"
-              onClick={() => {
-                setShowDescription(true);
-                requestAnimationFrame(() => refs.description.current?.focus());
-              }}
-              className={quietLink}
-            >
-              Add a description
-            </button>
-          )}
+      }
+      note={<div aria-live="polite">{lookalike && <LookalikeNote lookalike={lookalike} onOpenBook={onOpenBook} className="mt-4" />}</div>}
+      actions={(pending, choice) => (
+        <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
+          <div className={`${addChoices} max-lg:w-full`} role="group" aria-label="Add to your library as">
+            {(Object.keys(LABELS) as Status[]).map((s) => (
+              <button key={s} type="submit" value={s} disabled={pending} className={addButton}>
+                {pending && statusOf(choice) === s ? "Adding…" : LABELS[s]}
+              </button>
+            ))}
+          </div>
+          <button type="button" onClick={() => onClose(true)} disabled={pending} className={quietLink}>
+            Cancel
+          </button>
         </div>
       )}
-
-      <div aria-live="polite">{lookalike && <LookalikeNote lookalike={lookalike} onOpenBook={onOpenBook} className="mt-4" />}</div>
-      {error && (
-        <p id={errorId} role="alert" className="mt-2 font-sans text-sm text-contrast">
-          {error.message}
-        </p>
-      )}
-      <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
-        <div className={`${addChoices} max-lg:w-full`} role="group" aria-label="Add to your library as">
-          {(Object.keys(LABELS) as Status[]).map((s) => (
-            <button key={s} type="submit" value={s} disabled={pending} className={addButton}>
-              {pending && adding === s ? "Adding…" : LABELS[s]}
-            </button>
-          ))}
-        </div>
-        <button type="button" onClick={() => onClose(true)} disabled={pending} className={quietLink}>
-          Cancel
-        </button>
-      </div>
-    </form>
+    />
   );
 }

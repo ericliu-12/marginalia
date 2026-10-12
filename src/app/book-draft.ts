@@ -1,3 +1,5 @@
+import { isCoverAddress } from "@/domain/book-cover";
+
 // What the reader types for a Book by hand, or when editing one, checked before it is sent.
 export type BookDraft = { title: string; author: string; coverUrl: string; description: string };
 export const EMPTY_BOOK: BookDraft = { title: "", author: "", coverUrl: "", description: "" };
@@ -14,7 +16,7 @@ export function draftError(draft: BookDraft, needsTitleAndAuthor: boolean): Draf
   if (needsTitleAndAuthor && !draft.title.trim()) return { field: "title", message: "A title is needed." };
   if (needsTitleAndAuthor && !draft.author.trim()) return { field: "author", message: "An author is needed." };
   const cover = withScheme(draft.coverUrl);
-  if (cover && !/^https?:\/\/\S+$/i.test(cover)) {
+  if (cover && !isCoverAddress(cover)) {
     return { field: "coverUrl", message: "The cover should be a web address beginning with http:// or https://." };
   }
   return null;
