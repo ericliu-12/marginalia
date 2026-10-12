@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, notExists, or, sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { book, connection, connectionRun, enrichment, libraryEntry, note } from "@/db/schema";
 import { embedEnrichment, nearestBooks, type Embedder } from "./embeddings";
@@ -106,7 +106,8 @@ export async function resumeNoteConnections(db: Db, noteId: string): Promise<Con
 }
 
 // The Book's Enrichment is ready: Refreshes, once, each reader whose latest run judged the Book
-// without it. Only a recognised Enrichment reaches the judge, so an unrecognised one changes nothing.
+// without it. Only a recognised Enrichment reaches the judge; an unrecognised one is handled by
+// notesOnlyBreaches.
 export async function refreshAfterEnrichment(db: Db, bookId: string): Promise<ConnectionsDue[]> {
   const [e] = await db.select().from(enrichment).where(eq(enrichment.bookId, bookId));
   if (!isRecognised(e)) return [];
@@ -119,6 +120,31 @@ export async function refreshAfterEnrichment(db: Db, bookId: string): Promise<Co
   const due: ConnectionsDue[] = [];
   for (const r of latest) if (r.withoutEnrichment) due.push(...(await startConnections(db, r.userId, bookId, true)));
   return due;
+}
+
+// The Book's Connections, dismissed ones too, that quote none of their reader's Notes on it.
+function quotingNoNotes(db: Db, bookId: string) {
+  const ownNotes = db
+    .select({ id: note.id })
+    .from(note)
+    .innerJoin(libraryEntry, eq(libraryEntry.id, note.libraryEntryId))
+    .where(and(eq(libraryEntry.userId, connection.userId), eq(libraryEntry.bookId, bookId), sql`${note.id} = any(${connection.quotedNoteIds})`));
+  return and(or(eq(connection.bookAId, bookId), eq(connection.bookBId, bookId)), notExists(ownNotes));
+}
+
+// The Book's Enrichment came back unrecognised, so it connects through its Notes only: the Readers
+// with a Connection of it that breaks that rule (see dropNotesOnlyBreaches). None for any other Enrichment.
+export async function notesOnlyBreaches(db: Db, bookId: string): Promise<string[]> {
+  const [e] = await db.select({ status: enrichment.status, recognised: enrichment.recognised }).from(enrichment).where(eq(enrichment.bookId, bookId));
+  if (e?.status !== "ready" || e.recognised) return [];
+  const rows = await db.selectDistinct({ userId: connection.userId }).from(connection).where(quotingNoNotes(db, bookId));
+  return rows.map((r) => r.userId);
+}
+
+// Deletes the reader's Connections of the Book that quote none of their Notes on it, without judging
+// anything again. A later recognised Enrichment Refreshes as usual.
+export async function dropNotesOnlyBreaches(db: Db, userId: string, bookId: string): Promise<void> {
+  await db.delete(connection).where(and(eq(connection.userId, userId), quotingNoNotes(db, bookId)));
 }
 
 // A run waits until the Book's Enrichment has settled (ready or failed) and each of its Notes has a

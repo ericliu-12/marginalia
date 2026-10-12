@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { addBook, addManualBook } from "../src/domain/add-book";
 import { dismissConnection, readConnections, type JudgeInput } from "../src/domain/connections";
-import { readEnrichment, tryAgain } from "../src/domain/enrichment";
+import { readEnrichment, requestEnrichment, tryAgain } from "../src/domain/enrichment";
 import { readGraph } from "../src/domain/graph";
 import { changeStatus, removeFromLibrary } from "../src/domain/library-entry";
 import { addNote, updateNote } from "../src/domain/notes";
@@ -248,6 +248,79 @@ describe("Pipeline", () => {
       const judge = link((t) => `Again ${t}.`);
       await ctx.jobs.drain(deps({ judge, model: fakeEnricher({ recognised: false }) }));
       expect(judge.inputs).toEqual([]);
+    });
+
+    describe("a Book re-enriched after its Connections were found", () => {
+      // "subject" links to "kept" by quoting its own Note, to "dropped" and "dismissed" on its
+      // Enrichment alone; the last is then dismissed.
+      async function connected() {
+        const subject = await finishWithNote("subject", "A quiet subject note.", deps());
+        for (const key of ["kept", "dropped", "dismissed"]) await add(key, "read");
+        const judge = fakeJudge((input) => ({
+          connections: input.candidates.map((c) => {
+            const quotes = [input.book.title, c.title].includes("subject") && [input.book.title, c.title].includes("kept");
+            return { candidateId: c.id, type: "thematic" as const, strength: "strong" as const, explanation: quotes ? `Both, as in "a quiet subject note".` : "Both are quiet.", quotedNoteIds: [] };
+          }),
+        }));
+        await ctx.jobs.drain(deps({ judge }));
+        const ids = Object.fromEntries((await ctx.db.select({ id: book.id, title: book.title }).from(book)).map((b) => [b.title, b.id]));
+        await dismiss(subject, ids.dismissed);
+        return { subject, ids };
+      }
+      const subjectRows = async (subject: string, ids: Record<string, string>) =>
+        (await ctx.db.select().from(connection))
+          .filter((r) => [r.bookAId, r.bookBId].includes(subject))
+          .map((r) => Object.keys(ids).find((t) => ids[t] === (r.bookAId === subject ? r.bookBId : r.bookAId)))
+          .sort();
+      const reEnrich = async (bookId: string, d: JobDeps) => {
+        await requestEnrichment(ctx.db, bookId, true);
+        await ctx.jobs.send({ kind: "enrich", bookId, userId: ctx.userId });
+        ctx.jobs.sent.length = 0;
+        await ctx.jobs.drain(d);
+      };
+
+      it("keeps, once unrecognised, only the Connections that quote its Notes, and updates the graph without a paid judge call", async () => {
+        const { subject, ids } = await connected();
+        expect(await subjectRows(subject, ids)).toEqual(["dismissed", "dropped", "kept"]);
+        const judge = fakeJudge();
+        await reEnrich(subject, deps({ judge, model: fakeEnricher({ recognised: false }) }));
+        expect(await subjectRows(subject, ids)).toEqual(["kept"]);
+        expect(ctx.jobs.sent).toContainEqual({ kind: "graph", userId: ctx.userId });
+        expect(judge.inputs).toEqual([]);
+        // Connections between the other Books are untouched.
+        expect(await ctx.db.select().from(connection)).toHaveLength(4);
+      });
+
+      it("keeps another Reader's Connection that quotes their own Note on it", async () => {
+        const { subject } = await connected();
+        const second = (await addReader(ctx.db, "second@marginalia.local")).id;
+        const other = await addBook(ctx.db, ctx.pipeline, second, work({ workKey: "/works/theirs", title: "theirs", authors: ["A"] }), "read");
+        await addBook(ctx.db, ctx.pipeline, second, work({ workKey: "/works/subject", title: "subject", authors: ["A"] }), "reading");
+        await addNote(ctx.db, ctx.pipeline, second, subject, { body: "Their own quiet reading." });
+        const judge = fakeJudge((input) => ({
+          connections: input.candidates.map((c) => ({ candidateId: c.id, type: "thematic" as const, strength: "strong" as const, explanation: `As in "their own quiet reading".`, quotedNoteIds: [] })),
+        }));
+        await ctx.jobs.drain(deps({ judge }));
+        await changeStatus(ctx.db, ctx.pipeline, second, subject, "read");
+        await ctx.jobs.drain(deps({ judge }));
+        expect((await readConnections(ctx.db, second, subject)).cards.map((c) => c.otherBookId)).toEqual([other.bookId]);
+
+        await reEnrich(subject, deps({ model: fakeEnricher({ recognised: false }) }));
+        expect((await readConnections(ctx.db, second, subject)).cards.map((c) => c.otherBookId)).toEqual([other.bookId]);
+        expect(ctx.jobs.sent).not.toContainEqual({ kind: "graph", userId: second });
+        expect(ctx.jobs.sent).toContainEqual({ kind: "graph", userId: ctx.userId });
+      });
+
+      it("changes nothing when it comes back recognised again", async () => {
+        const { subject, ids } = await connected();
+        const before = await ctx.db.select().from(connection);
+        const judge = fakeJudge();
+        await reEnrich(subject, deps({ judge }));
+        expect(await ctx.db.select().from(connection)).toEqual(before);
+        expect(ctx.jobs.sent.filter((j) => j.kind === "graph" || j.kind === "connections")).toEqual([]);
+        expect(judge.inputs).toEqual([]);
+        expect(await subjectRows(subject, ids)).toEqual(["dismissed", "dropped", "kept"]);
+      });
     });
 
     it("does nothing with a duplicate job left over after a run finished", async () => {
