@@ -58,7 +58,8 @@ const lower = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerC
 // the results but is not one of its own authors, either as a possessive ("Kazuo Ishiguro's the
 // Remains of the Day", "Camus' The Stranger") or, when the query names that author, in any form.
 // Judged against the authors in the results, so "Bridget Jones's Diary" is not mistaken for one.
-// A work with no author is by no one its title names ("The Stranger by Albert Camus").
+// A work with no author is by no one its title names ("The Stranger by Albert Camus"); authorsMatch
+// would count it as by anyone.
 function isAboutAnotherAuthor(w: OpenLibraryWork, knownAuthors: string[], namedAuthors: Set<string>) {
   const title = lower(w.title);
   const titleWords = normName(w.title);
@@ -72,7 +73,7 @@ function isAboutAnotherAuthor(w: OpenLibraryWork, knownAuthors: string[], namedA
 // Demoted works (adaptations, study guides, box sets, omnibus editions, books about an author) go
 // last. Within each group the title decides first: an exact match for the query, then a title
 // holding every query word. Within a title tier, works by an author the query names lead, then
-// works with no author go last, then the more popular: more readers who logged it, then more
+// works with an author before those with none, then the more popular: more readers who logged it, then more
 // editions, then earliest first-publish year.
 export function rankWorks(works: OpenLibraryWork[], query = ""): OpenLibraryWork[] {
   const knownAuthors = [...new Set(works.flatMap((w) => w.authors))];

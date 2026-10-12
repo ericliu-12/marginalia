@@ -36,14 +36,15 @@ describe("ranking real Open Library results", () => {
   it.each([
     ["the stranger camus", 1],
     ["the stranger", 2],
-  ])("%s: Camus's The Stranger is in the top %i, ahead of any entry with no author", (query, top) => {
-    const keys = ranked(query).map((w) => w.workKey);
+  ])("%s: Camus's The Stranger is in the top %i, ahead of any work with no author", (query, top) => {
+    const works = ranked(query);
+    const keys = works.map((w) => w.workKey);
     const camus = keys.indexOf("/works/OL1230613W");
     expect(camus).toBeLessThan(top);
-    for (const w of ranked(query).filter((w) => w.authors.length === 0)) expect(keys.indexOf(w.workKey)).toBeGreaterThan(camus);
+    for (const w of works.filter((w) => w.authors.length === 0)) expect(keys.indexOf(w.workKey)).toBeGreaterThan(camus);
   });
 
-  it("the stranger camus: an entry with no author titled \"by Albert Camus\" goes with the books about him", () => {
+  it("the stranger camus: a work with no author titled \"by Albert Camus\" goes with the books about him", () => {
     const keys = ranked("the stranger camus").map((w) => w.workKey);
     expect(keys.indexOf("/works/OL37500243W")).toBeGreaterThan(keys.indexOf("/works/OL4488980W"));
   });
@@ -64,7 +65,7 @@ describe("a title word that is another author's surname", () => {
   });
 });
 
-describe("an entry with no author", () => {
+describe("a work with no author", () => {
   it("ranks below a work with authors in its title tier, however popular", () => {
     const keys = rankWorks([
       work({ workKey: "/works/none", title: "Dune", authors: [], readinglogCount: 9000 }),
