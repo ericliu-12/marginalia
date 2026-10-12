@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { addBook, addManualBook } from "../src/domain/add-book";
 import { dismissConnection, readConnections, type JudgeInput } from "../src/domain/connections";
 import { backfillEmbeddings } from "../src/domain/pipeline";
@@ -10,7 +10,7 @@ import { addNote, updateNote } from "../src/domain/notes";
 import { RETRIES, jobGaveUp, type JobDeps } from "../src/domain/pipeline";
 import { book, connection, connectionRun, enrichment, libraryEntry, note } from "../src/db/schema";
 import { fakeEmbedder, fakeEnricher, fakeJudge, fakeNamer, work } from "./fakes";
-import { useTestDb } from "./harness";
+import { addReader, useTestDb } from "./harness";
 
 // The background work as the Pipeline runs it, over the in-memory queue.
 describe("Pipeline", () => {
@@ -442,6 +442,66 @@ describe("Pipeline", () => {
       ctx.jobs.down = true;
       await ctx.pipeline.connectionsChanged(ctx.userId);
       expect(await pending()).toBe(false);
+    });
+  });
+
+  // Each job names the Reader who pays for it: the one whose action caused it, or whose Book it is.
+  describe("who pays for the work that follows", () => {
+    const stoner = work({ workKey: "/works/stoner", title: "Stoner", authors: ["John Williams"] });
+    let second: string;
+    beforeEach(async () => {
+      second = (await addReader(ctx.db, "second@marginalia.local")).id;
+    });
+
+    it("charges a shared Book's Enrichment and its vector to each Reader who asks, and Connections and the graph to the Reader whose they are", async () => {
+      const { bookId } = await addBook(ctx.db, ctx.pipeline, ctx.userId, stoner, "read");
+      await addBook(ctx.db, ctx.pipeline, second, stoner, "read");
+      const n = await addNote(ctx.db, ctx.pipeline, second, bookId, { body: "Quiet." });
+      await ctx.jobs.drain(deps());
+      for (const userId of [ctx.userId, second]) {
+        expect(ctx.jobs.sent).toContainEqual({ kind: "enrich", bookId, userId });
+        expect(ctx.jobs.sent).toContainEqual({ kind: "embed", target: { kind: "enrichment", id: bookId }, userId });
+        expect(ctx.jobs.sent).toContainEqual({ kind: "connections", userId, bookId });
+        expect(ctx.jobs.sent).toContainEqual({ kind: "graph", userId });
+      }
+      expect(ctx.jobs.sent.filter((j) => j.kind === "embed" && j.target.kind === "note")).toEqual([{ kind: "embed", target: { kind: "note", id: n.id }, userId: second }]);
+    });
+
+    it("charges a Refresh's retried vectors, a shared Enrichment's too, to the Reader refreshing", async () => {
+      const { bookId } = await addBook(ctx.db, ctx.pipeline, ctx.userId, stoner, "read");
+      await addBook(ctx.db, ctx.pipeline, second, stoner, "read");
+      const n = await addNote(ctx.db, ctx.pipeline, second, bookId, { body: "Quiet." });
+      const down = { ...fakeEmbedder(["quiet"]), embed: () => Promise.reject(new Error("429")) };
+      await ctx.jobs.drain(deps({ embedder: down }));
+      ctx.jobs.sent.length = 0;
+      await ctx.pipeline.refreshRequested(second, bookId);
+      expect(ctx.jobs.sent).toEqual([
+        { kind: "embed", target: { kind: "note", id: n.id }, userId: second },
+        { kind: "embed", target: { kind: "enrichment", id: bookId }, userId: second },
+        { kind: "connections", userId: second, bookId },
+      ]);
+    });
+
+    it("Refreshes every Reader who holds a Book once it is re-enriched, each charged for their own Connections", async () => {
+      const failing = fakeEnricher(() => Promise.reject(new Error("model down")));
+      const { bookId } = await addBook(ctx.db, ctx.pipeline, ctx.userId, stoner, "read");
+      await addBook(ctx.db, ctx.pipeline, second, stoner, "read");
+      await ctx.jobs.drain(deps({ model: failing }));
+      expect(await readEnrichment(ctx.db, bookId)).toMatchObject({ status: "failed" });
+
+      await tryAgain(ctx.db, ctx.pipeline, ctx.userId, bookId);
+      ctx.jobs.sent.length = 0;
+      await ctx.jobs.drain(deps());
+      // The Refresh's job and the resumed one for each Reader coalesce.
+      const distinct = [...new Set(ctx.jobs.sent.filter((j) => j.kind !== "graph").map((j) => JSON.stringify(j)))].map((j) => JSON.parse(j));
+      expect(distinct).toHaveLength(3);
+      expect(distinct).toEqual(
+        expect.arrayContaining([
+          { kind: "embed", target: { kind: "enrichment", id: bookId }, userId: ctx.userId },
+          { kind: "connections", userId: ctx.userId, bookId },
+          { kind: "connections", userId: second, bookId },
+        ]),
+      );
     });
   });
 });

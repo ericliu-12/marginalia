@@ -10,6 +10,7 @@ import { startWorker } from "../src/lib/jobs";
 import { backfillConnections } from "../src/domain/connections";
 import { changeStatus, removeFromLibrary } from "../src/domain/library-entry";
 import { addNote } from "../src/domain/notes";
+import { readGraphStatus } from "../src/domain/graph-job";
 import { fakeEmbedder, fakeEnricher, fakeJudge, fakeNamer, work } from "./fakes";
 import { useTestDb } from "./harness";
 
@@ -213,5 +214,24 @@ describe("Enrichment through the queue", () => {
     await pipeline.refreshRequested(ctx.userId, bookIds[2]);
     release();
     expect((await judged())[0]).toBe("f5");
+  }, 20_000);
+
+  // A Book read before it was enriched: its Enrichment is asked for, and what follows it (the vector,
+  // the Connections that waited on it, the graph) is sent by the worker as each job runs.
+  it("sends the work that follows a job at that job's priority: bulk after bulk, direct after direct", async () => {
+    const priorities = async (from: Pipeline, key: string) => {
+      const [{ since }] = (await ctx.db.execute<{ since: string }>(sql`SELECT now()::text AS since`)).rows;
+      const { bookId } = await addBook(ctx.db, silent(), ctx.userId, work({ workKey: `/works/${key}`, title: key, authors: ["A"] }), "read");
+      await from.bookAdded(ctx.userId, bookId);
+      await until(async () => !(await readGraphStatus(ctx.db, ctx.userId)).pending);
+      const { rows } = await ctx.db.execute<{ name: string; priorities: number[] }>(sql`
+        SELECT name, array_agg(DISTINCT priority) AS priorities FROM pgboss.job
+        WHERE created_on >= ${since}::timestamptz AND (data->>'bookId' = ${bookId} OR data->>'id' = ${bookId} OR (name = 'layout' AND data->>'userId' = ${ctx.userId}))
+        GROUP BY name ORDER BY name`);
+      return Object.fromEntries(rows.map((r) => [r.name, r.priorities]));
+    };
+    const each = (priority: number) => ({ connections: [priority], embed: [priority], "enrich-book": [priority], layout: [priority] });
+    expect(await priorities(bulkPipeline, "bulk")).toEqual(each(0));
+    expect(await priorities(pipeline, "direct")).toEqual(each(1));
   }, 20_000);
 });
