@@ -4,7 +4,7 @@ import type { Db } from "@/db/client";
 import { book, enrichment } from "@/db/schema";
 import { BACKGROUND_BUDGET, describeBook, googleBooksDescription, type DescriptionGateway } from "./description";
 import { NotInLibraryError, findEntry } from "./library-entry";
-import type { JobQueue, Pipeline } from "./pipeline";
+import type { Pipeline } from "./pipeline";
 
 export type EnrichmentInput = { title: string; authors: string[]; description: string; subjects: string[] };
 
@@ -223,28 +223,19 @@ export async function enrichBook(db: Db, deps: EnrichDeps, bookId: string): Prom
   }
 }
 
-// The Book's enrich job will not be attempted again: an Enrichment still pending is `failed`, and the
-// reader can "Try again".
+// The Book's enrich job will not be attempted again, or could not be queued: an Enrichment still
+// pending is `failed`, and the reader can "Try again".
 export async function enrichmentGaveUp(db: Db, bookId: string): Promise<void> {
   await db.update(enrichment).set({ status: "failed" }).where(and(eq(enrichment.bookId, bookId), eq(enrichment.status, "pending")));
 }
 
-// Asks for the Book's Enrichment: pending until a job runs, or failed when none could be queued. A
-// `retry` runs whatever the hashes say; otherwise an Enrichment that is already there is left alone.
-// The Reader asking pays for it. False when no job is coming.
-export async function requestEnrichment(db: Db, queue: JobQueue, userId: string, bookId: string, retry: boolean): Promise<boolean> {
+// Asks for the Book's Enrichment: pending until a job runs. A `retry` runs whatever the hashes say;
+// otherwise an Enrichment that is already there is left alone. The Pipeline queues the job, and marks
+// the Enrichment as given up on when it can't.
+export async function requestEnrichment(db: Db, bookId: string, retry: boolean): Promise<void> {
   const values = { bookId, status: "pending" as const, ...(retry && { requestedAt: new Date() }) };
   const insert = db.insert(enrichment).values(values);
   await (retry ? insert.onConflictDoUpdate({ target: enrichment.bookId, set: values }) : insert.onConflictDoNothing());
-  try {
-    await queue.send({ kind: "enrich", bookId, userId });
-    return true;
-  } catch (err) {
-    console.error(err);
-    // No job is coming, so don't leave the reader waiting on one.
-    await db.update(enrichment).set({ status: "failed" }).where(and(eq(enrichment.bookId, bookId), eq(enrichment.status, "pending")));
-    return false;
-  }
 }
 
 // Domain seam: what the Book panel shows. Null for a Book added before Enrichment existed.

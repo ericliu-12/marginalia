@@ -10,6 +10,7 @@ import { startWorker } from "../src/lib/jobs";
 import { backfillConnections } from "../src/domain/connections";
 import { changeStatus, removeFromLibrary } from "../src/domain/library-entry";
 import { addNote } from "../src/domain/notes";
+import { readGraphStatus } from "../src/domain/graph-job";
 import { fakeEmbedder, fakeEnricher, fakeJudge, fakeNamer, work } from "./fakes";
 import { useTestDb } from "./harness";
 
@@ -214,4 +215,64 @@ describe("Enrichment through the queue", () => {
     release();
     expect((await judged())[0]).toBe("f5");
   }, 20_000);
+
+  // Runs `act`, then, once the Reader's graph has settled, reads the priority of every job sent since for
+  // the Book, its Enrichment's vector, its Notes' vectors, and the Reader's graph.
+  async function prioritiesAfter(bookId: string, act: () => Promise<unknown>) {
+    const [{ since }] = (await ctx.db.execute<{ since: string }>(sql`SELECT now()::text AS since`)).rows;
+    await act();
+    await until(async () => !(await readGraphStatus(ctx.db, ctx.userId)).pending);
+    const { rows } = await ctx.db.execute<{ name: string; priorities: number[] }>(sql`
+      SELECT CASE WHEN name = 'embed' THEN 'embed ' || (data->>'kind') ELSE name END AS name, array_agg(DISTINCT priority) AS priorities
+      FROM pgboss.job
+      WHERE created_on >= ${since}::timestamptz AND (
+        data->>'bookId' = ${bookId}
+        OR (name = 'embed' AND data->>'id' IN (SELECT ${bookId} UNION SELECT n.id::text FROM note n JOIN library_entry le ON le.id = n.library_entry_id WHERE le.book_id = ${bookId}))
+        OR (name = 'layout' AND data->>'userId' = ${ctx.userId}))
+      GROUP BY 1 ORDER BY 1`);
+    return Object.fromEntries(rows.map((r) => [r.name, r.priorities]));
+  }
+  // A Book being read, enriched and embedded, with a Note no job was sent for; then Finished, its
+  // Connections waiting on that Note.
+  async function bookWaitingOnNote(key: string) {
+    const { bookId } = await addBook(ctx.db, pipeline, ctx.userId, work({ workKey: `/works/${key}`, title: key, authors: ["A"] }), "reading");
+    const { id: noteId } = await addNote(ctx.db, silent(), ctx.userId, bookId, { body: "Quiet." });
+    await until(async () => (await ctx.db.select().from(enrichment).where(eq(enrichment.bookId, bookId)))[0]?.embeddingModel === "fake-voyage");
+    await changeStatus(ctx.db, silent(), ctx.userId, bookId, "read");
+    return { bookId, noteId };
+  }
+  const each = (priority: number, names: string[]) => Object.fromEntries(names.map((n) => [n, [priority]]));
+  const sources = () => [
+    { from: bulkPipeline, priority: 0 },
+    { from: pipeline, priority: 1 },
+  ];
+
+  // A Book read before it was enriched: its Enrichment is asked for, and what follows it (the vector,
+  // the Connections that waited on it, the graph) is sent by the worker as each job runs.
+  it("sends the work that follows a job at that job's priority: bulk after bulk, direct after direct", async () => {
+    for (const { from, priority } of sources()) {
+      const { bookId } = await addBook(ctx.db, silent(), ctx.userId, work({ workKey: `/works/after-${priority}`, title: "t", authors: ["A"] }), "read");
+      expect(await prioritiesAfter(bookId, () => from.bookAdded(ctx.userId, bookId))).toEqual(
+        each(priority, ["connections", "embed enrichment", "enrich-book", "layout"]),
+      );
+    }
+  }, 20_000);
+
+  it("sends a saved Note's vector, and the Connections that waited on it, at the priority of the work that saved it", async () => {
+    for (const { from, priority } of sources()) {
+      const { bookId, noteId } = await bookWaitingOnNote(`note-${priority}`);
+      expect(await prioritiesAfter(bookId, () => from.noteSaved(ctx.userId, noteId))).toEqual(each(priority, ["connections", "embed note", "layout"]));
+    }
+  }, 30_000);
+
+  it("sends the vectors a Refresh retries at the Refresh's priority", async () => {
+    for (const { from, priority } of sources()) {
+      const { bookId, noteId } = await bookWaitingOnNote(`refresh-${priority}`);
+      await ctx.db.update(note).set({ embedFailedAt: new Date() }).where(eq(note.id, noteId));
+      await ctx.db.update(enrichment).set({ embedding: null, embedFailedAt: new Date() }).where(eq(enrichment.bookId, bookId));
+      expect(await prioritiesAfter(bookId, () => from.refreshRequested(ctx.userId, bookId))).toEqual(
+        each(priority, ["connections", "embed enrichment", "embed note", "layout"]),
+      );
+    }
+  }, 30_000);
 });

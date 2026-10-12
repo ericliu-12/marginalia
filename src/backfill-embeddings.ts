@@ -1,5 +1,5 @@
 import { appDb } from "@/db/client";
-import { backfillEmbeddings } from "@/domain/embeddings";
+import { backfillEmbeddings } from "@/domain/pipeline";
 import { bulkJobQueue } from "@/lib/jobs";
 import { MODELS } from "@/lib/models";
 
