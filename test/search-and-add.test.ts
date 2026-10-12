@@ -188,7 +188,8 @@ describe("search ranking", () => {
         work({ workKey: "/works/anon", title: "Convenience Store Woman", authors: [], editionCount: 17 }),
         work({ workKey: "/works/murata", title: "Convenience store woman", authors: ["Sayaka Murata"], editionCount: 16 }),
       ];
-      expect((await search(works, "Convenience Store Woman"))[0]).toBe("/works/anon");
+      // An entry with no author ranks below one with authors in its title tier, though it has more editions.
+      expect((await search(works, "Convenience Store Woman"))[0]).toBe("/works/murata");
       // The title is matched with the author's name left out of the query.
       expect(await search(works, "Convenience Store Woman Sayaka Murata")).toEqual(["/works/murata", "/works/anon", "/works/king"]);
     });

@@ -58,20 +58,22 @@ const lower = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerC
 // the results but is not one of its own authors, either as a possessive ("Kazuo Ishiguro's the
 // Remains of the Day", "Camus' The Stranger") or, when the query names that author, in any form.
 // Judged against the authors in the results, so "Bridget Jones's Diary" is not mistaken for one.
+// A work with no author is by no one its title names ("The Stranger by Albert Camus").
 function isAboutAnotherAuthor(w: OpenLibraryWork, knownAuthors: string[], namedAuthors: Set<string>) {
   const title = lower(w.title);
   const titleWords = normName(w.title);
   return knownAuthors.some((author) => {
     const surname = normName(author).at(-1);
-    if (!surname || surname.length < 3 || authorsMatch(author, w.authors)) return false;
+    if (!surname || surname.length < 3 || (w.authors.length > 0 && authorsMatch(author, w.authors))) return false;
     return new RegExp(`\\b${surname}['\u2019]`).test(title) || (namedAuthors.has(author) && titleWords.includes(surname));
   });
 }
 
 // Demoted works (adaptations, study guides, box sets, omnibus editions, books about an author) go
 // last. Within each group the title decides first: an exact match for the query, then a title
-// holding every query word. Within a title tier, works by an author the query names lead, then the
-// more popular: more readers who logged it, then more editions, then earliest first-publish year.
+// holding every query word. Within a title tier, works by an author the query names lead, then
+// works with no author go last, then the more popular: more readers who logged it, then more
+// editions, then earliest first-publish year.
 export function rankWorks(works: OpenLibraryWork[], query = ""): OpenLibraryWork[] {
   const knownAuthors = [...new Set(works.flatMap((w) => w.authors))];
   const queryWords = normName(query);
@@ -118,6 +120,7 @@ export function rankWorks(works: OpenLibraryWork[], query = ""): OpenLibraryWork
       Number(demoted.get(a)) - Number(demoted.get(b)) ||
       tier.get(a)! - tier.get(b)! ||
       Number(!byQueriedAuthor(a)) - Number(!byQueriedAuthor(b)) ||
+      Number(a.authors.length === 0) - Number(b.authors.length === 0) ||
       b.readinglogCount - a.readinglogCount ||
       b.editionCount - a.editionCount ||
       (a.firstPublishedYear ?? Infinity) - (b.firstPublishedYear ?? Infinity),

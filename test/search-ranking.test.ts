@@ -32,6 +32,21 @@ describe("ranking real Open Library results", () => {
   it("house of leaves danielewski: House of Leaves comes first", () => {
     expect(ranked("house of leaves danielewski")[0].workKey).toBe("/works/OL32195W");
   });
+
+  it.each([
+    ["the stranger camus", 1],
+    ["the stranger", 2],
+  ])("%s: Camus's The Stranger is in the top %i, ahead of any entry with no author", (query, top) => {
+    const keys = ranked(query).map((w) => w.workKey);
+    const camus = keys.indexOf("/works/OL1230613W");
+    expect(camus).toBeLessThan(top);
+    for (const w of ranked(query).filter((w) => w.authors.length === 0)) expect(keys.indexOf(w.workKey)).toBeGreaterThan(camus);
+  });
+
+  it("the stranger camus: an entry with no author titled \"by Albert Camus\" goes with the books about him", () => {
+    const keys = ranked("the stranger camus").map((w) => w.workKey);
+    expect(keys.indexOf("/works/OL37500243W")).toBeGreaterThan(keys.indexOf("/works/OL4488980W"));
+  });
 });
 
 describe("a title word that is another author's surname", () => {
@@ -46,6 +61,33 @@ describe("a title word that is another author's surname", () => {
 
   it("still names them when the query is just their name", () => {
     expect(rankWorks(works, "madison bell")[0].workKey).toBe("/works/bell");
+  });
+});
+
+describe("an entry with no author", () => {
+  it("ranks below a work with authors in its title tier, however popular", () => {
+    const keys = rankWorks([
+      work({ workKey: "/works/none", title: "Dune", authors: [], readinglogCount: 9000 }),
+      work({ workKey: "/works/herbert", title: "Dune", authors: ["Frank Herbert"], readinglogCount: 4000 }),
+    ], "dune").map((w) => w.workKey);
+    expect(keys).toEqual(["/works/herbert", "/works/none"]);
+  });
+
+  it("still ranks by its title tier", () => {
+    const keys = rankWorks([
+      work({ workKey: "/works/messiah", title: "Dune Messiah", authors: ["Frank Herbert"] }),
+      work({ workKey: "/works/none", title: "Dune", authors: [] }),
+    ], "dune").map((w) => w.workKey);
+    expect(keys).toEqual(["/works/none", "/works/messiah"]);
+  });
+
+  it("is demoted when its title names an author the query names, as a book about them is", () => {
+    const keys = rankWorks([
+      work({ workKey: "/works/none", title: "Dune by Frank Herbert", authors: [], readinglogCount: 900 }),
+      work({ workKey: "/works/other", title: "Arrakis Awakening", authors: ["Kevin J. Anderson"], readinglogCount: 10 }),
+      work({ workKey: "/works/herbert", title: "Dune", authors: ["Frank Herbert"], readinglogCount: 400 }),
+    ], "dune frank herbert").map((w) => w.workKey);
+    expect(keys).toEqual(["/works/herbert", "/works/other", "/works/none"]);
   });
 });
 
