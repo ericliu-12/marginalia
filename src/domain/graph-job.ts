@@ -21,7 +21,7 @@ export async function readGraphStatus(db: Db, userId: string): Promise<GraphStat
 
 // The reader's graph job is asked for: their graph is pending until it settles. Returns the request,
 // for graphNotQueued. The Pipeline queues the job.
-export async function requestGraph(db: Db, userId: string): Promise<number> {
+export async function markGraphRequested(db: Db, userId: string): Promise<number> {
   const [row] = await db
     .insert(graphJob)
     .values({ userId })

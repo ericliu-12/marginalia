@@ -27,7 +27,7 @@ import { enrichBook, enrichmentGaveUp, readEnrichment, requestEnrichment, type E
 import { nameClusters, recomputeClusters, type ClusterNamer } from "./clusters";
 import { layoutGraph } from "./graph";
 import { chargeTo } from "./spend";
-import { graphJobGaveUp, graphNotQueued, requestGraph as graphRequested, runGraphJob } from "./graph-job";
+import { graphJobGaveUp, graphNotQueued, markGraphRequested, runGraphJob } from "./graph-job";
 
 // The background work, one job at a time: Enrichment for a Book, a vector for an Enrichment or a
 // Note (`id` is a Book id for an Enrichment), Connections for a reader's Book, and a reader's graph:
@@ -177,7 +177,7 @@ async function sendConnections(db: Db, queue: JobQueue, due: ConnectionsDue[]): 
 // Queues the reader's graph job, their graph pending until it settles. Throws when it cannot be
 // queued, and then nothing stays pending for it.
 export async function requestGraph(db: Db, queue: JobQueue, userId: string): Promise<void> {
-  const request = await graphRequested(db, userId);
+  const request = await markGraphRequested(db, userId);
   try {
     await queue.send({ kind: "graph", userId });
   } catch (err) {
@@ -189,7 +189,7 @@ export async function requestGraph(db: Db, queue: JobQueue, userId: string): Pro
 // Runs `work`, which changes the reader's Connections, then queues their graph job. The graph is
 // pending from before `work` starts, so it never reads as settled in between.
 export async function requestGraphAfter(db: Db, queue: JobQueue, userId: string, work: () => Promise<void>): Promise<void> {
-  await graphRequested(db, userId);
+  await markGraphRequested(db, userId);
   await work();
   await requestGraph(db, queue, userId);
 }

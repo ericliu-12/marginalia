@@ -54,8 +54,8 @@ export async function noteEmbeddingFailed(db: Db, noteId: string): Promise<void>
 
 // A Refresh tries again: the Book's Enrichment and the reader's Notes on it that gave up on a vector
 // are due to be embedded again, and returned for the Pipeline to queue. The Notes count as on their
-// way, so the run waits for them; the run embeds the Enrichment itself. One that can't be queued is
-// given up on again. A Book not in the reader's library is left alone.
+// way, so the run waits for them; the run embeds the Enrichment itself. A Book not in the reader's
+// library is left alone.
 export async function retryEmbeddings(db: Db, userId: string, bookId: string): Promise<EmbeddingTarget[]> {
   const [entry] = await db.select({ id: libraryEntry.id }).from(libraryEntry).where(and(eq(libraryEntry.userId, userId), eq(libraryEntry.bookId, bookId)));
   if (!entry) return [];
