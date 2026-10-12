@@ -4,7 +4,6 @@ import type { Db } from "@/db/client";
 import { enrichment, libraryEntry, note } from "@/db/schema";
 import { isRecognised, recognisedEnrichment } from "./enrichment";
 import { completedPasses } from "./library-entry";
-import type { JobQueue } from "./pipeline";
 
 // Seam to the embeddings provider (Voyage); tests supply a fake. `document` when storing, `query`
 // when searching. Returns one vector per text, in order. Throws on a failed answer.
@@ -54,37 +53,23 @@ export async function noteEmbeddingFailed(db: Db, noteId: string): Promise<void>
 }
 
 // A Refresh tries again: the Book's Enrichment and the reader's Notes on it that gave up on a vector
-// are queued to be embedded again. The Notes count as on their way, so the run waits for them; the run
-// embeds the Enrichment itself. One that can't be queued stays given up. A Book not in the reader's
-// library is left alone.
-export async function retryEmbeddings(db: Db, queue: JobQueue, userId: string, bookId: string): Promise<void> {
+// are due to be embedded again, and returned for the Pipeline to queue. The Notes count as on their
+// way, so the run waits for them; the run embeds the Enrichment itself. One that can't be queued is
+// given up on again. A Book not in the reader's library is left alone.
+export async function retryEmbeddings(db: Db, userId: string, bookId: string): Promise<EmbeddingTarget[]> {
   const [entry] = await db.select({ id: libraryEntry.id }).from(libraryEntry).where(and(eq(libraryEntry.userId, userId), eq(libraryEntry.bookId, bookId)));
-  if (!entry) return;
+  if (!entry) return [];
   const notes = await db
     .update(note)
     .set({ embedFailedAt: null })
     .where(and(eq(note.libraryEntryId, entry.id), isNotNull(note.embedFailedAt), isNull(note.embedding)))
     .returning({ id: note.id });
-  for (const { id } of notes) {
-    try {
-      await queue.send({ kind: "embed", target: { kind: "note", id }, userId });
-    } catch (err) {
-      console.error(err);
-      await noteEmbeddingFailed(db, id);
-    }
-  }
-  const [gaveUp] = await db
+  const enrichments = await db
     .update(enrichment)
     .set({ embedFailedAt: null })
     .where(and(eq(enrichment.bookId, bookId), isNotNull(enrichment.embedFailedAt), isNull(enrichment.embedding)))
     .returning({ id: enrichment.bookId });
-  if (!gaveUp) return;
-  try {
-    await queue.send({ kind: "embed", target: { kind: "enrichment", id: bookId }, userId });
-  } catch (err) {
-    console.error(err);
-    await enrichmentEmbeddingFailed(db, bookId);
-  }
+  return [...notes.map(({ id }) => ({ kind: "note" as const, id })), ...enrichments.map(({ id }) => ({ kind: "enrichment" as const, id }))];
 }
 
 export type NearestBook = { bookId: string; similarity: number };
@@ -120,9 +105,9 @@ export async function nearestBooks(db: Db, userId: string, bookId: string, model
   return rows.map((r) => ({ bookId: r.book_id, similarity: r.similarity }));
 }
 
-// Queues an embed job for every recognised Enrichment and every Note with no vector, or one from
-// another model. Returns how many were queued; jobs for the same target coalesce, so re-running is safe.
-export async function backfillEmbeddings(db: Db, queue: JobQueue, model: string): Promise<number> {
+// Every recognised Enrichment and every Note with no vector, or one from another model: what the
+// embed backfill queues.
+export async function staleEmbeddings(db: Db, model: string): Promise<EmbeddingTarget[]> {
   const stale = (embedding: AnyPgColumn, embeddingModel: AnyPgColumn) =>
     or(isNull(embedding), isNull(embeddingModel), ne(embeddingModel, model));
   const enrichments = await db
@@ -130,7 +115,5 @@ export async function backfillEmbeddings(db: Db, queue: JobQueue, model: string)
     .from(enrichment)
     .where(and(recognisedEnrichment, stale(enrichment.embedding, enrichment.embeddingModel)));
   const notes = await db.select({ id: note.id }).from(note).where(stale(note.embedding, note.embeddingModel));
-  for (const { id } of enrichments) await queue.send({ kind: "embed", target: { kind: "enrichment", id } });
-  for (const { id } of notes) await queue.send({ kind: "embed", target: { kind: "note", id } });
-  return enrichments.length + notes.length;
+  return [...enrichments.map(({ id }) => ({ kind: "enrichment" as const, id })), ...notes.map(({ id }) => ({ kind: "note" as const, id }))];
 }

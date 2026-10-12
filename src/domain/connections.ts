@@ -7,7 +7,7 @@ import { displayed } from "./library";
 import { byStrength, otherBook, pairOf } from "./connection-pair";
 import { acceptJudged, judgeRound } from "./judge-round";
 import { completedPasses, findEntry, isFinished, readFinished } from "./library-entry";
-import type { JobQueue, Pipeline } from "./pipeline";
+import type { Pipeline } from "./pipeline";
 
 export type ConnectionType = "thematic" | "contrast" | "context";
 export type Strength = "strong" | "moderate" | "weak";
@@ -61,12 +61,15 @@ export type ConnectionDeps = {
 //   idle:    nothing is coming (`connectionsGeneratedAt` says whether a run ever succeeded)
 //   failed:  the job gave up (see connectionsGaveUp), or could not be queued
 
-// Marks the Book's Connections as queued and queues the job. Outside a Refresh, does nothing for a
+// A Reader's Book whose Connections job is due: the Pipeline queues it, or, when it can't, calls
+// connectionsNotQueued so the reader is not left waiting on a job that is not coming.
+export type ConnectionsDue = { entryId: string; userId: string; bookId: string };
+
+// Marks the Book's Connections as queued and returns the job due. Outside a Refresh, does nothing for a
 // Book whose Connections were already generated; a Refresh does nothing for a Book that is not
-// Finished. A queue that errors must not fail the caller: the Book is left `failed` instead, so the
-// reader is not left waiting on a job that is not coming.
-export async function startConnections(db: Db, queue: JobQueue, userId: string, bookId: string, refresh: boolean): Promise<void> {
-  if (refresh && !(await isFinished(db, userId, bookId))) return;
+// Finished.
+export async function startConnections(db: Db, userId: string, bookId: string, refresh: boolean): Promise<ConnectionsDue[]> {
+  if (refresh && !(await isFinished(db, userId, bookId))) return [];
   const [entry] = await db
     .update(libraryEntry)
     .set({ connectionsStatus: "running" })
@@ -74,55 +77,48 @@ export async function startConnections(db: Db, queue: JobQueue, userId: string, 
       and(eq(libraryEntry.userId, userId), eq(libraryEntry.bookId, bookId), refresh ? undefined : isNull(libraryEntry.connectionsGeneratedAt)),
     )
     .returning({ id: libraryEntry.id });
-  if (!entry) return;
-  try {
-    await queue.send({ kind: "connections", userId, bookId });
-  } catch (err) {
-    console.error(err);
-    await db.update(libraryEntry).set({ connectionsStatus: "failed" }).where(eq(libraryEntry.id, entry.id));
-  }
+  return entry ? [{ entryId: entry.id, userId, bookId }] : [];
 }
 
-// Something a waiting run needs has settled (the Book's Enrichment, or one of its Notes' vectors):
-// queues the job again for every Entry still waiting on the Book, or just `entryId`'s. One that can't
-// be queued is left `failed`, not waiting.
-export async function resumeConnections(db: Db, queue: JobQueue, bookId: string, entryId?: string): Promise<void> {
+// The Connections job could not be queued: the Book is left `failed`, not waiting.
+export async function connectionsNotQueued(db: Db, entryId: string): Promise<void> {
+  await db.update(libraryEntry).set({ connectionsStatus: "failed" }).where(eq(libraryEntry.id, entryId));
+}
+
+// Something a waiting run needs has settled (the Book's Enrichment, or one of its Notes' vectors): the
+// job is due again for every Entry still waiting on the Book, or just `entryId`'s.
+export async function resumeConnections(db: Db, bookId: string, entryId?: string): Promise<ConnectionsDue[]> {
   const waiting = await db
-    .select({ id: libraryEntry.id, userId: libraryEntry.userId })
+    .select({ entryId: libraryEntry.id, userId: libraryEntry.userId })
     .from(libraryEntry)
     .where(and(eq(libraryEntry.bookId, bookId), entryId ? eq(libraryEntry.id, entryId) : undefined, eq(libraryEntry.connectionsStatus, "running")));
-  for (const { id, userId } of waiting) {
-    try {
-      await queue.send({ kind: "connections", userId, bookId });
-    } catch (err) {
-      console.error(err);
-      await db.update(libraryEntry).set({ connectionsStatus: "failed" }).where(eq(libraryEntry.id, id));
-    }
-  }
+  return waiting.map((w) => ({ ...w, bookId }));
 }
 
 // One of the Book's Notes has a vector, or has given up on one.
-export async function resumeNoteConnections(db: Db, queue: JobQueue, noteId: string): Promise<void> {
+export async function resumeNoteConnections(db: Db, noteId: string): Promise<ConnectionsDue[]> {
   const [n] = await db
     .select({ entryId: note.libraryEntryId, bookId: libraryEntry.bookId })
     .from(note)
     .innerJoin(libraryEntry, eq(libraryEntry.id, note.libraryEntryId))
     .where(eq(note.id, noteId));
-  if (n) await resumeConnections(db, queue, n.bookId, n.entryId);
+  return n ? resumeConnections(db, n.bookId, n.entryId) : [];
 }
 
 // The Book's Enrichment is ready: Refreshes, once, each reader whose latest run judged the Book
 // without it. Only a recognised Enrichment reaches the judge, so an unrecognised one changes nothing.
-export async function refreshAfterEnrichment(db: Db, queue: JobQueue, bookId: string): Promise<void> {
+export async function refreshAfterEnrichment(db: Db, bookId: string): Promise<ConnectionsDue[]> {
   const [e] = await db.select().from(enrichment).where(eq(enrichment.bookId, bookId));
-  if (!isRecognised(e)) return;
+  if (!isRecognised(e)) return [];
   const latest = await db
     .selectDistinctOn([connectionRun.libraryEntryId], { userId: libraryEntry.userId, withoutEnrichment: connectionRun.withoutEnrichment })
     .from(connectionRun)
     .innerJoin(libraryEntry, eq(libraryEntry.id, connectionRun.libraryEntryId))
     .where(eq(libraryEntry.bookId, bookId))
     .orderBy(connectionRun.libraryEntryId, desc(connectionRun.createdAt));
-  for (const r of latest) if (r.withoutEnrichment) await startConnections(db, queue, r.userId, bookId, true);
+  const due: ConnectionsDue[] = [];
+  for (const r of latest) if (r.withoutEnrichment) due.push(...(await startConnections(db, r.userId, bookId, true)));
+  return due;
 }
 
 // A run waits until the Book's Enrichment has settled (ready or failed) and each of its Notes has a

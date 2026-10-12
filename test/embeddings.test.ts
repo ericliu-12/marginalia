@@ -1,7 +1,8 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { addBook } from "../src/domain/add-book";
-import { backfillEmbeddings, embedEnrichment, embedNote, nearestBooks } from "../src/domain/embeddings";
+import { embedEnrichment, embedNote, nearestBooks } from "../src/domain/embeddings";
+import { backfillEmbeddings } from "../src/domain/pipeline";
 import { enrichBook } from "../src/domain/enrichment";
 import { addNote, updateNote } from "../src/domain/notes";
 import { book, enrichment, note, user } from "../src/db/schema";

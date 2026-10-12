@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { graphJobGaveUp, readGraphStatus, requestGraph, requestGraphAfter, runGraphJob, type GraphStatus } from "../src/domain/graph-job";
+import { graphJobGaveUp, readGraphStatus, runGraphJob, type GraphStatus } from "../src/domain/graph-job";
+import { requestGraph, requestGraphAfter } from "../src/domain/pipeline";
 import { useTestDb } from "./harness";
 
 // The reader's graph job as the graph sees it: pending from the request until the job settles.

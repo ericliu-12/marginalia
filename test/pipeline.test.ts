@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { addBook, addManualBook } from "../src/domain/add-book";
 import { dismissConnection, readConnections, type JudgeInput } from "../src/domain/connections";
-import { backfillEmbeddings } from "../src/domain/embeddings";
+import { backfillEmbeddings } from "../src/domain/pipeline";
 import { readEnrichment, tryAgain } from "../src/domain/enrichment";
 import { readGraph } from "../src/domain/graph";
 import { changeStatus, removeFromLibrary } from "../src/domain/library-entry";
