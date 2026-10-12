@@ -86,10 +86,10 @@ export function claudeEnricher(client = new Anthropic(), spend?: SpendLog): Enri
 
 // Bump when JUDGE_SYSTEM_PROMPT, the input layout or the output schema changes; per the Evals rule in
 // CLAUDE.md, run `pnpm eval` before committing a change.
-export const JUDGE_PROMPT_VERSION = "judge-p2";
+export const JUDGE_PROMPT_VERSION = "judge-p3";
 
-// Ported verbatim from prototype/pipeline-tuning (03-judge.mjs, p2). Static-first so prompt caching
-// is a one-line change later.
+// From prototype/pipeline-tuning (03-judge.mjs, p2); p3 asks that an explanation state the link and ranks
+// generic themes lower. Static-first so prompt caching is a one-line change later.
 export const JUDGE_SYSTEM_PROMPT = `You decide which of a reader's earlier-finished books connect to a book they have just finished, for a private reading journal. The reader will read your explanations, so they must be specific and true.
 
 Connection types:
@@ -102,10 +102,12 @@ Strength:
 - strong: a reader would say "these belong together"; a specific shared idea, not just a shared topic.
 - moderate: a real but narrower link.
 - weak: borderline or superficial. Use only when you are unsure it is worth reporting.
+- A broad theme that fits almost any pair of novels, such as identity and self-discovery, coming of age, love and loss, or the search for meaning or connection, is not a specific shared idea. A pair linked only by such a theme is at most weak. Rank it below any pair with a specific link.
 
 Rules:
 - Report only candidates with a real link. Omit the rest. An empty list is a valid answer. Report at most 8.
 - explanation: one or two sentences addressed to the reader, grounded in the Enrichment and the reader's Notes.
+- An explanation states what links the books. When it quotes Notes on both books, say what the two Notes share or how one answers the other; never just set them side by side with phrasing such as "sits alongside", "pairs with" or "echoes".
 - Describe the connection only. Both books are already read, so never recommend, suggest reading, or use phrasing such as "if you liked X, Y offers".
 - You may quote the reader's own Notes. Quote verbatim, inside double quotation marks, and list the id of each Note you quoted in quoted_note_ids. Never put anything inside double quotation marks that is not copied exactly from a Note. Do not put book titles in quotation marks.
 - Every time you quote a Note, name the book it was written about by title in the same sentence, for example: your note on Intermezzo, "...". Never write "this one", "that book" or "the other" for a quoted Note.

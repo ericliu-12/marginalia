@@ -5,6 +5,7 @@ import { embedEnrichment, nearestBooks, type Embedder } from "./embeddings";
 import { isRecognised } from "./enrichment";
 import { displayed } from "./library";
 import { byStrength, otherBook, pairOf } from "./connection-pair";
+import { acceptJudged, judgeRound } from "./judge-round";
 import { completedPasses, findEntry, isFinished, readFinished } from "./library-entry";
 import type { JobQueue, Pipeline } from "./pipeline";
 
@@ -40,23 +41,8 @@ export interface ConnectionJudge {
 
 export type ConnectionJob = { userId: string; bookId: string };
 
-// Starting defaults from the pipeline-tuning prototype.
+// Starting default from the pipeline-tuning prototype.
 export const CANDIDATE_COUNT = 12;
-export const PER_RUN_CAP = 5;
-// Approximate tokens of Notes shown to the judge per Book; the finished Book's own Notes get more room.
-const CANDIDATE_NOTES_BUDGET = 600;
-const OWN_NOTES_BUDGET = 3000;
-
-const approxTokens = (s: string) => Math.ceil(s.length / 4);
-
-// Notes in the order written, as many as fit the budget.
-function withinBudget<T extends { body: string }>(notes: T[], budget: number): T[] {
-  let used = 0;
-  return notes.filter((n) => {
-    used += approxTokens(n.body);
-    return used <= budget;
-  });
-}
 
 // What a Refresh overwrites on a Connection it finds again.
 const REFRESHED = Object.fromEntries(
@@ -64,9 +50,6 @@ const REFRESHED = Object.fromEntries(
     (k) => [k, sql.raw(`excluded.${connection[k].name}`)],
   ),
 );
-
-const normalise = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
-const QUOTED = /["“]([^"”]{8,})["”]/g;
 
 export type ConnectionDeps = {
   judge: ConnectionJudge;
@@ -263,82 +246,20 @@ async function run(db: Db, deps: ConnectionDeps, userId: string, entryId: string
     .where(and(eq(libraryEntry.userId, userId), inArray(libraryEntry.bookId, bookIds), isNotNull(note.embedding)))
     .orderBy(asc(note.createdAt), asc(note.id));
 
-  // Short ids for this call (n1, n2, ...) map back to the real Note.
-  const handles = new Map<string, { noteId: string; bookId: string; body: string }>();
-  const present = (id: string, budget: number): JudgeNote[] =>
-    withinBudget(
-      notes.filter((n) => n.bookId === id),
-      budget,
-    ).map((n) => {
-      const handle = `n${handles.size + 1}`;
-      handles.set(handle, { noteId: n.id, bookId: id, body: n.body });
-      return { id: handle, body: n.body };
-    });
-  const describe = (id: string, budget: number): JudgeBook => {
-    const b = books.find((x) => x.book.id === id)!;
-    const e = enrichments.find((x) => x.bookId === id);
-    return {
-      ...displayed(b.book, b.entry),
-      // An unrecognised Book's Enrichment is empty: the judge is told it has none.
-      enrichment: isRecognised(e) && e.summary ? `${e.summary} Themes: ${(e.themes ?? []).join("; ")}` : null,
-      notes: present(id, budget),
-    };
-  };
-  const own = describe(bookId, OWN_NOTES_BUDGET);
-  const candidates = nearest.map((n, i) => ({ id: `C${i + 1}`, ...describe(n.bookId, CANDIDATE_NOTES_BUDGET) }));
-
-  const result = await judge.judge({ book: own, candidates });
-
-  const rows: (typeof connection.$inferInsert & { rank: number })[] = [];
-  const seen = new Set<string>();
-  for (const c of result.connections) {
-    const index = candidates.findIndex((x) => x.id === c.candidateId);
-    if (index < 0 || seen.has(c.candidateId)) continue;
-    const other = nearest[index];
-    const pair = new Set([bookId, other.bookId]);
-    const pool = [...handles.values()].filter((h) => pair.has(h.bookId));
-
-    // Every quoted span must be verbatim in a Note of the pair; otherwise the Connection is dropped
-    // rather than shown with a misquote.
-    const quoted = new Map<string, (typeof pool)[number]>();
-    let misquoted = false;
-    for (const [, span] of c.explanation.matchAll(QUOTED)) {
-      const text = normalise(span);
-      if (!text) continue;
-      const matches = pool.filter((h) => normalise(h.body).includes(text));
-      if (matches.length === 0) misquoted = true;
-      for (const m of matches) quoted.set(m.noteId, m);
-    }
-    if (misquoted) continue;
-
-    // Weak links survive only when they quote Notes from both Books, and stay weak.
-    const quotedFrom = (id: string) => [...quoted.values()].some((h) => h.bookId === id);
-    if (c.strength === "weak" && !(quotedFrom(bookId) && quotedFrom(other.bookId))) continue;
-    if ([bookId, other.bookId].some((id) => notesOnly.has(id) && !quotedFrom(id))) continue;
-
-    seen.add(c.candidateId);
-    const { a, b } = pairOf(bookId, other.bookId);
-    rows.push({
-      userId,
-      bookAId: a,
-      bookBId: b,
-      type: c.type,
-      strength: c.strength,
-      similarity: other.similarity,
-      similarityModel: embedder.model,
-      explanation: c.explanation,
-      grounding: quoted.size > 0 ? "notes" : "enrichment",
-      quotedNoteIds: [...quoted.keys()],
-      model: judge.model,
-      promptVersion: judge.promptVersion,
-      rank: STRENGTH_RANK[c.strength],
-    });
-  }
-  // Strongest first, ties by similarity; the cap keeps the best.
-  const top = rows
-    .sort((x, y) => x.rank - y.rank || y.similarity - x.similarity)
-    .slice(0, PER_RUN_CAP)
-    .map(({ rank: _rank, ...row }) => row);
+  const round = judgeRound(
+    bookId,
+    nearest,
+    books.map((b) => {
+      const e = enrichments.find((x) => x.bookId === b.book.id);
+      return { id: b.book.id, ...displayed(b.book, b.entry), enrichment: isRecognised(e) ? e : null };
+    }),
+    notes,
+  );
+  const result = await judge.judge(round.input);
+  const top = acceptJudged(round, result.connections, notesOnly).map(({ otherBookId, ...c }) => {
+    const { a, b } = pairOf(bookId, otherBookId);
+    return { userId, bookAId: a, bookBId: b, ...c, similarityModel: embedder.model, model: judge.model, promptVersion: judge.promptVersion };
+  });
   await finish(top, result);
 }
 
