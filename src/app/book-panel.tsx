@@ -330,7 +330,93 @@ function EditBookForm({ item, onDone }: { item: LibraryItem; onDone: (saved: boo
     coverUrl: item.coverUrl ?? "",
     description: item.description ?? "",
   });
+
+  return (
+    <BookDetailsForm
+      id="edit"
+      errorId={`edit-${item.bookId}-error`}
+      aria-label={`Edit ${item.title}`}
+      className="mb-8 border-b border-rule pb-6"
+      draft={draft}
+      onChange={setDraft}
+      manual={item.manual}
+      onSubmit={async (sent) => {
+        const res = await editBookAction(item.bookId, sent);
+        if (!res.ok) return "Couldn’t save these changes. Try again.";
+        onDone(true);
+      }}
+      onEscape={() => onDone(false)}
+      intro={
+        <p className="max-w-[40ch] font-sans text-sm text-ink-2">
+          {item.manual
+            ? "You added this book by hand, so it’s yours to change. A new title, author or description means reading up on it again."
+            : `Changes how this book appears for you alone. Clear a field to go back to the original${item.original ? `, ${item.original.title} by ${item.original.authors.join(", ")}` : ""}.`}
+        </p>
+      }
+      actions={(pending) => (
+        <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1">
+          <button
+            type="submit"
+            disabled={pending}
+            className="min-h-11 rounded-[3px] bg-ink px-4 py-2 font-sans text-sm font-medium text-paper transition-colors hover:bg-ink-2 disabled:bg-ink-3 lg:min-h-0"
+          >
+            {pending ? "Saving…" : "Save changes"}
+          </button>
+          <button type="button" onClick={() => onDone(false)} disabled={pending} className={quietLink}>
+            Cancel
+          </button>
+        </div>
+      )}
+    />
+  );
+}
+
+// A Book's details as the reader types them, to add a Manual Book or to edit a Book. A `manual` Book
+// needs a title and an author, its co-authors are kept apart by "and", and it has a cover and a
+// description, which `reveal` keeps behind quiet links until asked for. Submitting checks the draft
+// first and puts focus on the first field that is wrong; `onSubmit` then hears the draft as it is sent
+// (a cover's "www." made a web address) and the submit button's value, and returns what to say if
+// sending it failed. Escape is `onEscape`'s. With `enterMovesOn` (the phone, whose keyboard has no
+// Tab), Enter goes to the next field instead, and the last puts the keyboard away.
+export function BookDetailsForm({
+  id,
+  errorId,
+  draft,
+  onChange,
+  manual,
+  reveal = false,
+  focus = "title",
+  descriptionPlaceholder,
+  enterMovesOn = false,
+  onSubmit,
+  onEscape,
+  intro,
+  note,
+  actions,
+  ...form
+}: {
+  id: string;
+  errorId: string;
+  draft: BookDraft;
+  onChange: (draft: BookDraft) => void;
+  manual: boolean;
+  reveal?: boolean;
+  focus?: "title" | "author";
+  descriptionPlaceholder?: string;
+  enterMovesOn?: boolean;
+  onSubmit: (draft: BookDraft, choice: string) => Promise<string | void>;
+  onEscape: () => void;
+  intro: ReactNode;
+  note?: ReactNode;
+  actions: (pending: boolean, choice: string) => ReactNode;
+  "aria-label"?: string;
+  "aria-labelledby"?: string;
+  className?: string;
+}) {
+  const [showCover, setShowCover] = useState(!reveal || !!draft.coverUrl);
+  const [showDescription, setShowDescription] = useState(!reveal || !!draft.description);
   const [error, setError] = useState<DraftError | null>(null);
+  const [choice, setChoice] = useState("");
   const [pending, start] = useTransition();
   const refs = {
     title: useRef<HTMLInputElement>(null),
@@ -339,80 +425,86 @@ function EditBookForm({ item, onDone }: { item: LibraryItem; onDone: (saved: boo
     description: useRef<HTMLTextAreaElement>(null),
   };
 
-  useEffect(() => refs.title.current?.focus(), []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => refs[focus].current?.focus(), []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function change(patch: Partial<BookDraft>) {
-    setDraft((d) => ({ ...d, ...patch }));
+    onChange({ ...draft, ...patch });
     setError(null);
   }
 
-  function submit() {
-    const problem = draftError(draft, item.manual);
+  function submit(chosen: string) {
+    const problem = draftError(draft, manual);
     if (problem) {
       setError(problem);
       if (problem.field) refs[problem.field].current?.focus();
       return;
     }
     setError(null);
+    setChoice(chosen);
     start(async () => {
-      const res = await editBookAction(item.bookId, { ...draft, coverUrl: withScheme(draft.coverUrl) });
-      if (res.ok) onDone(true);
-      else setError({ field: null, message: "Couldn’t save these changes. Try again." });
+      const failure = await onSubmit({ ...draft, coverUrl: withScheme(draft.coverUrl) }, chosen);
+      if (failure) setError({ field: null, message: failure });
     });
   }
 
   const label = "mt-3 block font-sans text-[0.8rem] font-medium text-ink-2";
-  const errorId = `edit-${item.bookId}-error`;
+  const input = `${field} mt-1 font-sans text-[0.95rem]`;
   return (
     <form
       noValidate
-      aria-label={`Edit ${item.title}`}
+      {...form}
       onSubmit={(e) => {
         e.preventDefault();
-        submit();
+        const submitter = (e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
+        submit(submitter?.value ?? "");
       }}
       onKeyDown={(e) => {
         if (e.key === "Escape") {
           e.stopPropagation();
-          onDone(false);
+          onEscape();
+        }
+        if (enterMovesOn && e.key === "Enter" && e.target instanceof HTMLInputElement) {
+          e.preventDefault();
+          const fields = [refs.title, refs.author, refs.coverUrl].flatMap((r) => (r.current ? [r.current] : []));
+          const next = fields[fields.indexOf(e.target) + 1];
+          if (next) next.focus();
+          else e.target.blur();
         }
       }}
-      className="mb-8 border-b border-rule pb-6"
     >
-      <p className="max-w-[40ch] font-sans text-sm text-ink-2">
-        {item.manual
-          ? "You added this book by hand, so it’s yours to change. A new title, author or description means reading up on it again."
-          : `Changes how this book appears for you alone. Clear a field to go back to the original${item.original ? `, ${item.original.title} by ${item.original.authors.join(", ")}` : ""}.`}
-      </p>
-      <label htmlFor="edit-title" className={label}>
+      {intro}
+      <label htmlFor={`${id}-title`} className={label}>
         Title
       </label>
-      <input ref={refs.title} id="edit-title" value={draft.title} onChange={(e) => change({ title: e.target.value })} autoComplete="off" {...invalidProps(error, "title", errorId)} className={`${field} mt-1 font-sans text-[0.95rem]`} />
-      <label htmlFor="edit-author" className={label}>
+      <input ref={refs.title} id={`${id}-title`} enterKeyHint={enterMovesOn ? "next" : undefined} value={draft.title} onChange={(e) => change({ title: e.target.value })} autoComplete="off" {...invalidProps(error, "title", errorId)} className={input} />
+      <label htmlFor={`${id}-author`} className={label}>
         Author
       </label>
       <input
         ref={refs.author}
-        id="edit-author"
+        id={`${id}-author`}
+        enterKeyHint={enterMovesOn ? (manual && showCover ? "next" : "done") : undefined}
         value={draft.author}
         onChange={(e) => change({ author: e.target.value })}
         autoComplete="off"
-        {...invalidProps(error, "author", errorId, item.manual ? "edit-author-hint" : undefined)}
-        className={`${field} mt-1 font-sans text-[0.95rem]`}
+        {...invalidProps(error, "author", errorId, manual ? `${id}-author-hint` : undefined)}
+        className={input}
       />
-      {item.manual && (
-        <p id="edit-author-hint" className="mt-1 font-sans text-[0.8rem] text-ink-3">
+      {manual && (
+        <p id={`${id}-author-hint`} className="mt-1 font-sans text-[0.8rem] text-ink-3">
           {CO_AUTHOR_HINT}
         </p>
       )}
-      {item.manual && (
+
+      {manual && showCover && (
         <>
-          <label htmlFor="edit-cover" className={label}>
+          <label htmlFor={`${id}-cover`} className={label}>
             Cover image address
           </label>
           <input
             ref={refs.coverUrl}
-            id="edit-cover"
+            id={`${id}-cover`}
+            enterKeyHint={enterMovesOn ? "done" : undefined}
             type="url"
             inputMode="url"
             placeholder="https://"
@@ -420,38 +512,62 @@ function EditBookForm({ item, onDone }: { item: LibraryItem; onDone: (saved: boo
             onChange={(e) => change({ coverUrl: e.target.value })}
             autoComplete="off"
             {...invalidProps(error, "coverUrl", errorId)}
-            className={`${field} mt-1 font-sans text-[0.95rem]`}
+            className={input}
           />
-          <label htmlFor="edit-description" className={label}>
+        </>
+      )}
+      {manual && showDescription && (
+        <>
+          <label htmlFor={`${id}-description`} className={label}>
             Description
           </label>
           <textarea
             ref={refs.description}
-            id="edit-description"
+            id={`${id}-description`}
             rows={4}
             value={draft.description}
             onChange={(e) => change({ description: e.target.value })}
+            placeholder={descriptionPlaceholder}
             className={`${field} mt-1 resize-y`}
           />
         </>
       )}
+      {manual && (!showCover || !showDescription) && (
+        <div className="mt-2 flex flex-wrap gap-x-5">
+          {!showCover && (
+            <button
+              type="button"
+              onClick={() => {
+                setShowCover(true);
+                requestAnimationFrame(() => refs.coverUrl.current?.focus());
+              }}
+              className={quietLink}
+            >
+              Add a cover
+            </button>
+          )}
+          {!showDescription && (
+            <button
+              type="button"
+              onClick={() => {
+                setShowDescription(true);
+                requestAnimationFrame(() => refs.description.current?.focus());
+              }}
+              className={quietLink}
+            >
+              Add a description
+            </button>
+          )}
+        </div>
+      )}
+
+      {note}
       {error && (
         <p id={errorId} role="alert" className="mt-2 font-sans text-sm text-contrast">
           {error.message}
         </p>
       )}
-      <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1">
-        <button
-          type="submit"
-          disabled={pending}
-          className="min-h-11 rounded-[3px] bg-ink px-4 py-2 font-sans text-sm font-medium text-paper transition-colors hover:bg-ink-2 disabled:bg-ink-3 lg:min-h-0"
-        >
-          {pending ? "Saving…" : "Save changes"}
-        </button>
-        <button type="button" onClick={() => onDone(false)} disabled={pending} className={quietLink}>
-          Cancel
-        </button>
-      </div>
+      {actions(pending, choice)}
     </form>
   );
 }
