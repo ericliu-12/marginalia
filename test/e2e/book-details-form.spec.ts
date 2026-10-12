@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page, type Route } from "@playwright/test";
 import { manualBook, seedLibrary } from "./database";
 
 // The Book-details form, as Add by hand and as Edit, on a desktop and on a phone: its labels, what it
@@ -7,6 +7,19 @@ import { manualBook, seedLibrary } from "./database";
 const searchFindsNothing = (page: Page) => page.route("**/api/search?**", (route) => route.fulfill({ json: [] }));
 // A cover typed in is put in an <img>; it is never fetched from the real host.
 const coversAnswered = (page: Page) => page.route("https://www.example.com/**", (route) => route.fulfill({ status: 404 }));
+// A NUL passes the form's own check, but Postgres refuses to store it: the save fails on the server.
+const UNSTORABLE = "Kitchen\u0000Notes";
+// Holds the next Server Function call, as on a slow connection, until it is let go.
+async function holdNextCall(page: Page) {
+  const held: Route[] = [];
+  await page.route("**/*", (route) =>
+    route.request().method() === "POST" && route.request().headers()["next-action"] && held.length === 0 ? void held.push(route) : route.fallback(),
+  );
+  return {
+    held: () => expect.poll(() => held.length).toBe(1),
+    release: () => held[0].fallback(),
+  };
+}
 const COVER_ERROR = "The cover should be a web address beginning with http:// or https://.";
 
 // Submits, and checks the form says `message` at `field`, which now has focus.
@@ -84,6 +97,28 @@ test.describe("on a desktop", () => {
     await expect(form.getByLabel("Author", { exact: true })).toHaveValue("");
   });
 
+  test("Add by hand says Adding… on the chosen Status while it adds, and says so when the add fails", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("searchbox", { name: "Search by title and author" }).fill("Kitchen");
+    await searchPane(page).getByRole("button", { name: "Add it by hand" }).click();
+    const form = searchPane(page).getByRole("form", { name: "Add a book by hand" });
+    await form.getByLabel("Title").fill(UNSTORABLE);
+    await form.getByLabel("Author", { exact: true }).fill("June Ash");
+
+    const call = await holdNextCall(page);
+    await form.getByRole("button", { name: "Reading" }).click();
+    await call.held();
+    const choices = form.getByRole("group", { name: "Add to your library as" }).getByRole("button");
+    await expect(choices).toHaveText(["Want to read", "Adding…", "Already read"]);
+    for (const choice of await choices.all()) await expect(choice).toBeDisabled();
+    await expect(form.getByRole("button", { name: "Cancel" })).toBeDisabled();
+    await call.release();
+
+    await expect(form.getByRole("alert")).toHaveText("Couldn’t add this book. Try again.");
+    await expect(choices).toHaveText(["Want to read", "Reading", "Already read"]);
+    await expect(form.getByLabel("Title")).not.toHaveAttribute("aria-invalid");
+  });
+
   test("Edit, for a Manual Book: its fields, each missing field in turn, and the cover rule", async ({ page }) => {
     await manualBook("Kitchen Notes", "June Ash", "Recipes.");
     await page.goto("/");
@@ -113,6 +148,25 @@ test.describe("on a desktop", () => {
     await form.getByRole("button", { name: "Save changes" }).click();
     await expect(page.getByRole("status").getByText("Changes saved.")).toBeVisible();
     await expect(form).toHaveCount(0);
+  });
+
+  test("Edit says Saving… while it saves, and says so when the save fails", async ({ page }) => {
+    await manualBook("Kitchen Notes", "June Ash", "Recipes.");
+    await page.goto("/");
+    await page.getByRole("main").getByRole("button", { name: "Kitchen Notes", exact: true }).click();
+    await page.getByRole("button", { name: "Edit details" }).click();
+    const form = page.getByRole("form", { name: "Edit Kitchen Notes" });
+    await form.getByLabel("Title").fill(UNSTORABLE);
+
+    const call = await holdNextCall(page);
+    await form.getByRole("button", { name: "Save changes" }).click();
+    await call.held();
+    await expect(form.getByRole("button", { name: "Saving…" })).toBeDisabled();
+    await expect(form.getByRole("button", { name: "Cancel" })).toBeDisabled();
+    await call.release();
+
+    await expect(form.getByRole("alert")).toHaveText("Couldn’t save these changes. Try again.");
+    await expect(form.getByRole("button", { name: "Save changes" })).toBeEnabled();
   });
 
   test("Edit, for a shared Book: title and author only, either may be blank, and Escape leaves it unchanged", async ({ page }) => {
@@ -202,7 +256,11 @@ test.describe("on a phone", () => {
     await form.getByLabel("Cover image address").fill("www.example.com/c.jpg");
     await form.getByRole("button", { name: "Save changes" }).click();
     await expect(form).toHaveCount(0);
-    await page.getByRole("button", { name: "Edit details" }).click();
-    await expect(form.getByLabel("Cover image address")).toHaveValue("https://www.example.com/c.jpg");
+    // Edit opens on the Book as the page last had it, so it is opened again until the save's refresh lands.
+    await expect(async () => {
+      if (await form.count()) await page.keyboard.press("Escape");
+      await page.getByRole("button", { name: "Edit details" }).click();
+      await expect(form.getByLabel("Cover image address")).toHaveValue("https://www.example.com/c.jpg", { timeout: 1000 });
+    }).toPass();
   });
 });

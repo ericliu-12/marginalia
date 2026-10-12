@@ -364,9 +364,8 @@ function useLookalike(title: string, author: string) {
 
 // A Manual Book: title and author, then the cover and description as quiet reveals, added with the
 // same Status choices as a search result. Enter adds it as Want to read, the first choice. Escape
-// closes it with the draft kept (`onClose(false)`); Cancel discards it. With `enterMovesOn` (the phone,
-// whose keyboard has no Tab), Enter goes to the next field instead, and the last puts the keyboard away.
-// `onChoose` hears a valid choice in the tap itself, before the add.
+// closes it with the draft kept (`onClose(false)`); Cancel discards it. `enterMovesOn` is for the phone
+// (see BookDetailsForm). `onChoose` hears a valid choice in the tap itself, before the add.
 export function ManualBookForm({
   draft,
   onChange,

@@ -376,7 +376,8 @@ function EditBookForm({ item, onDone }: { item: LibraryItem; onDone: (saved: boo
 // description, which `reveal` keeps behind quiet links until asked for. Submitting checks the draft
 // first and puts focus on the first field that is wrong; `onSubmit` then hears the draft as it is sent
 // (a cover's "www." made a web address) and the submit button's value, and returns what to say if
-// sending it failed. Escape is `onEscape`'s. With `enterMovesOn` (the phone, whose keyboard has no
+// sending it failed. It starts within the submit itself (a transition runs its function at once), so
+// what it does before its first await is still part of the reader's tap. Escape is `onEscape`'s. With `enterMovesOn` (the phone, whose keyboard has no
 // Tab), Enter goes to the next field instead, and the last puts the keyboard away.
 export function BookDetailsForm({
   id,
