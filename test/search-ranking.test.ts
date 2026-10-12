@@ -17,6 +17,8 @@ describe("ranking real Open Library results", () => {
     ["the plague camus", "/works/OL1230715W"],
     ["1q84", "/works/OL15029001W"],
     ["normal people", "/works/OL20150260W"],
+    // This sample holds no work without an author; the hand-built cases below cover that rule.
+    ["the stranger", "/works/OL1230613W"],
   ])("%s: the expected Book is in the top 2", (query, workKey) => {
     expect(ranked(query).slice(0, 2).map((w) => w.workKey)).toContain(workKey);
   });
@@ -33,15 +35,10 @@ describe("ranking real Open Library results", () => {
     expect(ranked("house of leaves danielewski")[0].workKey).toBe("/works/OL32195W");
   });
 
-  it.each([
-    ["the stranger camus", 1],
-    ["the stranger", 2],
-  ])("%s: Camus's The Stranger is in the top %i, ahead of any work with no author", (query, top) => {
-    const works = ranked(query);
-    const keys = works.map((w) => w.workKey);
-    const camus = keys.indexOf("/works/OL1230613W");
-    expect(camus).toBeLessThan(top);
-    for (const w of works.filter((w) => w.authors.length === 0)) expect(keys.indexOf(w.workKey)).toBeGreaterThan(camus);
+  it("the stranger camus: Camus's The Stranger comes first, ahead of the works with no author", () => {
+    const works = ranked("the stranger camus");
+    expect(works[0].workKey).toBe("/works/OL1230613W");
+    expect(works.filter((w) => w.authors.length === 0)).toHaveLength(2);
   });
 
   it("the stranger camus: a work with no author titled \"by Albert Camus\" goes with the books about him", () => {
