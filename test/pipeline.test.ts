@@ -291,6 +291,26 @@ describe("Pipeline", () => {
         expect(await ctx.db.select().from(connection)).toHaveLength(4);
       });
 
+      it("keeps another Reader's Connection that quotes their own Note on it", async () => {
+        const { subject } = await connected();
+        const second = (await addReader(ctx.db, "second@marginalia.local")).id;
+        const other = await addBook(ctx.db, ctx.pipeline, second, work({ workKey: "/works/theirs", title: "theirs", authors: ["A"] }), "read");
+        await addBook(ctx.db, ctx.pipeline, second, work({ workKey: "/works/subject", title: "subject", authors: ["A"] }), "reading");
+        await addNote(ctx.db, ctx.pipeline, second, subject, { body: "Their own quiet reading." });
+        const judge = fakeJudge((input) => ({
+          connections: input.candidates.map((c) => ({ candidateId: c.id, type: "thematic" as const, strength: "strong" as const, explanation: `As in "their own quiet reading".`, quotedNoteIds: [] })),
+        }));
+        await ctx.jobs.drain(deps({ judge }));
+        await changeStatus(ctx.db, ctx.pipeline, second, subject, "read");
+        await ctx.jobs.drain(deps({ judge }));
+        expect((await readConnections(ctx.db, second, subject)).cards.map((c) => c.otherBookId)).toEqual([other.bookId]);
+
+        await reEnrich(subject, deps({ model: fakeEnricher({ recognised: false }) }));
+        expect((await readConnections(ctx.db, second, subject)).cards.map((c) => c.otherBookId)).toEqual([other.bookId]);
+        expect(ctx.jobs.sent).not.toContainEqual({ kind: "graph", userId: second });
+        expect(ctx.jobs.sent).toContainEqual({ kind: "graph", userId: ctx.userId });
+      });
+
       it("changes nothing when it comes back recognised again", async () => {
         const { subject, ids } = await connected();
         const before = await ctx.db.select().from(connection);

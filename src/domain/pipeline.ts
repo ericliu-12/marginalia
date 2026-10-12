@@ -4,7 +4,9 @@ import { libraryEntry, user } from "@/db/schema";
 import {
   connectionsGaveUp,
   connectionsNotQueued,
+  dropNotesOnlyBreaches,
   generateConnections,
+  notesOnlyBreaches,
   refreshAfterEnrichment,
   resumeConnections,
   resumeNoteConnections,
@@ -232,10 +234,11 @@ async function run(db: Db, deps: JobDeps, queue: JobQueue, job: Job): Promise<vo
     // Always queued, and a no-op for an unrecognised or already-embedded Enrichment, so a retry
     // after a failed send still gets its embedding. Charged to whoever the Enrichment was.
     await queue.send({ kind: "embed", target: { kind: "enrichment", id: job.bookId }, userId: job.userId });
-    const after = await refreshAfterEnrichment(db, job.bookId);
-    // An unrecognised Enrichment deletes Connections, so those Readers' Clusters are recomputed.
-    for (const userId of after.changed) await requestGraph(db, queue, userId);
-    await sendConnections(db, queue, after.due);
+    // An unrecognised Enrichment drops the Connections its Notes don't ground; each Reader's Clusters follow.
+    for (const userId of await notesOnlyBreaches(db, job.bookId)) {
+      await requestGraphAfter(db, queue, userId, () => dropNotesOnlyBreaches(db, userId, job.bookId));
+    }
+    await sendConnections(db, queue, await refreshAfterEnrichment(db, job.bookId));
     await sendConnections(db, queue, await resumeConnections(db, job.bookId));
   } else if (job.kind === "embed" && job.target.kind === "note") {
     await embedNote(db, deps.embedder, job.target.id);

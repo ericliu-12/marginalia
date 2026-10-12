@@ -105,17 +105,12 @@ export async function resumeNoteConnections(db: Db, noteId: string): Promise<Con
   return n ? resumeConnections(db, n.bookId, n.entryId) : [];
 }
 
-// What follows a Book's Enrichment: the Connections jobs due, and the Readers whose Connections changed.
-export type AfterEnrichment = { due: ConnectionsDue[]; changed: string[] };
-
-// The Book's Enrichment is ready. A recognised one Refreshes, once, each reader whose latest run judged
-// the Book without it. An unrecognised one means the Book connects through its Notes only: each
-// reader's Connections of the Book that quote none of their Notes on it are deleted, dismissed ones
-// too, with no Refresh.
-export async function refreshAfterEnrichment(db: Db, bookId: string): Promise<AfterEnrichment> {
+// The Book's Enrichment is ready: Refreshes, once, each reader whose latest run judged the Book
+// without it. Only a recognised Enrichment reaches the judge; an unrecognised one is handled by
+// notesOnlyBreaches.
+export async function refreshAfterEnrichment(db: Db, bookId: string): Promise<ConnectionsDue[]> {
   const [e] = await db.select().from(enrichment).where(eq(enrichment.bookId, bookId));
-  if (e?.status === "ready" && !e.recognised) return { due: [], changed: await dropUngrounded(db, bookId) };
-  if (!isRecognised(e)) return { due: [], changed: [] };
+  if (!isRecognised(e)) return [];
   const latest = await db
     .selectDistinctOn([connectionRun.libraryEntryId], { userId: libraryEntry.userId, withoutEnrichment: connectionRun.withoutEnrichment })
     .from(connectionRun)
@@ -124,21 +119,32 @@ export async function refreshAfterEnrichment(db: Db, bookId: string): Promise<Af
     .orderBy(connectionRun.libraryEntryId, desc(connectionRun.createdAt));
   const due: ConnectionsDue[] = [];
   for (const r of latest) if (r.withoutEnrichment) due.push(...(await startConnections(db, r.userId, bookId, true)));
-  return { due, changed: [] };
+  return due;
 }
 
-// Deletes the Book's Connections that quote none of the reader's Notes on it; returns the Readers who lost one.
-async function dropUngrounded(db: Db, bookId: string): Promise<string[]> {
+// The Book's Connections, dismissed ones too, that quote none of their reader's Notes on it.
+function quotingNoNotes(db: Db, bookId: string) {
   const ownNotes = db
     .select({ id: note.id })
     .from(note)
     .innerJoin(libraryEntry, eq(libraryEntry.id, note.libraryEntryId))
     .where(and(eq(libraryEntry.userId, connection.userId), eq(libraryEntry.bookId, bookId), sql`${note.id} = any(${connection.quotedNoteIds})`));
-  const dropped = await db
-    .delete(connection)
-    .where(and(or(eq(connection.bookAId, bookId), eq(connection.bookBId, bookId)), notExists(ownNotes)))
-    .returning({ userId: connection.userId });
-  return [...new Set(dropped.map((d) => d.userId))];
+  return and(or(eq(connection.bookAId, bookId), eq(connection.bookBId, bookId)), notExists(ownNotes));
+}
+
+// The Book's Enrichment came back unrecognised, so it connects through its Notes only: the Readers
+// with a Connection of it that breaks that rule (see dropNotesOnlyBreaches). None for any other Enrichment.
+export async function notesOnlyBreaches(db: Db, bookId: string): Promise<string[]> {
+  const [e] = await db.select({ status: enrichment.status, recognised: enrichment.recognised }).from(enrichment).where(eq(enrichment.bookId, bookId));
+  if (e?.status !== "ready" || e.recognised) return [];
+  const rows = await db.selectDistinct({ userId: connection.userId }).from(connection).where(quotingNoNotes(db, bookId));
+  return rows.map((r) => r.userId);
+}
+
+// Deletes the reader's Connections of the Book that quote none of their Notes on it, without judging
+// anything again. A later recognised Enrichment Refreshes as usual.
+export async function dropNotesOnlyBreaches(db: Db, userId: string, bookId: string): Promise<void> {
+  await db.delete(connection).where(and(eq(connection.userId, userId), quotingNoNotes(db, bookId)));
 }
 
 // A run waits until the Book's Enrichment has settled (ready or failed) and each of its Notes has a
