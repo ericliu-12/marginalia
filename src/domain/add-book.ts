@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { book } from "@/db/schema";
+import { isCoverAddress } from "./book-cover";
 import { ADD_TIME_BUDGET, describeBook, type DescriptionGateway } from "./description";
 import { namesMatch } from "./enrichment";
 import { enterLibrary } from "./library-entry";
@@ -32,7 +33,7 @@ export function manualBookFields(input: ManualBookInput) {
   const authors = input.author.split(/\s+and\s+|[&;]/i).map((a) => a.trim()).filter(Boolean);
   const coverUrl = input.coverUrl?.trim() || null;
   if (!title || authors.length === 0) throw new InvalidBookError("A Book needs a title and an author");
-  if (coverUrl && !/^https?:\/\/\S+$/i.test(coverUrl)) throw new InvalidBookError("A cover must be an http(s) address");
+  if (coverUrl && !isCoverAddress(coverUrl)) throw new InvalidBookError("A cover must be an http(s) address");
   return { title, authors, coverUrl, description: input.description?.trim() || null };
 }
 
