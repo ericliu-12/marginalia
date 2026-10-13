@@ -12,12 +12,14 @@ import { READER_A, READER_B, type Reader } from "./session";
 // The browser tests' own database on the docker-compose Postgres, apart from the app's and the unit tests'.
 // The web server is handed this database as DATABASE_URL, so creating it goes through Postgres's own
 // maintenance database rather than whichever one DATABASE_URL names.
-const BASE_URL = process.env.DATABASE_URL ?? "postgres://marginalia:marginalia@localhost:5433/marginalia";
+const BASE_URL = process.env.DATABASE_URL ?? "postgres://marginalia:marginalia@127.0.0.1:5433/marginalia";
 const E2E_DB_NAME = perWorktree("marginalia_e2e");
 
 const onDatabase = (name: string) => {
   const url = new URL(BASE_URL);
   url.pathname = `/${name}`;
+  // By address: on macOS a connect by the name localhost now and then waits 5s (#51).
+  if (url.hostname === "localhost") url.hostname = "127.0.0.1";
   return url.toString();
 };
 export const e2eDatabaseUrl = () => onDatabase(E2E_DB_NAME);
