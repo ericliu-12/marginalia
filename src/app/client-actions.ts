@@ -10,7 +10,7 @@ export function goToSignIn(): Promise<never> {
   return new Promise<never>(() => {});
 }
 
-// The Server Functions as the client calls them, each going to sign-in when refused as signed out.
+// A Server Function that goes to sign-in when refused as signed out.
 function untilSignedOut<A extends unknown[], R>(action: (...args: A) => Promise<R>): (...args: A) => Promise<R> {
   return async (...args) => {
     try {
