@@ -50,3 +50,17 @@ test("the Book's panel takes a second move while the first is saving", async ({ 
   await expect(status.getByText("Read", { exact: true })).toBeVisible();
   await expect(inSection(page, /^Read(?!ing)/)).toBeVisible();
 });
+
+test("a move that lands after the panel has gone to another Book shows when the Book is opened again", async ({ page }) => {
+  await inSection(page, /^Want to read/).click();
+  const status = page.getByRole("group", { name: "Status of Gilead", exact: true });
+  const move = await holdFirstMove(page);
+  await status.getByRole("button", { name: "Start reading" }).click();
+  await move.held();
+  await library(page).getByRole("button", { name: "Stoner", exact: true }).click();
+  await expect(page.getByRole("group", { name: "Status of Stoner", exact: true })).toBeVisible();
+  await move.release();
+  await expect(inSection(page, /^Reading/)).toBeVisible();
+  await inSection(page, /^Reading/).click();
+  await expect(status.getByText("Reading", { exact: true })).toBeVisible();
+});

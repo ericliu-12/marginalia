@@ -1,5 +1,6 @@
 import { SIGNED_OUT, signInPath } from "@/lib/signed-out";
 import * as server from "./actions";
+import { REFRESHES } from "./refreshes";
 
 // A call refused for want of a live session (a missing, forged or expired cookie: the proxy's 401) sends
 // the Reader to sign-in, coming back to this page after, instead of failing where it was called. The page
@@ -9,7 +10,7 @@ export function goToSignIn(): Promise<never> {
   return new Promise<never>(() => {});
 }
 
-// The Server Functions as the client calls them, each going to sign-in when refused as signed out.
+// A Server Function that goes to sign-in when refused as signed out.
 function untilSignedOut<A extends unknown[], R>(action: (...args: A) => Promise<R>): (...args: A) => Promise<R> {
   return async (...args) => {
     try {
@@ -38,21 +39,30 @@ function refreshing<A extends unknown[], R>(action: (...args: A) => Promise<R>):
   };
 }
 
-export const addBookAction = refreshing(untilSignedOut(server.addBookAction));
-export const addManualBookAction = refreshing(untilSignedOut(server.addManualBookAction));
-export const findLookalikeAction = untilSignedOut(server.findLookalikeAction);
-export const editBookAction = refreshing(untilSignedOut(server.editBookAction));
-export const changeStatusAction = refreshing(untilSignedOut(server.changeStatusAction));
-export const removeFromLibraryAction = refreshing(untilSignedOut(server.removeFromLibraryAction));
-export const listNotesAction = untilSignedOut(server.listNotesAction);
-export const addNoteAction = untilSignedOut(server.addNoteAction);
-export const updateNoteAction = untilSignedOut(server.updateNoteAction);
-export const deleteNoteAction = untilSignedOut(server.deleteNoteAction);
-export const getEnrichmentAction = untilSignedOut(server.getEnrichmentAction);
-export const tryAgainAction = untilSignedOut(server.tryAgainAction);
-export const getConnectionsAction = untilSignedOut(server.getConnectionsAction);
-export const getConnectionAction = untilSignedOut(server.getConnectionAction);
-export const graphStatusAction = untilSignedOut(server.graphStatusAction);
-export const backgroundStatusAction = untilSignedOut(server.backgroundStatusAction);
-export const dismissConnectionAction = refreshing(untilSignedOut(server.dismissConnectionAction));
-export const refreshConnectionsAction = refreshing(untilSignedOut(server.refreshConnectionsAction));
+type Server = typeof server;
+
+// A Server Function as the client calls it: going to sign-in when refused as signed out, and fetching
+// the page again once it lands when it is a save that refreshes (refreshes.ts).
+function client<K extends keyof Server>(name: K): Server[K] {
+  const action = untilSignedOut(server[name] as (...args: unknown[]) => Promise<unknown>);
+  return (Object.hasOwn(REFRESHES, name) ? refreshing(action) : action) as Server[K];
+}
+
+export const addBookAction = client("addBookAction");
+export const addManualBookAction = client("addManualBookAction");
+export const findLookalikeAction = client("findLookalikeAction");
+export const editBookAction = client("editBookAction");
+export const changeStatusAction = client("changeStatusAction");
+export const removeFromLibraryAction = client("removeFromLibraryAction");
+export const listNotesAction = client("listNotesAction");
+export const addNoteAction = client("addNoteAction");
+export const updateNoteAction = client("updateNoteAction");
+export const deleteNoteAction = client("deleteNoteAction");
+export const getEnrichmentAction = client("getEnrichmentAction");
+export const tryAgainAction = client("tryAgainAction");
+export const getConnectionsAction = client("getConnectionsAction");
+export const getConnectionAction = client("getConnectionAction");
+export const graphStatusAction = client("graphStatusAction");
+export const backgroundStatusAction = client("backgroundStatusAction");
+export const dismissConnectionAction = client("dismissConnectionAction");
+export const refreshConnectionsAction = client("refreshConnectionsAction");

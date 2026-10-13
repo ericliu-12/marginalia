@@ -15,6 +15,12 @@ import { directPipeline } from "@/lib/jobs";
 import { requireReader } from "@/lib/signed-in";
 import { addNote, deleteNote, listNotes, updateNote, type Note, type NoteInput } from "@/domain/notes";
 import type { Status } from "@/domain/search";
+import { REFRESHES, type Refreshing } from "./refreshes";
+
+// Revalidates the pages `action` says it refreshes.
+function revalidate(action: Refreshing) {
+  for (const path of REFRESHES[action]) revalidatePath(path);
+}
 
 export type AddResult = { ok: true; bookId: string } | { ok: false; reason: "duplicate" | "failed" };
 
@@ -24,7 +30,7 @@ export async function addBookAction(workKey: string, status: Status): Promise<Ad
     const userId = await requireReader();
     const db = appDb();
     const { bookId } = await addBookByWorkKey(db, directPipeline(db), userId, workKey, status, { works: bookSearchGateway(), descriptions: descriptionGateway() });
-    revalidatePath("/");
+    revalidate("addBookAction");
     return { ok: true, bookId };
   } catch (err) {
     if (err instanceof DuplicateBookError) return { ok: false, reason: "duplicate" };
@@ -40,7 +46,7 @@ export async function addManualBookAction(input: ManualBookInput, status: Status
     const userId = await requireReader();
     const db = appDb();
     const { bookId } = await addManualBook(db, directPipeline(db), userId, input, status);
-    revalidatePath("/");
+    revalidate("addManualBookAction");
     return { ok: true, bookId };
   } catch (err) {
     if (err instanceof InvalidBookError) return { ok: false, reason: "invalid" };
@@ -66,8 +72,7 @@ export async function editBookAction(bookId: string, input: ManualBookInput): Pr
     const userId = await requireReader();
     const db = appDb();
     await editBook(db, directPipeline(db), userId, bookId, input);
-    revalidatePath("/");
-    revalidatePath("/graph");
+    revalidate("editBookAction");
     return { ok: true };
   } catch (err) {
     if (err instanceof InvalidBookError) return { ok: false, reason: "invalid" };
@@ -87,8 +92,7 @@ export async function changeStatusAction(
     const db = appDb();
     const { firstCompletion } = await changeStatus(db, directPipeline(db), userId, bookId, status);
     const pause = firstCompletion ? await readPause(db, userId) : null;
-    revalidatePath("/");
-    revalidatePath("/graph");
+    revalidate("changeStatusAction");
     return { ok: true, firstCompletion, paused: pause?.resumesOn ?? null };
   } catch (err) {
     console.error(err);
@@ -101,7 +105,7 @@ export async function removeFromLibraryAction(bookId: string): Promise<{ ok: boo
     const userId = await requireReader();
     const db = appDb();
     await removeFromLibrary(db, directPipeline(db), userId, bookId);
-    revalidatePath("/");
+    revalidate("removeFromLibraryAction");
     return { ok: true };
   } catch (err) {
     console.error(err);
@@ -237,7 +241,7 @@ export async function dismissConnectionAction(connectionId: string): Promise<{ o
     const userId = await requireReader();
     const db = appDb();
     await dismissConnection(db, directPipeline(db), userId, connectionId);
-    revalidatePath("/graph");
+    revalidate("dismissConnectionAction");
     return { ok: true };
   } catch (err) {
     console.error(err);
@@ -250,8 +254,7 @@ export async function refreshConnectionsAction(bookId: string): Promise<{ ok: bo
     const userId = await requireReader();
     const db = appDb();
     await directPipeline(db).refreshRequested(userId, bookId);
-    // The graph sees the run, and checks back until it settles.
-    revalidatePath("/graph");
+    revalidate("refreshConnectionsAction");
     return { ok: true };
   } catch (err) {
     console.error(err);
