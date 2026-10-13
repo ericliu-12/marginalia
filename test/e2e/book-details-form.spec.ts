@@ -263,4 +263,22 @@ test.describe("on a phone", () => {
       await expect(form.getByLabel("Cover image address")).toHaveValue("https://www.example.com/c.jpg", { timeout: 1000 });
     }).toPass();
   });
+
+  test("an edit that lands after leaving the Book's screen shows on the shelf", async ({ page }) => {
+    await manualBook("Kitchen Notes", "June Ash", "Recipes.");
+    await page.goto("/");
+    await page.getByRole("main").getByRole("button", { name: "Want to read 1" }).click();
+    await page.getByRole("main").getByRole("button", { name: /^Kitchen Notes/ }).click();
+    await page.getByRole("button", { name: "Edit details" }).click();
+    const form = page.getByRole("form", { name: "Edit Kitchen Notes" });
+    await form.getByLabel("Title").fill("Kitchen Notes, Again");
+
+    const call = await holdNextCall(page);
+    await form.getByRole("button", { name: "Save changes" }).click();
+    await call.held();
+    await page.getByRole("button", { name: "Back to library" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Reading");
+    await call.release();
+    await expect(page.getByRole("main").getByRole("button", { name: /^Kitchen Notes, Again/ })).toBeVisible();
+  });
 });
