@@ -9,6 +9,9 @@ export const TEST_DB_NAME = perWorktree("marginalia_test");
 export function testDatabaseUrl() {
   const url = new URL(ADMIN_URL);
   url.pathname = `/${TEST_DB_NAME}`;
+  // On macOS about 1 in 1000 connects by the name localhost waits 5s before it connects, which times out
+  // a test whose pool opens connections mid-test (#51). The address never waits.
+  if (url.hostname === "localhost") url.hostname = "127.0.0.1";
   return url.toString();
 }
 
