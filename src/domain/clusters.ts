@@ -134,7 +134,7 @@ export async function leaveClusters(tx: Tx, userId: string, bookId: string) {
 
 // The reader's Clusters as last computed, oldest first, with members limited to `books` (the graph's).
 // One not yet named (its naming failed) shows as "Cluster of N Books".
-export async function readClusters(db: Db, userId: string, books: Set<string>) {
+export async function readClusters(db: Db | Tx, userId: string, books: Set<string>) {
   const rows = await db
     .select({ id: clusterLabel.id, members: clusterLabel.memberBookIds, name: clusterLabel.name, description: clusterLabel.description, wash: clusterLabel.wash })
     .from(clusterLabel)

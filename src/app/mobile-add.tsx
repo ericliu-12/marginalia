@@ -143,7 +143,7 @@ export function MobileAdd({
           <h2 id="mobile-add-heading" className="text-[1.75rem] leading-tight font-medium">
             Add a Book
           </h2>
-          <button type="button" onClick={onDone} className="-mr-3 min-h-11 px-3 font-sans text-[0.95rem] font-medium text-ink transition-colors active:text-ink-2">
+          <button type="button" onClick={onDone} className="-mr-3 min-h-11 px-3 text-[0.95rem] font-medium text-ink transition-colors active:text-ink-2">
             Done
           </button>
         </div>
@@ -163,7 +163,7 @@ export function MobileAdd({
           placeholder="Title and author"
           autoComplete="off"
           autoCapitalize="off"
-          className={`mt-3 min-h-12 w-full rounded-[3px] border border-edge bg-paper-2 px-3 ${risen ? "" : "motion-safe:caret-transparent"} font-sans text-base text-ink placeholder:text-ink-3 focus-visible:border-thematic focus-visible:ring-2 focus-visible:ring-thematic/30 focus-visible:outline-none`}
+          className={`mt-3 min-h-12 w-full border border-edge bg-paper-2 px-3 ${risen ? "" : "motion-safe:caret-transparent"} text-base text-ink placeholder:text-ink-3 focus-visible:border-thematic focus-visible:ring-2 focus-visible:ring-thematic/30 focus-visible:outline-none`}
         />
         <FindingIndicator initial={finding} paused={paused} className="mt-2 min-h-5" />
       </div>
@@ -206,7 +206,7 @@ export function MobileAdd({
                       <Cover title={a.title} url={a.coverUrl} />
                       <div className="min-w-0 flex-1">
                         <p className="text-[1.05rem] leading-snug font-medium">{a.title}</p>
-                        <p className="font-sans text-sm text-ink-2">
+                        <p className="text-sm text-ink-2">
                           {a.byline}
                           {!a.workKey && (
                             <span className="font-serif text-ink-3 italic">
@@ -239,7 +239,7 @@ export function MobileAdd({
               {phase === "done" && results.length === 0 && (
                 <>
                   <p className="pt-5 text-ink-2 italic">No match for “{q}”. Check the spelling, or try the title alone.</p>
-                  <p className="mt-1 font-sans text-sm text-ink-2">
+                  <p className="mt-1 text-sm text-ink-2">
                     Not on Open Library? <AddByHand onOpen={openManual} />
                   </p>
                 </>
@@ -270,12 +270,12 @@ export function MobileAdd({
                       );
                     })}
                   </ul>
-                  <p className="border-t border-rule/60 pt-2 font-sans text-sm text-ink-2">
+                  <p className="border-t border-rule/60 pt-2 text-sm text-ink-2">
                     Not the book you mean? <AddByHand onOpen={openManual} />
                   </p>
                 </>
               )}
-              <p className="mt-6 font-sans text-xs text-ink-3">
+              <p className="mt-6 text-xs text-ink-3">
                 Results from{" "}
                 <a href="https://openlibrary.org" target="_blank" rel="noreferrer" className={`${hitArea} underline underline-offset-2`}>
                   Open Library
@@ -354,7 +354,7 @@ function AddResult({
         <Cover title={r.title} url={r.coverUrl} />
         <div className="min-w-0 flex-1">
           <p className="text-[1.05rem] leading-snug font-medium">{r.title}</p>
-          {meta && <p className="font-sans text-sm text-ink-2">{meta}</p>}
+          {meta && <p className="text-sm text-ink-2">{meta}</p>}
           {r.lookalike && !inLibrary && !added && <LookalikeNote lookalike={r.lookalike} again={lookalikeAgain} onOpenBook={onOpenBook} />}
         </div>
       </div>
@@ -363,7 +363,7 @@ function AddResult({
         {added ? (
           <AddedLine entry={added} onUndone={onUndone} onTap={onTap} />
         ) : inLibrary ? (
-          <p className="flex min-h-11 items-center justify-between gap-3 font-sans text-sm text-ink-2">
+          <p className="flex min-h-11 items-center justify-between gap-3 text-sm text-ink-2">
             <span>
               {check}In your library · {LABELS[inLibrary]}
             </span>
@@ -375,7 +375,7 @@ function AddResult({
           </p>
         ) : duplicate ? (
           // Until the search, fetched again, gives its Status.
-          <p className="flex min-h-11 items-center font-sans text-sm text-ink-2">{check}In your library</p>
+          <p className="flex min-h-11 items-center text-sm text-ink-2">{check}In your library</p>
         ) : (
           <div className={addChoices} role="group" aria-label={`Add ${r.title}`}>
             {(Object.keys(LABELS) as Status[]).map((s) => (
@@ -386,7 +386,7 @@ function AddResult({
           </div>
         )}
         {failed && adding && (
-          <p className="mt-1.5 font-sans text-sm">
+          <p className="mt-1.5 text-sm">
             <span className="text-contrast">Couldn’t add this book.</span>{" "}
             <button type="button" onMouseDown={keepFocus} onClick={() => add(adding)} className={`${hitArea} whitespace-nowrap text-ink underline underline-offset-2`}>
               Try again
@@ -404,7 +404,7 @@ function AddedLine({ entry, onUndone, onTap }: { entry: Added; onUndone: (entry:
   const [failed, setFailed] = useState(false);
   return (
     <>
-      <p className="flex min-h-11 items-center justify-between gap-3 font-sans text-sm text-ink">
+      <p className="flex min-h-11 items-center justify-between gap-3 text-sm text-ink">
         <span>
           {check}Added · {LABELS[entry.status]}
         </span>
@@ -426,7 +426,7 @@ function AddedLine({ entry, onUndone, onTap }: { entry: Added; onUndone: (entry:
           {pending ? "Undoing…" : "Undo"}
         </button>
       </p>
-      {failed && <p className="font-sans text-sm text-contrast">Couldn’t undo. Try again.</p>}
+      {failed && <p className="text-sm text-contrast">Couldn’t undo. Try again.</p>}
     </>
   );
 }

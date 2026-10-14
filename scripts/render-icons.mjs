@@ -7,8 +7,8 @@ import { writeFileSync } from "node:fs";
 // launcher may crop. The line box holds room for descenders, so the M is moved down to sit centred.
 const page = (size, glyph) => `<!doctype html><html><head>
 <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@1,6..72,500&display=block" rel="stylesheet">
-<style>html,body{margin:0}body{width:${size}px;height:${size}px;background:#f3ecdd;display:grid;place-items:center}
-span{font-family:Newsreader;font-style:italic;font-weight:500;font-size:${Math.round(size * glyph)}px;line-height:1;color:#231d17;letter-spacing:-0.01em;transform:translate(-2%,12%)}</style>
+<style>html,body{margin:0}body{width:${size}px;height:${size}px;background:#fbf8f1;display:grid;place-items:center}
+span{font-family:Newsreader;font-style:italic;font-weight:500;font-size:${Math.round(size * glyph)}px;line-height:1;color:#1a1a1a;letter-spacing:-0.01em;transform:translate(-2%,12%)}</style>
 </head><body><span>M</span></body></html>`;
 
 const ICONS = [

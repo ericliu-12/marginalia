@@ -3,13 +3,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type ForceGraph from "force-graph";
 import { joins, otherBook, touches } from "@/domain/connection-pair";
+import { fitDrawn } from "@/domain/graph-fit";
 import { visibleConnections, type GraphBook, type GraphCluster, type GraphConnection, type GraphView } from "@/domain/graph";
 import {
   ARRIVAL_FRAME,
   CLUSTER_NAME_CLEAR,
   CLUSTER_NAME_COLOR,
-  CLUSTER_NAME_OFFSET,
+  CLUSTER_NAME_GAP,
   CLUSTER_NAME_SIZE,
+  clusterNameSize,
   DRAG,
   DRAW_MS,
   EDGE_WIDTH,
@@ -19,7 +21,6 @@ import {
   FADED_EDGE,
   FADED_LABEL,
   FADED_NODE,
-  FIT_PADDING,
   INK,
   LABEL_GAP,
   LABEL_LINE,
@@ -29,7 +30,6 @@ import {
   LAND_RING,
   LEAD_LABELS,
   layoutScale,
-  MAX_FIT_ZOOM,
   PAPER_PLATE,
   RECENT_LABELS,
   TYPE_COLOR,
@@ -360,7 +360,7 @@ export function GraphCanvas({
         const first = placeLabels({ view, dots: blocking, requests, obstacles: chrome });
 
         const r = WASH_RADIUS * TYPICAL_EDGE_LENGTH * k;
-        const fontSize = Math.round(Math.min(CLUSTER_NAME_SIZE.max, Math.max(CLUSTER_NAME_SIZE.min, r * CLUSTER_NAME_SIZE.perRadius)) * 2) / 2;
+        const fontSize = clusterNameSize(k);
         const names: NameRequest[] = [];
         for (const { cluster, nodes: books, members } of clusters) {
           const nameEl = nameEls.current.get(cluster.id);
@@ -376,7 +376,7 @@ export function GraphCanvas({
           clear: CLUSTER_NAME_CLEAR,
           uncovered: view.width - insetRef.current,
           washRadius: r,
-          offset: CLUSTER_NAME_OFFSET,
+          gap: CLUSTER_NAME_GAP,
           dots,
           labels: first.map((l) => l.box),
           names,
@@ -598,8 +598,18 @@ export function GraphCanvas({
     if (fitted.current) return true;
     if (!f.getGraphBbox()) return false;
     fitted.current = true;
-    f.zoomToFit(0, FIT_PADDING);
-    if (f.zoom() > MAX_FIT_ZOOM) f.zoom(MAX_FIT_ZOOM);
+    // Positions are already drawn to scale: a typical Connection is TYPICAL_EDGE_LENGTH long.
+    const { nodes, clusters } = dataRef.current;
+    const fit = fitDrawn(
+      {
+        books: nodes.map((n) => ({ id: n.id, x: n.x!, y: n.y!, label: n.label, degree: n.book.degree })),
+        clusters: clusters.map(({ cluster }) => cluster),
+        unit: TYPICAL_EDGE_LENGTH,
+      },
+      { width: f.width(), height: f.height() },
+    );
+    f.centerAt(fit.x, fit.y);
+    f.zoom(fit.zoom);
     return true;
   };
 

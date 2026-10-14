@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phone · Add a Book</title>
+<!-- Marginalia visual reference for #97. Reference only: sample Books, inline styles. Not production code. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400;1,6..72,500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#8c1c13}a:hover{color:#5e120c}
+</style>
+<style>html{background:#ddd}body>div{margin:0 auto}</style>
+</head>
+<body>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #fbf8f1; color: #1a1a1a; font-family: 'Newsreader', serif; padding: 18px 20px 24px; display: flex; flex-direction: column; gap: 16px; overflow: hidden">
+  <header style="display: flex; justify-content: space-between; align-items: center">
+    <button type="button" style="font-family: inherit; font-size: 16px; background: none; border: none; color: #55504a; padding: 12px 0; min-height: 44px">Cancel</button>
+    <h1 style="margin: 0; font-size: 17px; font-weight: 500; font-variant: small-caps; letter-spacing: 1.6px">add a book</h1>
+    <button type="button" style="font-family: inherit; font-size: 16px; background: none; border: none; color: #8c1c13; padding: 12px 0; min-height: 44px">Done</button>
+  </header>
+
+  <div style="display: flex; flex-direction: column; gap: 6px">
+    <label for="q" style="font-size: 13px; font-variant: small-caps; letter-spacing: 1.4px; color: #55504a">title or author</label>
+    <input id="q" type="search" value="notes from the underground" style="font-family: inherit; font-size: 19px; padding: 10px 2px; border: none; border-bottom: 1.5px solid #1a1a1a; background: transparent; color: #1a1a1a; outline: none">
+  </div>
+
+  <ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column">
+    <li style="display: flex; flex-direction: column; gap: 12px; padding: 14px 12px; background: #f3ede1; border-left: 2px solid #8c1c13">
+      <div style="display: flex; gap: 12px; align-items: flex-start">
+        <div aria-hidden="true" style="width: 40px; height: 60px; flex-shrink: 0; background: #3e3a35"></div>
+        <div style="display: flex; flex-direction: column; gap: 2px">
+          <span style="font-size: 19px; font-style: italic; line-height: 1.2">Notes from Underground</span>
+          <span style="font-size: 13px; font-variant: small-caps; letter-spacing: 1px; color: #55504a">fyodor dostoevsky · 1864</span>
+        </div>
+      </div>
+      <fieldset style="border: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px">
+        <legend style="font-size: 13px; font-variant: small-caps; letter-spacing: 1.4px; color: #55504a; padding: 0; margin-bottom: 8px">add to</legend>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px">
+          <button type="button" style="font-family: inherit; font-size: 14px; min-height: 44px; background: #fbf8f1; border: 1px solid #b9b1a2; color: #1a1a1a">Want to read</button>
+          <button type="button" style="font-family: inherit; font-size: 14px; min-height: 44px; background: #fbf8f1; border: 1px solid #b9b1a2; color: #1a1a1a">Reading</button>
+          <button type="button" style="font-family: inherit; font-size: 14px; min-height: 44px; background: #1a1a1a; border: 1px solid #1a1a1a; color: #fbf8f1">Finished</button>
+        </div>
+      </fieldset>
+    </li>
+    <li style="display: flex; gap: 12px; align-items: center; padding: 14px 12px; border-bottom: 1px solid #e3dccd">
+      <div aria-hidden="true" style="width: 40px; height: 60px; flex-shrink: 0; background: #7a6a55"></div>
+      <div style="display: flex; flex-direction: column; gap: 2px">
+        <span style="font-size: 17px; font-style: italic; line-height: 1.2">Notes from Underground and The Double</span>
+        <span style="font-size: 13px; font-variant: small-caps; letter-spacing: 1px; color: #55504a">fyodor dostoevsky</span>
+      </div>
+    </li>
+    <li style="display: flex; gap: 12px; align-items: center; padding: 14px 12px; border-bottom: 1px solid #e3dccd">
+      <div aria-hidden="true" style="width: 40px; height: 60px; flex-shrink: 0; background: #a9a08f"></div>
+      <div style="display: flex; flex-direction: column; gap: 2px">
+        <span style="font-size: 17px; font-style: italic; line-height: 1.2">The Underground Railroad</span>
+        <span style="font-size: 13px; font-variant: small-caps; letter-spacing: 1px; color: #55504a">colson whitehead · 2016</span>
+      </div>
+    </li>
+    <li style="display: flex; gap: 12px; align-items: center; padding: 14px 12px; border-bottom: 1px solid #e3dccd">
+      <div aria-hidden="true" style="width: 40px; height: 60px; flex-shrink: 0; background: #5b4a3e"></div>
+      <div style="display: flex; flex-direction: column; gap: 2px">
+        <span style="font-size: 17px; font-style: italic; line-height: 1.2">Underground</span>
+        <span style="font-size: 13px; font-variant: small-caps; letter-spacing: 1px; color: #55504a">haruki murakami · 1997</span>
+      </div>
+    </li>
+  </ol>
+
+  <p style="margin: auto 0 0; font-size: 15px; color: #55504a; text-align: center">Can’t find it? <a href="#" style="font-style: italic">Add it by hand</a></p>
+</div>
+</body>
+</html>

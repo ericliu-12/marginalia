@@ -36,7 +36,7 @@ export function ConnectionPanel({ id, onBack, onOpenBook }: { id: string; onBack
         <button
           type="button"
           onClick={onBack}
-          className="-ml-0.5 flex items-center gap-1.5 font-sans text-[0.8rem] font-medium text-ink-3 transition-colors duration-150 hover:text-ink"
+          className="-ml-0.5 flex items-center gap-1.5 text-[0.8rem] font-medium text-ink-3 transition-colors duration-150 hover:text-ink"
         >
           <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
             <path d="M8 2L4 6l4 4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -62,7 +62,7 @@ export function ConnectionPanel({ id, onBack, onOpenBook }: { id: string; onBack
         )}
         {c && (
           <article>
-            <p className="flex items-center gap-2.5 font-sans text-[0.8rem] font-medium text-ink-2">
+            <p className="flex items-center gap-2.5 text-[0.8rem] font-medium text-ink-2">
               <span aria-hidden className="inline-block w-6 rounded-[2px]" style={{ height: Math.max(2, EDGE_WIDTH[c.strength]), background: TYPE_COLOR[c.type] }} />
               {TYPE_LABEL[c.type]} · {STRENGTH_LABEL[c.strength]}
             </p>
@@ -72,7 +72,7 @@ export function ConnectionPanel({ id, onBack, onOpenBook }: { id: string; onBack
               <BookLink title={c.b.title} onOpen={() => onOpenBook(c.b.bookId)} />
             </h2>
             <p className="mt-5 max-w-[60ch] text-[1.0625rem] leading-relaxed">{c.explanation}</p>
-            {c.grounding === "enrichment" && <p className="mt-3 font-sans text-[0.8rem] text-ink-2">Not drawn from your notes</p>}
+            {c.grounding === "enrichment" && <p className="mt-3 text-[0.8rem] text-ink-2">Not drawn from your notes</p>}
             <DismissConnection connectionId={c.id} className="mt-8 border-t border-rule pt-4" onDismissed={() => setState({ id, connection: null })} />
           </article>
         )}

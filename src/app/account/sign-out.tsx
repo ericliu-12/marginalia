@@ -17,7 +17,7 @@ export function SignOut() {
       <button type="button" onClick={signOut} disabled={state === "pending"} className={`${quietLink} inline-flex items-center`}>
         {state === "pending" ? "Signing out…" : state === "failed" ? "Try again" : "Sign out"}
       </button>
-      <p role="status" className="font-sans text-[0.8rem] text-contrast">
+      <p role="status" className="text-[0.8rem] text-contrast">
         {state === "failed" ? "Couldn’t sign out. Check your connection and try again." : ""}
       </p>
     </div>

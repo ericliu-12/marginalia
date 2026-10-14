@@ -230,7 +230,7 @@ export function MobileShelf({ items, finding, paused }: { items: LibraryItem[]; 
                     >
                       <span className={`text-ink-3 transition-transform duration-200 ease-out-expo ${expanded ? "rotate-90" : ""}`}>{chevron}</span>
                       {label}
-                      <span className="font-sans text-sm font-normal text-ink-3">{rows.length}</span>
+                      <span className="text-sm font-normal text-ink-3">{rows.length}</span>
                     </button>
                   </h2>
                   {expanded && <Rows items={rows} drafts={drafts} onOpen={openBook} />}
@@ -240,7 +240,7 @@ export function MobileShelf({ items, finding, paused }: { items: LibraryItem[]; 
           </main>
           <div inert={adding || !!noteBook} className="fixed inset-x-0 bottom-0 bg-linear-to-t from-paper from-60% to-paper/0 pt-8">
             <div className="mx-auto max-w-[40rem] px-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
-              <p ref={savedRef} role="status" className="mb-1 flex min-h-11 items-center gap-x-4 font-sans text-sm text-ink-2 empty:hidden">
+              <p ref={savedRef} role="status" className="mb-1 flex min-h-11 items-center gap-x-4 text-sm text-ink-2 empty:hidden">
                 {saved && (
                   <>
                     <span className="min-w-0 truncate">
@@ -257,7 +257,7 @@ export function MobileShelf({ items, finding, paused }: { items: LibraryItem[]; 
                 type="button"
                 aria-expanded={adding}
                 onClick={openAdd}
-                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-[3px] bg-ink font-sans text-[0.95rem] font-medium text-paper transition-colors active:bg-ink-2"
+                className="flex min-h-12 w-full items-center justify-center gap-2 bg-ink text-[0.95rem] font-medium text-paper transition-colors active:bg-ink-2"
               >
                 <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden>
                   <path d="M7 1.5v11M1.5 7h11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -311,7 +311,7 @@ function Rows({
               <span className="min-w-0 flex-1">
                 <span className="block text-[1.05rem] leading-snug font-medium text-balance">{item.title}</span>
                 {(item.authors.length > 0 || item.reReading || draft) && (
-                  <span className="block font-sans text-sm text-ink-2">
+                  <span className="block text-sm text-ink-2">
                     {item.authors.join(", ")}
                     {[item.reReading && "Re-reading", draft && "Draft note"].filter(Boolean).map((tag, i) => (
                       <span key={i} className="font-serif text-ink-3 italic">
@@ -330,7 +330,7 @@ function Rows({
                 data-note-for={item.bookId}
                 aria-label={`Write a note on ${item.title}`}
                 onClick={() => onNote(item.bookId)}
-                className="-mr-3 grid size-12 shrink-0 place-items-center rounded-[3px] text-ink-2 transition-colors duration-150 active:bg-paper-3"
+                className="-mr-3 grid size-12 shrink-0 place-items-center text-ink-2 transition-colors duration-150 active:bg-paper-3"
               >
                 {pen}
               </button>

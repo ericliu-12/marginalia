@@ -7,7 +7,7 @@ export function ViewSwitch({ current }: { current: "library" | "graph" }) {
     { key: "graph", label: "Graph", href: "/graph" },
   ] as const;
   return (
-    <nav aria-label="Views" className="hidden items-baseline gap-4 font-sans text-[0.8rem] font-medium lg:flex">
+    <nav aria-label="Views" className="hidden items-baseline gap-4 text-[0.8rem] font-medium lg:flex">
       {views.map((v) =>
         v.key === current ? (
           <span key={v.key} aria-current="page" className="text-ink underline decoration-ink underline-offset-[5px]">

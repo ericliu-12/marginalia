@@ -56,12 +56,12 @@ export function LibraryList({ items, openBookId, onOpen }: { items: LibraryItem[
                     <path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                   {label}
-                  <span className="font-sans text-sm font-normal text-ink-3">{rows.length}</span>
+                  <span className="text-sm font-normal text-ink-3">{rows.length}</span>
                 </button>
               ) : (
                 <span className="flex items-baseline gap-2">
                   {label}
-                  <span className="font-sans text-sm font-normal text-ink-3">{rows.length}</span>
+                  <span className="text-sm font-normal text-ink-3">{rows.length}</span>
                 </span>
               )}
             </h2>
@@ -97,7 +97,7 @@ function Row({ item, open, onOpen }: { item: LibraryItem; open: boolean; onOpen:
           </button>
         </p>
         {(item.authors.length > 0 || item.reReading) && (
-          <p className="font-sans text-sm text-ink-2">
+          <p className="text-sm text-ink-2">
             {item.authors.join(", ")}
             {item.reReading && (
               <span className="font-serif text-ink-3 italic">
@@ -113,12 +113,12 @@ function Row({ item, open, onOpen }: { item: LibraryItem; open: boolean; onOpen:
               type="button"
               aria-label={`${label}: ${item.title}`}
               onClick={() => move(to)}
-              className="min-h-11 rounded-[3px] border border-ink/70 px-2.5 font-sans text-[0.8rem] font-medium text-ink transition-colors duration-150 hover:bg-ink hover:text-paper [@media(hover:hover)]:min-h-0 [@media(hover:hover)]:border-transparent [@media(hover:hover)]:px-0 [@media(hover:hover)]:py-0 [@media(hover:hover)]:text-ink-3 [@media(hover:hover)]:underline [@media(hover:hover)]:decoration-rule [@media(hover:hover)]:underline-offset-4 [@media(hover:hover)]:hover:bg-transparent [@media(hover:hover)]:hover:text-ink [@media(hover:hover)]:hover:decoration-ink">
+              className="min-h-11 border border-ink/70 px-2.5 text-[0.8rem] font-medium text-ink transition-colors duration-150 hover:bg-ink hover:text-paper [@media(hover:hover)]:min-h-0 [@media(hover:hover)]:border-transparent [@media(hover:hover)]:px-0 [@media(hover:hover)]:py-0 [@media(hover:hover)]:text-ink-3 [@media(hover:hover)]:underline [@media(hover:hover)]:decoration-rule [@media(hover:hover)]:underline-offset-4 [@media(hover:hover)]:hover:bg-transparent [@media(hover:hover)]:hover:text-ink [@media(hover:hover)]:hover:decoration-ink">
               {pending && moving === to ? "Moving…" : label}
             </button>
           ))}
         </div>
-        {error && <p role="alert" className="mt-1.5 font-sans text-sm text-contrast">Couldn’t move this book. Try again.</p>}
+        {error && <p role="alert" className="mt-1.5 text-sm text-contrast">Couldn’t move this book. Try again.</p>}
       </div>
     </li>
   );

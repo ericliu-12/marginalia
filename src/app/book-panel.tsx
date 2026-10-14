@@ -110,10 +110,10 @@ export function BookPanel({
             <h2 ref={headingRef} tabIndex={-1} className="text-[1.35rem] leading-tight font-medium outline-none">
               {item.title}
             </h2>
-            {item.authors.length > 0 && <p className="font-sans text-sm text-ink-2">{item.authors.join(", ")}</p>}
+            {item.authors.length > 0 && <p className="text-sm text-ink-2">{item.authors.join(", ")}</p>}
             {variant === "panel" && <StatusMoves key={item.status} item={item} />}
             {variant === "panel" && editLink}
-            <p role="status" className="font-sans text-sm text-ink-2 empty:hidden">
+            <p role="status" className="text-sm text-ink-2 empty:hidden">
               {saved ? "Changes saved." : ""}
             </p>
           </div>
@@ -202,7 +202,7 @@ function StatusMoves({ item }: { item: LibraryItem }) {
   return (
     <div aria-busy={pending} className="mt-1.5">
       <div role="group" aria-label={`Status of ${item.title}`} className="flex flex-wrap items-baseline gap-x-4">
-        <span className="font-sans text-sm text-ink-2">{item.reReading ? "Re-reading" : STATUS_LABEL[item.status]}</span>
+        <span className="text-sm text-ink-2">{item.reReading ? "Re-reading" : STATUS_LABEL[item.status]}</span>
         {MOVES[item.status].map(({ label, to }) => (
           <button key={to} type="button" onClick={() => move(to)} className={quietLink}>
             {pending && moving === to ? "Moving…" : label}
@@ -210,7 +210,7 @@ function StatusMoves({ item }: { item: LibraryItem }) {
         ))}
       </div>
       {error && (
-        <p role="alert" className="font-sans text-sm text-contrast">
+        <p role="alert" className="text-sm text-contrast">
           Couldn’t move this book. Try again.
         </p>
       )}
@@ -251,26 +251,26 @@ function StatusControl({ item }: { item: LibraryItem }) {
 
   return (
     <div aria-busy={pending} className="mt-5">
-      <div role="group" aria-label={`Status of ${item.title}`} className="grid grid-cols-3 gap-[3px] rounded-[3px] bg-paper-3 p-[3px]">
+      <div role="group" aria-label={`Status of ${item.title}`} className="grid grid-cols-3 gap-[3px] bg-paper-3 p-[3px]">
         {STATUSES.map((s) => (
           <button
             key={s}
             type="button"
             aria-pressed={shown === s}
             onClick={() => move(s)}
-            className="min-h-11 rounded-[2px] font-sans text-sm font-medium text-ink-2 transition-[background-color,color,box-shadow] duration-200 ease-out-expo aria-pressed:bg-paper-2 aria-pressed:text-ink aria-pressed:shadow-[0_1px_2px_rgb(35_29_23/0.2)]"
+            className="min-h-11 rounded-[2px] text-sm font-medium text-ink-2 transition-[background-color,color,box-shadow] duration-200 ease-out-expo aria-pressed:bg-paper-2 aria-pressed:text-ink aria-pressed:shadow-[0_1px_2px_rgb(26_26_26/0.2)]"
           >
             {STATUS_LABEL[s]}
           </button>
         ))}
       </div>
       {error && (
-        <p role="alert" className="mt-2 font-sans text-sm text-contrast">
+        <p role="alert" className="mt-2 text-sm text-contrast">
           Couldn’t move this book. Try again.
         </p>
       )}
       {/* Mounted throughout, so the line is announced when it appears. */}
-      <p role="status" className="mt-4 rounded-[3px] bg-paper-3 px-4 py-3 leading-snug empty:hidden motion-safe:animate-draw-in">
+      <p role="status" className="mt-4 bg-paper-3 px-4 py-3 leading-snug empty:hidden motion-safe:animate-draw-in">
         {finishLine && shown === "read" && (
           <>
             <span className="font-medium">Finished.</span>{" "}
@@ -296,7 +296,7 @@ function RemoveEntry({ bookId, title, onRemoved }: { bookId: string; title: stri
     <div aria-busy={pending} className="mt-12 border-t border-rule pt-4">
       {confirming ? (
         <div onKeyDown={onKeyDown} className="flex flex-wrap items-center gap-x-5 gap-y-1">
-          <p id={`remove-${bookId}`} className="w-full font-sans text-[0.8rem] text-ink-2">
+          <p id={`remove-${bookId}`} className="w-full text-[0.8rem] text-ink-2">
             Remove <i className="font-serif text-[0.9rem]">{title}</i> from your library? Its notes, reading history and Connections go with it.
           </p>
           <button type="button" onClick={confirm} disabled={pending} aria-describedby={`remove-${bookId}`} className={dangerLink}>
@@ -312,7 +312,7 @@ function RemoveEntry({ bookId, title, onRemoved }: { bookId: string; title: stri
         </button>
       )}
       {error && (
-        <p role="alert" className="mt-1 font-sans text-sm text-contrast">
+        <p role="alert" className="mt-1 text-sm text-contrast">
           Couldn’t remove this book. Try again.
         </p>
       )}
@@ -347,7 +347,7 @@ function EditBookForm({ item, onDone }: { item: LibraryItem; onDone: (saved: boo
       }}
       onEscape={() => onDone(false)}
       intro={
-        <p className="max-w-[40ch] font-sans text-sm text-ink-2">
+        <p className="max-w-[40ch] text-sm text-ink-2">
           {item.manual
             ? "You added this book by hand, so it’s yours to change. A new title, author or description means reading up on it again."
             : `Changes how this book appears for you alone. Clear a field to go back to the original${item.original ? `, ${item.original.title} by ${item.original.authors.join(", ")}` : ""}.`}
@@ -358,7 +358,7 @@ function EditBookForm({ item, onDone }: { item: LibraryItem; onDone: (saved: boo
           <button
             type="submit"
             disabled={pending}
-            className="min-h-11 rounded-[3px] bg-ink px-4 py-2 font-sans text-sm font-medium text-paper transition-colors hover:bg-ink-2 disabled:bg-ink-3 lg:min-h-0"
+            className="min-h-11 bg-ink px-4 py-2 text-sm font-medium text-paper transition-colors hover:bg-ink-2 disabled:bg-ink-3 lg:min-h-0"
           >
             {pending ? "Saving…" : "Save changes"}
           </button>
@@ -448,8 +448,8 @@ export function BookDetailsForm({
     });
   }
 
-  const label = "mt-3 block font-sans text-[0.8rem] font-medium text-ink-2";
-  const input = `${field} mt-1 font-sans text-[0.95rem]`;
+  const label = "mt-3 block text-[0.8rem] font-medium text-ink-2";
+  const input = `${field} mt-1 text-[0.95rem]`;
   return (
     <form
       noValidate
@@ -492,7 +492,7 @@ export function BookDetailsForm({
         className={input}
       />
       {manual && (
-        <p id={`${id}-author-hint`} className="mt-1 font-sans text-[0.8rem] text-ink-3">
+        <p id={`${id}-author-hint`} className="mt-1 text-[0.8rem] text-ink-3">
           {CO_AUTHOR_HINT}
         </p>
       )}
@@ -564,7 +564,7 @@ export function BookDetailsForm({
 
       {note}
       {error && (
-        <p id={errorId} role="alert" className="mt-2 font-sans text-sm text-contrast">
+        <p id={errorId} role="alert" className="mt-2 text-sm text-contrast">
           {error.message}
         </p>
       )}
@@ -639,11 +639,11 @@ function About({ bookId, noteCount }: { bookId: string; noteCount: number | null
       <>
         <p>{enrichment.summary}</p>
         {enrichment.themes && enrichment.themes.length > 0 && (
-          <p className="mt-2 font-sans text-[0.8rem] leading-relaxed text-ink-2">{enrichment.themes.join(" · ")}</p>
+          <p className="mt-2 text-[0.8rem] leading-relaxed text-ink-2">{enrichment.themes.join(" · ")}</p>
         )}
         {/* Google's terms ask for a link to the Book's page wherever its description is used (#42). */}
         {enrichment.googleBooksVolumeId && (
-          <p className="mt-3 font-sans text-[0.8rem] text-ink-3">
+          <p className="mt-3 text-[0.8rem] text-ink-3">
             Drawn from the description on{" "}
             <a
               href={`https://books.google.com/books?id=${encodeURIComponent(enrichment.googleBooksVolumeId)}`}
@@ -664,7 +664,7 @@ function About({ bookId, noteCount }: { bookId: string; noteCount: number | null
     <section aria-label="About this book" className="mb-8 border-b border-rule pb-6">
       {body}
       {retryFailed && (
-        <p role="alert" className="mt-1 font-sans text-sm text-contrast">
+        <p role="alert" className="mt-1 text-sm text-contrast">
           Couldn’t start that again. Try once more in a moment.
         </p>
       )}
@@ -673,7 +673,7 @@ function About({ bookId, noteCount }: { bookId: string; noteCount: number | null
 }
 
 export const field =
-  "w-full rounded-[3px] border border-edge bg-paper px-3 py-2.5 text-ink placeholder:text-ink-3 focus-visible:border-thematic focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-thematic/30";
+  "w-full border border-edge bg-paper px-3 py-2.5 text-ink placeholder:text-ink-3 focus-visible:border-thematic focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-thematic/30";
 
 function parsePage(raw: string): number | null | "invalid" {
   const t = raw.trim();
@@ -818,7 +818,7 @@ export function NoteForm(props: NoteFormProps) {
 
   // Writing on the sheet's paper has no box; a keyboard's focus shows as a thematic hairline beneath.
   const sheetField = "w-full bg-transparent text-ink placeholder:text-ink-3 focus-visible:shadow-[0_1px_0_var(--color-thematic)] focus-visible:outline-none";
-  const label = "font-sans text-[0.8rem] font-medium text-ink-2";
+  const label = "text-[0.8rem] font-medium text-ink-2";
   const removeLink = (what: string, onClick: () => void) => (
     <button type="button" aria-label={`Remove ${what}`} onMouseDown={keepFocus} onClick={onClick} className={`${quietLink} shrink-0`}>
       Remove
@@ -889,13 +889,13 @@ export function NoteForm(props: NoteFormProps) {
             placeholder="e.g. 112"
             value={draft.page}
             onChange={(e) => change({ page: e.target.value })}
-            className={sheet ? `${sheetField} min-h-11 min-w-0 flex-1 font-sans text-[0.95rem] tabular-nums` : `${field} mt-1 w-28 font-sans text-[0.95rem]`}
+            className={sheet ? `${sheetField} min-h-11 min-w-0 flex-1 text-[0.95rem] tabular-nums` : `${field} mt-1 w-28 text-[0.95rem]`}
           />
           {sheet && removeLink("page", () => remove({ page: "" }, setShowPage))}
         </div>
       )}
       {error && (
-        <p role="alert" className={`font-sans text-sm text-contrast ${sheet ? "border-t border-rule py-2.5" : "mt-2"}`}>
+        <p role="alert" className={`text-sm text-contrast ${sheet ? "border-t border-rule py-2.5" : "mt-2"}`}>
           {error.message}
         </p>
       )}
@@ -941,7 +941,7 @@ function SaveNote({
       type="submit"
       disabled={pending}
       onMouseDown={keepFocus}
-      className={`rounded-[3px] bg-ink font-sans font-medium text-paper transition-colors hover:bg-ink-2 disabled:bg-ink-3 ${sheet ? "mt-2 min-h-12 w-full text-[0.95rem] active:bg-ink-2" : "min-h-11 px-4 py-2 text-sm lg:min-h-0"}`}
+      className={`bg-ink font-medium text-paper transition-colors hover:bg-ink-2 disabled:bg-ink-3 ${sheet ? "mt-2 min-h-12 w-full text-[0.95rem] active:bg-ink-2" : "min-h-11 px-4 py-2 text-sm lg:min-h-0"}`}
     >
       {pending ? "Saving…" : retry ? "Try again" : editing ? "Save changes" : "Save note"}
     </button>
@@ -983,15 +983,15 @@ function NoteItem({
       {note.quote && (
         <blockquote className="mb-2 text-ink-2 italic">
           “{note.quote}”
-          {note.page != null && <span className="ml-2 font-sans text-xs text-ink-3 not-italic">p. {note.page}</span>}
+          {note.page != null && <span className="ml-2 text-xs text-ink-3 not-italic">p. {note.page}</span>}
         </blockquote>
       )}
       <p className="whitespace-pre-wrap">{note.body}</p>
-      {!note.quote && note.page != null && <p className="mt-1 font-sans text-xs text-ink-3">p. {note.page}</p>}
+      {!note.quote && note.page != null && <p className="mt-1 text-xs text-ink-3">p. {note.page}</p>}
       <div onKeyDown={onKeyDown} className="mt-1 flex flex-wrap items-center gap-x-5 gap-y-1">
         {confirming ? (
           <>
-            <span id={`delete-${note.id}`} className="font-sans text-[0.8rem] text-ink-2">Delete this note?</span>
+            <span id={`delete-${note.id}`} className="text-[0.8rem] text-ink-2">Delete this note?</span>
             <button type="button" onClick={confirm} disabled={pending} aria-describedby={`delete-${note.id}`} className={dangerLink}>
               {pending ? "Deleting…" : "Yes, delete"}
             </button>
@@ -1011,7 +1011,7 @@ function NoteItem({
         )}
       </div>
       {error && (
-        <p role="alert" className="mt-1 font-sans text-sm text-contrast">
+        <p role="alert" className="mt-1 text-sm text-contrast">
           Couldn’t delete this note. Try again.
         </p>
       )}

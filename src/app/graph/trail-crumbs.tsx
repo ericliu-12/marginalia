@@ -28,7 +28,7 @@ export function TrailCrumbs({
   const shown = labels.map((label, i) => ({ label, i })).filter(({ i }) => !folded || i === 0 || i >= last - 1);
 
   return (
-    <nav aria-label="Trail" className="flex items-start gap-4 px-6 pb-3 font-sans text-[0.8rem]">
+    <nav aria-label="Trail" className="flex items-start gap-4 px-6 pb-3 text-[0.8rem]">
       <ol className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 leading-snug">
         {shown.map(({ label, i }, k) => (
           <li key={i} className="flex min-w-0 items-center gap-x-1.5">

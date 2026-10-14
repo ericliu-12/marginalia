@@ -44,7 +44,7 @@ export default async function AccountPage() {
             { name: "Connections", text: "The Connections between your Books and why they connect, dismissed ones included." },
           ]}
         />
-        <p className="font-sans text-[0.8rem] text-ink-3">Covers, descriptions and summaries come from elsewhere, so they aren’t in it.</p>
+        <p className="text-[0.8rem] text-ink-3">Covers, descriptions and summaries come from elsewhere, so they aren’t in it.</p>
         <DownloadExport />
       </Section>
 

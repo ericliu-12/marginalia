@@ -85,20 +85,20 @@ describe("Label placement", () => {
 });
 
 describe("Cluster name placement", () => {
-  // Wash radius 40, names 100 by 20 sitting 0.75 of a radius past the Cluster's outermost Book.
+  // Wash radius 40, names 100 by 20 sitting 8 pixels clear of the wash past the Cluster's outermost Book.
   const name = (id: string, members: string[], chosen = false): NameRequest => ({ id, members: new Set(members), w: 100, h: 20, chosen });
   const place = (dots: Dot[], names: NameRequest[], labels: Box[] = [], uncovered = VIEW.width) =>
-    placeNames({ view: VIEW, clear: { top: 50, bottom: 50, side: 10 }, uncovered, washRadius: 40, offset: 0.75, dots, labels, names });
+    placeNames({ view: VIEW, clear: { top: 50, bottom: 50, side: 10 }, uncovered, washRadius: 40, gap: 8, dots, labels, names });
   const cluster = [dot("a", 400, 400), dot("b", 500, 380), dot("c", 600, 420)];
 
   it("centres a name over its Books on screen, above them, clear of their washes", () => {
     const placed = place(cluster, [name("q", ["a", "b", "c"])]);
-    // Centre x 500; above the highest Book (380) by 30 and half its own height.
-    expect(placed.get("q")).toEqual({ x0: 450, y0: 330, x1: 550, y1: 350 });
+    // Centre x 500; above the highest Book (380) by the wash's radius, the gap, and half its own height.
+    expect(placed.get("q")).toEqual({ x0: 450, y0: 312, x1: 550, y1: 332 });
   });
 
   it("goes below instead where above would cross more labels", () => {
-    const placed = place(cluster, [name("q", ["a", "b", "c"])], [{ x0: 480, y0: 335, x1: 520, y1: 345 }]);
+    const placed = place(cluster, [name("q", ["a", "b", "c"])], [{ x0: 480, y0: 317, x1: 520, y1: 327 }]);
     expect(placed.get("q")!.y0).toBeGreaterThan(420);
   });
 
@@ -135,7 +135,7 @@ describe("Cluster name placement", () => {
   it("is left off on top of an earlier name, or under the panel, unless chosen", () => {
     const twin = [dot("d", 410, 400), dot("e", 510, 380), dot("f", 590, 420)];
     // Two labels below both Clusters, so each name would rather go above.
-    const below = [{ x0: 480, y0: 455, x1: 490, y1: 465 }, { x0: 500, y0: 455, x1: 510, y1: 465 }];
+    const below = [{ x0: 480, y0: 473, x1: 490, y1: 483 }, { x0: 500, y0: 473, x1: 510, y1: 483 }];
     const two = place([...cluster, ...twin], [name("q", ["a", "b", "c"]), name("r", ["d", "e", "f"])], below);
     expect(two.get("q")).not.toBeNull();
     expect(two.get("r")).toBeNull();
