@@ -33,7 +33,7 @@ import { graphJobGaveUp, graphNotQueued, markGraphRequested, runGraphJob } from 
 
 // The background work, one job at a time: Enrichment for a Book, a vector for an Enrichment or a
 // Note (`id` is a Book id for an Enrichment), Connections for a reader's Book, and a reader's graph:
-// their Clusters, and a place for each newly Finished Book. `userId` is the Reader whose action caused
+// their Clusters, and where each Finished Book sits. `userId` is the Reader whose action caused
 // the job, who pays for it; none for a bulk script (or a job queued before jobs carried one).
 export type Job =
   | { kind: "enrich"; bookId: string; userId?: string }
