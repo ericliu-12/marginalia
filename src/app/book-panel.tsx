@@ -251,7 +251,7 @@ function StatusControl({ item }: { item: LibraryItem }) {
 
   return (
     <div aria-busy={pending} className="mt-5">
-      <div role="group" aria-label={`Status of ${item.title}`} className="grid grid-cols-3 gap-[3px] rounded-control bg-paper-3 p-[3px]">
+      <div role="group" aria-label={`Status of ${item.title}`} className="grid grid-cols-3 gap-[3px] bg-paper-3 p-[3px]">
         {STATUSES.map((s) => (
           <button
             key={s}
@@ -270,7 +270,7 @@ function StatusControl({ item }: { item: LibraryItem }) {
         </p>
       )}
       {/* Mounted throughout, so the line is announced when it appears. */}
-      <p role="status" className="mt-4 rounded-control bg-paper-3 px-4 py-3 leading-snug empty:hidden motion-safe:animate-draw-in">
+      <p role="status" className="mt-4 bg-paper-3 px-4 py-3 leading-snug empty:hidden motion-safe:animate-draw-in">
         {finishLine && shown === "read" && (
           <>
             <span className="font-medium">Finished.</span>{" "}
@@ -358,7 +358,7 @@ function EditBookForm({ item, onDone }: { item: LibraryItem; onDone: (saved: boo
           <button
             type="submit"
             disabled={pending}
-            className="min-h-11 rounded-control bg-ink px-4 py-2 text-sm font-medium text-paper transition-colors hover:bg-ink-2 disabled:bg-ink-3 lg:min-h-0"
+            className="min-h-11 bg-ink px-4 py-2 text-sm font-medium text-paper transition-colors hover:bg-ink-2 disabled:bg-ink-3 lg:min-h-0"
           >
             {pending ? "Saving…" : "Save changes"}
           </button>
@@ -673,7 +673,7 @@ function About({ bookId, noteCount }: { bookId: string; noteCount: number | null
 }
 
 export const field =
-  "w-full rounded-control border border-edge bg-paper px-3 py-2.5 text-ink placeholder:text-ink-3 focus-visible:border-thematic focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-thematic/30";
+  "w-full border border-edge bg-paper px-3 py-2.5 text-ink placeholder:text-ink-3 focus-visible:border-thematic focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-thematic/30";
 
 function parsePage(raw: string): number | null | "invalid" {
   const t = raw.trim();
@@ -941,7 +941,7 @@ function SaveNote({
       type="submit"
       disabled={pending}
       onMouseDown={keepFocus}
-      className={`rounded-control bg-ink font-medium text-paper transition-colors hover:bg-ink-2 disabled:bg-ink-3 ${sheet ? "mt-2 min-h-12 w-full text-[0.95rem] active:bg-ink-2" : "min-h-11 px-4 py-2 text-sm lg:min-h-0"}`}
+      className={`bg-ink font-medium text-paper transition-colors hover:bg-ink-2 disabled:bg-ink-3 ${sheet ? "mt-2 min-h-12 w-full text-[0.95rem] active:bg-ink-2" : "min-h-11 px-4 py-2 text-sm lg:min-h-0"}`}
     >
       {pending ? "Saving…" : retry ? "Try again" : editing ? "Save changes" : "Save note"}
     </button>

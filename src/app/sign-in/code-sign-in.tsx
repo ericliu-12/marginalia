@@ -11,10 +11,10 @@ const CODE_LENGTH = 6;
 const CODE_LASTS_MS = 5 * 60 * 1000;
 
 const button =
-  "mt-3 min-h-11 w-full rounded-control bg-ink px-4 text-sm font-medium text-paper transition-colors hover:bg-ink-2 disabled:cursor-default disabled:hover:bg-ink";
+  "mt-3 min-h-11 w-full bg-ink px-4 text-sm font-medium text-paper transition-colors hover:bg-ink-2 disabled:cursor-default disabled:hover:bg-ink";
 // Google's sign-in branding: its own "G", unaltered, on a neutral outlined button.
 const googleButton =
-  "flex min-h-11 w-full items-center justify-center gap-3 rounded-control border border-edge bg-paper-2 px-4 text-sm font-medium text-ink transition-colors hover:bg-paper-3 disabled:cursor-default disabled:text-ink-3 disabled:hover:bg-paper-2";
+  "flex min-h-11 w-full items-center justify-center gap-3 border border-edge bg-paper-2 px-4 text-sm font-medium text-ink transition-colors hover:bg-paper-3 disabled:cursor-default disabled:text-ink-3 disabled:hover:bg-paper-2";
 const label = "block text-[0.8rem] font-medium text-ink-2";
 const quietText = "text-[0.8rem] text-ink-3";
 

@@ -58,10 +58,8 @@ typography:
     letterSpacing: "1px"
     fontFeature: "all-small-caps"
 rounded:
-  cover: "2px"
-  control: "4px"
-  surface: "6px"
-  sheet: "12px"
+  none: "0px"
+  sm: "2px"
 spacing:
   sm: "8px"
   md: "16px"
@@ -71,13 +69,13 @@ components:
   button-primary:
     backgroundColor: "{colors.ink}"
     textColor: "{colors.ground}"
-    rounded: "{rounded.control}"
+    rounded: "{rounded.none}"
     padding: "10px 18px"
     height: "44px"
   button-choice:
     backgroundColor: "{colors.ground}"
     textColor: "{colors.ink}"
-    rounded: "{rounded.control}"
+    rounded: "{rounded.none}"
     height: "44px"
   button-choice-chosen:
     backgroundColor: "{colors.ink}"
@@ -85,11 +83,9 @@ components:
   row-selected:
     backgroundColor: "{colors.selected}"
     textColor: "{colors.ink}"
-    rounded: "{rounded.control}"
   input:
     backgroundColor: "transparent"
     textColor: "{colors.ink}"
-    rounded: "{rounded.control}"
     padding: "10px 2px"
 ---
 
@@ -107,7 +103,7 @@ The cream ground is the chosen world, not a default; the detector's cream-palett
 - One typeface, Newsreader with optical sizes, in roman, italic and small caps.
 - Ink rules under section labels; hairlines everywhere else; no boxes, no cards.
 - One accent, deep red, on under a tenth of any screen.
-- Softly rounded corners on what you press and what is lifted; rules stay square. Flat paper, with depth only where something floats over the graph.
+- Square corners. Flat paper, with depth only where something floats over the graph.
 - Quiet motion: short, ease-out, never bouncy, never blocking.
 
 ## Colors
@@ -172,28 +168,20 @@ Quiet, short and ease-out: 150–400ms, never bouncy, never blocking input. Moti
 
 ## Shapes
 
-Gently rounded, never pill-shaped. Three radii, as the `rounded-control`, `rounded-surface` and `rounded-t-sheet` utilities:
-
-- **Control** (4px): buttons, fields, the selected row, the Status control's track, and small surfaces such as the finish line's block.
-- **Surface** (6px): larger raised surfaces: the panels floating over the graph, the raised areas of the Book panel, and the chosen result card in Add a Book.
-- **Sheet** (12px, top corners only): a bottom sheet rising from the phone's edge (the Note sheet; later the phone graph's sheet).
-
-Covers keep their 2px corner. Rules, dividers, section lines and hairlines stay square. Dots (Books on the graph, Cluster dots in the library) are the only circles.
-
-**The Ruled Edge Rule.** A line is never rounded. Radius belongs to things you press or things that are lifted, never to the rules that structure the page.
+Square. Buttons, fields, the segmented switch and panels have no corner radius; covers keep a 2px corner. Dots (Books on the graph, Cluster dots in the library) are the only circles.
 
 ## Components
 
-- **Primary button:** ink fill, ground text, italic serif ("Add a Book", "Save note", "Send code"), 44px tall, 4px corners. Hover lifts it to ink secondary. One per surface.
-- **Choice buttons:** the Want to read / Reading / Finished choices in Add. Three equal buttons in a row, 44px or taller, 4px corners, ground fill with a hairline border; the chosen one fills with ink.
+- **Primary button:** ink fill, ground text, italic serif ("Add a Book", "Save note", "Send code"), 44px tall, square. Hover lifts it to ink secondary. One per surface.
+- **Choice buttons:** the Want to read / Reading / Finished choices in Add. Three equal buttons in a row, 44px or taller, ground fill with a hairline border; the chosen one fills with ink.
 - **Section label:** lowercase roman numeral and name in small caps over a 1px ink rule ("iii. read · 11"); the count is part of the label, never a badge.
-- **Book row:** italic title, small-caps author, and for Read the finished date in ink secondary and a Cluster dot (8px, the Cluster's tint) at the start. A hairline faint rule between rows. Selected, it takes the selected ground with 4px corners and a 2px accent left edge, bleeding 10px past the column.
+- **Book row:** italic title, small-caps author, and for Read the finished date in ink secondary and a Cluster dot (8px, the Cluster's tint) at the start. A hairline faint rule between rows. Selected, it takes the selected ground and a 2px accent left edge, bleeding 10px past the column.
 - **Nav:** small-caps links; the current one is ink with an accent underline 6px below, the others ink secondary. On the phone, a full-width two-segment switch (Shelf / Graph) with a 1px ink border; the current segment fills with ink.
 - **Sidenote:** a Note in the Book panel. A narrow 18px column holds its numeral (13px, accent), beside the Note in body text. A quote under it is italic in ink secondary; a page is small-caps meta.
 - **Connection entry:** in the Book panel, a small-caps type label in its hue ("thematic · strong", "contrast"), then the other Book in italic, a colon, and the one-line reason in body text.
-- **Search field:** no box. A small-caps label above, the query in 19px serif, a 1.5px ink underline (a rule, so square); the focus ring is the thematic outline.
+- **Search field:** no box. A small-caps label above, the query in 19px serif, a 1.5px ink underline; the focus ring is the thematic outline.
 - **Row actions:** the per-row Status moves in the library (Start reading, Mark finished, Want to read, Read again). On touch devices they stay visible as quiet buttons with 44px targets. On pointer devices they rest as invisible, quiet text links in ink tertiary (underlined, hairline underline), revealed on row hover or keyboard focus within the row; hovering a link darkens it to ink. Rows stay titles-first: actions never compete with the title at rest.
-- **Status control:** the Book screen's three-way Want to read / Reading / Read. It is a selected track with the chosen segment raised on raised with the cover shadow, at 4px and 2px corners and 44px targets. The selection moves at once.
+- **Status control:** the Book screen's three-way Want to read / Reading / Read. It is a selected track with the chosen segment raised on raised with the cover shadow, at 3px and 2px corners and 44px targets. The selection moves at once.
 - **Add screen:** the phone's Add a Book (`/?add`, so back closes it), rising full screen over the shelf on the ground: a small-caps "add a book" between a quiet "Cancel" and an accent "Done", the search, and the quiet "N Books finding Connections" line under it. The chosen result expands in place on the selected ground with an accent edge, showing three choice buttons (Want to read / Reading / Finished) across the full width; "Can’t find it? Add it by hand" sits at the bottom. One tap adds; the choices give way to "✓ Added · Reading" with an Undo, and the search keeps focus with its text selected, so the next title is typed over it. A Book already in the library reads "✓ In your library · Want to read" with a quiet Open; "Added" is set in ink so this visit's adds stand apart. An empty search lists "Added so far", each with its Undo (a hand-added one tagged "Manual Book"), until Done. A Book opened from Add (a lookalike, or Open) is a new screen whose back returns to Add as it was, showing what was done there (a new Status; a removed Book gone from Added so far). Escape clears a search before it closes Add, and closing opens the shelf sections that were added to.
 - **Sign-in with an email code:** `/sign-in` (#60), where every signed-out page goes (#69). A narrow column set high on the paper under the italic wordmark, with no card. Step 1 opens with "Continue with Google" (#63): Google's own multicolour G, unaltered, on a full-width paper-raised button with an edge hairline ("Opening Google…"; Google always asks which account), then a hairline "or" rule in tertiary small caps. A Google sign-in that fails, for any reason, comes back to one rust line above the button, "That didn’t sign you in. Try again, or sign in with an email code below.", the same whatever the email; it is announced once and leaves the address. Then "Email" and a full-width ink "Send code" ("Sending…"). Step 2 swaps in place: a serif line in ink secondary, "If *email* can sign in here, a code is on its way. It lasts 5 minutes." (the same reply whatever the email, so it never reveals who may sign in; with signup open, where every email is sent one, "A code is on its way to *email*. It lasts 5 minutes."), a quiet "Use a different email", a "6-digit code" field that fills from the keyboard's suggestion and signs in by itself at six digits, and "Sign in" ("Signing in…"). Under it, in small tertiary small caps, "No email? Check spam, or send a new code." and then "Send a new code", which rests for a minute after each send as "You can send a new code in 42s". Every problem is one rust line in the product's voice, never a browser bubble: "Enter your email.", "The code is 6 digits.", "That code didn’t work. Check it, or send a new one." (or "wait to send a new one" while resend rests). When no code could be sent (Resend refused or was unreachable, #70), "Couldn’t send a code just now. Continue with Google instead, or try again later." and the form stays at the email. The email and send time, never the code, survive a reload for 5 minutes, so the home-screen app comes back to the code after a trip to Mail.
 - **Account link:** at the far end of the wordmark's row (library and graph headers, the phone's shelf), a quiet "Account" link to `/account`, the home-screen app's only way to sign out.
@@ -201,7 +189,7 @@ Covers keep their 2px corner. Rules, dividers, section lines and hairlines stay 
 - **Privacy and Terms:** `/privacy` and `/terms` (#62), public. One serif column of 36rem set high on the ground: the italic wordmark with a quiet "Back to Marginalia" at the row's far end, a 2rem serif title, "Updated …" in small tertiary small caps, then short sections under serif headings, each with an id to link to (`/privacy#services`); a heading is a link to its own section, taking a rule-coloured underline on hover and when it is the linked-to section. The services are a hairline-ruled list, the name in small caps beside one serif sentence in ink secondary (stacked on the phone). A hairline footer links the other page and the email. The Reader sign-in page carries quiet "Privacy" and "Terms" links under its form.
 - **Quiet line:** serif italic in ink tertiary beside the wordmark (under the search on the phone's Add): "N Books finding Connections" while any are. While background work is paused at the month's spending limit it says "Spending limit reached · resumes 1 November" instead, calmly, with no warning colour, and clears itself when the month turns. A Reader in their first 30 days who reaches their own first-month limit sees "First-month limit · Connections back 30 October" (30 days after they signed up, or the 1st if sooner), naming the limit as the first month's so it reads as expected, and naming Connections so it can't read as a block on adding Books. Only that Reader sees it. The finish line keeps its plain "Connections paused until…". On the phone's shelf, a line too long for the wordmark's row drops under it whole.
 - **Finish line:** the one moment on the phone. The first time a Book becomes Read, a selected block rises in under the Status control: "**Finished.** Connections are being found; they'll gather below, and in the graph on a larger screen." A later Read-through never shows it. While background work is paused at the spending limit it reads "**Finished.** Connections paused until 1 November; then they’ll gather below, and in the graph on a larger screen."
-- **Note sheet:** the phone's Note on one Book (`/?note=<id>`, so back closes it). The pen on a Reading row opens it; a Reading row carries the pen where other rows have the chevron. It rises over a soft ink shade on raised, 12px top corners, a hairline top edge and the lifted shadow turned upward, and goes back down the same way when closed or saved. Its bottom edge follows the visual viewport, so it rides on top of the on-screen keyboard, and the tap that opens it focuses the text, so the keyboard comes up at once. "Note on *Title*" with a quiet Close heads it; then the Note's text in serif body size with no field box, growing as it is written; "Add a quote" and "Add a page" reveal hairline-ruled rows, each with a quiet Remove; and a full-width ink "Save note". Saving lowers the sheet and says "Note saved on *Title*" with Open, quietly above Add a Book, until the next move or a few seconds pass. A failed or hung save keeps everything: "Couldn't save. Your note is kept here." and the button reads Try again. The draft is per Book, shared with the Book screen's form, survives closing, back and a refresh, and its row reads "· *Draft note*" in italic tertiary ink.
+- **Note sheet:** the phone's Note on one Book (`/?note=<id>`, so back closes it). The pen on a Reading row opens it; a Reading row carries the pen where other rows have the chevron. It rises over a soft ink shade on raised, 3px top corners, a hairline top edge and the lifted shadow turned upward, and goes back down the same way when closed or saved. Its bottom edge follows the visual viewport, so it rides on top of the on-screen keyboard, and the tap that opens it focuses the text, so the keyboard comes up at once. "Note on *Title*" with a quiet Close heads it; then the Note's text in serif body size with no field box, growing as it is written; "Add a quote" and "Add a page" reveal hairline-ruled rows, each with a quiet Remove; and a full-width ink "Save note". Saving lowers the sheet and says "Note saved on *Title*" with Open, quietly above Add a Book, until the next move or a few seconds pass. A failed or hung save keeps everything: "Couldn't save. Your note is kept here." and the button reads Try again. The draft is per Book, shared with the Book screen's form, survives closing, back and a refresh, and its row reads "· *Draft note*" in italic tertiary ink.
 - **App icon:** the wordmark's italic M in ink, centred on paper; the maskable one smaller, inside the safe zone. Installed, the app opens standalone on paper, and the status bar takes the paper's colour. `scripts/render-icons.mjs` renders them.
 - **Cover:** the image, or a typeset placeholder on a selected tone (title in serif, author in small caps) when there is no cover or it fails to load.
 - **Cluster name:** italic serif in its Cluster's name colour on a soft ground plate, centred above or below its wash, whichever crosses fewer Book labels. It is sized with the zoom (13–18px), takes a hairline underline on hover, and fades with the rest of the graph behind a selection. Choosing it, or the wash itself, opens the Cluster panel.
