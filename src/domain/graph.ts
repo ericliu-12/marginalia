@@ -61,6 +61,9 @@ const BAND_GAP = 0.5;
 const BAND_COLUMN_GAP = 0.5;
 // Directions tried when packing a separate group beside those already packed.
 const PACK_ANGLES = 24;
+// How much more of the fitted view another side must give the main connected part before the band of
+// unconnected Books moves there, so it doesn't jump from side to side between runs.
+export const SIDE_MARGIN = 0.1;
 
 export type GraphBook = {
   bookId: string;
@@ -240,8 +243,9 @@ async function layOut(db: Tx, userId: string, fresh: boolean, dryRun: boolean): 
     settings: { ...forceAtlas2.inferSettings(g), barnesHutOptimize: books.length > 500 },
   });
   // Groups packed, then each placed Book held to MAX_DRIFT, then the band beside where they end up. A
-  // band whose Books changed is laid out anew at once; one that kept them keeps its shape, so moves as
-  // a block, within MAX_DRIFT too. Without a unit to measure by (a lone Book), placed Books stay put.
+  // band whose Books changed, or that changes side, is laid out anew at once; otherwise it keeps its
+  // shape, so moves as a block, within MAX_DRIFT too. Without a unit to measure by (a lone Book), placed
+  // Books stay put.
   const labels = new Map(books.map((r) => [r.book.id, labelOf(displayed(r.book, r.entry).title)]));
   const lone = books.filter((r) => g.degree(r.book.id) === 0).map((r) => r.book.id);
   const limit = unit > 0 && Number.isFinite(unit) ? MAX_DRIFT * unit : 0;
@@ -256,9 +260,10 @@ async function layOut(db: Tx, userId: string, fresh: boolean, dryRun: boolean): 
   };
   packGroups(g, labels);
   hold(books.filter((r) => placed(r) && g.degree(r.book.id) > 0).map((r) => r.book.id));
-  const shape = sameBand && lone.length ? bandShape(lone.map((id) => [id, at.get(id)!]), books.filter((r) => !lone.includes(r.book.id)).map((r) => at.get(r.book.id)!)) : undefined;
-  lineUpBand(g, labels, shape);
-  if (shape) hold(lone.filter((id) => kept.has(id)));
+  // The band as it stands: the Books still in it since it was laid out, and its side.
+  const stayed = lone.filter((id) => kept.has(id));
+  const current = stayed.length ? bandShape(stayed.map((id) => [id, at.get(id)!]), books.filter((r) => !lone.includes(r.book.id)).map((r) => at.get(r.book.id)!)) : undefined;
+  if (!lineUpBand(g, labels, current, sameBand)) hold(stayed);
   // An unconnected Book already has its spot in the band, which the others keep clear of.
   makeRoom(
     g,
@@ -320,7 +325,15 @@ export function connectedGroups(ids: string[], pairs: Pair[]): string[][] {
   return groups.sort((p, q) => q.length - p.length || (p[0] < q[0] ? -1 : 1));
 }
 
-type Side = "below" | "right" | "above" | "left";
+export type Side = "below" | "right" | "above" | "left";
+
+// The side for the band, given the main connected part's share of the fitted view with the band on each
+// side: the best, unless the band has a side now that is within SIDE_MARGIN of it.
+export function bandSide(shares: Record<Side, number>, current?: Side): Side {
+  const sides = Object.keys(shares) as Side[];
+  const best = sides.reduce((p, q) => (shares[q] > shares[p] ? q : p));
+  return current !== undefined && shares[best] - shares[current] < SIDE_MARGIN ? current : best;
+}
 type BandShape = { slots: Map<string, { column: number; row: number }>; side: Side };
 
 // The band's shape as it was laid out: each Book's column and row in it, and which side of the connected
@@ -416,14 +429,15 @@ function packGroups(g: Graph, labels: Map<string, string>) {
 
 // Lines the unconnected Books up, by label, in evenly spaced rows beside the connected Books as they
 // now stand, BAND_GAP clear of their labels and washes, each column as wide as the longest label: on the
-// side and in as many columns as keep the fitted view smallest (below them on a tie), or, given the
-// band's `shape`, in that shape on that side.
-function lineUpBand(g: Graph, labels: Map<string, string>, shape?: BandShape) {
+// side and in as many columns as keep the fitted view smallest (below them on a tie), but on its
+// `current` side unless bandSide moves it. With `keep`, a band that stays on its side keeps its shape
+// there. Returns whether the band was laid out anew, rather than kept.
+function lineUpBand(g: Graph, labels: Map<string, string>, current?: BandShape, keep = false): boolean {
   const m = measure(g, labels);
-  if (!m) return;
+  if (!m) return true;
   const { unit, reach, box, dots, room, groups } = m;
   const lone = g.filterNodes((id) => g.degree(id) === 0).sort((p, q) => labels.get(p)!.localeCompare(labels.get(q)!) || (p < q ? -1 : 1));
-  if (lone.length === 0) return;
+  if (lone.length === 0) return true;
   const packed = groups.map(box);
   const fitted = groups.map(dots);
   const longest = Math.max(...lone.map(reach));
@@ -441,20 +455,29 @@ function lineUpBand(g: Graph, labels: Map<string, string>, shape?: BandShape) {
     const y0 = side === "below" ? around.y1 + away : side === "above" ? around.y0 - away - h : mid.y - h / 2;
     return { x0, y0, x1: x0 + w, y1: y0 + h };
   };
-  if (shape) {
-    const slots = [...shape.slots.values()];
-    const at = band(shape.side, Math.max(...slots.map((s) => s.column)) + 1, Math.max(...slots.map((s) => s.row)) + 1);
-    for (const [id, slot] of shape.slots) g.mergeNodeAttributes(id, { x: at.x0 + slot.column * column, y: at.y0 + slot.row * row });
-    return;
+  // On each side, the columns that keep the view smallest; and the main part's share of it.
+  const sides = ["below", "right", "above", "left"] as const;
+  const layouts = Object.fromEntries(
+    sides.map((side) => {
+      let best = band(side, 1);
+      for (let c = 2; c <= lone.length; c++) if (room([...fitted, band(side, c)]) < room([...fitted, best])) best = band(side, c);
+      return [side, best];
+    }),
+  ) as Record<Side, Box>;
+  const main = fitted.length ? room([fitted[0]]) : 0;
+  const shares = Object.fromEntries(sides.map((side) => [side, main / room([...fitted, layouts[side]])])) as Record<Side, number>;
+  const side = bandSide(shares, current?.side);
+
+  if (keep && current && side === current.side) {
+    const slots = [...current.slots.values()];
+    const at = band(side, Math.max(...slots.map((s) => s.column)) + 1, Math.max(...slots.map((s) => s.row)) + 1);
+    for (const [id, slot] of current.slots) g.mergeNodeAttributes(id, { x: at.x0 + slot.column * column, y: at.y0 + slot.row * row });
+    return false;
   }
-  let best = band("below", 1);
-  for (const side of ["below", "right", "above", "left"] as const) {
-    for (let c = 1; c <= lone.length; c++) {
-      if (room([...fitted, band(side, c)]) < room([...fitted, best])) best = band(side, c);
-    }
-  }
+  const best = layouts[side];
   const columns = Math.round((best.x1 - best.x0) / column) + 1;
   lone.forEach((id, i) => g.mergeNodeAttributes(id, { x: best.x0 + (i % columns) * column, y: best.y0 + Math.floor(i / columns) * row }));
+  return true;
 }
 
 // Moves each new Book, one at a time, to the first spot near where ForceAtlas2 left it with room for it

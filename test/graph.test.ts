@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { addBook } from "../src/domain/add-book";
 import { readConnection, type Strength } from "../src/domain/connections";
-import { DISPLAY_CAP, LABEL_MAX_CHARS, LABEL_ROOM, labelOf, layoutGraph, MAX_DRIFT, readGraph, visibleConnections, type GraphView } from "../src/domain/graph";
+import { bandSide, DISPLAY_CAP, LABEL_MAX_CHARS, LABEL_ROOM, labelOf, layoutGraph, MAX_DRIFT, readGraph, SIDE_MARGIN, visibleConnections, type GraphView } from "../src/domain/graph";
 import { WASH_RADIUS } from "../src/domain/graph-drawing";
 import { changeStatus, removeFromLibrary } from "../src/domain/library-entry";
 import { layoutStats } from "../src/domain/relayout";
@@ -287,6 +287,33 @@ describe("Graph", () => {
         const { main, lone } = await scattered();
         await layoutGraph(ctx.db, ctx.userId, { fresh: true });
         expectBand(await graph(), lone, main);
+      });
+
+      it(`keeps the band on its side unless another gives the main part ${SIDE_MARGIN * 100} points more of the view`, () => {
+        const shares = { below: 0.5, right: 0.5 + SIDE_MARGIN - 0.01, above: 0.4, left: 0.45 };
+        expect(bandSide(shares, "below")).toBe("below");
+        expect(bandSide(shares)).toBe("right");
+        expect(bandSide({ ...shares, right: 0.5 + SIDE_MARGIN + 0.01 }, "below")).toBe("right");
+        expect(bandSide({ ...shares, right: 0.5 + SIDE_MARGIN + 0.01 }, "left")).toBe("right");
+      });
+
+      it("keeps the band on the same side, in the same shape, from one re-settle to the next", async () => {
+        const { main, lone } = await scattered();
+        await layoutGraph(ctx.db, ctx.userId, { fresh: true });
+        // Where the band sits from the main part's middle, and each Book's place in it.
+        const shape = (g: GraphView) => {
+          const m = box(g, main);
+          const b = box(g, lone);
+          const side = b.y0 > m.y1 ? "below" : b.y1 < m.y0 ? "above" : b.x0 > m.x1 ? "right" : "left";
+          const at = (id: string) => g.books.find((x) => x.bookId === id)!;
+          const order = [...lone].sort((p, q) => at(p).y - at(q).y || at(p).x - at(q).x);
+          return { side, order };
+        };
+        const first = shape(await graph());
+        for (let i = 0; i < 3; i++) {
+          await layoutGraph(ctx.db, ctx.userId);
+          expect(shape(await graph())).toEqual(first);
+        }
       });
 
       it("packs a separate group beside the main one", async () => {
