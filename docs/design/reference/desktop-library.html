@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Desktop · Library, Book selected</title>
+<!-- Marginalia visual reference for #97. Reference only: sample Books, inline styles. Not production code. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400;1,6..72,500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1a1a1a}a:hover{color:#8c1c13}
+</style>
+<style>html{background:#ddd}body>div{margin:0 auto}</style>
+</head>
+<body>
+<div style="width: 100%; min-height: 800px; box-sizing: border-box; background: #fbf8f1; color: #1a1a1a; font-family: 'Newsreader', serif; padding: 28px 56px 36px; display: flex; flex-direction: column; gap: 24px">
+  <header style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 16px">
+    <div style="display: flex; align-items: baseline; gap: 32px; flex-wrap: wrap">
+      <span style="font-size: 30px; font-style: italic">Marginalia</span>
+      <nav style="display: flex; gap: 22px; font-size: 16px; font-variant: small-caps; letter-spacing: 1.4px">
+        <a href="#" aria-current="page" style="padding: 12px 0; text-decoration: underline; text-underline-offset: 6px; text-decoration-color: #8c1c13">library</a>
+        <a href="#" style="text-decoration: none; padding: 12px 0; color: #55504a">graph</a>
+      </nav>
+    </div>
+    <div style="display: flex; gap: 24px; align-items: baseline">
+      <button type="button" style="font-family: inherit; font-size: 16px; font-style: italic; background: #1a1a1a; color: #fbf8f1; border: none; padding: 10px 18px; min-height: 44px">Add a Book</button>
+      <a href="#" style="font-size: 16px; font-variant: small-caps; letter-spacing: 1.4px; text-decoration: none; padding: 12px 0">account</a>
+    </div>
+  </header>
+
+  <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 460px); gap: 48px; align-items: start">
+    <div style="display: flex; flex-direction: column; gap: 28px">
+      <section style="display: flex; flex-direction: column; gap: 10px">
+        <h2 style="margin: 0; font-size: 15px; font-weight: 500; font-variant: small-caps; letter-spacing: 2px; border-bottom: 1px solid #1a1a1a; padding-bottom: 6px">i. reading</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px">
+          <a href="#" style="text-decoration: none; display: flex; flex-direction: column; gap: 2px">
+            <span style="font-size: 22px; font-style: italic; line-height: 1.2">One Hundred Years of Solitude</span>
+            <span style="font-size: 14px; font-variant: small-caps; letter-spacing: 1px; color: #55504a">gabriel garcía márquez</span>
+            <span style="font-size: 15px; color: #8c1c13; margin-top: 4px">Draft note, p. 214</span>
+          </a>
+          <a href="#" style="text-decoration: none; display: flex; flex-direction: column; gap: 2px">
+            <span style="font-size: 22px; font-style: italic; line-height: 1.2">Stoner</span>
+            <span style="font-size: 14px; font-variant: small-caps; letter-spacing: 1px; color: #55504a">john williams</span>
+          </a>
+        </div>
+      </section>
+
+      <section style="display: flex; flex-direction: column; gap: 4px">
+        <h2 style="margin: 0 0 4px; font-size: 15px; font-weight: 500; font-variant: small-caps; letter-spacing: 2px; border-bottom: 1px solid #1a1a1a; padding-bottom: 6px">ii. want to read</h2>
+        <a href="#" style="text-decoration: none; display: grid; grid-template-columns: 1fr auto; gap: 16px; padding: 8px 0; border-bottom: 1px solid #ece6d9"><span style="font-size: 18px; font-style: italic">Gilead</span><span style="font-size: 14px; font-variant: small-caps; letter-spacing: 1px; color: #55504a">marilynne robinson</span></a>
+        <a href="#" style="text-decoration: none; display: grid; grid-template-columns: 1fr auto; gap: 16px; padding: 8px 0"><span style="font-size: 18px; font-style: italic">House of Leaves</span><span style="font-size: 14px; font-variant: small-caps; letter-spacing: 1px; color: #55504a">mark z. danielewski</span></a>
+      </section>
+
+      <section style="display: flex; flex-direction: column; gap: 4px">
+        <h2 style="margin: 0 0 4px; font-size: 15px; font-weight: 500; font-variant: small-caps; letter-spacing: 2px; border-bottom: 1px solid #1a1a1a; padding-bottom: 6px">iii. read · 11</h2>
+        <a href="#" aria-current="true" style="text-decoration: none; display: grid; grid-template-columns: 10px 1fr auto auto; align-items: baseline; gap: 14px; padding: 8px 10px; margin: 0 -10px; background: #f3ede1; border-left: 2px solid #8c1c13">
+          <span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 4px; background: #9fb39a"></span>
+          <span style="font-size: 18px; font-style: italic">Norwegian Wood</span>
+          <span style="font-size: 14px; font-variant: small-caps; letter-spacing: 1px; color: #55504a">haruki murakami</span>
+          <span style="font-size: 14px; color: #55504a">3 Oct</span>
+        </a>
+        <a href="#" style="text-decoration: none; display: grid; grid-template-columns: 10px 1fr auto auto; align-items: baseline; gap: 14px; padding: 8px 0; border-bottom: 1px solid #ece6d9">
+          <span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 4px; background: #d3a189"></span>
+          <span style="font-size: 18px; font-style: italic">The Plague</span>
+          <span style="font-size: 14px; font-variant: small-caps; letter-spacing: 1px; color: #55504a">albert camus</span>
+          <span style="font-size: 14px; color: #55504a">28 Sep</span>
+        </a>
+        <a href="#" style="text-decoration: none; display: grid; grid-template-columns: 10px 1fr auto auto; align-items: baseline; gap: 14px; padding: 8px 0; border-bottom: 1px solid #ece6d9">
+          <span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 4px; background: #b9a1b4"></span>
+          <span style="font-size: 18px; font-style: italic">My Brilliant Friend</span>
+          <span style="font-size: 14px; font-variant: small-caps; letter-spacing: 1px; color: #55504a">elena ferrante</span>
+          <span style="font-size: 14px; color: #55504a">19 Sep</span>
+        </a>
+        <a href="#" style="text-decoration: none; display: grid; grid-template-columns: 10px 1fr auto auto; align-items: baseline; gap: 14px; padding: 8px 0; border-bottom: 1px solid #ece6d9">
+          <span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 4px; background: #9fb39a"></span>
+          <span style="font-size: 18px; font-style: italic">Normal People</span>
+          <span style="font-size: 14px; font-variant: small-caps; letter-spacing: 1px; color: #55504a">sally rooney</span>
+          <span style="font-size: 14px; color: #55504a">12 Sep</span>
+        </a>
+        <span style="font-size: 15px; font-style: italic; color: #55504a; padding-top: 6px">and 7 more</span>
+      </section>
+    </div>
+
+    <aside aria-label="Norwegian Wood" style="border-left: 1px solid #d9d2c4; padding-left: 32px; display: flex; flex-direction: column; gap: 18px">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <h2 style="margin: 0; font-size: 30px; font-weight: 500; font-style: italic; line-height: 1.1">Norwegian Wood</h2>
+        <span style="font-size: 15px; font-variant: small-caps; letter-spacing: 1.2px; color: #55504a">haruki murakami · finished 3 october</span>
+        <span style="font-size: 14px; font-style: italic; color: #4d6349; margin-top: 4px">In Young People Adrift</span>
+      </div>
+
+      <section style="display: flex; flex-direction: column; gap: 8px">
+        <h3 style="margin: 0; font-size: 13px; font-weight: 500; font-variant: small-caps; letter-spacing: 1.8px; color: #8c1c13">notes</h3>
+        <div style="display: grid; grid-template-columns: 18px 1fr; gap: 0 8px">
+          <span style="font-size: 13px; color: #8c1c13">1</span>
+          <p style="margin: 0; font-size: 17px; line-height: 1.5">The grief here isn’t loud. It sits in the routines, the walks, the letters nobody answers quickly enough.</p>
+        </div>
+        <div style="display: grid; grid-template-columns: 18px 1fr; gap: 0 8px">
+          <span style="font-size: 13px; color: #8c1c13">2</span>
+          <p style="margin: 0; font-size: 17px; line-height: 1.5">Growth through love. Reiko’s thoughts on music for yourself.</p>
+        </div>
+        <a href="#" style="font-size: 15px; font-style: italic; color: #8c1c13; padding: 6px 0">Write a Note</a>
+      </section>
+
+      <section style="display: flex; flex-direction: column; gap: 10px; border-top: 1px solid #e3dccd; padding-top: 14px">
+        <h3 style="margin: 0; font-size: 13px; font-weight: 500; font-variant: small-caps; letter-spacing: 1.8px; color: #8c1c13">connections</h3>
+        <p style="margin: 0; font-size: 16px; line-height: 1.5"><span style="font-size: 12px; font-variant: small-caps; letter-spacing: 1.2px; color: #3e5a80">thematic · strong</span><br><em>My Year of Rest and Relaxation</em>: both follow a young woman retreating from the world after a loss.</p>
+        <p style="margin: 0; font-size: 16px; line-height: 1.5"><span style="font-size: 12px; font-variant: small-caps; letter-spacing: 1.2px; color: #3e5a80">thematic</span><br><em>Normal People</em>: two people who keep missing each other, and grow through love.</p>
+        <p style="margin: 0; font-size: 16px; line-height: 1.5"><span style="font-size: 12px; font-variant: small-caps; letter-spacing: 1.2px; color: #9a3b2e">contrast</span><br><em>The Plague</em>: grief kept private, against grief faced together.</p>
+      </section>
+    </aside>
+  </div>
+</div>
+</body>
+</html>

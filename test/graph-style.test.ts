@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { CLUSTER_NAME_COLOR, layoutScale, TYPICAL_EDGE_LENGTH, WASH, WASH_ALPHA } from "../src/app/graph/graph-style";
 import { WASH_COUNT } from "../src/domain/clusters";
 
-const PAPER = "#f3ecdd";
+const PAPER = "#fbf8f1";
 const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
 const luminance = (c: number[]) => {
   const [r, g, b] = c.map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));

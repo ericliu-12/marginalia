@@ -48,10 +48,10 @@ export function PaperColumn({ title, subtitle, links, children }: { title: strin
         </header>
         <main>
           <h1 className="mt-12 text-[2rem] leading-tight font-medium text-balance">{title}</h1>
-          <p className="mt-1 font-sans text-[0.8rem] text-ink-3">{subtitle}</p>
+          <p className="mt-1 text-[0.8rem] text-ink-3">{subtitle}</p>
           {children}
         </main>
-        <footer className="mt-16 flex flex-wrap items-center gap-x-4 border-t border-rule pt-4 font-sans text-[0.8rem] text-ink-3">
+        <footer className="mt-16 flex flex-wrap items-center gap-x-4 border-t border-rule pt-4 text-[0.8rem] text-ink-3">
           {links.map((link) => (
             <Link key={link.href} href={link.href} className={`${quietLink} inline-flex items-center`}>
               {link.label}
@@ -86,7 +86,7 @@ export function Ruled({ items }: { items: { name: string; text: React.ReactNode 
     <dl className="mt-4 border-b border-rule">
       {items.map((item) => (
         <div key={item.name} className="border-t border-rule py-3 sm:grid sm:grid-cols-[9rem_1fr] sm:items-baseline sm:gap-4">
-          <dt className="font-sans text-[0.8rem] font-medium text-ink">{item.name}</dt>
+          <dt className="text-[0.8rem] font-medium text-ink">{item.name}</dt>
           <dd>{item.text}</dd>
         </div>
       ))}

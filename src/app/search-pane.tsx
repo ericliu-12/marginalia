@@ -16,7 +16,7 @@ type Phase = "idle" | "loading" | "done" | "error";
 
 // On a phone the three choices share the row equally, at a full touch target.
 export const addButton =
-  "min-h-11 rounded-[3px] border border-ink/70 px-1 py-2 max-lg:leading-tight lg:min-h-0 lg:px-2.5 lg:py-1 font-sans text-[0.8rem] font-medium text-ink transition-colors duration-150 hover:bg-ink hover:text-paper max-lg:active:bg-paper-3 disabled:border-rule disabled:text-ink-3 disabled:hover:bg-transparent disabled:hover:text-ink-3";
+  "min-h-11 border border-ink/70 px-1 py-2 max-lg:leading-tight lg:min-h-0 lg:px-2.5 lg:py-1 text-[0.8rem] font-medium text-ink transition-colors duration-150 hover:bg-ink hover:text-paper max-lg:active:bg-paper-3 disabled:border-rule disabled:text-ink-3 disabled:hover:bg-transparent disabled:hover:text-ink-3";
 // Columns weighted by their labels, so each reads on one line down to a 320px screen.
 export const addChoices = "grid grid-cols-[1.12fr_0.8fr_1.08fr] gap-1.5 lg:flex lg:flex-wrap";
 
@@ -105,11 +105,11 @@ export function SearchPane({
           }}
           placeholder="Title and author"
           autoComplete="off"
-          className="w-full rounded-[3px] border border-edge bg-paper px-3 py-2.5 font-sans text-[0.95rem] text-ink placeholder:text-ink-3 focus-visible:border-thematic focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-thematic/30"
+          className="w-full border border-edge bg-paper px-3 py-2.5 text-[0.95rem] text-ink placeholder:text-ink-3 focus-visible:border-thematic focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-thematic/30"
         />
       </div>
 
-      <p role="status" className="px-6 font-sans text-sm text-ink-2 empty:hidden">
+      <p role="status" className="px-6 text-sm text-ink-2 empty:hidden">
         {notice && (
           <span className="mb-3 block">
             {notice.addedBookId ? (
@@ -160,7 +160,7 @@ export function SearchPane({
             {phase === "done" && results.length === 0 && (
               <>
                 <p className="text-ink-2 italic">No match for “{query.trim()}”. Check the spelling, or try the title alone.</p>
-                <p className="mt-3 font-sans text-sm text-ink-2">
+                <p className="mt-3 text-sm text-ink-2">
                   Not on Open Library?{" "}
                   <button type="button" onClick={openManual} className={quietLink}>
                     Add it by hand
@@ -182,7 +182,7 @@ export function SearchPane({
                     />
                   ))}
                 </ul>
-                <p className="border-t border-rule/60 pt-4 font-sans text-sm text-ink-2">
+                <p className="border-t border-rule/60 pt-4 text-sm text-ink-2">
                   Not the book you mean?{" "}
                   <button type="button" onClick={openManual} className={quietLink}>
                     Add it by hand
@@ -194,7 +194,7 @@ export function SearchPane({
         )}
       </div>
       {!manualOpen && (
-        <p className="border-t border-rule px-6 py-3 font-sans text-xs text-ink-3">
+        <p className="border-t border-rule px-6 py-3 text-xs text-ink-3">
           Results from{" "}
           <a href="https://openlibrary.org" target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-ink">
             Open Library
@@ -280,11 +280,11 @@ function Result({
       <Cover title={r.title} url={r.coverUrl} />
       <div className="min-w-0 flex-1">
         <p className="text-[1.05rem] leading-snug font-medium">{r.title}</p>
-        {meta && <p className="font-sans text-sm text-ink-2">{meta}</p>}
+        {meta && <p className="text-sm text-ink-2">{meta}</p>}
         {r.lookalike && !r.libraryStatus && <LookalikeNote lookalike={r.lookalike} again={lookalikeAgain} onOpenBook={onOpenBook} />}
         <div className="mt-2.5 min-h-8">
           {r.libraryStatus ? (
-            <p ref={statusRef} tabIndex={-1} className="font-sans text-sm text-ink-2 outline-none">
+            <p ref={statusRef} tabIndex={-1} className="text-sm text-ink-2 outline-none">
               <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden className="mr-1.5 inline text-context"><path d="M2 6.5l2.5 2.5L10 3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
               In your library · {LABELS[r.libraryStatus]}
             </p>
@@ -303,7 +303,7 @@ function Result({
               ))}
             </div>
           )}
-          {error && <p className="mt-1.5 font-sans text-sm text-contrast">{error}</p>}
+          {error && <p className="mt-1.5 text-sm text-contrast">{error}</p>}
         </div>
       </div>
     </li>
@@ -334,7 +334,7 @@ export function LookalikeNote({
     </button>
   );
   return (
-    <p className={`${className} max-w-[40ch] font-sans text-[0.8rem] leading-normal text-ink`}>
+    <p className={`${className} max-w-[40ch] text-[0.8rem] leading-normal text-ink`}>
       {again ? (
         <span className="text-ink-2">Also like {title}, above.</span>
       ) : (
@@ -412,7 +412,7 @@ export function ManualBookForm({
           <h3 id="manual-heading" className="text-[1.05rem] leading-snug font-medium">
             Add a book by hand
           </h3>
-          <p className="mt-0.5 max-w-[38ch] font-sans text-sm text-ink-2">It stays in your library alone, and you can change it later.</p>
+          <p className="mt-0.5 max-w-[38ch] text-sm text-ink-2">It stays in your library alone, and you can change it later.</p>
         </>
       }
       note={<div aria-live="polite">{lookalike && <LookalikeNote lookalike={lookalike} onOpenBook={onOpenBook} className="mt-4" />}</div>}

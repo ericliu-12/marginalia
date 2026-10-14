@@ -35,7 +35,7 @@ export function ClusterPanel({
         <button
           type="button"
           onClick={onBack}
-          className="-ml-0.5 flex items-center gap-1.5 font-sans text-[0.8rem] font-medium text-ink-3 transition-colors duration-150 hover:text-ink"
+          className="-ml-0.5 flex items-center gap-1.5 text-[0.8rem] font-medium text-ink-3 transition-colors duration-150 hover:text-ink"
         >
           <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
             <path d="M8 2L4 6l4 4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -58,7 +58,7 @@ export function ClusterPanel({
             {/* Until it is named, its name already counts the Books. */}
             {cluster.named ? (
               <>
-                <p className="mt-1.5 font-sans text-[0.8rem] font-medium text-ink-2">Cluster of {members.length} Books</p>
+                <p className="mt-1.5 text-[0.8rem] font-medium text-ink-2">Cluster of {members.length} Books</p>
                 {cluster.description && <p className="mt-5 max-w-[60ch] text-[1.0625rem] leading-relaxed">{cluster.description}</p>}
               </>
             ) : (
@@ -72,7 +72,7 @@ export function ClusterPanel({
                       {b.title}
                     </button>
                   </p>
-                  <p className="mt-1 font-sans text-[0.8rem] text-ink-2">
+                  <p className="mt-1 text-[0.8rem] text-ink-2">
                     {[b.authors.join(", "), `finished ${new Date(b.finishedAt).getFullYear()}`].filter(Boolean).join(" · ")}
                   </p>
                 </li>

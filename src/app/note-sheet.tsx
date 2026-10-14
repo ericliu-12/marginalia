@@ -70,10 +70,10 @@ export function NoteSheet({
             leave(onClose);
           }
         }}
-        className={`relative mx-auto flex max-h-[calc(100%-1.5rem)] w-full max-w-[40rem] flex-col overflow-y-auto overscroll-contain rounded-t-[3px] border-t border-rule bg-paper-2 px-5 pt-1.5 shadow-[0_-12px_32px_-8px_rgb(35_29_23/0.18),0_-2px_6px_rgb(35_29_23/0.06)] ${leaving ? "animate-sheet-down" : "motion-safe:animate-sheet-up"} ${view?.keyboard ? "pb-3" : "pb-[max(0.75rem,env(safe-area-inset-bottom))]"}`}
+        className={`relative mx-auto flex max-h-[calc(100%-1.5rem)] w-full max-w-[40rem] flex-col overflow-y-auto overscroll-contain border-t border-rule bg-paper-2 px-5 pt-1.5 shadow-[0_-12px_32px_-8px_rgb(26_26_26/0.18),0_-2px_6px_rgb(26_26_26/0.06)] ${leaving ? "animate-sheet-down" : "motion-safe:animate-sheet-up"} ${view?.keyboard ? "pb-3" : "pb-[max(0.75rem,env(safe-area-inset-bottom))]"}`}
       >
         <header className="flex min-h-11 items-center justify-between gap-3">
-          <p className="min-w-0 truncate font-sans text-sm text-ink-2">
+          <p className="min-w-0 truncate text-sm text-ink-2">
             Note on <i className="font-serif text-base text-ink">{item.title}</i>
           </p>
           <button type="button" onClick={() => leave(onClose)} className={`${quietLink} shrink-0`}>

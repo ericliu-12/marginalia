@@ -214,7 +214,7 @@ export function GraphWorkspace({
       {wide && graph.books.length > 0 && graph.connections.length === 0 && (
         <div data-graph-chrome className="pointer-events-none absolute bottom-7 left-12 flex max-w-[52ch] flex-col gap-1.5">
           {graph.books.length === 1 && loneThemes.length > 0 && (
-            <p className="font-sans text-[0.8rem] leading-relaxed font-medium text-ink-2">
+            <p className="text-[0.8rem] leading-relaxed font-medium text-ink-2">
               Themes of <i className="font-serif text-[0.95rem] font-normal">{graph.books[0].label}</i>: {loneThemes.join(" · ")}
             </p>
           )}
@@ -223,7 +223,7 @@ export function GraphWorkspace({
       )}
 
       {wide && graph.connections.length > 0 && (
-        <div data-graph-chrome className="pointer-events-none absolute bottom-7 left-12 flex flex-col gap-1.5 font-sans text-[0.8rem] text-ink-2">
+        <div data-graph-chrome className="pointer-events-none absolute bottom-7 left-12 flex flex-col gap-1.5 text-[0.8rem] text-ink-2">
           <ul className="flex gap-5" aria-label="Connection types">
             {(["thematic", "contrast", "context"] as const).map((t) => (
               <li key={t} className="flex items-center gap-2 font-medium text-ink-2">
@@ -278,7 +278,7 @@ export function GraphWorkspace({
       </p>
 
       {wide && selection && (
-        <div ref={panelRef} className="absolute top-6 right-6 bottom-6 w-[27rem] overflow-hidden rounded-[3px] border border-rule shadow-[0_12px_32px_-8px_rgb(35_29_23/0.18),0_2px_6px_rgb(35_29_23/0.06)]">
+        <div ref={panelRef} className="absolute top-6 right-6 bottom-6 w-[27rem] overflow-hidden border border-rule shadow-[0_12px_32px_-8px_rgb(26_26_26/0.18),0_2px_6px_rgb(26_26_26/0.06)]">
           {selection.kind === "cluster" ? (
             <ClusterPanel
               key={selection.id}

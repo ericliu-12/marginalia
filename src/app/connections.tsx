@@ -82,7 +82,7 @@ export function ConnectionsSection({ bookId, onOpenBook, withheld }: { bookId: s
                 </button>
               </p>
               <p className="mt-2 max-w-[60ch]">{c.explanation}</p>
-              <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 font-sans text-[0.8rem] text-ink-2">
+              <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.8rem] text-ink-2">
                 <span aria-hidden className={`inline-block h-2.5 w-2.5 shrink-0 rounded-[2px] ${TYPE[c.type].swatch}`} />
                 <span>
                   {TYPE[c.type].label} · {STRENGTH_LABEL[c.strength]}
@@ -118,7 +118,7 @@ function LeftOut({ leftOut: { notes, enrichment } }: { leftOut: ConnectionsView[
   if (notes === 0 && !enrichment) return null;
   const yours = notes === 1 ? "one of your notes" : `${notes} of your notes`;
   const what = enrichment ? (notes > 0 ? `this book’s summary or ${yours}` : "this book’s summary") : yours;
-  return <p className="pt-4 font-sans text-[0.8rem] text-ink-2">Connections can’t draw on {what} yet. Refresh to try again.</p>;
+  return <p className="pt-4 text-[0.8rem] text-ink-2">Connections can’t draw on {what} yet. Refresh to try again.</p>;
 }
 
 // Last in the section: regenerates the Book's Connections from its current Notes. Afterwards the section
@@ -142,7 +142,7 @@ function RefreshConnections({ bookId, onRequested }: { bookId: string; onRequest
         {pending ? "Refreshing…" : "Refresh connections"}
       </button>
       {error && (
-        <p role="alert" className="mt-1 font-sans text-sm text-contrast">
+        <p role="alert" className="mt-1 text-sm text-contrast">
           Couldn’t refresh Connections. Try again.
         </p>
       )}
@@ -178,7 +178,7 @@ export function DismissConnection({
     >
       {confirming ? (
         <>
-          <span id={`dismiss-${connectionId}`} className="w-full font-sans text-[0.8rem] text-ink-2">
+          <span id={`dismiss-${connectionId}`} className="w-full text-[0.8rem] text-ink-2">
             Dismiss this Connection? It won’t come back.
           </span>
           <button type="button" onClick={confirm} disabled={pending} aria-describedby={`dismiss-${connectionId}`} className={dangerLink}>
@@ -194,7 +194,7 @@ export function DismissConnection({
         </button>
       )}
       {error && (
-        <p role="alert" className="mt-1 w-full font-sans text-sm text-contrast">
+        <p role="alert" className="mt-1 w-full text-sm text-contrast">
           Couldn’t dismiss this Connection. Try again.
         </p>
       )}

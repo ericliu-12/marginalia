@@ -11,12 +11,12 @@ const CODE_LENGTH = 6;
 const CODE_LASTS_MS = 5 * 60 * 1000;
 
 const button =
-  "mt-3 min-h-11 w-full rounded-[3px] bg-ink px-4 font-sans text-sm font-medium text-paper transition-colors hover:bg-ink-2 disabled:cursor-default disabled:hover:bg-ink";
+  "mt-3 min-h-11 w-full bg-ink px-4 text-sm font-medium text-paper transition-colors hover:bg-ink-2 disabled:cursor-default disabled:hover:bg-ink";
 // Google's sign-in branding: its own "G", unaltered, on a neutral outlined button.
 const googleButton =
-  "flex min-h-11 w-full items-center justify-center gap-3 rounded-[3px] border border-edge bg-paper-2 px-4 font-sans text-sm font-medium text-ink transition-colors hover:bg-paper-3 disabled:cursor-default disabled:text-ink-3 disabled:hover:bg-paper-2";
-const label = "block font-sans text-[0.8rem] font-medium text-ink-2";
-const quietText = "font-sans text-[0.8rem] text-ink-3";
+  "flex min-h-11 w-full items-center justify-center gap-3 border border-edge bg-paper-2 px-4 text-sm font-medium text-ink transition-colors hover:bg-paper-3 disabled:cursor-default disabled:text-ink-3 disabled:hover:bg-paper-2";
+const label = "block text-[0.8rem] font-medium text-ink-2";
+const quietText = "text-[0.8rem] text-ink-3";
 
 // Relative paths only: the page's own origin is the site's, and nothing absolute is built here.
 async function post(path: string, body: object, headers: Record<string, string> = {}): Promise<Response | null> {
@@ -263,7 +263,7 @@ export function CodeSignIn({
   }, [error, step, code.length]);
 
   const message = (
-    <p id="sign-in-message" role="alert" className="mt-2 min-h-5 font-sans text-sm text-pretty text-contrast">
+    <p id="sign-in-message" role="alert" className="mt-2 min-h-5 text-sm text-pretty text-contrast">
       {error ?? notice}
     </p>
   );
@@ -276,7 +276,7 @@ export function CodeSignIn({
         <p role="status" className={`text-[1.0625rem] leading-normal text-pretty text-ink-2 ${deleted ? "mt-8" : ""}`}>
           {deleted ? "Your account has been deleted." : null}
         </p>
-        <p id="google-message" role="alert" className="mt-8 min-h-5 font-sans text-sm text-pretty text-contrast">
+        <p id="google-message" role="alert" className="mt-8 min-h-5 text-sm text-pretty text-contrast">
           {googleError}
         </p>
         <button type="button" onClick={onGoogle} disabled={googlePending} aria-describedby={googleError ? "google-message" : undefined} className={`${googleButton} mt-2`}>
@@ -309,7 +309,7 @@ export function CodeSignIn({
           }}
           aria-invalid={error ? true : undefined}
           aria-describedby={error || notice ? "sign-in-message" : undefined}
-          className={`${field} mt-1 font-sans text-[0.95rem]`}
+          className={`${field} mt-1 text-[0.95rem]`}
         />
         {message}
         <div ref={turnstile.container} />
@@ -356,7 +356,7 @@ export function CodeSignIn({
         }}
         aria-invalid={error ? true : undefined}
         aria-describedby={error || notice ? "code-sent sign-in-message" : "code-sent"}
-        className={`${field} mt-1 font-sans text-[1.0625rem] tracking-[0.3em] tabular-nums`}
+        className={`${field} mt-1 text-[1.0625rem] tracking-[0.3em] tabular-nums`}
       />
       {message}
       <button type="submit" disabled={pending} className={button}>

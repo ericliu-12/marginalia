@@ -25,7 +25,7 @@ test("Server Functions and the search API refuse a request without the session",
 test("the manifest, icons and favicon load signed out, for adding to the home screen, and the page reaches under the notch", async ({ page, request }) => {
   const manifest = await request.get("/manifest.webmanifest", { maxRedirects: 0 });
   expect(manifest.status()).toBe(200);
-  expect(await manifest.json()).toMatchObject({ name: "Marginalia", display: "standalone", background_color: "#f3ecdd", start_url: "/" });
+  expect(await manifest.json()).toMatchObject({ name: "Marginalia", display: "standalone", background_color: "#fbf8f1", start_url: "/" });
   for (const path of ["/apple-icon.png", "/icon.png", "/favicon.ico", "/icons/192.png", "/icons/512.png", "/icons/maskable-512.png"]) {
     expect((await request.get(path, { maxRedirects: 0 })).status(), path).toBe(200);
   }

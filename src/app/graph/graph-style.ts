@@ -56,12 +56,12 @@ export const MAX_FIT_ZOOM = 2.4;
 // Room the fitted graph keeps from the canvas edges, clear of the wordmark above and the legend below.
 export const FIT_PADDING = 112;
 
-export const INK = "#231d17";
-export const PAPER_PLATE = "rgb(243 236 221 / 0.88)";
-export const FADED_NODE = "#d9cfbb";
-export const FADED_EDGE = "#e2d8c5";
-export const FADED_LABEL = "#a89c88";
-export const TYPE_COLOR: Record<ConnectionType, string> = { thematic: "#3e5f8a", contrast: "#a8432f", context: "#6f7a3a" };
+export const INK = "#1a1a1a";
+export const PAPER_PLATE = "rgb(251 248 241 / 0.88)";
+export const FADED_NODE = "#d9d2c4";
+export const FADED_EDGE = "#e3dccd";
+export const FADED_LABEL = "#a39b8d";
+export const TYPE_COLOR: Record<ConnectionType, string> = { thematic: "#3e5a80", contrast: "#9a3b2e", context: "#6b7a3a" };
 export const TYPE_LABEL: Record<ConnectionType, string> = { thematic: "Thematic", contrast: "Contrast", context: "Context" };
 export const STRENGTH_LABEL: Record<Strength, string> = { strong: "Strong", moderate: "Moderate", weak: "Weak" };
 

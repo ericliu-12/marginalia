@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "Marginalia",
     start_url: "/",
     display: "standalone",
-    background_color: "#f3ecdd",
-    theme_color: "#f3ecdd",
+    background_color: "#fbf8f1",
+    theme_color: "#fbf8f1",
     icons: [
       { src: "/icons/192.png", sizes: "192x192", type: "image/png" },
       { src: "/icons/512.png", sizes: "512x512", type: "image/png" },

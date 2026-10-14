@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phone · Graph, Book selected (later, separate issue)</title>
+<!-- Marginalia visual reference for #97. Reference only: sample Books, inline styles. Not production code. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400;1,6..72,500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#8c1c13}a:hover{color:#5e120c}
+</style>
+<style>html{background:#ddd}body>div{margin:0 auto}</style>
+</head>
+<body>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #fbf8f1; color: #1a1a1a; font-family: 'Newsreader', serif; display: flex; flex-direction: column; overflow: hidden; position: relative">
+  <header style="padding: 18px 20px 6px; display: flex; justify-content: space-between; align-items: center">
+    <button type="button" aria-label="Back to the whole graph" style="font-family: inherit; font-size: 16px; background: none; border: none; color: #55504a; padding: 12px 0; min-height: 44px; display: flex; align-items: center; gap: 6px"><svg aria-hidden="true" width="10" height="16" viewBox="0 0 10 16" fill="none" stroke="#55504a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2 L2 8 L8 14"></path></svg>Whole graph</button>
+    <span style="font-size: 20px; font-style: italic">Marginalia</span>
+  </header>
+
+  <svg role="img" aria-label="Norwegian Wood selected, with its four Connected Books around it; other Books faded" viewBox="0 0 390 380" style="width: 390px; height: 380px; display: block">
+    <defs>
+      <filter id="bsoft" x="-40%" y="-40%" width="180%" height="180%">
+        <feGaussianBlur stdDeviation="18"></feGaussianBlur>
+      </filter>
+    </defs>
+    <path aria-hidden="true" filter="url(#bsoft)" d="M280 60 L195 170 L80 240 M195 170 L270 270" stroke="#9fb39a" stroke-width="80" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.4"></path>
+    <g aria-hidden="true" opacity="0.25" fill="#1a1a1a">
+      <circle cx="200" cy="350" r="4"></circle><circle cx="340" cy="330" r="4"></circle><circle cx="40" cy="330" r="4"></circle>
+    </g>
+    <g stroke-linecap="round" aria-hidden="true">
+      <line x1="195" y1="170" x2="80" y2="240" stroke="#3e5a80" stroke-width="3.4"></line>
+      <line x1="195" y1="170" x2="270" y2="270" stroke="#3e5a80" stroke-width="2.6"></line>
+      <line x1="195" y1="170" x2="280" y2="60" stroke="#6b7a3a" stroke-width="1.8"></line>
+      <line x1="195" y1="170" x2="60" y2="70" stroke="#9a3b2e" stroke-width="1.8"></line>
+    </g>
+    <g aria-hidden="true">
+      <circle cx="195" cy="170" r="13" fill="#fbf8f1" stroke="#8c1c13" stroke-width="2"></circle>
+      <circle cx="195" cy="170" r="7" fill="#1a1a1a"></circle>
+      <g fill="#1a1a1a">
+        <circle cx="80" cy="240" r="6"></circle><circle cx="270" cy="270" r="6"></circle>
+        <circle cx="280" cy="60" r="5.5"></circle><circle cx="60" cy="70" r="5.5"></circle>
+      </g>
+    </g>
+    <g font-family="Newsreader, serif" font-size="15" fill="#1a1a1a">
+      <text x="214" y="166" font-weight="500">Norwegian Wood</text>
+      <text x="80" y="264" text-anchor="middle">My Year of Rest…</text>
+      <text x="270" y="294" text-anchor="middle">Normal People</text>
+      <text x="290" y="54">Kafka on the Shore</text>
+      <text x="60" y="56" text-anchor="middle">The Plague</text>
+    </g>
+  </svg>
+
+  <section aria-label="Norwegian Wood" style="position: absolute; left: 0; right: 0; bottom: 0; height: 410px; box-sizing: border-box; background: #fffdf8; border-top: 1px solid #d9d2c4; box-shadow: 0 -8px 24px rgba(40,30,20,0.08); padding: 10px 20px 22px; display: flex; flex-direction: column; gap: 12px">
+    <div aria-hidden="true" style="align-self: center; width: 40px; height: 4px; border-radius: 2px; background: #cfc7b7"></div>
+    <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px">
+      <div style="display: flex; flex-direction: column; gap: 2px">
+        <h2 style="margin: 0; font-size: 23px; font-weight: 500; font-style: italic">Norwegian Wood</h2>
+        <span style="font-size: 13px; font-variant: small-caps; letter-spacing: 1px; color: #55504a">haruki murakami · 4 connections</span>
+      </div>
+      <a href="#" style="font-size: 15px; font-style: italic; padding: 12px 0; white-space: nowrap">Open Book</a>
+    </div>
+    <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; border-top: 1px solid #e3dccd; padding-top: 12px">
+      <li style="display: flex; flex-direction: column; gap: 3px">
+        <span style="font-size: 12px; font-variant: small-caps; letter-spacing: 1.4px; color: #3e5a80">thematic · strong</span>
+        <span style="font-size: 16px"><em>My Year of Rest and Relaxation</em>: both follow a young woman retreating from the world after a loss.</span>
+      </li>
+      <li style="display: flex; flex-direction: column; gap: 3px">
+        <span style="font-size: 12px; font-variant: small-caps; letter-spacing: 1.4px; color: #3e5a80">thematic</span>
+        <span style="font-size: 16px"><em>Normal People</em>: two people who keep missing each other, and grow through love.</span>
+      </li>
+      <li style="display: flex; flex-direction: column; gap: 3px">
+        <span style="font-size: 12px; font-variant: small-caps; letter-spacing: 1.4px; color: #9a3b2e">contrast</span>
+        <span style="font-size: 16px"><em>The Plague</em>: grief kept private, against grief faced together.</span>
+      </li>
+    </ul>
+    <a href="#" style="margin-top: auto; font-size: 14px; font-style: italic">Show 1 more</a>
+  </section>
+</div>
+</body>
+</html>
