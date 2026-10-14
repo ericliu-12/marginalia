@@ -102,8 +102,9 @@ export function placeLabels({
 // A Cluster's name, `w` by `h`, for the Books in `members`; the chosen Cluster's always shows.
 export type NameRequest = { id: string; members: Set<string>; w: number; h: number; chosen: boolean };
 
-// Each Cluster's name, in order, centred over its Books on screen and `offset` wash radii above or below
-// the outermost, whichever side crosses fewer labels (and names placed before it); on a tie, the side
+// Each Cluster's name, in order, centred over its Books on screen and `gap` pixels clear of the wash
+// above or below the outermost: on the side it fits without being held in from the edge (where it would
+// sit on its wash), else whichever crosses fewer labels (and names placed before it); on a tie, the side
 // clear of other Clusters' Books, then the one over fewer dots. Kept `clear` of the canvas edges. Null,
 // left off, with none of its Books on screen, or where it would sit on or within half a line of another
 // name (where the two would read as one), or past `uncovered` (under the panel), unless chosen.
@@ -112,7 +113,7 @@ export function placeNames({
   clear,
   uncovered,
   washRadius,
-  offset,
+  gap,
   dots,
   labels,
   names,
@@ -121,7 +122,7 @@ export function placeNames({
   clear: { top: number; bottom: number; side: number };
   uncovered: number;
   washRadius: number;
-  offset: number;
+  gap: number;
   dots: Dot[];
   labels: Box[];
   names: NameRequest[];
@@ -161,14 +162,14 @@ export function placeNames({
       continue;
     }
     const x = Math.min(view.width - clear.side - w / 2, Math.max(clear.side + w / 2, pts.reduce((sum, p) => sum + p.x, 0) / pts.length));
-    const gap = r * offset + h / 2;
-    const at = (y: number): Box => {
+    const beyond = r + gap + h / 2;
+    const at = (y: number) => {
       const cy = Math.min(view.height - clear.bottom - h / 2, Math.max(clear.top + h / 2, y));
-      return { x0: x - w / 2, y0: cy - h / 2, x1: x + w / 2, y1: cy + h / 2 };
+      return { box: { x0: x - w / 2, y0: cy - h / 2, x1: x + w / 2, y1: cy + h / 2 }, held: Number(cy !== y) };
     };
-    const above = at(Math.min(...pts.map((p) => p.y)) - gap);
-    const below = at(Math.max(...pts.map((p) => p.y)) + gap);
-    const box = fewer(crowding(below, members), crowding(above, members)) ? below : above;
+    const above = at(Math.min(...pts.map((p) => p.y)) - beyond);
+    const below = at(Math.max(...pts.map((p) => p.y)) + beyond);
+    const box = fewer([below.held, ...crowding(below.box, members)], [above.held, ...crowding(above.box, members)]) ? below.box : above.box;
     const apart = { x0: box.x0 - h / 2, y0: box.y0 - h / 2, x1: box.x1 + h / 2, y1: box.y1 + h / 2 };
     if (!chosen && (shown.some((o) => overlaps(apart, o)) || box.x1 > uncovered)) {
       placed.set(id, null);

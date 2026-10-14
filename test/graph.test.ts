@@ -7,7 +7,7 @@ import { WASH_RADIUS } from "../src/domain/graph-drawing";
 import { changeStatus, removeFromLibrary } from "../src/domain/library-entry";
 import { layoutStats } from "../src/domain/relayout";
 import type { JobDeps } from "../src/domain/pipeline";
-import { bookPosition, connection, libraryEntry } from "../src/db/schema";
+import { bookPosition, clusterLabel, connection, libraryEntry } from "../src/db/schema";
 import { fakeEmbedder, fakeEnricher, fakeJudge, fakeNamer, work } from "./fakes";
 import { useTestDb } from "./harness";
 
@@ -377,6 +377,50 @@ describe("Graph", () => {
         for (const m of moves(before, after)) expect(m).toBeLessThanOrEqual(MAX_DRIFT + 1e-9);
         const now = after.books.find((b) => b.bookId === lone[0])!;
         expect(Math.hypot(now.x - home.x, now.y - home.y)).toBeLessThan(Math.hypot(far.x - home.x, far.y - home.y));
+      });
+    });
+
+    describe("on the desktop", () => {
+      // Twenty-six Books with real titles: three Clusters, close-knit within and linked between, and two
+      // Books with no Connections.
+      const TITLES = [
+        "The Remains of the Day", "Never Let Me Go", "Klara and the Sun", "An Artist of the Floating World", "The Buried Giant",
+        "The Unconsoled", "When We Were Orphans", "A Pale View of Hills", "Beloved", "The Bluest Eye", "Song of Solomon",
+        "A Little Life", "The Secret History", "Conversations with Friends", "The Goldfinch", "Sula",
+        "Gilead", "Housekeeping", "Lila", "Home", "The Death of Ivan Ilyich", "Austerlitz", "The Rings of Saturn",
+        "The Emigrants", "To the Lighthouse", "Giovanni's Room",
+      ];
+      async function crowded() {
+        const ids = [];
+        for (const t of TITLES) ids.push(await add(t));
+        const groups = [ids.slice(0, 8), ids.slice(8, 16), ids.slice(16, 24)];
+        for (const g of groups) {
+          for (let i = 0; i < g.length; i++) {
+            await connect(g[i], g[(i + 1) % g.length]);
+            await connect(g[i], g[(i + 2) % g.length], "moderate");
+            await connect(g[i], g[(i + 3) % g.length], "moderate");
+          }
+        }
+        await connect(groups[0][0], groups[1][0], "moderate");
+        await connect(groups[1][4], groups[2][0], "moderate");
+        const names = ["Duty and regret", "Inheritance and silence", "Grace in small towns"];
+        await ctx.db.insert(clusterLabel).values(groups.map((g, i) => ({ userId: ctx.userId, name: names[i], memberBookIds: g, wash: i })));
+        return ids;
+      }
+
+      it("lays a graph out afresh to read on either desktop canvas, fitted: no label or name over another, names off their washes", async () => {
+        await crowded();
+        await layoutGraph(ctx.db, ctx.userId, { fresh: true });
+        const { views } = layoutStats(await graph());
+        for (const view of Object.values(views)) expect(view).toMatchObject({ labelOverlaps: 0, nameOverlaps: 0, namesOnWash: 0 });
+      });
+
+      it("lays it out wide, to fill the canvas across as well as down", async () => {
+        await crowded();
+        await layoutGraph(ctx.db, ctx.userId, { fresh: true });
+        const stats = layoutStats(await graph());
+        expect(stats.width / stats.height).toBeGreaterThan(1.4);
+        for (const view of Object.values(stats.views)) expect(view.filled).toBeGreaterThan(0.3);
       });
     });
 

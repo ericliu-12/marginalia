@@ -85,7 +85,7 @@ describe("Laying graphs out again", () => {
     expect(done).toBe(true);
   });
 
-  it("counts overlapping labels and crossings among the Connections shown at rest", () => {
+  it("counts crossings among the Connections shown at rest, and on each desktop canvas, fitted, how full it is and overlapping labels", () => {
     const book = (bookId: string, x: number, y: number) => ({
       bookId, title: bookId, authors: [], x, y, label: bookId, degree: 1, finishedAt: 0, latestPass: { startedAt: null, finishedAt: null },
     });
@@ -98,6 +98,12 @@ describe("Laying graphs out again", () => {
       pending: false,
       naming: false,
     };
-    expect(layoutStats(graph)).toMatchObject({ books: 5, labelOverlaps: 1, crossings: 1 });
+    const stats = layoutStats(graph);
+    expect(stats).toMatchObject({ books: 5, crossings: 1 });
+    // The X is under a Connection's length across, so it is shown at the closest zoom, small.
+    for (const view of Object.values(stats.views)) {
+      expect(view).toMatchObject({ labelOverlaps: 1, nameOverlaps: 0, namesOnWash: 0, limit: "max" });
+      expect(view.filled).toBeLessThan(0.05);
+    }
   });
 });

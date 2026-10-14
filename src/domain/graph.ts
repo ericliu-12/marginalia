@@ -4,7 +4,8 @@ import forceAtlas2 from "graphology-layout-forceatlas2";
 import type { Db } from "@/db/client";
 import { book, bookPosition, libraryEntry } from "@/db/schema";
 import { readClusters } from "./clusters";
-import { LABEL_CHAR, LABEL_GAP, LABEL_LINE, LABEL_SIZE, nodeRadius, TYPICAL_EDGE_LENGTH, WASH_RADIUS } from "./graph-drawing";
+import { DESKTOP, LABEL_CHAR, LABEL_GAP, LABEL_LINE, LABEL_SIZE, nodeRadius, TYPICAL_EDGE_LENGTH, WASH_RADIUS } from "./graph-drawing";
+import { readDrawn, type Clash, type Drawn } from "./graph-fit";
 import { readGraphStatus } from "./graph-job";
 import { byStrength, otherBook, touches, type Pair } from "./connection-pair";
 import { CLUSTER_WEIGHT, readLiveConnections, type ConnectionType, type Strength } from "./connections";
@@ -64,6 +65,13 @@ const PACK_ANGLES = 24;
 // How much more of the fitted view another side must give the main connected part before the band of
 // unconnected Books moves there, so it doesn't jump from side to side between runs.
 export const SIDE_MARGIN = 0.1;
+// The canvas is wide, so the graph is laid out wide: ForceAtlas2 settles it this much narrower than it is
+// drawn, a graph laid out afresh is first turned so its longest spread lies across, and packing and the
+// band aim to fill a view of the desktop's shape.
+export const WIDEN = 1.6;
+const ASPECT = DESKTOP["1280×800"].width / DESKTOP["1280×800"].height;
+// Rounds of spreading Books apart where labels and names would be drawn over each other, at most.
+const SPREAD_ROUNDS = 200;
 
 export type GraphBook = {
   bookId: string;
@@ -237,11 +245,15 @@ async function layOut(db: Tx, userId: string, fresh: boolean, dryRun: boolean): 
   for (const r of books) g.addNode(r.book.id, { ...at.get(r.book.id)! });
   for (const c of connections) g.addEdge(c.a, c.b, { weight: CLUSTER_WEIGHT[c.strength] });
   const unit = typicalLength(g);
+  const widen = (by: number) => g.updateEachNodeAttributes((_, a) => ({ ...a, x: a.x * by }));
+  widen(1 / WIDEN);
   forceAtlas2.assign(g, {
     iterations: books.some(placed) ? SETTLE_ITERATIONS : FRESH_ITERATIONS,
     getEdgeWeight: "weight",
     settings: { ...forceAtlas2.inferSettings(g), barnesHutOptimize: books.length > 500 },
   });
+  if (!books.some(placed)) turnAcross(g);
+  widen(WIDEN);
   // Groups packed, then each placed Book held to MAX_DRIFT, then the band beside where they end up. A
   // band whose Books changed, or that changes side, is laid out anew at once; otherwise it keeps its
   // shape, so moves as a block, within MAX_DRIFT too. Without a unit to measure by (a lone Book), placed
@@ -263,12 +275,18 @@ async function layOut(db: Tx, userId: string, fresh: boolean, dryRun: boolean): 
   // The band as it stands: the Books still in it since it was laid out, and its side.
   const stayed = lone.filter((id) => kept.has(id));
   const current = stayed.length ? bandShape(stayed.map((id) => [id, at.get(id)!]), books.filter((r) => !lone.includes(r.book.id)).map((r) => at.get(r.book.id)!)) : undefined;
-  if (!lineUpBand(g, labels, current, sameBand)) hold(stayed);
+  const bandKept = !lineUpBand(g, labels, current, sameBand);
+  if (bandKept) hold(stayed);
   // An unconnected Book already has its spot in the band, which the others keep clear of.
   makeRoom(
     g,
     books.map((r) => ({ id: r.book.id, label: labelOf(displayed(r.book, r.entry).title), placed: placed(r) || g.degree(r.book.id) === 0 })),
   );
+  // Then apart where labels and names would still be drawn over each other, the placed Books again held
+  // to MAX_DRIFT, so a crowded graph eases over a few runs.
+  const clusters = await readClusters(db, userId, new Set(books.map((r) => r.book.id)));
+  spread(g, labels, clusters);
+  hold([...books.filter((r) => placed(r) && g.degree(r.book.id) > 0).map((r) => r.book.id), ...(bandKept ? stayed : [])]);
   const laidOut = new Map(books.map((r) => [r.book.id, { x: g.getNodeAttribute(r.book.id, "x") as number, y: g.getNodeAttribute(r.book.id, "y") as number }]));
   if (dryRun) return laidOut;
 
@@ -382,9 +400,11 @@ function measure(g: Graph, labels: Map<string, string>) {
     x1: Math.max(...ids.map((id) => point(id).x)),
     y1: Math.max(...ids.map((id) => point(id).y)),
   });
+  // The area of the smallest view of the canvas's shape around them.
   const room = (boxes: Box[]) => {
     const b = union(boxes);
-    return (b.x1 - b.x0 + unit) * (b.y1 - b.y0 + unit);
+    const across = Math.max(b.x1 - b.x0 + unit, (b.y1 - b.y0 + unit) * ASPECT);
+    return (across * across) / ASPECT;
   };
   const groups = connectedGroups(g.nodes(), g.mapEdges((_, __, a, b) => ({ a, b })));
   return { unit, point, reach, box, dots, room, groups };
@@ -478,6 +498,63 @@ function lineUpBand(g: Graph, labels: Map<string, string>, current?: BandShape, 
   const columns = Math.round((best.x1 - best.x0) / column) + 1;
   lone.forEach((id, i) => g.mergeNodeAttributes(id, { x: best.x0 + (i % columns) * column, y: best.y0 + Math.floor(i / columns) * row }));
   return true;
+}
+
+// Turns the graph about the middle of its connected Books so their longest spread (their principal axis)
+// lies across.
+function turnAcross(g: Graph) {
+  const ids = g.filterNodes((id) => g.degree(id) > 0);
+  if (ids.length < 3) return;
+  const pts = ids.map((id) => ({ x: g.getNodeAttribute(id, "x") as number, y: g.getNodeAttribute(id, "y") as number }));
+  const mx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
+  const my = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+  const [xx, yy, xy] = pts.reduce(([a, b, c], p) => [a + (p.x - mx) ** 2, b + (p.y - my) ** 2, c + (p.x - mx) * (p.y - my)], [0, 0, 0]);
+  const angle = -Math.atan2(2 * xy, xx - yy) / 2;
+  const [cos, sin] = [Math.cos(angle), Math.sin(angle)];
+  g.updateEachNodeAttributes((_, a) => ({ ...a, x: mx + (a.x - mx) * cos - (a.y - my) * sin, y: my + (a.x - mx) * sin + (a.y - my) * cos }));
+}
+
+// Moves Books apart, a round at a time, until on each DESKTOP canvas, fitted, no label is drawn over another
+// label or dot and no Cluster name over a label or another name (readDrawn): each such pair across or
+// down, whichever parts them sooner, half each way, a name with its Cluster's Books. Parting them can
+// shrink the fitted zoom, and so grow the labels against the graph, so it gives up after SPREAD_ROUNDS.
+// The graph as the canvas would draw it.
+const drawnOf = (g: Graph, labels: Map<string, string>, clusters: Drawn["clusters"], unit: number): Drawn => ({
+  books: g.mapNodes((id, a) => ({ id, x: a.x as number, y: a.y as number, label: labels.get(id)!, degree: g.degree(id) })),
+  clusters,
+  unit,
+});
+
+function spread(g: Graph, labels: Map<string, string>, clusters: Drawn["clusters"]) {
+  const members = new Map(clusters.map((c) => [c.id, c.bookIds.filter((id) => g.hasNode(id))]));
+  const owners = (o: Clash["a"]) => ("book" in o ? [o.book] : members.get(o.cluster)!);
+  for (let round = 0; round < SPREAD_ROUNDS; round++) {
+    const unit = typicalLength(g);
+    if (!(unit > 0) || !Number.isFinite(unit)) return;
+    // Each clash on the canvas where it is worst, in graph units.
+    const d = drawnOf(g, labels, clusters, unit);
+    const clashes = Object.values(DESKTOP).flatMap((view) => {
+      const r = readDrawn(d, view);
+      const perPixel = unit / (TYPICAL_EDGE_LENGTH * r.zoom);
+      return r.clashes.map((c) => ({ ...c, across: c.across * perPixel, down: c.down * perPixel, pad: perPixel }));
+    });
+    if (clashes.length === 0) return;
+    const moves = new Map<string, Point>();
+    for (const c of clashes) {
+      const [a, b] = [owners(c.a), owners(c.b)];
+      if (a.some((id) => b.includes(id))) continue;
+      const across = c.across < c.down;
+      const step = (((across ? c.across : c.down) + c.pad) / 2) * (c.aFirst[across ? "x" : "y"] ? -1 : 1);
+      for (const [ids, by] of [[a, step], [b, -step]] as const) {
+        for (const id of ids) {
+          const m = moves.get(id) ?? { x: 0, y: 0 };
+          moves.set(id, across ? { x: m.x + by, y: m.y } : { x: m.x, y: m.y + by });
+        }
+      }
+    }
+    if (moves.size === 0) return;
+    for (const [id, m] of moves) g.mergeNodeAttributes(id, { x: g.getNodeAttribute(id, "x") + m.x, y: g.getNodeAttribute(id, "y") + m.y });
+  }
 }
 
 // Moves each new Book, one at a time, to the first spot near where ForceAtlas2 left it with room for it

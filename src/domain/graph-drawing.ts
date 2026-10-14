@@ -17,3 +17,30 @@ export const LABEL_CHAR = 0.48;
 
 // Each Cluster wash pool's radius, as a share of a typical Connection's length.
 export const WASH_RADIUS = 0.65;
+
+// Paper showing around a label, so edges pass behind it rather than through it.
+export const LABEL_PLATE = 2;
+
+// A Cluster's name, centred over it, above or below its wash. Its size follows the wash it names, within
+// these bounds, so a zoomed-out graph's names don't outweigh their Clusters; it sits on a plate padded
+// this much each way (the canvas's name button), this many pixels clear of the wash.
+export const CLUSTER_NAME_SIZE = { min: 13, max: 18, perRadius: 1 / 9 };
+export const CLUSTER_NAME_PAD = { x: 6, y: 2 };
+export const CLUSTER_NAME_GAP = 8;
+// A name's size at a zoom: by its wash's radius on screen, to the half pixel.
+export const clusterNameSize = (zoom: number) =>
+  Math.round(Math.min(CLUSTER_NAME_SIZE.max, Math.max(CLUSTER_NAME_SIZE.min, WASH_RADIUS * TYPICAL_EDGE_LENGTH * zoom * CLUSTER_NAME_SIZE.perRadius)) * 2) / 2;
+// Room a name keeps from the canvas edges (the wordmark above, the legend below), so a Cluster the
+// reader has zoomed into still shows its name.
+export const CLUSTER_NAME_CLEAR = { top: 96, bottom: 88, side: 16 };
+
+// The first view of a graph fits it, labels and washes and all, within this margin of the canvas edges
+// (clear of the wordmark above and the legend below, in line with them at the sides), and its Cluster
+// names within CLUSTER_NAME_CLEAR; zoomed in no further than MAX_FIT_ZOOM: a typical Connection about a
+// fifth of a desktop canvas across, so two or three Books don't look huge.
+export const FIT_MARGIN = { top: 72, bottom: 72, side: 48 };
+export const MAX_FIT_ZOOM = 4;
+
+// The desktop canvases the layout is shaped for: it fills them as best it can, and spreads its Books so
+// no labels or names are drawn over each other on either, as first fitted.
+export const DESKTOP = { "1440×900": { width: 1440, height: 900 }, "1280×800": { width: 1280, height: 800 } };

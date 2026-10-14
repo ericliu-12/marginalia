@@ -1,38 +1,37 @@
 import { sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
-import { connectedGroups, LABEL_ROOM, lockLayout, type GraphView } from "./graph";
+import { connectedGroups, lockLayout, type GraphView } from "./graph";
+import { DESKTOP } from "./graph-drawing";
+import { readDrawn, typicalLength, type Reading } from "./graph-fit";
 
 // For `pnpm graph:layout`: how readable a graph's layout is, and a copy of the stored positions to go
 // back to.
 
-// How a laid-out graph reads: its Books, pairs of Books where one's label covers the other's dot or
-// label (as the canvas draws them; see LABEL_ROOM), crossings among the Connections shown at rest, how
-// far it spreads, width by height, in typical Connection lengths, and the share of the fitted view (the
-// box around every Book's dot, as the canvas fits it, half a length wider each way) that the box around
-// the main connected part takes up; null with no Connections.
-export type LayoutStats = { books: number; labelOverlaps: number; crossings: number; width: number; height: number; mainShare: number | null };
+// How a laid-out graph reads: its Books; how it reads on each DESKTOP canvas once fitted (see readDrawn:
+// the zoom and what bounds it, the share of the canvas the Books fill, labels and names drawn over each
+// other, names on their wash); crossings among the Connections shown at rest; how far it spreads, width
+// by height, in typical Connection lengths; and the share of the fitted view (the box around every
+// Book's dot, half a length wider each way) that the box around the main connected part takes up, null
+// with no Connections.
+export type LayoutStats = {
+  books: number;
+  views: Record<keyof typeof DESKTOP, Omit<Reading, "clashes">>;
+  crossings: number;
+  width: number;
+  height: number;
+  mainShare: number | null;
+};
 
 export function layoutStats(graph: GraphView): LayoutStats {
   const at = new Map(graph.books.map((b) => [b.bookId, b]));
-  const lengths = graph.connections.map((c) => Math.hypot(at.get(c.a)!.x - at.get(c.b)!.x, at.get(c.a)!.y - at.get(c.b)!.y)).sort((p, q) => p - q);
-  const unit = lengths.length ? lengths[Math.floor(lengths.length / 2)] : 1;
-
-  const { gap, char, height } = LABEL_ROOM;
-  type Box = { x0: number; y0: number; x1: number; y1: number };
-  const overlaps = (p: Box, q: Box) => p.x0 < q.x1 && q.x0 < p.x1 && p.y0 < q.y1 && q.y0 < p.y1;
-  const dot = (b: GraphView["books"][number]): Box => ({ x0: b.x - gap * unit, y0: b.y - gap * unit, x1: b.x + gap * unit, y1: b.y + gap * unit });
-  const label = (b: GraphView["books"][number]): Box => ({
-    x0: b.x + gap * unit,
-    y0: b.y - (height / 2) * unit,
-    x1: b.x + (gap + b.label.length * char) * unit,
-    y1: b.y + (height / 2) * unit,
-  });
-  let labelOverlaps = 0;
-  graph.books.forEach((p, i) => {
-    for (const q of graph.books.slice(i + 1)) {
-      if (overlaps(label(p), label(q)) || overlaps(label(p), dot(q)) || overlaps(label(q), dot(p))) labelOverlaps++;
-    }
-  });
+  const unit = typicalLength(graph.books, graph.connections) || 1;
+  const drawn = { books: graph.books.map((b) => ({ ...b, id: b.bookId })), clusters: graph.clusters, unit };
+  const views = Object.fromEntries(
+    Object.entries(DESKTOP).map(([name, view]) => {
+      const { clashes: _, ...reading } = readDrawn(drawn, view);
+      return [name, reading];
+    }),
+  ) as LayoutStats["views"];
 
   const side = (a: { x: number; y: number }, b: { x: number; y: number }, c: { x: number; y: number }) =>
     Math.sign((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x));
@@ -52,7 +51,7 @@ export function layoutStats(graph: GraphView): LayoutStats {
   const [main] = connectedGroups(graph.books.map((b) => b.bookId), graph.connections);
   const area = (ids: string[]) => (spread(ids.map((id) => at.get(id)!.x)) + 1) * (spread(ids.map((id) => at.get(id)!.y)) + 1);
   const mainShare = main ? area(main) / area(graph.books.map((b) => b.bookId)) : null;
-  return { books: graph.books.length, labelOverlaps, crossings, width: spread(xs), height: spread(ys), mainShare };
+  return { books: graph.books.length, views, crossings, width: spread(xs), height: spread(ys), mainShare };
 }
 
 const BACKUP = /^book_position_backup_\d{8}_\d{6}$/;
