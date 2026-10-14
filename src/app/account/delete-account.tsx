@@ -6,9 +6,9 @@ import { field } from "../book-panel";
 
 // The quiet button in rust: a hairline that fills with rust on hover, 44px tall on touch.
 const dangerButton =
-  "inline-flex min-h-11 items-center border border-contrast px-3 text-[0.8rem] font-medium text-contrast transition-colors duration-150 hover:bg-contrast hover:text-paper active:bg-contrast active:text-paper disabled:border-contrast/40 disabled:text-ink-3 disabled:hover:bg-transparent lg:min-h-9";
+  "inline-flex min-h-11 items-center rounded-control border border-contrast px-3 text-[0.8rem] font-medium text-contrast transition-colors duration-150 hover:bg-contrast hover:text-paper active:bg-contrast active:text-paper disabled:border-contrast/40 disabled:text-ink-3 disabled:hover:bg-transparent lg:min-h-9";
 const quietButton =
-  "inline-flex min-h-11 items-center border border-ink/70 px-3 text-[0.8rem] font-medium text-ink transition-colors duration-150 hover:bg-ink hover:text-paper active:bg-ink-2 active:text-paper disabled:border-rule disabled:text-ink-3 disabled:hover:bg-transparent lg:min-h-9";
+  "inline-flex min-h-11 items-center rounded-control border border-ink/70 px-3 text-[0.8rem] font-medium text-ink transition-colors duration-150 hover:bg-ink hover:text-paper active:bg-ink-2 active:text-paper disabled:border-rule disabled:text-ink-3 disabled:hover:bg-transparent lg:min-h-9";
 
 // Delete your account (#68): once the Reader types `delete`, and only from a session signed in within the
 // day. An older one signs in again first, coming back here.

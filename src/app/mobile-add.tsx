@@ -163,7 +163,7 @@ export function MobileAdd({
           placeholder="Title and author"
           autoComplete="off"
           autoCapitalize="off"
-          className={`mt-3 min-h-12 w-full border border-edge bg-paper-2 px-3 ${risen ? "" : "motion-safe:caret-transparent"} text-base text-ink placeholder:text-ink-3 focus-visible:border-thematic focus-visible:ring-2 focus-visible:ring-thematic/30 focus-visible:outline-none`}
+          className={`mt-3 min-h-12 w-full rounded-control border border-edge bg-paper-2 px-3 ${risen ? "" : "motion-safe:caret-transparent"} text-base text-ink placeholder:text-ink-3 focus-visible:border-thematic focus-visible:ring-2 focus-visible:ring-thematic/30 focus-visible:outline-none`}
         />
         <FindingIndicator initial={finding} paused={paused} className="mt-2 min-h-5" />
       </div>

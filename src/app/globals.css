@@ -21,6 +21,10 @@
   --color-contrast: #9a3b2e;
   --color-context: #66753a;
   --font-serif: var(--nf-serif), Georgia, serif;
+  /* Corners: controls and small surfaces, larger surfaces, and a bottom sheet's top corners. Rules stay square. */
+  --radius-control: 4px;
+  --radius-surface: 6px;
+  --radius-sheet: 12px;
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   /* A Connection's row in an arriving Book's panel, appearing as its line draws in on the graph. */
   --animate-draw-in: draw-in 0.7s var(--ease-out-expo) both;

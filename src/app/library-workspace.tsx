@@ -34,7 +34,7 @@ export function LibraryWorkspace({ items, finding, paused }: { items: LibraryIte
           aria-expanded={false}
           aria-controls="add-a-book"
           onClick={() => setSearchOpen(true)}
-          className={`bg-ink px-4 py-2 text-sm font-medium text-paper transition-colors hover:bg-ink-2 ${searchOpen ? "invisible" : ""}`}
+          className={`rounded-control bg-ink px-4 py-2 text-sm font-medium text-paper transition-colors hover:bg-ink-2 ${searchOpen ? "invisible" : ""}`}
         >
           Add a book
         </button>

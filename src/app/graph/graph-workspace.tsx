@@ -278,7 +278,7 @@ export function GraphWorkspace({
       </p>
 
       {wide && selection && (
-        <div ref={panelRef} className="absolute top-6 right-6 bottom-6 w-[27rem] overflow-hidden border border-rule shadow-[0_12px_32px_-8px_rgb(26_26_26/0.18),0_2px_6px_rgb(26_26_26/0.06)]">
+        <div ref={panelRef} className="absolute top-6 right-6 bottom-6 w-[27rem] overflow-hidden rounded-surface border border-rule shadow-[0_12px_32px_-8px_rgb(26_26_26/0.18),0_2px_6px_rgb(26_26_26/0.06)]">
           {selection.kind === "cluster" ? (
             <ClusterPanel
               key={selection.id}

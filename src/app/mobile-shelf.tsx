@@ -257,7 +257,7 @@ export function MobileShelf({ items, finding, paused }: { items: LibraryItem[]; 
                 type="button"
                 aria-expanded={adding}
                 onClick={openAdd}
-                className="flex min-h-12 w-full items-center justify-center gap-2 bg-ink text-[0.95rem] font-medium text-paper transition-colors active:bg-ink-2"
+                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-control bg-ink text-[0.95rem] font-medium text-paper transition-colors active:bg-ink-2"
               >
                 <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden>
                   <path d="M7 1.5v11M1.5 7h11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -330,7 +330,7 @@ function Rows({
                 data-note-for={item.bookId}
                 aria-label={`Write a note on ${item.title}`}
                 onClick={() => onNote(item.bookId)}
-                className="-mr-3 grid size-12 shrink-0 place-items-center text-ink-2 transition-colors duration-150 active:bg-paper-3"
+                className="-mr-3 grid size-12 shrink-0 place-items-center rounded-control text-ink-2 transition-colors duration-150 active:bg-paper-3"
               >
                 {pen}
               </button>
