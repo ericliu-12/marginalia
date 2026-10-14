@@ -113,7 +113,7 @@ function Row({ item, open, onOpen }: { item: LibraryItem; open: boolean; onOpen:
               type="button"
               aria-label={`${label}: ${item.title}`}
               onClick={() => move(to)}
-              className="min-h-11 rounded-control border border-ink-2 px-2.5 text-[0.8rem] font-medium text-ink transition-colors duration-150 hover:bg-ink hover:text-paper [@media(hover:hover)]:min-h-0 [@media(hover:hover)]:border-transparent [@media(hover:hover)]:px-0 [@media(hover:hover)]:py-0 [@media(hover:hover)]:text-ink-3 [@media(hover:hover)]:underline [@media(hover:hover)]:decoration-rule [@media(hover:hover)]:underline-offset-4 [@media(hover:hover)]:hover:bg-transparent [@media(hover:hover)]:hover:text-ink [@media(hover:hover)]:hover:decoration-ink">
+              className="min-h-11 rounded-control border border-ink/70 px-2.5 text-[0.8rem] font-medium text-ink transition-colors duration-150 hover:bg-ink hover:text-paper [@media(hover:hover)]:min-h-0 [@media(hover:hover)]:border-transparent [@media(hover:hover)]:px-0 [@media(hover:hover)]:py-0 [@media(hover:hover)]:text-ink-3 [@media(hover:hover)]:underline [@media(hover:hover)]:decoration-rule [@media(hover:hover)]:underline-offset-4 [@media(hover:hover)]:hover:bg-transparent [@media(hover:hover)]:hover:text-ink [@media(hover:hover)]:hover:decoration-ink">
               {pending && moving === to ? "Moving…" : label}
             </button>
           ))}
