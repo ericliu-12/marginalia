@@ -14,3 +14,6 @@ export const LABEL_LINE = 1.24;
 export const LABEL_GAP = 4;
 // Newsreader's characters average this share of the type size across, measured over real titles.
 export const LABEL_CHAR = 0.48;
+
+// Each Cluster wash pool's radius, as a share of a typical Connection's length.
+export const WASH_RADIUS = 0.65;
