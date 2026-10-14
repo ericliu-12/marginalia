@@ -2,10 +2,10 @@ import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { addBook } from "../src/domain/add-book";
 import { readConnection, type Strength } from "../src/domain/connections";
-import { DISPLAY_CAP, LABEL_MAX_CHARS, LABEL_ROOM, labelOf, layoutGraph, readGraph, visibleConnections, type GraphView } from "../src/domain/graph";
+import { DISPLAY_CAP, LABEL_MAX_CHARS, LABEL_ROOM, labelOf, layoutGraph, MAX_DRIFT, readGraph, visibleConnections, type GraphView } from "../src/domain/graph";
 import { changeStatus, removeFromLibrary } from "../src/domain/library-entry";
 import type { JobDeps } from "../src/domain/pipeline";
-import { connection, libraryEntry } from "../src/db/schema";
+import { bookPosition, connection, libraryEntry } from "../src/db/schema";
 import { fakeEmbedder, fakeEnricher, fakeJudge, fakeNamer, work } from "./fakes";
 import { useTestDb } from "./harness";
 
@@ -157,6 +157,21 @@ describe("Graph", () => {
       expect(new Set(g.books.map((b) => `${b.x},${b.y}`)).size).toBe(3);
     });
 
+    // The typical Connection length, the unit the graph is drawn at.
+    const unitOf = (g: GraphView) => {
+      const at = positions(g);
+      const lengths = g.connections
+        .map((c) => Math.hypot(at[titleOf(g, c.a)].x - at[titleOf(g, c.b)].x, at[titleOf(g, c.a)].y - at[titleOf(g, c.b)].y))
+        .sort((p, q) => p - q);
+      return lengths[Math.floor(lengths.length / 2)];
+    };
+    // How far each Book in `before` has moved by `after`, in typical Connection lengths of `before`.
+    const moves = (before: GraphView, after: GraphView) => {
+      const was = positions(before);
+      const now = positions(after);
+      return Object.keys(was).map((t) => Math.hypot(now[t].x - was[t].x, now[t].y - was[t].y) / unitOf(before));
+    };
+
     it("lays the graph out once Connections are found, and keeps it the same from one session to the next", async () => {
       for (const t of ["A", "B", "C", "D"]) await add(t);
       const provisional = await graph();
@@ -165,23 +180,50 @@ describe("Graph", () => {
       expect(first.connections.length).toBeGreaterThan(0);
       expect(positions(first)).not.toEqual(positions(provisional));
       expect(positions(await graph())).toEqual(positions(first));
-
-      // Nothing new to place: laying out again leaves every Book exactly where it was.
-      await ctx.pipeline.refreshRequested(ctx.userId, first.books[0].bookId);
-      await ctx.jobs.drain(deps());
-      expect(positions(await graph())).toEqual(positions(first));
     });
 
-    it("places a newly finished Book among its Connections without moving a Book already placed", async () => {
+    it("barely moves a graph already settled when it is laid out again", async () => {
       for (const t of ["A", "B", "C", "D", "E"]) await add(t);
       await ctx.jobs.drain(deps());
-      const before = positions(await graph());
+      const first = await graph();
+      await layoutGraph(ctx.db, ctx.userId);
+      for (const m of moves(first, await graph())) expect(m).toBeLessThan(MAX_DRIFT / 5);
+    });
+
+    it("places a newly finished Book among its Connections, moving no placed Book more than MAX_DRIFT", async () => {
+      for (const t of ["A", "B", "C", "D", "E"]) await add(t);
+      await ctx.jobs.drain(deps());
+      const before = await graph();
       await add("New");
       const provisional = positions(await graph()).New;
       await ctx.jobs.drain(deps());
-      const { New: placed, ...rest } = positions(await graph());
-      expect(rest).toEqual(before);
-      expect(placed).not.toEqual(provisional);
+      const after = await graph();
+      expect(positions(after).New).not.toEqual(provisional);
+      for (const m of moves(before, after)) expect(m).toBeLessThanOrEqual(MAX_DRIFT + 1e-9);
+    });
+
+    it("draws a placed Book toward a Connection it gains, a little each time the graph is laid out", async () => {
+      // A chain: its two ends sit far apart until a Connection joins them.
+      const chain = [];
+      for (const t of ["A", "B", "C", "D", "E", "F"]) chain.push(await add(t));
+      for (let i = 1; i < chain.length; i++) await connect(chain[i - 1], chain[i]);
+      await layoutGraph(ctx.db, ctx.userId);
+      const gap = (g: GraphView) => Math.hypot(positions(g).A.x - positions(g).F.x, positions(g).A.y - positions(g).F.y);
+      await connect(chain[0], chain[5]);
+      const first = await graph();
+      await layoutGraph(ctx.db, ctx.userId);
+      const second = await graph();
+      expect(gap(second)).toBeLessThan(gap(first));
+      for (const m of moves(first, second)) expect(m).toBeLessThanOrEqual(MAX_DRIFT + 1e-9);
+    });
+
+    it("lays a crowded graph out afresh when asked, all Books at once", async () => {
+      for (const t of ["A", "B", "C", "D", "E"]) await add(t);
+      await ctx.jobs.drain(deps());
+      await ctx.db.update(bookPosition).set({ x: 0, y: 0 });
+      await layoutGraph(ctx.db, ctx.userId, { fresh: true });
+      const at = Object.values(positions(await graph()));
+      expect(new Set(at.map((p) => `${p.x},${p.y}`)).size).toBe(at.length);
     });
 
     it("places a new Book clear of every other Book and its label clear of their dots", async () => {
