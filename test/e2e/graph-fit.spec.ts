@@ -42,7 +42,10 @@ test("the graph first fills the canvas, across and down, its labels inside it", 
   });
 
   expect((drawn.dots.x1 - drawn.dots.x0) / drawn.width).toBeGreaterThan(0.6);
-  expect((drawn.dots.y1 - drawn.dots.y0) / drawn.height).toBeGreaterThan(0.4);
+  // This graph laid out from 300 different sets of Book ids fills 0.35–0.49 of the height (median 0.40),
+  // and the seed's fixed ids give 0.41; the bar sits below all of them. A layout left small in the middle
+  // fails the width check above (before #143 it filled 0.20–0.53 across).
+  expect((drawn.dots.y1 - drawn.dots.y0) / drawn.height).toBeGreaterThan(0.33);
   // Nothing drawn runs off the canvas's sides.
   expect(drawn.all.x0).toBeGreaterThan(8);
   expect(drawn.all.x1).toBeLessThan(drawn.width - 8);
