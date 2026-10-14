@@ -258,7 +258,7 @@ function StatusControl({ item }: { item: LibraryItem }) {
             type="button"
             aria-pressed={shown === s}
             onClick={() => move(s)}
-            className="min-h-11 rounded-[2px] text-sm font-medium text-ink-2 transition-[background-color,color,box-shadow] duration-200 ease-out-expo aria-pressed:bg-paper-2 aria-pressed:text-ink aria-pressed:shadow-[0_1px_2px_rgb(26_26_26/0.2)]"
+            className="min-h-11 rounded-[3px] text-sm font-medium text-ink-2 transition-[background-color,color,box-shadow] duration-200 ease-out-expo aria-pressed:bg-paper-2 aria-pressed:text-ink aria-pressed:shadow-[0_1px_2px_rgb(26_26_26/0.2)]"
           >
             {STATUS_LABEL[s]}
           </button>

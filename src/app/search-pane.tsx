@@ -16,7 +16,7 @@ type Phase = "idle" | "loading" | "done" | "error";
 
 // On a phone the three choices share the row equally, at a full touch target.
 export const addButton =
-  "min-h-11 rounded-control border border-ink/70 px-1 py-2 max-lg:leading-tight lg:min-h-0 lg:px-2.5 lg:py-1 text-[0.8rem] font-medium text-ink transition-colors duration-150 hover:bg-ink hover:text-paper max-lg:active:bg-paper-3 disabled:border-rule disabled:text-ink-3 disabled:hover:bg-transparent disabled:hover:text-ink-3";
+  "min-h-11 rounded-control border border-ink-2 px-1 py-2 max-lg:leading-tight lg:min-h-0 lg:px-2.5 lg:py-1 text-[0.8rem] font-medium text-ink transition-colors duration-150 hover:bg-ink hover:text-paper max-lg:active:bg-paper-3 disabled:border-rule disabled:text-ink-3 disabled:hover:bg-transparent disabled:hover:text-ink-3";
 // Columns weighted by their labels, so each reads on one line down to a 320px screen.
 export const addChoices = "grid grid-cols-[1.12fr_0.8fr_1.08fr] gap-1.5 lg:flex lg:flex-wrap";
 

@@ -10,7 +10,7 @@ const standalone = () =>
 
 // The quiet button (DESIGN.md): a hairline of ink that fills with ink on hover, 44px tall on touch.
 const quietButton =
-  "inline-flex min-h-11 items-center rounded-control border border-ink/70 px-3 text-[0.8rem] font-medium text-ink transition-colors duration-150 hover:bg-ink hover:text-paper active:bg-ink-2 active:text-paper lg:min-h-9";
+  "inline-flex min-h-11 items-center rounded-control border border-ink-2 px-3 text-[0.8rem] font-medium text-ink transition-colors duration-150 hover:bg-ink hover:text-paper active:bg-ink-2 active:text-paper lg:min-h-9";
 
 function save(file: File) {
   const url = URL.createObjectURL(file);
