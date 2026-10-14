@@ -146,7 +146,7 @@ export type FinishedSummary = {
 
 // Finished Books among the reader's Entries, keyed by Entry id: those with a completed Read-through,
 // whatever the current Status. Finish dates may be unknown (null).
-export async function readFinished(db: Db, userId: string) {
+export async function readFinished(db: Db | Tx, userId: string) {
   const passes = await completedPasses(db, userId);
   const finished = new Map<string, FinishedSummary>();
   for (const p of passes) {

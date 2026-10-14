@@ -97,11 +97,12 @@ export type GraphView = {
 };
 
 type Point = { x: number; y: number };
+type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
 // Finished Books with their Entry and where each sits (stored, or provisional), and the non-dismissed
 // Connections between them; Books ordered by id so every layout of the same graph starts the same way.
 // `fresh` ignores the stored positions, as if none were placed.
-async function loadGraph(db: Db, userId: string, fresh = false) {
+async function loadGraph(db: Db | Tx, userId: string, fresh = false) {
   const finished = await readFinished(db, userId);
   const rows = await db
     .select({ entry: libraryEntry, book, x: bookPosition.x, y: bookPosition.y })
@@ -198,10 +199,22 @@ export function visibleConnections(graph: GraphView, selectedBookId: string | nu
 // Finished Book sits. A placed Book starts where it is and moves at most MAX_DRIFT, so the graph stays a
 // place the reader knows while crowding eases and Books drift toward Connections they gained; a new one
 // starts beside the placed Books it connects to, settles in among them, and then moves to the nearest
-// spot with room for it and its label. `fresh` lays the whole graph out anew, as the first time.
-export async function layoutGraph(db: Db, userId: string, { fresh = false } = {}): Promise<void> {
+// spot with room for it and its label. `fresh` lays the whole graph out anew, as the first time;
+// `dryRun` only works out where each Book would go. Returns where each Book is laid out, by Book id.
+export async function layoutGraph(db: Db, userId: string, { fresh = false, dryRun = false } = {}): Promise<Map<string, Point>> {
+  return db.transaction(async (tx) => {
+    await lockLayout(tx, userId);
+    return layOut(tx, userId, fresh, dryRun);
+  });
+}
+
+// Layouts and restores of one reader's graph take turns, so none writes positions worked out from ones
+// another has since replaced.
+export const lockLayout = (tx: Tx, userId: string) => tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`layout:${userId}`}))`);
+
+async function layOut(db: Tx, userId: string, fresh: boolean, dryRun: boolean): Promise<Map<string, Point>> {
   const { books, connections, at } = await loadGraph(db, userId, fresh);
-  if (books.length === 0) return;
+  if (books.length === 0) return new Map();
   const placed = (r: (typeof books)[number]) => !fresh && stored(r) !== null;
 
   const g = new Graph({ type: "undirected" });
@@ -226,21 +239,19 @@ export async function layoutGraph(db: Db, userId: string, { fresh = false } = {}
     g,
     books.map((r) => ({ id: r.book.id, label: labelOf(displayed(r.book, r.entry).title), placed: placed(r) })),
   );
+  const laidOut = new Map(books.map((r) => [r.book.id, { x: g.getNodeAttribute(r.book.id, "x") as number, y: g.getNodeAttribute(r.book.id, "y") as number }]));
+  if (dryRun) return laidOut;
 
   await db
     .insert(bookPosition)
     .values(
-      books.map((r) => ({
-        libraryEntryId: r.entry.id,
-        userId,
-        x: g.getNodeAttribute(r.book.id, "x") as number,
-        y: g.getNodeAttribute(r.book.id, "y") as number,
-      })),
+      books.map((r) => ({ libraryEntryId: r.entry.id, userId, ...laidOut.get(r.book.id)! })),
     )
     .onConflictDoUpdate({
       target: bookPosition.libraryEntryId,
       set: { x: sql`excluded.x`, y: sql`excluded.y`, updatedAt: sql`now()` },
     });
+  return laidOut;
 }
 
 // The graph's typical Connection length (the median), or with no Connections the median distance from a
