@@ -33,7 +33,8 @@ if (restore) {
 const readers = await db.select({ id: user.id, email: user.email }).from(user).where(email ? eq(user.email, email) : undefined);
 if (email && readers.length === 0) throw new Error(`No Reader with the email ${email}.`);
 
-const show = (s: LayoutStats) => `${s.labelOverlaps} overlapping labels, ${s.crossings} crossings, ${s.width.toFixed(1)} × ${s.height.toFixed(1)}`;
+const show = (s: LayoutStats) =>
+  `${s.labelOverlaps} overlapping labels, ${s.crossings} crossings, ${s.width.toFixed(1)} × ${s.height.toFixed(1)}, main part ${s.mainShare === null ? "—" : `${Math.round(s.mainShare * 100)}%`} of the view`;
 let table: string | undefined;
 if (!dryRun) {
   table = await backupPositions(db, email ? readers.map((r) => r.id) : undefined);

@@ -74,8 +74,7 @@ export const WASH = ["#c4ae82", "#d0a1bb", "#81bfb6", "#d6a492", "#b0abd8", "#d1
 // How much of its tint a wash lays on the paper where it is fullest: at rest, while its Cluster is
 // chosen, and behind some other selection. A Cluster's pools never add up past this.
 export const WASH_ALPHA = { rest: 0.35, chosen: 0.55, faded: 0.16 };
-// Each pool's radius, as a share of a typical Connection's length.
-export const WASH_RADIUS = 0.65;
+export { WASH_RADIUS } from "@/domain/graph-drawing";
 // A Cluster that forms while the graph is open fades in over this long.
 export const WASH_FADE_MS = 600;
 

@@ -1,0 +1,1 @@
+ALTER TABLE "book_position" ADD COLUMN "lone" boolean DEFAULT false NOT NULL;

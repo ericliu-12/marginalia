@@ -321,6 +321,10 @@ export const bookPosition = pgTable("book_position", {
   userId: uuid("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
   x: doublePrecision("x").notNull(),
   y: doublePrecision("y").notNull(),
+  // Laid out as an unconnected Book, in the band below the connected ones. A Book that has gained a
+  // Connection since is placed afresh beside its neighbours, and one that has lost its last goes
+  // straight to the band, rather than either drifting there.
+  lone: boolean("lone").notNull().default(false),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

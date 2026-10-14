@@ -2,8 +2,10 @@ import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { addBook } from "../src/domain/add-book";
 import { readConnection, type Strength } from "../src/domain/connections";
-import { DISPLAY_CAP, LABEL_MAX_CHARS, LABEL_ROOM, labelOf, layoutGraph, MAX_DRIFT, readGraph, visibleConnections, type GraphView } from "../src/domain/graph";
+import { bandSide, DISPLAY_CAP, LABEL_MAX_CHARS, LABEL_ROOM, labelOf, layoutGraph, MAX_DRIFT, readGraph, SIDE_MARGIN, visibleConnections, type GraphView } from "../src/domain/graph";
+import { WASH_RADIUS } from "../src/domain/graph-drawing";
 import { changeStatus, removeFromLibrary } from "../src/domain/library-entry";
+import { layoutStats } from "../src/domain/relayout";
 import type { JobDeps } from "../src/domain/pipeline";
 import { bookPosition, connection, libraryEntry } from "../src/db/schema";
 import { fakeEmbedder, fakeEnricher, fakeJudge, fakeNamer, work } from "./fakes";
@@ -224,6 +226,158 @@ describe("Graph", () => {
       await layoutGraph(ctx.db, ctx.userId, { fresh: true });
       const at = Object.values(positions(await graph()));
       expect(new Set(at.map((p) => `${p.x},${p.y}`)).size).toBe(at.length);
+    });
+
+    describe("compactly", () => {
+      // A main part (a hub and a ring of five), a separate pair, and four unconnected Books.
+      async function scattered() {
+        const hub = await add("Hub");
+        const ring = [];
+        for (const t of ["R1", "R2", "R3", "R4", "R5"]) ring.push(await add(t));
+        for (const r of ring) await connect(hub, r);
+        for (let i = 0; i < ring.length; i++) await connect(ring[i], ring[(i + 1) % ring.length], "moderate");
+        const pair = [await add("P1"), await add("P2")];
+        await connect(pair[0], pair[1]);
+        const lone = [];
+        for (const t of ["Born to Run", "Heart the Lover", "Better Left Unsent", "How to Be Okay When Nothing Is"]) lone.push(await add(t));
+        return { main: [hub, ...ring], pair, lone };
+      }
+      const box = (g: GraphView, ids: string[]) => {
+        const at = ids.map((id) => g.books.find((b) => b.bookId === id)!);
+        return { x0: Math.min(...at.map((b) => b.x)), x1: Math.max(...at.map((b) => b.x)), y0: Math.min(...at.map((b) => b.y)), y1: Math.max(...at.map((b) => b.y)) };
+      };
+
+      // The Books form an evenly spaced grid, each label clear of the next Book in its row, each dot clear
+      // of every wash around the `cluster` Books.
+      function expectBand(g: GraphView, ids: string[], cluster: string[]) {
+        const unit = unitOf(g);
+        const at = (id: string) => g.books.find((b) => b.bookId === id)!;
+        const band = ids.map(at);
+        for (const b of band) {
+          for (const c of cluster.map(at)) expect(Math.hypot(b.x - c.x, b.y - c.y)).toBeGreaterThanOrEqual(WASH_RADIUS * unit);
+        }
+        // The distinct levels along one axis, in lengths, are evenly spaced.
+        const even = (v: number[]) => {
+          const levels = v.map((x) => x / unit).sort((p, q) => p - q).filter((x, i, all) => i === 0 || x - all[i - 1] > 1e-6);
+          const steps = levels.slice(1).map((x, i) => x - levels[i]);
+          for (const step of steps) expect(step).toBeCloseTo(steps[0], 6);
+        };
+        even(band.map((b) => b.x));
+        even(band.map((b) => b.y));
+        const rows = new Map<string, typeof band>();
+        for (const b of band) rows.set(b.y.toFixed(6), [...(rows.get(b.y.toFixed(6)) ?? []), b]);
+        for (const row of rows.values()) {
+          row.sort((p, q) => p.x - q.x);
+          for (let i = 1; i < row.length; i++) {
+            expect(row[i - 1].x + (LABEL_ROOM.gap + row[i - 1].label.length * LABEL_ROOM.char) * unit).toBeLessThan(row[i].x);
+          }
+        }
+      }
+
+      it("keeps the main connected part's share of the fitted view, whatever else is in the graph", async () => {
+        await scattered();
+        await layoutGraph(ctx.db, ctx.userId, { fresh: true });
+        const g = await graph();
+        // Before the band and the packing, ForceAtlas2 left this graph's main part about a tenth of it;
+        // now 0.38 to 0.6, by the order the Books (by their random ids) start in.
+        expect(layoutStats(g).mainShare).toBeGreaterThanOrEqual(0.3);
+      });
+
+      it("lines unconnected Books up in an evenly spaced band beside the connected Books, clear of their washes and of each other", async () => {
+        const { main, lone } = await scattered();
+        await layoutGraph(ctx.db, ctx.userId, { fresh: true });
+        expectBand(await graph(), lone, main);
+      });
+
+      it(`keeps the band on its side unless another gives the main part ${SIDE_MARGIN * 100} points more of the view`, () => {
+        const shares = { below: 0.5, right: 0.5 + SIDE_MARGIN - 0.01, above: 0.4, left: 0.45 };
+        expect(bandSide(shares, "below")).toBe("below");
+        expect(bandSide(shares)).toBe("right");
+        expect(bandSide({ ...shares, right: 0.5 + SIDE_MARGIN + 0.01 }, "below")).toBe("right");
+        expect(bandSide({ ...shares, right: 0.5 + SIDE_MARGIN + 0.01 }, "left")).toBe("right");
+      });
+
+      it("keeps the band on the same side, in the same shape, from one re-settle to the next", async () => {
+        const { main, lone } = await scattered();
+        await layoutGraph(ctx.db, ctx.userId, { fresh: true });
+        // Where the band sits from the main part's middle, and each Book's place in it.
+        const shape = (g: GraphView) => {
+          const m = box(g, main);
+          const b = box(g, lone);
+          const side = b.y0 > m.y1 ? "below" : b.y1 < m.y0 ? "above" : b.x0 > m.x1 ? "right" : "left";
+          const at = (id: string) => g.books.find((x) => x.bookId === id)!;
+          const order = [...lone].sort((p, q) => at(p).y - at(q).y || at(p).x - at(q).x);
+          return { side, order };
+        };
+        const first = shape(await graph());
+        for (let i = 0; i < 3; i++) {
+          await layoutGraph(ctx.db, ctx.userId);
+          expect(shape(await graph())).toEqual(first);
+        }
+      });
+
+      it("packs a separate group beside the main one", async () => {
+        const { main, pair } = await scattered();
+        await layoutGraph(ctx.db, ctx.userId, { fresh: true });
+        const g = await graph();
+        const m = box(g, main);
+        const p = box(g, pair);
+        const apart = Math.max(p.x0 - m.x1, m.x0 - p.x1, p.y0 - m.y1, m.y0 - p.y1, 0);
+        expect(apart / unitOf(g)).toBeLessThan(3);
+      });
+
+      it("places a Book that gains its first Connection beside its neighbour at once, the band anew, the rest within MAX_DRIFT", async () => {
+        const { main, pair, lone } = await scattered();
+        await layoutGraph(ctx.db, ctx.userId, { fresh: true });
+        const inBand = await graph();
+        await connect(lone[0], main[1]);
+        const before = await graph();
+        await layoutGraph(ctx.db, ctx.userId);
+        const after = await graph();
+
+        const unit = unitOf(before);
+        const at = (g: GraphView, id: string) => g.books.find((b) => b.bookId === id)!;
+        const joined = at(after, lone[0]);
+        // Placed as a new Book is: beside its neighbour, then nudged at most a few rings out for room.
+        const toNeighbour = Math.hypot(joined.x - at(after, main[1]).x, joined.y - at(after, main[1]).y) / unit;
+        const spot = at(inBand, lone[0]);
+        const fromBand = Math.hypot(joined.x - spot.x, joined.y - spot.y) / unit;
+        expect(toNeighbour).toBeLessThan(2.5);
+        expect(fromBand).toBeGreaterThan(MAX_DRIFT);
+        expect(toNeighbour).toBeLessThan(Math.hypot(spot.x - at(after, main[1]).x, spot.y - at(after, main[1]).y) / unit);
+        const rest = (g: GraphView) => ({
+          ...g,
+          books: g.books.filter((b) => [...main, ...pair].includes(b.bookId)),
+          connections: g.connections.filter((c) => c.a !== lone[0] && c.b !== lone[0]),
+        });
+        for (const m of moves(rest(before), rest(after))) expect(m).toBeLessThanOrEqual(MAX_DRIFT + 1e-9);
+        expectBand(after, lone.slice(1), main);
+      });
+
+      it("moves Books that lose their last Connection straight to the band", async () => {
+        const { main, pair, lone } = await scattered();
+        await layoutGraph(ctx.db, ctx.userId, { fresh: true });
+        await ctx.db.update(connection).set({ dismissedAt: new Date() }).where(eq(connection.bookAId, [pair[0], pair[1]].sort()[0]));
+        await layoutGraph(ctx.db, ctx.userId);
+        expectBand(await graph(), [...lone, ...pair], main);
+      });
+
+      it("draws a far-off unconnected Book toward the band, within MAX_DRIFT each run", async () => {
+        const { lone } = await scattered();
+        await layoutGraph(ctx.db, ctx.userId, { fresh: true });
+        const settled = await graph();
+        const home = settled.books.find((b) => b.bookId === lone[0])!;
+        const [entry] = await ctx.db.select({ id: libraryEntry.id }).from(libraryEntry).where(eq(libraryEntry.bookId, lone[0]));
+        const far = { x: home.x + 40 * unitOf(settled), y: home.y };
+        await ctx.db.update(bookPosition).set(far).where(eq(bookPosition.libraryEntryId, entry.id));
+
+        const before = await graph();
+        await layoutGraph(ctx.db, ctx.userId);
+        const after = await graph();
+        for (const m of moves(before, after)) expect(m).toBeLessThanOrEqual(MAX_DRIFT + 1e-9);
+        const now = after.books.find((b) => b.bookId === lone[0])!;
+        expect(Math.hypot(now.x - home.x, now.y - home.y)).toBeLessThan(Math.hypot(far.x - home.x, far.y - home.y));
+      });
     });
 
     it("places a new Book clear of every other Book and its label clear of their dots", async () => {

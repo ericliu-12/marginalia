@@ -1,14 +1,16 @@
 import { sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
-import { LABEL_ROOM, lockLayout, type GraphView } from "./graph";
+import { connectedGroups, LABEL_ROOM, lockLayout, type GraphView } from "./graph";
 
 // For `pnpm graph:layout`: how readable a graph's layout is, and a copy of the stored positions to go
 // back to.
 
 // How a laid-out graph reads: its Books, pairs of Books where one's label covers the other's dot or
-// label (as the canvas draws them; see LABEL_ROOM), crossings among the Connections shown at rest, and
-// how far it spreads, width by height, in typical Connection lengths.
-export type LayoutStats = { books: number; labelOverlaps: number; crossings: number; width: number; height: number };
+// label (as the canvas draws them; see LABEL_ROOM), crossings among the Connections shown at rest, how
+// far it spreads, width by height, in typical Connection lengths, and the share of the fitted view (the
+// box around every Book's dot, as the canvas fits it, half a length wider each way) that the box around
+// the main connected part takes up; null with no Connections.
+export type LayoutStats = { books: number; labelOverlaps: number; crossings: number; width: number; height: number; mainShare: number | null };
 
 export function layoutStats(graph: GraphView): LayoutStats {
   const at = new Map(graph.books.map((b) => [b.bookId, b]));
@@ -47,7 +49,10 @@ export function layoutStats(graph: GraphView): LayoutStats {
   const xs = graph.books.map((b) => b.x);
   const ys = graph.books.map((b) => b.y);
   const spread = (v: number[]) => (v.length ? (Math.max(...v) - Math.min(...v)) / unit : 0);
-  return { books: graph.books.length, labelOverlaps, crossings, width: spread(xs), height: spread(ys) };
+  const [main] = connectedGroups(graph.books.map((b) => b.bookId), graph.connections);
+  const area = (ids: string[]) => (spread(ids.map((id) => at.get(id)!.x)) + 1) * (spread(ids.map((id) => at.get(id)!.y)) + 1);
+  const mainShare = main ? area(main) / area(graph.books.map((b) => b.bookId)) : null;
+  return { books: graph.books.length, labelOverlaps, crossings, width: spread(xs), height: spread(ys), mainShare };
 }
 
 const BACKUP = /^book_position_backup_\d{8}_\d{6}$/;
@@ -62,7 +67,8 @@ export async function backupPositions(db: Db, userIds?: string[]): Promise<strin
 }
 
 // Puts back each backed-up Reader's positions exactly as they were in `table`: a Book placed since is
-// unplaced until the next layout, and one no longer in their library is left out. Returns how many
+// unplaced until the next layout, and one no longer in their library is left out; each counts as
+// connected, so the next layout moves an unconnected one straight to the band. Returns how many
 // Books were placed back.
 export async function restorePositions(db: Db, table: string): Promise<number> {
   if (!BACKUP.test(table)) throw new Error(`Not a position backup: ${table}`);
