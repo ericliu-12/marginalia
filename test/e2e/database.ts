@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { Pool } from "pg";
 import { createDb } from "../../src/db/client";
 import { runMigrations } from "../../src/db/migrate";
@@ -260,14 +260,15 @@ export async function seedSmallLibrary(titles: string[], linked: [number, number
   await seedReaders(db);
   await db.delete(paidCall);
   const userId = READER_A.id;
-  const ids: string[] = [];
+  // Fixed ids: the layout orders Books by id, so random ones would lay the same graph out differently each run.
+  const ids = titles.map((_, i) => `00000000-0000-4000-8000-${String(i + 1).padStart(12, "0")}`);
+  await db.delete(book).where(inArray(book.id, ids));
   for (const [i, title] of titles.entries()) {
-    const [row] = await db.insert(book).values({ title, authors: ["A. Writer"] }).returning();
-    ids.push(row.id);
-    const [entry] = await db.insert(libraryEntry).values({ userId, bookId: row.id, status: "read", connectionsGeneratedAt: new Date() }).returning();
+    await db.insert(book).values({ id: ids[i], title, authors: ["A. Writer"] });
+    const [entry] = await db.insert(libraryEntry).values({ userId, bookId: ids[i], status: "read", connectionsGeneratedAt: new Date() }).returning();
     const finished = new Date(Date.UTC(2026, 0, 1 + i));
     await db.insert(readThrough).values({ libraryEntryId: entry.id, userId, finishedAt: finished, completedAt: finished });
-    await db.insert(enrichment).values({ bookId: row.id, status: "ready", recognised: true, summary: `${title}.`, themes });
+    await db.insert(enrichment).values({ bookId: ids[i], status: "ready", recognised: true, summary: `${title}.`, themes });
   }
   for (const [i, j] of linked) {
     const [a, b] = [ids[i], ids[j]].sort();

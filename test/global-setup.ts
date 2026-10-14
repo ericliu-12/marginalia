@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { Pool } from "pg";
 import { createDb } from "../src/db/client";
 import { runMigrations } from "../src/db/migrate";
@@ -28,6 +29,18 @@ export default async function setup() {
 
   const { db, pool } = createDb(testDatabaseUrl());
   await runMigrations(db);
+  // A Book added by work key gets an id made from it (a valid v4 UUID), not a random one: the layout
+  // orders Books by id, so random ids would lay the same graph out differently on every run.
+  await db.execute(sql`
+    CREATE FUNCTION stable_book_id() RETURNS trigger AS $$
+    DECLARE h text := md5(NEW.open_library_work_key);
+    BEGIN
+      NEW.id := (substr(h, 1, 12) || '4' || substr(h, 14, 3) || '8' || substr(h, 18, 15))::uuid;
+      RETURN NEW;
+    END $$ LANGUAGE plpgsql;
+    CREATE TRIGGER stable_book_id BEFORE INSERT ON book
+      FOR EACH ROW WHEN (NEW.open_library_work_key IS NOT NULL) EXECUTE FUNCTION stable_book_id();
+  `);
   await pool.end();
   process.env.TEST_DATABASE_URL = testDatabaseUrl();
 }
