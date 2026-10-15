@@ -124,7 +124,7 @@ export function createAuth(db: Db, config: AuthConfig) {
         const email = typeof ctx.body?.email === "string" ? ctx.body.email : "";
         const refused = await takeCodeRequest(db, email);
         if (refused)
-          throw new APIError("TOO_MANY_REQUESTS", { message: "Too many requests. Please try again later." }, { "X-Retry-After": String(refused.retryAfterS) });
+          throw new APIError("TOO_MANY_REQUESTS", { message: "Too many tries. Try again later." }, { "X-Retry-After": String(refused.retryAfterS) });
         if (!(await allowed(email))) return ctx.json({ success: true });
       }),
     },
@@ -167,7 +167,7 @@ export function createAuth(db: Db, config: AuthConfig) {
     const response = await codeSend.run(outcome, () => auth.handler(request));
     await held;
     if (outcome.failed && config.signupMode === "open")
-      return Response.json({ code: CODE_NOT_SENT, message: "Could not send a sign-in code." }, { status: 503 });
+      return Response.json({ code: CODE_NOT_SENT, message: "Couldn’t send a code." }, { status: 503 });
     return response;
   }
   return { ...auth, handler };
