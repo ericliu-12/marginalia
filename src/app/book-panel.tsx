@@ -124,8 +124,9 @@ export function BookPanel({
           </h2>
           {meta && <p className="caps mt-1.5 text-[15px] leading-snug tracking-[1.2px] text-ink-2">{meta}</p>}
           {item.cluster?.name && (
-            <p className="mt-1 text-[15px] italic" style={{ color: clusterTint(item.cluster.wash).name }}>
-              In {item.cluster.name}
+            <p className="mt-1 text-[15px] text-ink-2">
+              in{" "}
+              <i style={{ color: clusterTint(item.cluster.wash).name }}>{item.cluster.name}</i>
             </p>
           )}
           {!screen && <StatusMoves key={item.status} item={item} />}
@@ -961,7 +962,7 @@ function SaveNote({
       type="submit"
       disabled={pending}
       onMouseDown={keepFocus}
-      className={`bg-ink font-medium text-paper transition-colors hover:bg-ink-2 disabled:bg-ink-3 ${sheet ? "mt-2 min-h-12 w-full text-[0.95rem] active:bg-ink-2" : "min-h-11 px-4 py-2 text-sm lg:min-h-0"}`}
+      className={`bg-ink text-paper transition-colors hover:bg-ink-2 disabled:bg-ink-3 ${sheet ? "mt-2 min-h-12 w-full text-[0.95rem] font-medium active:bg-ink-2" : "min-h-11 px-[18px] text-[16px] italic"}`}
     >
       {pending ? "Saving…" : retry ? "Try again" : editing ? "Save changes" : "Save note"}
     </button>

@@ -78,6 +78,12 @@ typography:
     fontWeight: 400
     letterSpacing: "1px"
     fontFeature: "all-small-caps"
+  type-label:
+    fontFamily: "Newsreader, Georgia, serif"
+    fontSize: "12px"
+    fontWeight: 400
+    letterSpacing: "1.2px"
+    fontFeature: "all-small-caps"
   nav:
     fontFamily: "Newsreader, Georgia, serif"
     fontSize: "16px"

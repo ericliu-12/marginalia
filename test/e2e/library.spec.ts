@@ -37,7 +37,7 @@ test("a finished Book's panel names its Cluster and finish date, and numbers its
   await library(page).getByRole("button", { name: "Candide", exact: true }).click();
   const panel = page.getByRole("complementary", { name: "Notes on Candide" });
   await expect(panel.getByText("Voltaire · Finished 6 January")).toBeVisible();
-  await expect(panel.getByText("In Grief faced together")).toBeVisible();
+  await expect(panel.getByText("in Grief faced together")).toBeVisible();
 
   // Oldest first: a Note keeps its number.
   const notes = panel.getByRole("region", { name: "Notes" }).getByRole("listitem");

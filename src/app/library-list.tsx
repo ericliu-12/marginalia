@@ -132,7 +132,7 @@ function Row({ item, open, draftPage, onOpen }: { item: LibraryItem; open: boole
         {title}
         {item.cluster?.name && <span className="sr-only">, in {item.cluster.name}</span>}
       </p>
-      <p className="caps max-w-[18rem] truncate text-right text-[14px] tracking-[1px] text-ink-2">{author}</p>
+      <p title={author} className="caps max-w-[18rem] truncate text-right text-[14px] tracking-[1px] text-ink-2">{author}</p>
       {read && <p className="text-[14px] text-ink-2 tabular-nums">{item.finishedAt !== null && shortDate(item.finishedAt)}</p>}
       {moves}
       {failed}
