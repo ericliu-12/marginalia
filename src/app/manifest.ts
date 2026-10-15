@@ -1,10 +1,12 @@
 import type { MetadataRoute } from "next";
+import { DESCRIPTION } from "./description";
 
 // Installed to the home screen, Marginalia opens on its own, on paper, with no browser around it.
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Marginalia",
     short_name: "Marginalia",
+    description: DESCRIPTION,
     start_url: "/",
     display: "standalone",
     background_color: "#fbf8f1",
