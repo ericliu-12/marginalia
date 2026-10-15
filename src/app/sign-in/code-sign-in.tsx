@@ -10,13 +10,15 @@ const RESEND_AFTER_S = 60;
 const CODE_LENGTH = 6;
 const CODE_LASTS_MS = 5 * 60 * 1000;
 
+// The primary button: ink, square, italic serif.
 const button =
-  "mt-3 min-h-11 w-full bg-ink px-4 text-sm font-medium text-paper transition-colors hover:bg-ink-2 disabled:cursor-default disabled:hover:bg-ink";
+  "mt-3 min-h-11 w-full bg-ink px-4 text-[17px] text-paper italic transition-colors duration-150 hover:bg-ink-2 disabled:cursor-default disabled:hover:bg-ink";
 // Google's sign-in branding: its own "G", unaltered, on a neutral outlined button.
 const googleButton =
-  "flex min-h-11 w-full items-center justify-center gap-3 border border-edge bg-paper-2 px-4 text-sm font-medium text-ink transition-colors hover:bg-paper-3 disabled:cursor-default disabled:text-ink-3 disabled:hover:bg-paper-2";
-const label = "block text-[0.8rem] font-medium text-ink-2";
-const quietText = "text-[0.8rem] text-ink-3";
+  "flex min-h-11 w-full items-center justify-center gap-3 border border-edge bg-paper-2 px-4 text-[16px] text-ink transition-colors duration-150 hover:bg-paper-3 disabled:cursor-default disabled:text-ink-3 disabled:hover:bg-paper-2";
+// Field labels and the small print under the form: small caps.
+const label = "caps block text-[14px] font-medium tracking-[1.5px] text-ink-2";
+const quietText = "caps text-[14px] tracking-[1px] text-ink-3";
 
 // Relative paths only: the page's own origin is the site's, and nothing absolute is built here.
 async function post(path: string, body: object, headers: Record<string, string> = {}): Promise<Response | null> {
@@ -263,11 +265,11 @@ export function CodeSignIn({
   }, [error, step, code.length]);
 
   const message = (
-    <p id="sign-in-message" role="alert" className="mt-2 min-h-5 text-sm text-pretty text-contrast">
+    <p id="sign-in-message" role="alert" className="mt-2 min-h-6 text-[15px] leading-snug text-pretty text-contrast">
       {error ?? notice}
     </p>
   );
-  const wordmark = <h1 className="text-[1.75rem] leading-none font-medium tracking-[-0.01em] italic">Marginalia</h1>;
+  const wordmark = <h1 className="text-[24px] leading-none italic lg:text-[30px]">Marginalia</h1>;
 
   if (step === "email")
     return (
@@ -276,7 +278,7 @@ export function CodeSignIn({
         <p role="status" className={`text-[1.0625rem] leading-normal text-pretty text-ink-2 ${deleted ? "mt-8" : ""}`}>
           {deleted ? "Your account has been deleted." : null}
         </p>
-        <p id="google-message" role="alert" className="mt-8 min-h-5 text-sm text-pretty text-contrast">
+        <p id="google-message" role="alert" className={`${deleted ? "mt-12" : "mt-8"} min-h-6 text-[15px] leading-snug text-pretty text-contrast`}>
           {googleError}
         </p>
         <button type="button" onClick={onGoogle} disabled={googlePending} aria-describedby={googleError ? "google-message" : undefined} className={`${googleButton} mt-2`}>
@@ -309,7 +311,7 @@ export function CodeSignIn({
           }}
           aria-invalid={error ? true : undefined}
           aria-describedby={error || notice ? "sign-in-message" : undefined}
-          className={`${field} mt-1 text-[0.95rem]`}
+          className={`${field} mt-1.5 text-[17px] aria-invalid:border-contrast`}
         />
         {message}
         <div ref={turnstile.container} />
@@ -356,7 +358,7 @@ export function CodeSignIn({
         }}
         aria-invalid={error ? true : undefined}
         aria-describedby={error || notice ? "code-sent sign-in-message" : "code-sent"}
-        className={`${field} mt-1 text-[1.0625rem] tracking-[0.3em] tabular-nums`}
+        className={`${field} mt-1.5 text-[19px] tracking-[0.3em] tabular-nums aria-invalid:border-contrast`}
       />
       {message}
       <button type="submit" disabled={pending} className={button}>

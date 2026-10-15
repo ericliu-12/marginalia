@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { appAuth, signupMode } from "@/lib/auth";
 import { safeNext } from "@/lib/signed-out";
 import { siteUrl } from "@/lib/site-url";
-import { quietLink } from "../quiet-link";
+import { smallCapsLink } from "../legal";
 import { CodeSignIn } from "./code-sign-in";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +16,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
   const next = safeNext(given);
   if (await appAuth().api.getSession({ headers: await headers() })) redirect(next);
   return (
-    <main className="flex min-h-dvh justify-center px-6 pt-[max(18vh,calc(env(safe-area-inset-top)+3rem))] pb-12">
+    <main className="flex min-h-dvh justify-center px-5 pt-[max(18vh,calc(env(safe-area-inset-top)+3rem))] pb-12 sm:px-6">
       <div className="w-full max-w-[19rem]">
         <CodeSignIn
           next={next}
@@ -26,11 +26,11 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
           turnstileSiteKey={process.env.TURNSTILE_SITE_KEY ?? ""}
           openSignup={signupMode() === "open"}
         />
-        <nav aria-label="Privacy and terms" className="mt-10 flex items-center gap-4">
-          <Link href="/privacy" className={`${quietLink} inline-flex items-center`}>
+        <nav aria-label="Privacy and terms" className="mt-10 flex items-center gap-6">
+          <Link href="/privacy" className={`${smallCapsLink} text-[14px] tracking-[1px]`}>
             Privacy
           </Link>
-          <Link href="/terms" className={`${quietLink} inline-flex items-center`}>
+          <Link href="/terms" className={`${smallCapsLink} text-[14px] tracking-[1px]`}>
             Terms
           </Link>
         </nav>

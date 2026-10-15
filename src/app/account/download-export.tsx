@@ -10,7 +10,7 @@ const standalone = () =>
 
 // The quiet button (DESIGN.md): a hairline of ink that fills with ink on hover, 44px tall on touch.
 const quietButton =
-  "inline-flex min-h-11 items-center border border-ink/70 px-3 text-[0.8rem] font-medium text-ink transition-colors duration-150 hover:bg-ink hover:text-paper active:bg-ink-2 active:text-paper lg:min-h-9";
+  "inline-flex min-h-11 items-center border border-ink px-[18px] text-[16px] text-ink italic transition-colors duration-150 hover:bg-ink hover:text-paper active:bg-ink-2 active:text-paper";
 
 function save(file: File) {
   const url = URL.createObjectURL(file);
@@ -53,11 +53,11 @@ export function DownloadExport() {
 
   const label = { idle: "Download export", pending: "Preparing export…", failed: "Try again", ready: "Save export" }[state.is];
   return (
-    <div className="mt-5 flex flex-wrap items-baseline gap-x-4 gap-y-2">
+    <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2">
       <a href="/api/export" download onClick={download} aria-disabled={state.is === "pending"} className={`${quietButton} aria-disabled:pointer-events-none aria-disabled:border-rule aria-disabled:text-ink-3`}>
         {label}
       </a>
-      <p role="status" className="text-[0.8rem] text-contrast">
+      <p role="status" className="text-[15px] text-pretty text-contrast">
         {state.is === "failed" ? "Couldn’t prepare your export. Check your connection and try again." : ""}
       </p>
     </div>

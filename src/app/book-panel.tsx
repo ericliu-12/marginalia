@@ -840,7 +840,7 @@ export function NoteForm(props: NoteFormProps) {
 
   // Writing on the sheet's paper has no box; a keyboard's focus shows as a thematic hairline beneath.
   const sheetField = "w-full bg-transparent text-ink placeholder:text-ink-3 focus-visible:shadow-[0_1px_0_var(--color-thematic)] focus-visible:outline-none";
-  const label = "text-[0.8rem] font-medium text-ink-2";
+  const label = sheet ? "caps text-[14px] font-medium tracking-[1.5px] text-ink-2" : "text-[0.8rem] font-medium text-ink-2";
   const removeLink = (what: string, onClick: () => void) => (
     <button type="button" aria-label={`Remove ${what}`} onMouseDown={keepFocus} onClick={onClick} className={`${quietLink} shrink-0`}>
       Remove
@@ -917,7 +917,7 @@ export function NoteForm(props: NoteFormProps) {
         </div>
       )}
       {error && (
-        <p role="alert" className={`text-sm text-contrast ${sheet ? "border-t border-rule py-2.5" : "mt-2"}`}>
+        <p role="alert" className={`text-contrast ${sheet ? "border-t border-rule py-2.5 text-[15px]" : "mt-2 text-sm"}`}>
           {error.message}
         </p>
       )}
@@ -963,7 +963,7 @@ function SaveNote({
       type="submit"
       disabled={pending}
       onMouseDown={keepFocus}
-      className={`bg-ink text-paper transition-colors hover:bg-ink-2 disabled:bg-ink-3 ${sheet ? "mt-2 min-h-12 w-full text-[0.95rem] font-medium active:bg-ink-2" : "min-h-11 px-[18px] text-[16px] italic"}`}
+      className={`bg-ink text-paper transition-colors hover:bg-ink-2 disabled:bg-ink-3 ${sheet ? "mt-2 min-h-12 w-full text-[17px] italic active:bg-ink-2" : "min-h-11 px-[18px] text-[16px] italic"}`}
     >
       {pending ? "Saving…" : retry ? "Try again" : editing ? "Save changes" : "Save note"}
     </button>
