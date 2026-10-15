@@ -220,6 +220,14 @@ describe("Graph", () => {
       for (const m of moves(first, second)) expect(m).toBeLessThanOrEqual(MAX_DRIFT + 1e-9);
     });
 
+    it("lays out Books with no Connections at all, each in a place of its own", async () => {
+      for (const t of ["A", "B", "C"]) await add(t);
+      await layoutGraph(ctx.db, ctx.userId, { fresh: true });
+      const at = Object.values(positions(await graph()));
+      expect(at.every((p) => Number.isFinite(p.x) && Number.isFinite(p.y))).toBe(true);
+      expect(new Set(at.map((p) => `${p.x},${p.y}`)).size).toBe(3);
+    });
+
     it("lays a crowded graph out afresh when asked, all Books at once", async () => {
       for (const t of ["A", "B", "C", "D", "E"]) await add(t);
       await ctx.jobs.drain(deps());

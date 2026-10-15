@@ -581,6 +581,7 @@ function lineUpHalo(
     // The view needed around everything placed so far: the area of the smallest of the canvas's shape.
     const extent = [...boxes, ...pools.map((p) => grown({ x0: p.x, y0: p.y, x1: p.x, y1: p.y }, wash))];
     const room = (extra: Box[]) => {
+      if (extent.length + extra.length === 0) return 0;
       const b = union([...extent, ...extra]);
       const across = Math.max(b.x1 - b.x0 + unit, (b.y1 - b.y0 + unit) * ASPECT);
       return (across * across) / ASPECT;
@@ -643,7 +644,7 @@ function lineUpHalo(
         let r = nearest(id, cos, sin);
         if (r === null) continue;
         if (clear(own(id, at(r + loose)))) r += loose;
-        const cost = room([...taken, ...own(id, at(r))]) / base - 1 + (HALO_PULL * Math.abs(turn)) / Math.PI;
+        const cost = (room([...taken, ...own(id, at(r))]) - base) / (base || 1) + (HALO_PULL * Math.abs(turn)) / Math.PI;
         if (best === null || cost < best.cost) best = { at: at(r), cost };
       }
       if (!best) continue;
