@@ -733,11 +733,6 @@ export function NoteForm(props: NoteFormProps) {
   const latest = useRef(draft);
   const [showQuote, setShowQuote] = useState(!!draft.quote);
   const [showPage, setShowPage] = useState(!!draft.page);
-  // The panel's new Note rests as one quiet line, "Write a Note…", and opens into the editor on a click
-  // or focus. It starts open while a draft is waiting, and closes again only when left empty.
-  const quiet = !editing && !sheet;
-  const [open, setOpen] = useState(!quiet || !!(draft.body || draft.quote || draft.page));
-  const resting = quiet && !open;
   // A save that failed keeps everything typed, and Save becomes Try again.
   const [error, setError] = useState<{ message: string; retry: boolean } | null>(null);
   // Not a transition: a server action that hangs would keep it pending.
@@ -857,14 +852,6 @@ export function NoteForm(props: NoteFormProps) {
         e.preventDefault();
         submit();
       }}
-      onBlur={(e) => {
-        const { body, quote, page } = latest.current;
-        if (!quiet || pending || e.currentTarget.contains(e.relatedTarget) || body || quote || page) return;
-        setOpen(false);
-        setShowQuote(false);
-        setShowPage(false);
-        setError(null);
-      }}
       onKeyDown={(e) => {
         if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
           e.preventDefault();
@@ -875,7 +862,8 @@ export function NoteForm(props: NoteFormProps) {
         }
       }}
     >
-      <label htmlFor={`${idPrefix}-body`} className="sr-only">
+      {/* The panel's new Note is headed by its label, the accent's "Write a Note"; elsewhere the label is unseen. */}
+      <label htmlFor={`${idPrefix}-body`} className={editing || sheet ? "sr-only" : "block pb-1.5 text-[15px] text-accent italic"}>
         {editing ? "Edit note" : sheet ? "New note" : "Write a Note"}
       </label>
       <textarea
@@ -883,85 +871,75 @@ export function NoteForm(props: NoteFormProps) {
         id={`${idPrefix}-body`}
         value={draft.body}
         onChange={(e) => change({ body: e.target.value })}
-        onFocus={() => setOpen(true)}
-        placeholder={resting ? "Write a Note…" : "What are you thinking?"}
-        rows={resting ? 1 : sheet ? 5 : editing ? 4 : 3}
+        placeholder="What are you thinking?"
+        rows={sheet ? 5 : editing ? 4 : 3}
         // In the sheet the text grows as it is written, and the sheet scrolls, rather than scrolling inside it.
-        // At rest in the panel it is one quiet line over a hairline, its words in the accent.
-        className={
-          resting
-            ? "block w-full resize-none border-b border-rule bg-transparent py-2.5 text-[16px] leading-normal italic placeholder:text-accent"
-            : `${sheet ? `${sheetField} block min-h-[5lh] resize-none py-1.5 field-sizing-content` : `${field} resize-y`} text-[1.0625rem] leading-normal`
-        }
+        className={`${sheet ? `${sheetField} block min-h-[5lh] resize-none py-1.5 field-sizing-content` : `${field} resize-y`} text-[1.0625rem] leading-normal`}
       />
-      {!resting && (
-        <>
-          {showQuote && (
-            <div className={sheet ? "border-t border-rule pt-1" : "mt-3"}>
-              <div className="flex items-center justify-between gap-3">
-                <label htmlFor={`${idPrefix}-quote`} className={label}>
-                  Quoted passage
-                </label>
-                {removeLink("quote", () => remove({ quote: "" }, setShowQuote))}
-              </div>
-              <textarea
-                ref={quoteRef}
-                id={`${idPrefix}-quote`}
-                value={draft.quote}
-                onChange={(e) => change({ quote: e.target.value })}
-                rows={sheet ? 3 : 2}
-                placeholder={sheet ? "The passage, as written" : undefined}
-                className={sheet ? `${sheetField} block min-h-[3lh] resize-none pb-1 text-ink-2 italic field-sizing-content` : `${field} mt-1 resize-y italic`}
-              />
-            </div>
-          )}
-          {showPage && (
-            <div className={sheet ? "flex items-center gap-3 border-t border-rule" : "mt-3"}>
-              <div className={sheet ? "contents" : "flex items-center justify-between gap-3"}>
-                <label htmlFor={`${idPrefix}-page`} className={label}>
-                  Page
-                </label>
-                {!sheet && removeLink("page", () => remove({ page: "" }, setShowPage))}
-              </div>
-              <input
-                ref={pageRef}
-                id={`${idPrefix}-page`}
-                inputMode="numeric"
-                autoComplete="off"
-                placeholder="e.g. 112"
-                value={draft.page}
-                onChange={(e) => change({ page: e.target.value })}
-                className={sheet ? `${sheetField} min-h-11 min-w-0 flex-1 text-[0.95rem] tabular-nums` : `${field} mt-1 w-28 text-[0.95rem]`}
-              />
-              {sheet && removeLink("page", () => remove({ page: "" }, setShowPage))}
-            </div>
-          )}
-          {error && (
-            <p role="alert" className={`text-sm text-contrast ${sheet ? "border-t border-rule py-2.5" : "mt-2"}`}>
-              {error.message}
-            </p>
-          )}
-          <div className={sheet ? "flex flex-wrap items-center gap-x-5 border-t border-rule pt-1 empty:hidden" : "mt-3 flex flex-wrap items-center gap-x-5 gap-y-1"}>
-            {!sheet && <SaveNote buttonRef={saveRef} pending={pending} retry={!!error?.retry} editing={editing} sheet={false} />}
-            {editing && (
-              <button type="button" onClick={onCancel} disabled={pending} className={quietLink}>
-                Cancel
-              </button>
-            )}
-            {!showQuote && (
-              <button type="button" onMouseDown={keepFocus} onClick={() => reveal(setShowQuote, quoteRef)} className={quietLink}>
-                Add a quote
-              </button>
-            )}
-            {!showPage && (
-              <button type="button" onMouseDown={keepFocus} onClick={() => reveal(setShowPage, pageRef)} className={quietLink}>
-                Add a page
-              </button>
-            )}
+      {showQuote && (
+        <div className={sheet ? "border-t border-rule pt-1" : "mt-3"}>
+          <div className="flex items-center justify-between gap-3">
+            <label htmlFor={`${idPrefix}-quote`} className={label}>
+              Quoted passage
+            </label>
+            {removeLink("quote", () => remove({ quote: "" }, setShowQuote))}
           </div>
-          {sheet && <SaveNote buttonRef={saveRef} pending={pending} retry={!!error?.retry} editing={false} sheet />}
-        </>
+          <textarea
+            ref={quoteRef}
+            id={`${idPrefix}-quote`}
+            value={draft.quote}
+            onChange={(e) => change({ quote: e.target.value })}
+            rows={sheet ? 3 : 2}
+            placeholder={sheet ? "The passage, as written" : undefined}
+            className={sheet ? `${sheetField} block min-h-[3lh] resize-none pb-1 text-ink-2 italic field-sizing-content` : `${field} mt-1 resize-y italic`}
+          />
+        </div>
       )}
+      {showPage && (
+        <div className={sheet ? "flex items-center gap-3 border-t border-rule" : "mt-3"}>
+          <div className={sheet ? "contents" : "flex items-center justify-between gap-3"}>
+            <label htmlFor={`${idPrefix}-page`} className={label}>
+              Page
+            </label>
+            {!sheet && removeLink("page", () => remove({ page: "" }, setShowPage))}
+          </div>
+          <input
+            ref={pageRef}
+            id={`${idPrefix}-page`}
+            inputMode="numeric"
+            autoComplete="off"
+            placeholder="e.g. 112"
+            value={draft.page}
+            onChange={(e) => change({ page: e.target.value })}
+            className={sheet ? `${sheetField} min-h-11 min-w-0 flex-1 text-[0.95rem] tabular-nums` : `${field} mt-1 w-28 text-[0.95rem]`}
+          />
+          {sheet && removeLink("page", () => remove({ page: "" }, setShowPage))}
+        </div>
+      )}
+      {error && (
+        <p role="alert" className={`text-sm text-contrast ${sheet ? "border-t border-rule py-2.5" : "mt-2"}`}>
+          {error.message}
+        </p>
+      )}
+      <div className={sheet ? "flex flex-wrap items-center gap-x-5 border-t border-rule pt-1 empty:hidden" : "mt-3 flex flex-wrap items-center gap-x-5 gap-y-1"}>
+        {!sheet && <SaveNote buttonRef={saveRef} pending={pending} retry={!!error?.retry} editing={editing} sheet={false} />}
+        {editing && (
+          <button type="button" onClick={onCancel} disabled={pending} className={quietLink}>
+            Cancel
+          </button>
+        )}
+        {!showQuote && (
+          <button type="button" onMouseDown={keepFocus} onClick={() => reveal(setShowQuote, quoteRef)} className={quietLink}>
+            Add a quote
+          </button>
+        )}
+        {!showPage && (
+          <button type="button" onMouseDown={keepFocus} onClick={() => reveal(setShowPage, pageRef)} className={quietLink}>
+            Add a page
+          </button>
+        )}
+      </div>
+      {sheet && <SaveNote buttonRef={saveRef} pending={pending} retry={!!error?.retry} editing={false} sheet />}
     </form>
   );
 }

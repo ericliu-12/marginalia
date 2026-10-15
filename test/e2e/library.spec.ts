@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { addCluster, finishBook, readingBook, seedLibrary } from "./database";
+import { addCluster, finishBook, seedLibrary } from "./database";
 import { READER_B, signedIn } from "./session";
 
 // The library's shelves (#136): numbered, Read showing its latest 8 until "and N more" shows the rest
@@ -58,36 +58,6 @@ test("the Book's panel reads About, then Notes, then Connections", async ({ page
   const [about, notes, connections] = [await top("About this book"), await top("Notes"), await top("Connections")];
   expect(about).toBeLessThan(notes);
   expect(notes).toBeLessThan(connections);
-});
-
-test("a new Note rests as one quiet line, opens on focus, and keeps its draft", async ({ page }) => {
-  await readingBook("Middlemarch");
-  await page.goto("/");
-  await library(page).getByRole("button", { name: "Middlemarch", exact: true }).click();
-  const panel = page.getByRole("complementary", { name: "Notes on Middlemarch" });
-  const field = panel.getByRole("textbox", { name: "Write a Note" });
-  const save = panel.getByRole("button", { name: "Save note" });
-  await expect(field).toHaveAttribute("placeholder", "Write a Note…");
-  await expect(field).toHaveAttribute("rows", "1");
-  await expect(save).toHaveCount(0);
-
-  await field.click();
-  await expect(save).toBeVisible();
-  await expect(field).toHaveAttribute("placeholder", "What are you thinking?");
-  // Left empty, it rests again.
-  await panel.getByRole("heading", { name: "Middlemarch" }).click();
-  await expect(save).toHaveCount(0);
-
-  // Left with words in it, it stays open, and the shelf shows the draft.
-  await field.click();
-  await field.fill("Dorothea's choices");
-  await panel.getByRole("heading", { name: "Middlemarch" }).click();
-  await expect(save).toBeVisible();
-  await expect(shelf(page, "Reading").getByRole("listitem").filter({ hasText: "Middlemarch" })).toContainText("Draft note");
-  await page.reload();
-  await library(page).getByRole("button", { name: "Middlemarch", exact: true }).click();
-  await expect(panel.getByRole("textbox", { name: "Write a Note" })).toHaveValue("Dorothea's choices");
-  await expect(save).toBeVisible();
 });
 
 test("a row's Status moves take the author and date's place on hover and focus, never over them", async ({ page }) => {
