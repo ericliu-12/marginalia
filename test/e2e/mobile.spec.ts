@@ -72,8 +72,8 @@ test("Add adds a Book in one tap, stays open with the search selected for the ne
 
   // Typing goes over the selected search, and the next Book is one tap too.
   await page.keyboard.type("Austerlitz");
-  await addScreen(page).getByRole("group", { name: "Add Austerlitz" }).getByRole("button", { name: "Finished" }).click();
-  await expect(addScreen(page).getByText("Added · Finished")).toBeVisible();
+  await addScreen(page).getByRole("group", { name: "Add Austerlitz" }).getByRole("button", { name: "Read", exact: true }).click();
+  await expect(addScreen(page).getByText("Added · Read", { exact: true })).toBeVisible();
   await expect(addScreen(page).getByText("1 Book finding Connections")).toBeVisible();
   expect(await selectedText(page)).toBe("Austerlitz");
 
@@ -116,8 +116,8 @@ test("Add opens the first result on its choices; tapping another opens that one 
   await expect(row("Austerlitz")).toHaveAttribute("aria-expanded", "true");
   await expect(row("Piranesi")).toHaveAttribute("aria-expanded", "false");
   await expect(searchbox(page)).toBeFocused();
-  await addScreen(page).getByRole("group", { name: "Add Austerlitz" }).getByRole("button", { name: "Finished" }).click();
-  await expect(addScreen(page).getByText("Added · Finished")).toBeVisible();
+  await addScreen(page).getByRole("group", { name: "Add Austerlitz" }).getByRole("button", { name: "Read", exact: true }).click();
+  await expect(addScreen(page).getByText("Added · Read", { exact: true })).toBeVisible();
   // Once something is added, closing keeps it: Cancel gives way to Done alone.
   await expect(addScreen(page).getByRole("button", { name: "Cancel" })).toHaveCount(0);
 });
@@ -253,7 +253,7 @@ test("what is done on a Book's screen shows back in Add: a new Status, and a rem
   await expect(status(page).getByRole("button", { name: "Read", exact: true })).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: "Back to Add a Book" }).click();
   await searchbox(page).fill("");
-  await expect(addedSoFar.getByText("Added · Finished")).toBeVisible();
+  await expect(addedSoFar.getByText("Added · Read", { exact: true })).toBeVisible();
 
   await toPiranesi();
   await page.getByRole("button", { name: "Remove from library" }).click();

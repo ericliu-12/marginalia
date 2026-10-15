@@ -38,7 +38,7 @@ const check = (
 
 // The phone's Add a Book: full screen over the shelf, for adding several Books in a row. The chosen
 // result (the first, until another is tapped) opens in place on its three choices, Want to read,
-// Reading or Finished, and goes in with one tap; search stays open with its text
+// Reading or Read, and goes in with one tap; search stays open with its text
 // selected, so the next Book is typed straight over it. Every add can be undone until Done. A Book
 // opened from here `hidden`s it, keeping the visit for back to return to; what was done there to the
 // Books added (`items`, the library) shows here. `onAddedChange` hears the Statuses of what is added,

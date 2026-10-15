@@ -69,7 +69,7 @@ test.describe("on a desktop", () => {
     await expect(form.getByLabel("Cover image address")).toBeFocused();
     await expect(form.getByLabel("Cover image address")).toHaveAttribute("placeholder", "https://");
     await form.getByLabel("Cover image address").fill("ftp://example.com/c.jpg");
-    await wrongAt(form, "Finished", "Cover image address", COVER_ERROR);
+    await wrongAt(form, "Read", "Cover image address", COVER_ERROR);
 
     await form.getByRole("button", { name: "Add a description" }).click();
     await expect(form.getByLabel("Description")).toBeFocused();
@@ -112,13 +112,13 @@ test.describe("on a desktop", () => {
     await form.getByRole("button", { name: "Reading" }).click();
     await call.held();
     const choices = form.getByRole("group", { name: "Add to your library as" }).getByRole("button");
-    await expect(choices).toHaveText(["Want to read", "Adding…", "Finished"]);
+    await expect(choices).toHaveText(["Want to read", "Adding…", "Read"]);
     for (const choice of await choices.all()) await expect(choice).toBeDisabled();
     await expect(form.getByRole("button", { name: "Cancel" })).toBeDisabled();
     await call.release();
 
     await expect(form.getByRole("alert")).toHaveText("Couldn’t add this book. Try again.");
-    await expect(choices).toHaveText(["Want to read", "Reading", "Finished"]);
+    await expect(choices).toHaveText(["Want to read", "Reading", "Read"]);
     await expect(form.getByLabel("Title")).not.toHaveAttribute("aria-invalid");
   });
 

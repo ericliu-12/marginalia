@@ -70,7 +70,7 @@ test("a Book that looks like one in the library is flagged, links to it, and can
 
   const warning = form.getByText("already in your library. Reading it again? Start a new read-through from there instead.");
   await expect(warning).toBeVisible();
-  await expect(form.getByRole("button", { name: "Finished" })).toBeEnabled();
+  await expect(form.getByRole("button", { name: "Read", exact: true })).toBeEnabled();
 
   // The re-read the note points to starts from the Book's panel.
   await form.getByRole("button", { name: "Stoner" }).click();

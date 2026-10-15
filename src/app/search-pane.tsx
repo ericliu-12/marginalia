@@ -9,12 +9,12 @@ import { EMPTY_BOOK, type BookDraft } from "./book-draft";
 import { Cover } from "./cover";
 import { quietLink } from "./quiet-link";
 
-export const LABELS: Record<Status, string> = { want: "Want to read", reading: "Reading", read: "Finished" };
+export const LABELS: Record<Status, string> = { want: "Want to read", reading: "Reading", read: "Read" };
 const DEBOUNCE_MS = 300;
 
 type Phase = "idle" | "loading" | "done" | "error";
 
-// The Want to read / Reading / Finished choices: on paper behind an edge, filling with ink when
+// The Want to read / Reading / Read choices: on paper behind an edge, filling with ink when
 // pointed at or `chosen` (the one being added). On a phone they share the row equally, large; on a
 // desktop, where every result shows its choices, they rest quieter so the titles lead.
 export const addButton = (chosen = false) =>
