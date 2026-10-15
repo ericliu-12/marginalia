@@ -5,8 +5,9 @@
 // The layout is scaled so a typical Connection is this long at zoom 1, which the drag forces assume.
 export const TYPICAL_EDGE_LENGTH = 70;
 
-// A Book's dot grows with its Connections, slowly, so hubs stand out without swallowing their labels.
-export const nodeRadius = (degree: number) => 3.5 + 1.7 * Math.sqrt(degree);
+// A Book's dot grows with its Connections, slowly, so hubs stand out without swallowing their labels. A
+// Book with none is a hollow ring the size of a dot with one, so it still reads as a Book.
+export const nodeRadius = (degree: number) => (degree === 0 ? 5 : 3.5 + 1.7 * Math.sqrt(degree));
 
 // A label's type size, its line (so the height of its plate) as a share of that, and its gap from the dot.
 export const LABEL_SIZE = 13;

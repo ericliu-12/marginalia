@@ -498,7 +498,8 @@ export function GraphCanvas({
           if (n.book.degree === 0) {
             ctx.arc(n.x!, n.y!, Math.max(0, r - LONE_RING / 2 / k), 0, Math.PI * 2);
             ctx.lineWidth = LONE_RING / k;
-            ctx.strokeStyle = lit ? LONE_INK : FADED_NODE;
+            // Behind a selection, in the faded label's colour: FADED_NODE as a hairline would all but vanish.
+            ctx.strokeStyle = lit ? LONE_INK : FADED_LABEL;
             ctx.stroke();
             return;
           }
