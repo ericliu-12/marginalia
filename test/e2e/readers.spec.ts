@@ -17,7 +17,7 @@ test.beforeEach(async () => {
 });
 
 const asReaderB = (browser: Browser, options = {}) => browser.newContext({ storageState: signedIn(READER_B), ...options });
-const searchbox = (page: Page) => page.getByRole("searchbox", { name: "Search by title and author" });
+const searchbox = (page: Page) => page.getByRole("searchbox", { name: "Title or author" });
 
 test("A's Book and Note stay A's: B's shelf, Book screen, graph and search show none of them", async ({ browser }) => {
   // A, on the phone: adds Austerlitz from search as Reading, and writes a Note on it.
@@ -57,6 +57,7 @@ test("A's Book and Note stay A's: B's shelf, Book screen, graph and search show 
   // B, at a desk: search finds the work, but not as in B's library; the graph has none of A's Books.
   const b = await (await asReaderB(browser)).newPage();
   await b.goto("/");
+  await b.getByRole("button", { name: "Add a Book" }).click();
   await searchbox(b).fill("Austerlitz");
   await expect(b.getByRole("group", { name: "Add Austerlitz" }).getByRole("button", { name: "Reading" })).toBeVisible();
   await expect(b.getByText(NOTE)).toHaveCount(0);

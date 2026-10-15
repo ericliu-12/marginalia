@@ -203,7 +203,7 @@ export function GraphWorkspace({
       {wide && graph.books.length === 0 && (
         <p className="absolute inset-x-12 top-28 max-w-[40ch] text-xl text-ink-2 italic">
           Your graph begins with a finished Book. Mark one finished, or add the ones you’ve already read, in{" "}
-          <Link href="/" className="text-ink underline decoration-rule underline-offset-4">
+          <Link href="/?add" className="text-ink underline decoration-rule underline-offset-4">
             your library
           </Link>
           .

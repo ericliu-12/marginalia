@@ -12,7 +12,8 @@ const panelHeading = (page: Page) => page.getByRole("complementary", { name: /^N
 async function openManualForm(page: Page, query: string) {
   await searchFindsNothing(page);
   await page.goto("/");
-  await page.getByRole("searchbox", { name: "Search by title and author" }).fill(query);
+  await page.getByRole("button", { name: "Add a Book" }).click();
+  await page.getByRole("searchbox", { name: "Title or author" }).fill(query);
   await searchPane(page).getByRole("button", { name: "Add it by hand" }).click();
   return searchPane(page).getByRole("form", { name: "Add a book by hand" });
 }
@@ -55,7 +56,7 @@ test("the form says what is wrong in its own words, at the field, and keeps the 
   await expect(form.getByText("The cover should be a web address beginning with http:// or https://.")).toBeVisible();
 
   // Searching again closes the form; bringing it back brings the draft.
-  await page.getByRole("searchbox", { name: "Search by title and author" }).fill("Kitchen notes");
+  await page.getByRole("searchbox", { name: "Title or author" }).fill("Kitchen notes");
   await expect(form).toHaveCount(0);
   await searchPane(page).getByRole("button", { name: "Add it by hand" }).click();
   await expect(form.getByLabel("Author", { exact: true })).toHaveValue("June Ash");
@@ -69,7 +70,7 @@ test("a Book that looks like one in the library is flagged, links to it, and can
 
   const warning = form.getByText("already in your library. Reading it again? Start a new read-through from there instead.");
   await expect(warning).toBeVisible();
-  await expect(form.getByRole("button", { name: "Already read" })).toBeEnabled();
+  await expect(form.getByRole("button", { name: "Finished" })).toBeEnabled();
 
   // The re-read the note points to starts from the Book's panel.
   await form.getByRole("button", { name: "Stoner" }).click();

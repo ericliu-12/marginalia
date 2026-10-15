@@ -16,7 +16,7 @@ test("with no Finished Books, the graph invites both ways in and shows no Books"
 
   // The library opens with its search ready for Books already read.
   await page.getByRole("link", { name: "your library" }).click();
-  await expect(page.getByRole("searchbox", { name: "Search by title and author" })).toBeFocused();
+  await expect(page.getByRole("searchbox", { name: "Title or author" })).toBeFocused();
 });
 
 test("a first Book waits for Connections, with its themes shown as themes", async ({ page }) => {
