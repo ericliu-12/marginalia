@@ -1,9 +1,15 @@
 import type { Metadata, Viewport } from "next";
 import { Newsreader } from "next/font/google";
 import "./globals.css";
+import { DESCRIPTION } from "./description";
 import { RefreshAfterSaves } from "./refresh-after-saves";
 
-export const metadata: Metadata = { title: "Marginalia", appleWebApp: { capable: true, title: "Marginalia", statusBarStyle: "default" } };
+export const metadata: Metadata = {
+  title: "Marginalia",
+  description: DESCRIPTION,
+  openGraph: { title: "Marginalia", description: DESCRIPTION, siteName: "Marginalia", type: "website" },
+  appleWebApp: { capable: true, title: "Marginalia", statusBarStyle: "default" },
+};
 
 // `cover` lets the page reach under the notch and home indicator, so env(safe-area-inset-*) has values
 // and the phone surfaces' padding clears them. The browser and status bar take the paper's colour.
