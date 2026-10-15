@@ -51,7 +51,6 @@ export function layoutScale(books: Pick<GraphBook, "bookId" | "x" | "y">[], conn
 export const DRAG = { home: 0.06, link: 0.2, charge: -24, alphaDecay: 0.04, velocityDecay: 0.5, settleTicks: 200 };
 
 export const INK = "#1a1a1a";
-export const PAPER_PLATE = "rgb(251 248 241 / 0.88)";
 export const FADED_NODE = "#d9d2c4";
 export const FADED_EDGE = "#e3dccd";
 export const FADED_LABEL = "#a39b8d";

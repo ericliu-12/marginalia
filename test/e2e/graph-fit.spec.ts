@@ -52,13 +52,14 @@ test("the graph first fills the canvas, across and down, its labels inside it", 
   await page.screenshot({ path: test.info().outputPath("graph-fit.png") });
 });
 
-test("Books with no Connections sit in the halo, hollow and muted, the graph still filling the canvas", async ({ page }) => {
+test("Books with no Connections ring the connected ones, hollow and muted", async ({ page }) => {
   await seedSmallLibrary([...TITLES, "Giovanni's Room", "To the Lighthouse"], LINKED);
   await page.goto("/graph");
   await expect(page.locator("canvas")).toBeVisible();
   await page.waitForTimeout(500);
 
-  // Pixels in ink tertiary (the hollow dots and their italic labels), and the box around the solid ink dots.
+  // The box around pixels in ink tertiary (the hollow dots and their italic labels), and around the solid
+  // ink dots.
   const drawn = await page.locator("canvas").evaluate((c: HTMLCanvasElement) => {
     const s = c.width / c.clientWidth;
     const { data, width } = c.getContext("2d")!.getImageData(0, 0, c.width, c.height);
@@ -76,18 +77,24 @@ test("Books with no Connections sit in the halo, hollow and muted, the graph sti
       return a > 200 && Math.abs(r - 110) < 14 && Math.abs(g - 103) < 14 && Math.abs(b - 93) < 14;
     };
     const solid = (x: number, y: number) => [-3, 0, 3].every((dx) => [-3, 0, 3].every((dy) => ink(x + dx, y + dy)));
-    const dots = { x0: Infinity, x1: -Infinity };
+    const dots = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
+    const halo = { ...dots };
     let mutedPixels = 0;
     for (let y = 4; y < c.clientHeight - 4; y += 1) {
       for (let x = 4; x < c.clientWidth - 4; x += 1) {
-        if (muted(x, y)) mutedPixels++;
-        if (solid(x, y)) Object.assign(dots, { x0: Math.min(dots.x0, x), x1: Math.max(dots.x1, x) });
+        if (muted(x, y)) {
+          mutedPixels++;
+          Object.assign(halo, { x0: Math.min(halo.x0, x), y0: Math.min(halo.y0, y), x1: Math.max(halo.x1, x), y1: Math.max(halo.y1, y) });
+        }
+        if (solid(x, y)) Object.assign(dots, { x0: Math.min(dots.x0, x), y0: Math.min(dots.y0, y), x1: Math.max(dots.x1, x), y1: Math.max(dots.y1, y) });
       }
     }
-    return { width: c.clientWidth, dots, mutedPixels };
+    return { dots, halo, mutedPixels };
   });
 
   expect(drawn.mutedPixels).toBeGreaterThan(50);
-  expect((drawn.dots.x1 - drawn.dots.x0) / drawn.width).toBeGreaterThan(0.5);
+  // The two sit on opposite sides of the connected Books, across or down: a ring, not a band beside them.
+  const { dots, halo } = drawn;
+  expect((halo.x0 < dots.x0 && halo.x1 > dots.x1) || (halo.y0 < dots.y0 && halo.y1 > dots.y1)).toBe(true);
   await page.screenshot({ path: test.info().outputPath("graph-halo.png") });
 });

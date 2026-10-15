@@ -31,7 +31,6 @@ import {
   LONE_INK,
   LONE_RING,
   layoutScale,
-  PAPER_PLATE,
   RECENT_LABELS,
   TYPE_COLOR,
   RING_GAP,
@@ -281,6 +280,12 @@ export function GraphCanvas({
     const serif = getComputedStyle(document.documentElement).getPropertyValue("--nf-serif").trim() || "Georgia";
     const font = (k: number, italic = false) => `${italic ? "italic " : ""}500 ${LABEL_SIZE / k}px ${serif}, Georgia, serif`;
     const widths = new Map<string, number>();
+    // Names and labels measured in a fallback face are measured again once Newsreader has loaded.
+    const remeasure = () => {
+      nameSizes.current.clear();
+      widths.clear();
+    };
+    document.fonts.addEventListener("loadingdone", remeasure);
     // Each Cluster's wash, as last drawn; and whether a drag's simulation is moving the Books.
     const washes = new Map<string, Wash>();
     let simulating = false;
@@ -358,7 +363,14 @@ export function GraphCanvas({
           return { x0: r.left - origin.left, y0: r.top - origin.top, x1: r.right - origin.left, y1: r.bottom - origin.top };
         });
         if (insetRef.current) chrome.push({ x0: view.width - insetRef.current, y0: 0, x1: view.width, y1: view.height });
-        const first = placeLabels({ view, dots: blocking, requests, obstacles: chrome });
+        // The Connections drawn now, which labels keep off where they can.
+        const idOf = (end: string | Node) => (typeof end === "string" ? end : end.id);
+        const lines = data()
+          .links.filter((l) => focusRef.current.visible.has(l.id) && !withheldRef.current.has(l.id))
+          .map((l) => [screen.get(idOf(l.source)), screen.get(idOf(l.target))])
+          .filter((ends): ends is [Dot, Dot] => ends.every((e) => e !== undefined))
+          .map(([p, q]) => ({ x0: p.x, y0: p.y, x1: q.x, y1: q.y }));
+        const first = placeLabels({ view, dots: blocking, requests, obstacles: chrome, lines });
 
         const r = WASH_RADIUS * TYPICAL_EDGE_LENGTH * k;
         const fontSize = clusterNameSize(k);
@@ -395,7 +407,7 @@ export function GraphCanvas({
         // Placed again, now clear of the names, so none is drawn under one; behind a selection, only the
         // chosen Cluster's name holds its place, and any other a label then lands on is left off.
         const holding = [...placed].filter(([id, box]) => box !== null && (!litBooks || id === chosenClusterId)).map(([, box]) => box!);
-        const labels = holding.length ? placeLabels({ view, dots: blocking, requests, obstacles: [...chrome, ...holding] }) : first;
+        const labels = holding.length ? placeLabels({ view, dots: blocking, requests, obstacles: [...chrome, ...holding], lines }) : first;
         for (const [id, box] of placed) {
           if (!box || holding.includes(box) || !labels.some((l) => overlaps(l.box, box))) continue;
           nameEls.current.get(id)!.style.visibility = "hidden";
@@ -513,8 +525,7 @@ export function GraphCanvas({
           ctx.arc(n.x!, n.y!, (n.radius + 5) / k, 0, Math.PI * 2);
           ctx.fill();
         })
-        // Labels last, over the edges, each on a paper plate so no edge strikes through it, placed in
-        // priority order by placeLabels; the hovered and chosen Books always get theirs, in full. Each
+        // Labels last, over the edges, as plain text, placed in priority order by placeLabels; the hovered and chosen Books always get theirs, in full. Each
         // Cluster's name is placed by placeNames among those labels, and the labels then again around the
         // names. While a drag's simulation runs and nothing else changes, the labels keep their sides and
         // follow their dots, and the names stay put, until it settles.
@@ -529,21 +540,18 @@ export function GraphCanvas({
           if (!still) kept = { scene, labels: place(ctx, k, view, dots, screen) };
           const { litBooks } = focusRef.current;
           ctx.textBaseline = "middle";
-          ctx.textAlign = "center";
           for (const { id, text, box } of kept!.labels) {
             const n = byId.get(id)!;
             const lone = n.book.degree === 0;
             ctx.font = font(k, lone);
-            // Back to graph units for drawing, from where the dot is now.
+            // Back to graph units for drawing, from where the dot is now. The text starts at the edge of
+            // its box nearest the dot (centred above or below it), so it never reaches back over the dot.
             const p = (sx: number, sy: number) => ({ x: n.x! + sx / k, y: n.y! + sy / k });
-            const corner = p(box.x0, box.y0);
-            ctx.fillStyle = PAPER_PLATE;
-            ctx.beginPath();
-            ctx.roundRect(corner.x, corner.y, (box.x1 - box.x0) / k, (box.y1 - box.y0) / k, 2 / k);
-            ctx.fill();
-            const mid = p((box.x0 + box.x1) / 2, (box.y0 + box.y1) / 2);
+            const [align, sx] = box.x0 > 0 ? (["left", box.x0 + LABEL_PLATE] as const) : box.x1 < 0 ? (["right", box.x1 - LABEL_PLATE] as const) : (["center", (box.x0 + box.x1) / 2] as const);
+            ctx.textAlign = align;
+            const at = p(sx, (box.y0 + box.y1) / 2);
             ctx.fillStyle = litBooks && !litBooks.has(id) ? FADED_LABEL : lone ? LONE_INK : INK;
-            ctx.fillText(text, mid.x, mid.y);
+            ctx.fillText(text, at.x, at.y);
           }
         })
         // Only a drag runs the simulation, and the settling after it; a fresh graph never starts it.
@@ -587,13 +595,13 @@ export function GraphCanvas({
       }) as never);
       ro = new ResizeObserver(() => f.width(host.clientWidth).height(host.clientHeight));
       ro.observe(host);
-      // Names measured in a fallback face are measured again in Newsreader.
-      void document.fonts.ready.then(() => nameSizes.current.clear());
+      void document.fonts.ready.then(remeasure);
       setReady(true);
     });
 
     return () => {
       cancelled = true;
+      document.fonts.removeEventListener("loadingdone", remeasure);
       clearTimeout(pause);
       ro?.disconnect();
       fg?._destructor();
@@ -610,11 +618,12 @@ export function GraphCanvas({
     if (!f.getGraphBbox()) return false;
     fitted.current = true;
     // Positions are already drawn to scale: a typical Connection is TYPICAL_EDGE_LENGTH long.
-    const { nodes, clusters } = dataRef.current;
+    const { nodes, clusters, links } = dataRef.current;
     const fit = fitDrawn(
       {
         books: nodes.map((n) => ({ id: n.id, x: n.x!, y: n.y!, label: n.label, degree: n.book.degree })),
         clusters: clusters.map(({ cluster }) => cluster),
+        connections: links.filter((l) => l.connection.featured).map((l) => ({ a: l.connection.a, b: l.connection.b })),
         unit: TYPICAL_EDGE_LENGTH,
       },
       { width: f.width(), height: f.height() },

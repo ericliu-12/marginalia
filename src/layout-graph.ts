@@ -37,7 +37,7 @@ if (email && readers.length === 0) throw new Error(`No Reader with the email ${e
 const shape = (s: LayoutStats) =>
   `${s.crossings} crossings, ${s.width.toFixed(1)} × ${s.height.toFixed(1)}, main part ${s.mainShare === null ? "—" : `${Math.round(s.mainShare * 100)}%`} of the view`;
 const reads = (v: LayoutStats["views"][keyof LayoutStats["views"]]) =>
-  `zoom ${v.zoom.toFixed(2)} (${v.limit === "max" ? "at the max" : `by ${v.limit}`}), fills ${Math.round(v.filled * 100)}%, ${v.labelOverlaps} label overlaps (${v.dotOverlaps} over dots), ${v.nameOverlaps} name overlaps, ${v.namesOnWash} names on their wash; halo: ${v.halo.onWash} on a wash, ${v.halo.onName} on a name, ${v.halo.near} too near`;
+  `zoom ${v.zoom.toFixed(2)} (${v.limit === "max" ? "at the max" : `by ${v.limit}`}), fills ${Math.round(v.filled * 100)}%, ${v.labelOverlaps} label overlaps (${v.dotOverlaps} over dots), ${v.nameOverlaps} name overlaps, ${v.namesOnWash} names on their wash; ${v.labelEdgeCrossings} label/edge crossings, ${v.edgesNearBooks} edges passing near unrelated Books, ${v.parallelEdges} edges along each other; halo: ${v.halo.onWash} on a wash, ${v.halo.onName} on a name, ${v.halo.near} too near`;
 let table: string | undefined;
 if (!dryRun) {
   table = await backupPositions(db, email ? readers.map((r) => r.id) : undefined);
