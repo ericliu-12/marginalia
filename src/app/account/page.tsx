@@ -26,7 +26,7 @@ export default async function AccountPage() {
       title="Account"
       subtitle={
         <>
-          Signed in as <span className="wrap-anywhere text-ink-2">{reader.email}</span>
+          Signed in as <span className="wrap-anywhere text-[15px] tracking-normal text-ink-2 italic [font-variant-caps:normal]">{reader.email}</span>
         </>
       }
       links={[
@@ -44,7 +44,7 @@ export default async function AccountPage() {
             { name: "Connections", text: "The Connections between your Books and why they connect, dismissed ones included." },
           ]}
         />
-        <p className="text-[0.8rem] text-ink-3">Covers, descriptions and summaries come from elsewhere, so they aren’t in it.</p>
+        <p className="text-[15px] text-ink-3 italic">Covers, descriptions and summaries come from elsewhere, so they aren’t in it.</p>
         <DownloadExport />
       </Section>
 
@@ -53,7 +53,7 @@ export default async function AccountPage() {
         <SignOut />
       </Section>
 
-      <div className="mt-14 border-t border-rule">
+      <div className="mt-16 border-t border-rule">
         <Section id="delete-account" title="Delete your account">
           <p className="text-ink-2">
             Deleting your account removes your library, Notes, the Books you added by hand, your Connections and Clusters, and signs you
