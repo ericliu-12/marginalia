@@ -28,7 +28,8 @@ import {
   LABEL_SIZE,
   LAND_MS,
   LAND_RING,
-  LEAD_LABELS,
+  LONE_INK,
+  LONE_RING,
   layoutScale,
   PAPER_PLATE,
   RECENT_LABELS,
@@ -278,7 +279,7 @@ export function GraphCanvas({
     let until = 0;
     let pause: ReturnType<typeof setTimeout> | undefined;
     const serif = getComputedStyle(document.documentElement).getPropertyValue("--nf-serif").trim() || "Georgia";
-    const font = (k: number) => `500 ${LABEL_SIZE / k}px ${serif}, Georgia, serif`;
+    const font = (k: number, italic = false) => `${italic ? "italic " : ""}500 ${LABEL_SIZE / k}px ${serif}, Georgia, serif`;
     const widths = new Map<string, number>();
     // Each Cluster's wash, as last drawn; and whether a drag's simulation is moving the Books.
     const washes = new Map<string, Wash>();
@@ -319,15 +320,16 @@ export function GraphCanvas({
       // its box relative to its dot.
       const place = (ctx: CanvasRenderingContext2D, k: number, view: { width: number; height: number }, dots: Dot[], screen: Map<string, Dot>) => {
         const { labelOrder, litBooks, chosenBookId, chosenClusterId } = focusRef.current;
-        const width = (text: string) => {
-          let w = widths.get(text);
+        const width = (text: string, italic: boolean) => {
+          const key = `${italic ? "i" : ""}:${text}`;
+          let w = widths.get(key);
           if (w === undefined) {
             ctx.save();
             ctx.setTransform(1, 0, 0, 1, 0, 0);
-            ctx.font = font(1);
+            ctx.font = font(1, italic);
             w = ctx.measureText(text).width;
             ctx.restore();
-            widths.set(text, w);
+            widths.set(key, w);
           }
           return w;
         };
@@ -345,8 +347,7 @@ export function GraphCanvas({
           texts.set(n.id, text);
           const s = screen.get(n.id)!;
           const gap = n.radius + LABEL_GAP + (ringed(n.id) ? RING_GAP : 0);
-          const over = requests.length < LEAD_LABELS;
-          requests.push({ id: n.id, x: s.x, y: s.y, gap, plate: LABEL_PLATE, w: width(text) + 2 * LABEL_PLATE, h: H, must, over });
+          requests.push({ id: n.id, x: s.x, y: s.y, gap, plate: LABEL_PLATE, w: width(text, n.book.degree === 0) + 2 * LABEL_PLATE, h: H, must });
         }
         // Behind a selection, faded Books give way to the lit ones' labels; and no label goes under the
         // wordmark, the legend or the panel.
@@ -492,7 +493,15 @@ export function GraphCanvas({
             ctx.strokeStyle = INK;
             ctx.stroke();
           }
+          // A Book with no Connections is a hollow dot, its ring inside the dot's size.
           ctx.beginPath();
+          if (n.book.degree === 0) {
+            ctx.arc(n.x!, n.y!, Math.max(0, r - LONE_RING / 2 / k), 0, Math.PI * 2);
+            ctx.lineWidth = LONE_RING / k;
+            ctx.strokeStyle = lit ? LONE_INK : FADED_NODE;
+            ctx.stroke();
+            return;
+          }
           ctx.arc(n.x!, n.y!, r, 0, Math.PI * 2);
           ctx.fillStyle = lit ? INK : FADED_NODE;
           ctx.fill();
@@ -518,11 +527,12 @@ export function GraphCanvas({
           const still = simulating && kept && kept.scene.focus === scene.focus && kept.scene.data === scene.data && kept.scene.key === scene.key;
           if (!still) kept = { scene, labels: place(ctx, k, view, dots, screen) };
           const { litBooks } = focusRef.current;
-          ctx.font = font(k);
           ctx.textBaseline = "middle";
           ctx.textAlign = "center";
           for (const { id, text, box } of kept!.labels) {
             const n = byId.get(id)!;
+            const lone = n.book.degree === 0;
+            ctx.font = font(k, lone);
             // Back to graph units for drawing, from where the dot is now.
             const p = (sx: number, sy: number) => ({ x: n.x! + sx / k, y: n.y! + sy / k });
             const corner = p(box.x0, box.y0);
@@ -531,7 +541,7 @@ export function GraphCanvas({
             ctx.roundRect(corner.x, corner.y, (box.x1 - box.x0) / k, (box.y1 - box.y0) / k, 2 / k);
             ctx.fill();
             const mid = p((box.x0 + box.x1) / 2, (box.y0 + box.y1) / 2);
-            ctx.fillStyle = !litBooks || litBooks.has(id) ? INK : FADED_LABEL;
+            ctx.fillStyle = litBooks && !litBooks.has(id) ? FADED_LABEL : lone ? LONE_INK : INK;
             ctx.fillText(text, mid.x, mid.y);
           }
         })

@@ -4,8 +4,22 @@ import forceAtlas2 from "graphology-layout-forceatlas2";
 import type { Db } from "@/db/client";
 import { book, bookPosition, libraryEntry } from "@/db/schema";
 import { readClusters } from "./clusters";
-import { DESKTOP, LABEL_CHAR, LABEL_GAP, LABEL_LINE, LABEL_SIZE, nodeRadius, TYPICAL_EDGE_LENGTH, WASH_RADIUS } from "./graph-drawing";
-import { readDrawn, type Clash, type Drawn } from "./graph-fit";
+import {
+  CLUSTER_NAME_GAP,
+  clusterNameSize,
+  DESKTOP,
+  HALO_GAP,
+  LABEL_CHAR,
+  LABEL_GAP,
+  LABEL_LINE,
+  LABEL_PLATE,
+  LABEL_SIZE,
+  nodeRadius,
+  TYPICAL_EDGE_LENGTH,
+  WASH_RADIUS,
+} from "./graph-drawing";
+import { fitDrawn, nameBox, readDrawn, textWidth, type Clash, type Drawn } from "./graph-fit";
+import { similarities } from "./embeddings";
 import { readGraphStatus } from "./graph-job";
 import { byStrength, otherBook, touches, type Pair } from "./connection-pair";
 import { CLUSTER_WEIGHT, readLiveConnections, type ConnectionType, type Strength } from "./connections";
@@ -54,20 +68,31 @@ export const LABEL_ROOM = {
 const ROOM_RINGS = 6;
 const ROOM_RING_STEP = 0.35;
 const ROOM_SPOTS = 16;
-// Packing, in typical Connection lengths beyond the Cluster washes: the room between separate groups of
-// connected Books, between the connected Books and the band of unconnected ones beside them, and between
-// the band's columns.
+// Packing: the room between separate groups of connected Books, in typical Connection lengths beyond the
+// Cluster washes, and the directions tried when packing one beside those already packed.
 const GROUP_GAP = 0.5;
-const BAND_GAP = 0.5;
-const BAND_COLUMN_GAP = 0.5;
-// Directions tried when packing a separate group beside those already packed.
 const PACK_ANGLES = 24;
-// How much more of the fitted view another side must give the main connected part before the band of
-// unconnected Books moves there, so it doesn't jump from side to side between runs.
-export const SIDE_MARGIN = 0.1;
+// The halo of unconnected Books (HALO_GAP clear of the connected ones, in ./graph-drawing.ts). Each Book
+// aims toward the side its HALO_SIMILAR most similar connected Books sit on (by stored embeddings), or
+// with none a side of its own, strays from that by up to HALO_SCATTER, and sits up to HALO_LOOSENESS
+// lengths beyond the nearest spot with room: all three seeded from its id, so it keeps its place from
+// one layout to the next. Of HALO_ANGLES directions around the connected Books, it takes the spot that
+// grows the fitted view least, a turn of half the circle away from its aim counting as HALO_PULL of the
+// view. Placed in HALO_ROUNDS at most, each with labels at the size the last was fitted at.
+const HALO_SIMILAR = 3;
+const HALO_SCATTER = Math.PI / 4;
+const HALO_LOOSENESS = 0.6;
+const HALO_ANGLES = 36;
+const HALO_PULL = 0.25;
+const HALO_ROUNDS = 4;
+// Labels are measured as if the graph were fitted this much smaller than it is, so a halo laid out
+// before still has room unless the connected Books have moved in on it.
+const HALO_SLACK = 0.9;
+// Paper kept between two halo Books' dots and labels, in pixels.
+const HALO_PAD = 6;
 // The canvas is wide, so the graph is laid out wide: ForceAtlas2 settles it this much narrower than it is
 // drawn, a graph laid out afresh is first turned so its longest spread lies across, and packing and the
-// band aim to fill a view of the desktop's shape.
+// halo aim to fill a view of the desktop's shape.
 export const WIDEN = 1.6;
 const ASPECT = DESKTOP["1280×800"].width / DESKTOP["1280×800"].height;
 // Rounds of spreading Books apart where labels and names would be drawn over each other, at most.
@@ -134,13 +159,11 @@ async function loadGraph(db: Db | Tx, userId: string, fresh = false) {
   const connections = await readLiveConnections(db, userId);
   const connected = new Set(connections.flatMap((c) => [c.a, c.b]));
   const kept = new Set(books.filter((r) => !fresh && stored(r) !== null && r.lone === !connected.has(r.book.id)).map((r) => r.book.id));
-  // The band of unconnected Books holds the same Books as when it was laid out.
-  const sameBand = !fresh && books.every((r) => (r.lone === true && stored(r) !== null) === !connected.has(r.book.id));
   const at = place(
     books.map((r) => ({ id: r.book.id, stored: kept.has(r.book.id) ? stored(r) : null })),
     connections,
   );
-  return { books, connections, at, finished, kept, sameBand };
+  return { books, connections, at, finished, kept };
 }
 
 // Stored positions where there are any. A Book without one starts beside the placed Books it connects
@@ -223,7 +246,8 @@ export function visibleConnections(graph: GraphView, selectedBookId: string | nu
 // Finished Book sits. A placed Book starts where it is and moves at most MAX_DRIFT, so the graph stays a
 // place the reader knows while crowding eases and Books drift toward Connections they gained; a new one
 // starts beside the placed Books it connects to, settles in among them, and then moves to the nearest
-// spot with room for it and its label. `fresh` lays the whole graph out anew, as the first time;
+// spot with room for it and its label. Books with no Connections go to the halo around the rest (see
+// lineUpHalo). `fresh` lays the whole graph out anew, as the first time;
 // `dryRun` only works out where each Book would go. Returns where each Book is laid out, by Book id.
 export async function layoutGraph(db: Db, userId: string, { fresh = false, dryRun = false } = {}): Promise<Map<string, Point>> {
   return db.transaction(async (tx) => {
@@ -237,7 +261,7 @@ export async function layoutGraph(db: Db, userId: string, { fresh = false, dryRu
 export const lockLayout = (tx: Tx, userId: string) => tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`layout:${userId}`}))`);
 
 async function layOut(db: Tx, userId: string, fresh: boolean, dryRun: boolean): Promise<Map<string, Point>> {
-  const { books, connections, at, kept, sameBand } = await loadGraph(db, userId, fresh);
+  const { books, connections, at, kept } = await loadGraph(db, userId, fresh);
   if (books.length === 0) return new Map();
   const placed = (r: (typeof books)[number]) => kept.has(r.book.id);
 
@@ -245,20 +269,34 @@ async function layOut(db: Tx, userId: string, fresh: boolean, dryRun: boolean): 
   for (const r of books) g.addNode(r.book.id, { ...at.get(r.book.id)! });
   for (const c of connections) g.addEdge(c.a, c.b, { weight: CLUSTER_WEIGHT[c.strength] });
   const unit = typicalLength(g);
-  const widen = (by: number) => g.updateEachNodeAttributes((_, a) => ({ ...a, x: a.x * by }));
-  widen(1 / WIDEN);
-  forceAtlas2.assign(g, {
-    iterations: books.some(placed) ? SETTLE_ITERATIONS : FRESH_ITERATIONS,
-    getEdgeWeight: "weight",
-    settings: { ...forceAtlas2.inferSettings(g), barnesHutOptimize: books.length > 500 },
-  });
-  if (!books.some(placed)) turnAcross(g);
-  widen(WIDEN);
-  // Groups packed, then each placed Book held to MAX_DRIFT, then the band beside where they end up. A
-  // band whose Books changed, or that changes side, is laid out anew at once; otherwise it keeps its
-  // shape, so moves as a block, within MAX_DRIFT too. Without a unit to measure by (a lone Book), placed
-  // Books stay put.
+  // Only the connected Books settle: the halo places the rest, which would otherwise push them about.
+  const linkedGraph = g.copy();
+  linkedGraph.forEachNode((id) => linkedGraph.degree(id) === 0 && linkedGraph.dropNode(id));
+  const widen = (h: Graph, by: number) => h.updateEachNodeAttributes((_, a) => ({ ...a, x: a.x * by }));
+  widen(linkedGraph, 1 / WIDEN);
+  if (linkedGraph.order > 0) {
+    forceAtlas2.assign(linkedGraph, {
+      iterations: books.some(placed) ? SETTLE_ITERATIONS : FRESH_ITERATIONS,
+      getEdgeWeight: "weight",
+      settings: { ...forceAtlas2.inferSettings(linkedGraph), barnesHutOptimize: linkedGraph.order > 500 },
+    });
+  }
+  if (!books.some(placed)) turnAcross(linkedGraph);
+  widen(linkedGraph, WIDEN);
+  // ForceAtlas2 draws the whole graph about a little every run; the main connected part's placed Books
+  // stay centred where they were (packing places the other groups beside it), so the halo keeps its place.
+  const [main = []] = connectedGroups(linkedGraph.nodes(), connections);
+  const anchors = main.filter((id) => kept.has(id));
+  const shift = { x: 0, y: 0 };
+  for (const id of anchors) {
+    shift.x += (linkedGraph.getNodeAttribute(id, "x") - at.get(id)!.x) / anchors.length;
+    shift.y += (linkedGraph.getNodeAttribute(id, "y") - at.get(id)!.y) / anchors.length;
+  }
+  linkedGraph.forEachNode((id, a) => g.mergeNodeAttributes(id, { x: a.x - shift.x, y: a.y - shift.y }));
+  // Groups packed, then each placed Book held to MAX_DRIFT; a new connected Book moved to a spot with
+  // room. Without a unit to measure by (a lone Book), placed Books stay put.
   const labels = new Map(books.map((r) => [r.book.id, labelOf(displayed(r.book, r.entry).title)]));
+  const linked = books.filter((r) => g.degree(r.book.id) > 0);
   const lone = books.filter((r) => g.degree(r.book.id) === 0).map((r) => r.book.id);
   const limit = unit > 0 && Number.isFinite(unit) ? MAX_DRIFT * unit : 0;
   const hold = (ids: string[]) => {
@@ -270,23 +308,26 @@ async function layOut(db: Tx, userId: string, fresh: boolean, dryRun: boolean): 
       g.mergeNodeAttributes(id, { x: from.x + dx * scale, y: from.y + dy * scale });
     }
   };
+  const settled = linked.filter(placed).map((r) => r.book.id);
   packGroups(g, labels);
-  hold(books.filter((r) => placed(r) && g.degree(r.book.id) > 0).map((r) => r.book.id));
-  // The band as it stands: the Books still in it since it was laid out, and its side.
-  const stayed = lone.filter((id) => kept.has(id));
-  const current = stayed.length ? bandShape(stayed.map((id) => [id, at.get(id)!]), books.filter((r) => !lone.includes(r.book.id)).map((r) => at.get(r.book.id)!)) : undefined;
-  const bandKept = !lineUpBand(g, labels, current, sameBand);
-  if (bandKept) hold(stayed);
-  // An unconnected Book already has its spot in the band, which the others keep clear of.
+  hold(settled);
   makeRoom(
     g,
-    books.map((r) => ({ id: r.book.id, label: labelOf(displayed(r.book, r.entry).title), placed: placed(r) || g.degree(r.book.id) === 0 })),
+    linked.map((r) => ({ id: r.book.id, label: labels.get(r.book.id)!, placed: placed(r) })),
   );
-  // Then apart where labels and names would still be drawn over each other, the placed Books again held
-  // to MAX_DRIFT, so a crowded graph eases over a few runs.
+  // The halo around them; then apart where labels and names would still be drawn over each other, the
+  // placed Books again held to MAX_DRIFT, so a crowded graph eases over a few runs; then the halo again,
+  // around the connected Books where they end up.
   const clusters = await readClusters(db, userId, new Set(books.map((r) => r.book.id)));
+  const similar = new Map<string, { id: string; similarity: number }[]>();
+  for (const s of await similarities(db, userId, lone, linked.map((r) => r.book.id))) {
+    similar.set(s.a, [...(similar.get(s.a) ?? []), { id: s.b, similarity: s.similarity }]);
+  }
+  const homes = new Map(lone.filter((id) => kept.has(id)).map((id) => [id, at.get(id)!]));
+  lineUpHalo(g, labels, clusters, similar, homes);
   spread(g, labels, clusters);
-  hold([...books.filter((r) => placed(r) && g.degree(r.book.id) > 0).map((r) => r.book.id), ...(bandKept ? stayed : [])]);
+  hold(settled);
+  lineUpHalo(g, labels, clusters, similar, homes);
   const laidOut = new Map(books.map((r) => [r.book.id, { x: g.getNodeAttribute(r.book.id, "x") as number, y: g.getNodeAttribute(r.book.id, "y") as number }]));
   if (dryRun) return laidOut;
 
@@ -341,39 +382,6 @@ export function connectedGroups(ids: string[], pairs: Pair[]): string[][] {
     groups.push(group.sort());
   }
   return groups.sort((p, q) => q.length - p.length || (p[0] < q[0] ? -1 : 1));
-}
-
-export type Side = "below" | "right" | "above" | "left";
-
-// The side for the band, given the main connected part's share of the fitted view with the band on each
-// side: the best, unless the band has a side now that is within SIDE_MARGIN of it.
-export function bandSide(shares: Record<Side, number>, current?: Side): Side {
-  const sides = Object.keys(shares) as Side[];
-  const best = sides.reduce((p, q) => (shares[q] > shares[p] ? q : p));
-  return current !== undefined && shares[best] - shares[current] < SIDE_MARGIN ? current : best;
-}
-type BandShape = { slots: Map<string, { column: number; row: number }>; side: Side };
-
-// The band's shape as it was laid out: each Book's column and row in it, and which side of the connected
-// Books' dots it sat on.
-function bandShape(band: [string, Point][], connected: Point[]): BandShape {
-  const ranks = (v: number[]) => {
-    const spread = Math.max(...v) - Math.min(...v);
-    const levels = [...v].sort((p, q) => p - q).filter((x, i, all) => i === 0 || x - all[i - 1] > spread * 1e-6);
-    return (x: number) => levels.findLastIndex((l) => l <= x + spread * 1e-6);
-  };
-  const column = ranks(band.map(([, p]) => p.x));
-  const row = ranks(band.map(([, p]) => p.y));
-  const slots = new Map(band.map(([id, p]) => [id, { column: column(p.x), row: row(p.y) }]));
-  if (connected.length === 0) return { slots, side: "below" };
-  const mid = (v: number[]) => (Math.min(...v) + Math.max(...v)) / 2;
-  const [bx, by] = [mid(band.map(([, p]) => p.x)), mid(band.map(([, p]) => p.y))];
-  const side: Side =
-    by > Math.max(...connected.map((p) => p.y)) ? "below"
-    : by < Math.min(...connected.map((p) => p.y)) ? "above"
-    : bx > mid(connected.map((p) => p.x)) ? "right"
-    : "left";
-  return { slots, side };
 }
 
 // How the packing measures the graph as it stands: the typical Connection length (null without one),
@@ -447,59 +455,6 @@ function packGroups(g: Graph, labels: Map<string, string>) {
   }
 }
 
-// Lines the unconnected Books up, by label, in evenly spaced rows beside the connected Books as they
-// now stand, BAND_GAP clear of their labels and washes, each column as wide as the longest label: on the
-// side and in as many columns as keep the fitted view smallest (below them on a tie), but on its
-// `current` side unless bandSide moves it. With `keep`, a band that stays on its side keeps its shape
-// there. Returns whether the band was laid out anew, rather than kept.
-function lineUpBand(g: Graph, labels: Map<string, string>, current?: BandShape, keep = false): boolean {
-  const m = measure(g, labels);
-  if (!m) return true;
-  const { unit, reach, box, dots, room, groups } = m;
-  const lone = g.filterNodes((id) => g.degree(id) === 0).sort((p, q) => labels.get(p)!.localeCompare(labels.get(q)!) || (p < q ? -1 : 1));
-  if (lone.length === 0) return true;
-  const packed = groups.map(box);
-  const fitted = groups.map(dots);
-  const longest = Math.max(...lone.map(reach));
-  const column = longest + BAND_COLUMN_GAP * unit;
-  const row = LABEL_ROOM.spacing * unit;
-  // The band's dots in so many columns and rows, on one side of the connected Books and centred along
-  // it; on the left, its labels clear of them too.
-  const around = packed.length ? union(packed) : { x0: 0, y0: 0, x1: 0, y1: 0 };
-  const mid = middle(around);
-  const away = packed.length ? BAND_GAP * unit : 0;
-  const band = (side: Side, columns: number, rows = Math.ceil(lone.length / columns)): Box => {
-    const w = (columns - 1) * column;
-    const h = (rows - 1) * row;
-    const x0 = side === "right" ? around.x1 + away : side === "left" ? around.x0 - away - w - longest : mid.x - w / 2;
-    const y0 = side === "below" ? around.y1 + away : side === "above" ? around.y0 - away - h : mid.y - h / 2;
-    return { x0, y0, x1: x0 + w, y1: y0 + h };
-  };
-  // On each side, the columns that keep the view smallest; and the main part's share of it.
-  const sides = ["below", "right", "above", "left"] as const;
-  const layouts = Object.fromEntries(
-    sides.map((side) => {
-      let best = band(side, 1);
-      for (let c = 2; c <= lone.length; c++) if (room([...fitted, band(side, c)]) < room([...fitted, best])) best = band(side, c);
-      return [side, best];
-    }),
-  ) as Record<Side, Box>;
-  const main = fitted.length ? room([fitted[0]]) : 0;
-  const shares = Object.fromEntries(sides.map((side) => [side, main / room([...fitted, layouts[side]])])) as Record<Side, number>;
-  const side = bandSide(shares, current?.side);
-
-  if (keep && current && side === current.side) {
-    const slots = [...current.slots.values()];
-    const at = band(side, Math.max(...slots.map((s) => s.column)) + 1, Math.max(...slots.map((s) => s.row)) + 1);
-    for (const [id, slot] of current.slots) g.mergeNodeAttributes(id, { x: at.x0 + slot.column * column, y: at.y0 + slot.row * row });
-    return false;
-  }
-  const best = layouts[side];
-  const columns = Math.round((best.x1 - best.x0) / column) + 1;
-  lone.forEach((id, i) => g.mergeNodeAttributes(id, { x: best.x0 + (i % columns) * column, y: best.y0 + Math.floor(i / columns) * row }));
-  return true;
-}
-
 // Turns the graph about the middle of its connected Books so their longest spread (their principal axis)
 // lies across.
 function turnAcross(g: Graph) {
@@ -514,14 +469,198 @@ function turnAcross(g: Graph) {
   g.updateEachNodeAttributes((_, a) => ({ ...a, x: mx + (a.x - mx) * cos - (a.y - my) * sin, y: my + (a.x - mx) * sin + (a.y - my) * cos }));
 }
 
+// A number in [0, 1) from a Book's id and a salt: the same every layout.
+function seeded(id: string, salt: number) {
+  let h = 0x811c9dc5 ^ salt;
+  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 0x01000193);
+  h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d);
+  return ((h ^ (h >>> 13)) >>> 0) / 2 ** 32;
+}
+
+// The convex hull of a set of points, counter-clockwise (Andrew's monotone chain).
+function hull(points: Point[]): Point[] {
+  const pts = [...points].sort((p, q) => p.x - q.x || p.y - q.y);
+  if (pts.length < 3) return pts;
+  const cross = (o: Point, a: Point, b: Point) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+  const half = (list: Point[]) => {
+    const out: Point[] = [];
+    for (const p of list) {
+      while (out.length >= 2 && cross(out[out.length - 2], out[out.length - 1], p) <= 0) out.pop();
+      out.push(p);
+    }
+    return out.slice(0, -1);
+  };
+  return [...half(pts), ...half([...pts].reverse())];
+}
+
+// Whether a box and a convex polygon overlap: no axis (the box's two, each edge's normal) parts them.
+function meetsHull(b: Box, poly: Point[]) {
+  if (poly.length === 0) return false;
+  const corners = [{ x: b.x0, y: b.y0 }, { x: b.x1, y: b.y0 }, { x: b.x1, y: b.y1 }, { x: b.x0, y: b.y1 }];
+  if (Math.max(...poly.map((p) => p.x)) <= b.x0 || Math.min(...poly.map((p) => p.x)) >= b.x1) return false;
+  if (Math.max(...poly.map((p) => p.y)) <= b.y0 || Math.min(...poly.map((p) => p.y)) >= b.y1) return false;
+  for (let i = 0; i < poly.length; i++) {
+    const [p, q] = [poly[i], poly[(i + 1) % poly.length]];
+    const n = { x: q.y - p.y, y: p.x - q.x };
+    const along = (c: Point) => n.x * c.x + n.y * c.y;
+    const edge = along(p);
+    if (Math.min(...corners.map(along)) >= edge) return false;
+  }
+  return true;
+}
+
+// Places each Book with no Connections in a halo around the connected ones: outside the hull of their
+// dots, labels, washes and Cluster names (both sides a name may take), HALO_GAP wider, and clear of the
+// halo Books placed before it, by id. Each takes the spot, toward its aim (see HALO_SIMILAR), that grows
+// the fitted view least. A Book already in the halo keeps its `homes` spot, placed first, pushed straight
+// out where the connected Books now reach it, unless that is more than HALO_LOOSENESS beyond the nearest
+// spot with room in its direction. Labels are measured at HALO_SLACK of the smallest zoom the graph is
+// fitted at on any DESKTOP canvas (the connected Books alone, at first), and placed again until it is
+// fitted no smaller than that. With nothing connected, the Books gather the same way around the middle.
+function lineUpHalo(
+  g: Graph,
+  labels: Map<string, string>,
+  clusters: Drawn["clusters"],
+  similar: Map<string, { id: string; similarity: number }[]>,
+  homes: Map<string, Point>,
+) {
+  const lone = g.filterNodes((id) => g.degree(id) === 0).sort();
+  if (lone.length === 0) return;
+  const linked = g.filterNodes((id) => g.degree(id) > 0);
+  const point = (id: string): Point => ({ x: g.getNodeAttribute(id, "x"), y: g.getNodeAttribute(id, "y") });
+  const fitted = (only?: (id: string) => boolean) => {
+    const unit = typicalLength(g);
+    const d = drawnOf(g, labels, clusters, unit, only);
+    return { unit, zoom: Math.min(...Object.values(DESKTOP).map((view) => fitDrawn(d, view).zoom)) };
+  };
+  let { unit, zoom } = fitted(linked.length ? (id) => g.degree(id) > 0 : undefined);
+  for (let round = 0; round < HALO_ROUNDS; round++) {
+    if (!(unit > 0) || !Number.isFinite(unit)) return;
+    const planned = zoom * HALO_SLACK;
+    place(unit, unit / (TYPICAL_EDGE_LENGTH * planned), clusterNameSize(planned));
+    ({ unit, zoom } = fitted());
+    if (zoom >= planned) return;
+  }
+
+  // One placing, `px` graph units to a pixel.
+  function place(unit: number, px: number, nameSize: number) {
+    const dotOf = (p: Point, degree: number): Box => grown({ x0: p.x, y0: p.y, x1: p.x, y1: p.y }, nodeRadius(degree) * px);
+    const labelBox = (p: Point, degree: number, text: string): Box => {
+      const x0 = p.x + (nodeRadius(degree) + LABEL_GAP - LABEL_PLATE) * px;
+      const h = (LABEL_SIZE * LABEL_LINE * px) / 2;
+      return { x0, y0: p.y - h, x1: x0 + (textWidth(text, LABEL_SIZE) + 2 * LABEL_PLATE) * px, y1: p.y + h };
+    };
+    // What the halo keeps clear of, HALO_GAP wider: boxes, and washes as circles about their Books.
+    const gap = HALO_GAP * unit;
+    const boxes: Box[] = linked.flatMap((id) => [dotOf(point(id), g.degree(id)), labelBox(point(id), g.degree(id), labels.get(id)!)]);
+    const pools: Point[] = [];
+    const wash = WASH_RADIUS * unit;
+    for (const c of clusters) {
+      const pts = c.bookIds.filter((id) => g.hasNode(id) && g.degree(id) > 0).map(point);
+      if (pts.length === 0) continue;
+      pools.push(...pts);
+      const { w, h } = nameBox(c.name, nameSize);
+      const mid = pts.reduce((sum, p) => sum + p.x, 0) / pts.length;
+      const reach = wash + CLUSTER_NAME_GAP * px;
+      const top = Math.min(...pts.map((p) => p.y)) - reach;
+      const bottom = Math.max(...pts.map((p) => p.y)) + reach;
+      boxes.push({ x0: mid - (w / 2) * px, y0: top - h * px, x1: mid + (w / 2) * px, y1: top });
+      boxes.push({ x0: mid - (w / 2) * px, y0: bottom, x1: mid + (w / 2) * px, y1: bottom + h * px });
+    }
+    // Circles become the polygons around them.
+    const sides = 16;
+    const out = (wash + gap) / Math.cos(Math.PI / sides);
+    const keepOut = hull([
+      ...boxes.flatMap((b) => {
+        const w = grown(b, gap);
+        return [{ x: w.x0, y: w.y0 }, { x: w.x1, y: w.y0 }, { x: w.x1, y: w.y1 }, { x: w.x0, y: w.y1 }];
+      }),
+      ...pools.flatMap((p) => Array.from({ length: sides }, (_, i) => ({ x: p.x + out * Math.cos((2 * Math.PI * i) / sides), y: p.y + out * Math.sin((2 * Math.PI * i) / sides) }))),
+    ]);
+    const centre = linked.length ? linked.map(point).reduce((p, q) => ({ x: p.x + q.x / linked.length, y: p.y + q.y / linked.length }), { x: 0, y: 0 }) : { x: 0, y: 0 };
+    // The view needed around everything placed so far: the area of the smallest of the canvas's shape.
+    const extent = [...boxes, ...pools.map((p) => grown({ x0: p.x, y0: p.y, x1: p.x, y1: p.y }, wash))];
+    const room = (extra: Box[]) => {
+      const b = union([...extent, ...extra]);
+      const across = Math.max(b.x1 - b.x0 + unit, (b.y1 - b.y0 + unit) * ASPECT);
+      return (across * across) / ASPECT;
+    };
+    const taken: Box[] = [];
+    const pad = HALO_PAD * px;
+    const clear = (own: Box[]) => own.every((b) => !meetsHull(b, keepOut) && !taken.some((t) => overlaps(grown(b, pad), t)));
+    const step = unit / 8;
+    const far = 200 * unit;
+
+    const own = (id: string, p: Point) => {
+      const dot = grown(dotOf(p, 0), (LABEL_ROOM.spacing * unit) / 2 - nodeRadius(0) * px);
+      return [dot, labelBox(p, 0, labels.get(id)!)];
+    };
+    // From the middle out along a direction, the first spot where the Book has room, or null.
+    const nearest = (id: string, cos: number, sin: number) => {
+      const at = (r: number) => ({ x: centre.x + cos * r, y: centre.y + sin * r });
+      for (let r = 0; r < far; r += step) if (clear(own(id, at(r)))) return r;
+      return null;
+    };
+    // A Book's spot in the halo as it stands: where it is, or pushed out to the nearest spot with room
+    // in the same direction; null if that is more than HALO_LOOSENESS short of where it is.
+    const home = (id: string): Point | null => {
+      const p = homes.get(id);
+      const r = p ? Math.hypot(p.x - centre.x, p.y - centre.y) : 0;
+      if (!p || r === 0) return null;
+      const [cos, sin] = [(p.x - centre.x) / r, (p.y - centre.y) / r];
+      const first = nearest(id, cos, sin);
+      if (first === null || r > first + HALO_LOOSENESS * unit + step) return null;
+      return r >= first && clear(own(id, p)) ? p : { x: centre.x + cos * first, y: centre.y + sin * first };
+    };
+    const search: string[] = [];
+    for (const id of lone) {
+      const p = home(id);
+      if (!p) {
+        search.push(id);
+        continue;
+      }
+      g.mergeNodeAttributes(id, p);
+      taken.push(...own(id, p));
+    }
+
+    for (const id of search) {
+      const near = (similar.get(id) ?? [])
+        .filter((s) => g.hasNode(s.id) && g.degree(s.id) > 0 && s.similarity > 0)
+        .sort((p, q) => q.similarity - p.similarity || (p.id < q.id ? -1 : 1))
+        .slice(0, HALO_SIMILAR);
+      const weight = near.reduce((sum, s) => sum + s.similarity, 0);
+      const toward = near.length
+        ? Math.atan2(near.reduce((sum, s) => sum + point(s.id).y * s.similarity, 0) / weight - centre.y, near.reduce((sum, s) => sum + point(s.id).x * s.similarity, 0) / weight - centre.x)
+        : seeded(id, 1) * 2 * Math.PI;
+      const aim = toward + (seeded(id, 2) * 2 - 1) * HALO_SCATTER;
+      const loose = seeded(id, 3) * HALO_LOOSENESS * unit;
+      let best: { at: Point; cost: number } | null = null;
+      const base = room(taken);
+      for (let k = 0; k < HALO_ANGLES; k++) {
+        const turn = (k % 2 ? 1 : -1) * Math.ceil(k / 2) * ((2 * Math.PI) / HALO_ANGLES);
+        const [cos, sin] = [Math.cos(aim + turn), Math.sin(aim + turn)];
+        const at = (r: number) => ({ x: centre.x + cos * r, y: centre.y + sin * r });
+        let r = nearest(id, cos, sin);
+        if (r === null) continue;
+        if (clear(own(id, at(r + loose)))) r += loose;
+        const cost = room([...taken, ...own(id, at(r))]) / base - 1 + (HALO_PULL * Math.abs(turn)) / Math.PI;
+        if (best === null || cost < best.cost) best = { at: at(r), cost };
+      }
+      if (!best) continue;
+      g.mergeNodeAttributes(id, best.at);
+      taken.push(...own(id, best.at));
+    }
+  }
+}
+
 // Moves Books apart, a round at a time, until on each DESKTOP canvas, fitted, no label is drawn over another
 // label or dot and no Cluster name over a label or another name (readDrawn): each such pair across or
 // down, whichever parts them sooner, half each way, a name with its Cluster's Books. Parting them can
 // shrink the fitted zoom, and so grow the labels against the graph, so it gives up after SPREAD_ROUNDS.
-// The graph as the canvas would draw it.
-const drawnOf = (g: Graph, labels: Map<string, string>, clusters: Drawn["clusters"], unit: number): Drawn => ({
-  books: g.mapNodes((id, a) => ({ id, x: a.x as number, y: a.y as number, label: labels.get(id)!, degree: g.degree(id) })),
-  clusters,
+// The graph as the canvas would draw it: all of it, or only the Books for which `only` holds.
+const drawnOf = (g: Graph, labels: Map<string, string>, clusters: Drawn["clusters"], unit: number, only = (_: string) => true): Drawn => ({
+  books: g.filterNodes(only).map((id) => ({ id, x: g.getNodeAttribute(id, "x") as number, y: g.getNodeAttribute(id, "y") as number, label: labels.get(id)!, degree: g.degree(id) })),
+  clusters: clusters.map((c) => ({ ...c, bookIds: c.bookIds.filter((id) => g.hasNode(id) && only(id)) })),
   unit,
 });
 

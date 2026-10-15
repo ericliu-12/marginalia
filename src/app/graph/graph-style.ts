@@ -32,13 +32,11 @@ export const TRAIL_CASING = 1;
 
 // Space between a chosen or hovered Book's dot and the ring around it.
 export const RING_GAP = 4;
-// Labels go to the right of a Book's dot, or failing that to its left, above or below; where none
-// fits, the label is left off. Books keep theirs in this order: the most recently finished few, then
-// those with more Connections. (Label text is cut by labelOf in src/domain/graph.ts.)
+// Labels go to the right of a Book's dot, or failing that to its left, above or below, never over
+// another Book's dot; where none fits, the label is left off. Books keep theirs in this order: the most
+// recently finished few, then those with more Connections. (Label text is cut by labelOf in
+// src/domain/graph.ts.)
 export const RECENT_LABELS = 3;
-// The first few labels in that order (behind a selection, its own Books' first) may sit over other Books'
-// dots where no side of theirs is clear, so a crowded graph still names the Books that matter most.
-export const LEAD_LABELS = 8;
 
 // How much to scale stored positions by so the median Connection is TYPICAL_EDGE_LENGTH long. A graph
 // with no Connections yet is scaled by how far each Book sits from its nearest other, so Books with
@@ -57,6 +55,9 @@ export const PAPER_PLATE = "rgb(251 248 241 / 0.88)";
 export const FADED_NODE = "#d9d2c4";
 export const FADED_EDGE = "#e3dccd";
 export const FADED_LABEL = "#a39b8d";
+// A Book with no Connections: a hollow dot, ringed this thick, and a muted italic label, in ink tertiary.
+export const LONE_INK = "#6e675d";
+export const LONE_RING = 1.5;
 export const TYPE_COLOR: Record<ConnectionType, string> = { thematic: "#3e5a80", contrast: "#9a3b2e", context: "#6b7a3a" };
 export const TYPE_LABEL: Record<ConnectionType, string> = { thematic: "Thematic", contrast: "Contrast", context: "Context" };
 export const STRENGTH_LABEL: Record<Strength, string> = { strong: "Strong", moderate: "Moderate", weak: "Weak" };

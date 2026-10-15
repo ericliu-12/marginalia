@@ -8,8 +8,9 @@ import { readDrawn, typicalLength, type Reading } from "./graph-fit";
 // back to.
 
 // How a laid-out graph reads: its Books; how it reads on each DESKTOP canvas once fitted (see readDrawn:
-// the zoom and what bounds it, the share of the canvas the Books fill, labels and names drawn over each
-// other, names on their wash); crossings among the Connections shown at rest; how far it spreads, width
+// the zoom and what bounds it, the share of the canvas the Books fill, labels drawn over labels and over
+// dots, names drawn over labels and names, names on their wash, and the halo's Books on a wash, on a
+// name or too near the connected Books); crossings among the Connections shown at rest; how far it spreads, width
 // by height, in typical Connection lengths; and the share of the fitted view (the box around every
 // Book's dot, half a length wider each way) that the box around the main connected part takes up, null
 // with no Connections.
@@ -67,7 +68,7 @@ export async function backupPositions(db: Db, userIds?: string[]): Promise<strin
 
 // Puts back each backed-up Reader's positions exactly as they were in `table`: a Book placed since is
 // unplaced until the next layout, and one no longer in their library is left out; each counts as
-// connected, so the next layout moves an unconnected one straight to the band. Returns how many
+// connected, so the next layout moves an unconnected one straight to the halo. Returns how many
 // Books were placed back.
 export async function restorePositions(db: Db, table: string): Promise<number> {
   if (!BACKUP.test(table)) throw new Error(`Not a position backup: ${table}`);

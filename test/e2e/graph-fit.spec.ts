@@ -51,3 +51,43 @@ test("the graph first fills the canvas, across and down, its labels inside it", 
   expect(drawn.all.x1).toBeLessThan(drawn.width - 8);
   await page.screenshot({ path: test.info().outputPath("graph-fit.png") });
 });
+
+test("Books with no Connections sit in the halo, hollow and muted, the graph still filling the canvas", async ({ page }) => {
+  await seedSmallLibrary([...TITLES, "Giovanni's Room", "To the Lighthouse"], LINKED);
+  await page.goto("/graph");
+  await expect(page.locator("canvas")).toBeVisible();
+  await page.waitForTimeout(500);
+
+  // Pixels in ink tertiary (the hollow dots and their italic labels), and the box around the solid ink dots.
+  const drawn = await page.locator("canvas").evaluate((c: HTMLCanvasElement) => {
+    const s = c.width / c.clientWidth;
+    const { data, width } = c.getContext("2d")!.getImageData(0, 0, c.width, c.height);
+    const px = (x: number, y: number) => {
+      const i = (Math.round(y * s) * width + Math.round(x * s)) * 4;
+      return [data[i], data[i + 1], data[i + 2], data[i + 3]];
+    };
+    const ink = (x: number, y: number) => {
+      const [r, g, b, a] = px(x, y);
+      return a > 200 && r < 80 && g < 80 && b < 80;
+    };
+    // #6e675d, give or take antialiasing.
+    const muted = (x: number, y: number) => {
+      const [r, g, b, a] = px(x, y);
+      return a > 200 && Math.abs(r - 110) < 14 && Math.abs(g - 103) < 14 && Math.abs(b - 93) < 14;
+    };
+    const solid = (x: number, y: number) => [-3, 0, 3].every((dx) => [-3, 0, 3].every((dy) => ink(x + dx, y + dy)));
+    const dots = { x0: Infinity, x1: -Infinity };
+    let mutedPixels = 0;
+    for (let y = 4; y < c.clientHeight - 4; y += 1) {
+      for (let x = 4; x < c.clientWidth - 4; x += 1) {
+        if (muted(x, y)) mutedPixels++;
+        if (solid(x, y)) Object.assign(dots, { x0: Math.min(dots.x0, x), x1: Math.max(dots.x1, x) });
+      }
+    }
+    return { width: c.clientWidth, dots, mutedPixels };
+  });
+
+  expect(drawn.mutedPixels).toBeGreaterThan(50);
+  expect((drawn.dots.x1 - drawn.dots.x0) / drawn.width).toBeGreaterThan(0.5);
+  await page.screenshot({ path: test.info().outputPath("graph-halo.png") });
+});

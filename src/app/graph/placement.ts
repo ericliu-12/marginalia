@@ -10,9 +10,8 @@ const dotBox = (d: Dot): Box => ({ x0: d.x - d.radius, y0: d.y - d.radius, x1: d
 
 // A label wanted beside the dot at (x, y): `gap` from its centre, `w` by `h`, its paper plate reaching
 // `plate` back into the gap beside the dot (left or right; above or below it keeps the whole gap). One
-// that `must` show (the hovered or chosen Book's) always does; one that may go `over` other Books' dots
-// does so where no side is clear of them.
-export type LabelRequest = { id: string; x: number; y: number; gap: number; plate: number; w: number; h: number; must: boolean; over: boolean };
+// that `must` show (the hovered or chosen Book's) always does.
+export type LabelRequest = { id: string; x: number; y: number; gap: number; plate: number; w: number; h: number; must: boolean };
 export type PlacedLabel = { id: string; box: Box };
 
 // Boxes and dots are filed by the coarse cells they cover, column then row, so a check only looks at
@@ -57,8 +56,7 @@ function filed<T>(items: T[], boxOf: (item: T) => Box) {
 }
 
 // In priority order, each label goes to the first side of its dot (right, left, above, below) where it
-// overlaps no dot and no label already placed; one that may go over dots, failing that, to the first
-// side clear of labels; or it is left off. One that must show takes the right if nothing is free. A label that could not reach the view is left off unless it must show, and dots too
+// overlaps no dot and no label already placed, or it is left off. One that must show takes the right if nothing is free. A label that could not reach the view is left off unless it must show, and dots too
 // far out to meet any label that could are left out of the checks. `obstacles` (Cluster names) are kept
 // clear of as dots are.
 export function placeLabels({
@@ -81,7 +79,7 @@ export function placeLabels({
   const taken = filed(obstacles, (b) => b);
   const clear = (b: Box) => !taken.any(b, (o) => overlaps(o, b));
   const placed: PlacedLabel[] = [];
-  for (const { id, x, y, gap, plate, w, h, must, over } of wanted) {
+  for (const { id, x, y, gap, plate, w, h, must } of wanted) {
     const beside = gap - plate;
     const sides: Box[] = [
       { x0: x + beside, y0: y - h / 2, x1: x + beside + w, y1: y + h / 2 },
@@ -90,8 +88,7 @@ export function placeLabels({
       { x0: x - w / 2, y0: y + gap, x1: x + w / 2, y1: y + gap + h },
     ];
     // The label's own dot is no obstacle to it: no side reaches back over it.
-    const box =
-      sides.find((b) => clear(b) && !covered.any(b, (o) => overlaps(o, b))) ?? (over ? sides.find(clear) : undefined) ?? (must ? sides[0] : undefined);
+    const box = sides.find((b) => clear(b) && !covered.any(b, (o) => overlaps(o, b))) ?? (must ? sides[0] : undefined);
     if (!box) continue;
     taken.add(box);
     placed.push({ id, box });

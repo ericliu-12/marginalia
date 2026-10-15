@@ -4,6 +4,7 @@ import {
   CLUSTER_NAME_PAD,
   clusterNameSize,
   FIT_MARGIN,
+  HALO_GAP,
   LABEL_GAP,
   LABEL_LINE,
   LABEL_PLATE,
@@ -148,10 +149,23 @@ export type Clash = { a: { book: string } | { cluster: string }; b: { book: stri
 // How the graph reads in `view` once fitted: the zoom and what bounds it, the share of the canvas the
 // box around the Books' dots fills, and what is drawn over what. Each label sits right of its dot (where
 // the canvas puts one first) at its real size: pairs of Books where a label covers the other's label or
-// dot; names (each above its Cluster, or below where that is as clear of the canvas edges and covers
-// fewer labels, kept clear of the edges as the canvas keeps them) over a label or another name; and
-// names nearer their own wash than half of CLUSTER_NAME_GAP.
-export type Reading = { zoom: number; limit: FitLimit; filled: number; labelOverlaps: number; nameOverlaps: number; namesOnWash: number; clashes: Clash[] };
+// dot, and of those, where it covers a dot; names (each above its Cluster, or below where that is as
+// clear of the canvas edges and covers fewer labels, kept clear of the edges as the canvas keeps them)
+// over a label or another name; and names nearer their own wash than half of CLUSTER_NAME_GAP. And the
+// halo, the Books with no Connections around a graph that has some: how many have their dot or label
+// over a wash, or over a Cluster name, or nearer than HALO_GAP to a connected Book's dot, label or
+// wash, or to a name.
+export type Reading = {
+  zoom: number;
+  limit: FitLimit;
+  filled: number;
+  labelOverlaps: number;
+  dotOverlaps: number;
+  nameOverlaps: number;
+  namesOnWash: number;
+  halo: { onWash: number; onName: number; near: number };
+  clashes: Clash[];
+};
 
 export function readDrawn(d: Drawn, view: View, fit = fitDrawn(d, view)): Reading {
   const screen = new Map(d.books.map((b) => [b.id, { x: (b.x * TYPICAL_EDGE_LENGTH) / d.unit, y: (b.y * TYPICAL_EDGE_LENGTH) / d.unit }]));
@@ -165,6 +179,7 @@ export function readDrawn(d: Drawn, view: View, fit = fitDrawn(d, view)): Readin
       id: b.id,
       x,
       y,
+      degree: b.degree,
       dot: { x0: x - r, y0: y - r, x1: x + r, y1: y + r },
       label: { x0, y0: y - LABEL_HEIGHT / 2, x1: x0 + textWidth(b.label, LABEL_SIZE) + 2 * LABEL_PLATE, y1: y + LABEL_HEIGHT / 2 },
     };
@@ -176,6 +191,7 @@ export function readDrawn(d: Drawn, view: View, fit = fitDrawn(d, view)): Readin
     clashes.push({ a, b, across, down, aFirst: { x: p.x0 + p.x1 < q.x0 + q.x1, y: p.y0 + p.y1 < q.y0 + q.y1 } });
   };
   let labelOverlaps = 0;
+  let dotOverlaps = 0;
   books.forEach((p, i) => {
     for (const q of books.slice(i + 1)) {
       const hit = [
@@ -185,6 +201,7 @@ export function readDrawn(d: Drawn, view: View, fit = fitDrawn(d, view)): Readin
       ].find(([s, t]) => overlaps(s, t));
       if (!hit) continue;
       labelOverlaps++;
+      if (overlaps(p.label, q.dot) || overlaps(p.dot, q.label)) dotOverlaps++;
       clash({ book: p.id }, hit[0], { book: q.id }, hit[1]);
     }
   });
@@ -226,8 +243,25 @@ export function readDrawn(d: Drawn, view: View, fit = fitDrawn(d, view)): Readin
     }
   });
 
+  const connected = books.filter((b) => b.degree > 0);
+  const pools = d.clusters.flatMap((c) => c.bookIds.map((id) => byId.get(id)).filter((b) => b !== undefined));
+  const gap = HALO_GAP * TYPICAL_EDGE_LENGTH * fit.zoom;
+  const toPoint = (b: Box, p: { x: number; y: number }) => Math.hypot(Math.max(b.x0 - p.x, 0, p.x - b.x1), Math.max(b.y0 - p.y, 0, p.y - b.y1));
+  const halo = { onWash: 0, onName: 0, near: 0 };
+  for (const h of connected.length ? books.filter((b) => b.degree === 0) : []) {
+    const own = [h.dot, h.label];
+    const wide = own.map((b) => ({ x0: b.x0 - gap, y0: b.y0 - gap, x1: b.x1 + gap, y1: b.y1 + gap }));
+    if (own.some((b) => pools.some((p) => toPoint(b, p) < wash))) halo.onWash++;
+    if (own.some((b) => names.some((n) => overlaps(b, n.box)))) halo.onName++;
+    if (
+      wide.some((b) => connected.some((c) => overlaps(b, c.dot) || overlaps(b, c.label)) || names.some((n) => overlaps(b, n.box))) ||
+      own.some((b) => pools.some((p) => toPoint(b, p) < wash + gap))
+    )
+      halo.near++;
+  }
+
   const xs = books.map((b) => b.x);
   const ys = books.map((b) => b.y);
   const filled = books.length ? ((Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys))) / (view.width * view.height) : 0;
-  return { zoom: fit.zoom, limit: fit.limit, filled, labelOverlaps, nameOverlaps, namesOnWash, clashes };
+  return { zoom: fit.zoom, limit: fit.limit, filled, labelOverlaps, dotOverlaps, nameOverlaps, namesOnWash, halo, clashes };
 }
