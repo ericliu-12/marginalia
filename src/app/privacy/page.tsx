@@ -6,22 +6,22 @@ export const metadata: Metadata = { title: "Privacy · Marginalia" };
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy" updated="10 October 2026" other={{ href: "/terms", label: "Terms" }}>
+    <LegalPage title="Privacy" updated="15 October 2026" other={{ href: "/terms", label: "Terms" }}>
       <p className="mt-8 text-ink-2">
         Marginalia is a private place for your reading. This page says what it keeps, who else sees any of it, and how to take it back.
       </p>
 
       <Section id="who" title="Who runs Marginalia">
         <p>
-          Marginalia is run by one person in New York. Write to <Email /> about anything on this page.
+          Marginalia is made by one reader in New York, not a company. Questions? Write to <Email />.
         </p>
       </Section>
 
-      <Section id="what-we-keep" title="What we keep">
+      <Section id="what-we-keep" title="What I keep">
         <Bullets
           items={[
             "Your email address, to sign you in.",
-            "If you continue with Google: the name and profile picture Google shares with us.",
+            "If you continue with Google: the name and profile picture Google shares with me.",
             "Your library: the Books you add, their Status, when you read them, and any titles or authors you change.",
             "Your Notes, with any quoted passages and page numbers.",
             "The Connections and Clusters Marginalia finds among your Books.",
@@ -34,7 +34,7 @@ export default function PrivacyPage() {
       <Section id="use" title="How it’s used">
         <p>
           Only to run Marginalia for you: to show your library, find Connections between your Books, and sign you in. There are no ads,
-          no analytics and no tracking. Your data is never sold. The only cookies are the ones that keep you signed in.
+          no analytics and no tracking. I never sell your data. The only cookies are the ones that keep you signed in.
         </p>
       </Section>
 
@@ -59,7 +59,7 @@ export default function PrivacyPage() {
             { name: "Cloudflare R2", text: "Everything, in the nightly backups of the database." },
             {
               name: "Open Library and Google Books",
-              text: "Open Library gets what you search for when adding a Book, and Google Books the title and author of a Book you add, to find its description. Both are sent from our server with nothing that identifies you. Book covers load from Open Library straight to your browser, so it sees your IP address when one is shown.",
+              text: "Open Library gets what you search for when you add a Book. Google Books gets the title and author of a Book you add, to find its description. Both are sent from my server, with nothing that identifies you. Book covers load from Open Library straight to your browser, so it sees your IP address when one is shown.",
             },
           ]}
         />
@@ -88,11 +88,11 @@ export default function PrivacyPage() {
       </Section>
 
       <Section id="age" title="Age">
-        <p>Marginalia is for people 16 and older. If we learn that someone younger has an account, we’ll delete it.</p>
+        <p>Marginalia is for people 16 and older. If I learn that someone younger has an account, I’ll delete it.</p>
       </Section>
 
       <Section id="changes" title="Changes">
-        <p>If this page changes, its date above changes too. For a change that affects what happens to your data, we’ll email you at least 30 days before it takes effect.</p>
+        <p>If this page changes, its date above changes too. For a change that affects what happens to your data, I’ll email you at least 30 days before it takes effect.</p>
       </Section>
     </LegalPage>
   );

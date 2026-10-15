@@ -39,10 +39,10 @@ const tooManyCodes = (res: Response) => {
 // Turnstile failed, or its script was blocked. Not "reload": the iPhone home-screen app can't.
 const NOT_CHECKED = "Couldn’t check this browser. Try again, or continue with Google.";
 // Resend refused or couldn't be reached (#70): its limits can last the day, so Google is the way in.
-const NOT_SENT = "Couldn’t send a code just now. Continue with Google instead, or try again later.";
+const NOT_SENT = "Couldn’t send a code. Try again, or continue with Google.";
 const BAD_EMAIL = "That doesn’t look like an email address.";
 // The same whatever went wrong, so it never tells an invited email from another.
-const GOOGLE_FAILED = "That didn’t sign you in. Try again, or sign in with an email code below.";
+const GOOGLE_FAILED = "Couldn’t sign you in with Google. Try again, or use an email code.";
 const looksLikeEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 
 // The email and when its code was sent, never the code: the iPhone home-screen app may reload while the
