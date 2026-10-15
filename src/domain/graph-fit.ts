@@ -245,7 +245,7 @@ export function readDrawn(d: Drawn, view: View, fit = fitDrawn(d, view)): Readin
 
   const connected = books.filter((b) => b.degree > 0);
   const pools = d.clusters.flatMap((c) => c.bookIds.map((id) => byId.get(id)).filter((b) => b !== undefined));
-  const gap = HALO_GAP * TYPICAL_EDGE_LENGTH * fit.zoom;
+  const gap = HALO_GAP;
   const toPoint = (b: Box, p: { x: number; y: number }) => Math.hypot(Math.max(b.x0 - p.x, 0, p.x - b.x1), Math.max(b.y0 - p.y, 0, p.y - b.y1));
   const halo = { onWash: 0, onName: 0, near: 0 };
   for (const h of connected.length ? books.filter((b) => b.degree === 0) : []) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DESKTOP, FIT_MARGIN, HALO_GAP, LABEL_SIZE, MAX_FIT_ZOOM, TYPICAL_EDGE_LENGTH, WASH_RADIUS } from "../src/domain/graph-drawing";
+import { DESKTOP, FIT_MARGIN, LABEL_SIZE, MAX_FIT_ZOOM, TYPICAL_EDGE_LENGTH, WASH_RADIUS } from "../src/domain/graph-drawing";
 import { fitDrawn, readDrawn, textWidth, type Drawn } from "../src/domain/graph-fit";
 
 const VIEW = { width: 1440, height: 900 };
@@ -78,8 +78,8 @@ describe("How a fitted graph reads", () => {
     for (const view of Object.values(DESKTOP)) {
       expect(readDrawn(drawn([...linked, lone("Far", 5, 3)], clusters), view).halo).toEqual({ onWash: 0, onName: 0, near: 0 });
       expect(readDrawn(drawn([...linked, lone("Far", 5, 3), lone("Wash", -0.5, 0.4)], clusters), view).halo).toEqual({ onWash: 1, onName: 0, near: 1 });
-      // Just past the wash, but nearer it than HALO_GAP.
-      const r = readDrawn(drawn([...linked, lone("Far", 5, 3), lone("Close", 1 + WASH_RADIUS + HALO_GAP / 2, 0)], clusters), view);
+      // Just past the wash, but nearer it than HALO_GAP pixels.
+      const r = readDrawn(drawn([...linked, lone("Far", 5, 3), lone("Close", 1 + WASH_RADIUS + 0.12, 0)], clusters), view);
       expect(r.halo).toEqual({ onWash: 0, onName: 0, near: 1 });
     }
   });

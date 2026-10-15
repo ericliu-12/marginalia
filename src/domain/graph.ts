@@ -72,18 +72,17 @@ const ROOM_SPOTS = 16;
 // Cluster washes, and the directions tried when packing one beside those already packed.
 const GROUP_GAP = 0.5;
 const PACK_ANGLES = 24;
-// The halo of unconnected Books (HALO_GAP clear of the connected ones, in ./graph-drawing.ts). Each Book
-// aims toward the side its HALO_SIMILAR most similar connected Books sit on (by stored embeddings), or
-// with none a side of its own, strays from that by up to HALO_SCATTER, and sits up to HALO_LOOSENESS
-// lengths beyond the nearest spot with room: all three seeded from its id, so it keeps its place from
-// one layout to the next. Of HALO_ANGLES directions around the connected Books, it takes the spot that
-// grows the fitted view least, a turn of half the circle away from its aim counting as HALO_PULL of the
-// view. Placed in HALO_ROUNDS at most, each with labels at the size the last was fitted at.
+// The halo of unconnected Books (HALO_GAP clear of the connected ones, in ./graph-drawing.ts): a ring
+// around them, its Books evenly spaced in the order of their aims. Each aims toward the side its
+// HALO_SIMILAR most similar connected Books sit on (by stored embeddings), or with none a side of its
+// own; strays by up to HALO_SCATTER of a space between places; and sits up to HALO_LOOSENESS pixels
+// beyond the nearest spot with room: seeded from its id, so it keeps its place from one layout to the
+// next. Where its own direction has no room, the nearest of HALO_TRIES directions that has. Placed in
+// HALO_ROUNDS at most, each with labels at the size the last was fitted at.
 const HALO_SIMILAR = 3;
-const HALO_SCATTER = Math.PI / 4;
-const HALO_LOOSENESS = 0.6;
-const HALO_ANGLES = 36;
-const HALO_PULL = 0.25;
+const HALO_SCATTER = 0.3;
+const HALO_LOOSENESS = 40;
+const HALO_TRIES = 36;
 const HALO_ROUNDS = 4;
 // Labels are measured as if the graph were fitted this much smaller than it is, so a halo laid out
 // before still has room unless the connected Books have moved in on it.
@@ -328,6 +327,10 @@ async function layOut(db: Tx, userId: string, fresh: boolean, dryRun: boolean): 
   spread(g, labels, clusters);
   hold(settled);
   lineUpHalo(g, labels, clusters, similar, homes);
+  // The halo can change the fitted zoom, and so the labels' size: the connected Books are spread again
+  // at the zoom it leaves, the halo held where it is.
+  spread(g, labels, clusters, new Set(lone));
+  hold(settled);
   const laidOut = new Map(books.map((r) => [r.book.id, { x: g.getNodeAttribute(r.book.id, "x") as number, y: g.getNodeAttribute(r.book.id, "y") as number }]));
   if (dryRun) return laidOut;
 
@@ -511,8 +514,8 @@ function meetsHull(b: Box, poly: Point[]) {
 
 // Places each Book with no Connections in a halo around the connected ones: outside the hull of their
 // dots, labels, washes and Cluster names (both sides a name may take), HALO_GAP wider, and clear of the
-// halo Books placed before it, by id. Each takes the spot, toward its aim (see HALO_SIMILAR), that grows
-// the fitted view least. A Book already in the halo keeps its `homes` spot, placed first, pushed straight
+// halo Books placed before it: each at the first spot with room out from the middle toward its place in
+// the ring. A Book already in the halo keeps its `homes` spot, placed first, pushed straight
 // out where the connected Books now reach it, unless that is more than HALO_LOOSENESS beyond the nearest
 // spot with room in its direction. Labels are measured at HALO_SLACK of the smallest zoom the graph is
 // fitted at on any DESKTOP canvas (the connected Books alone, at first), and placed again until it is
@@ -551,7 +554,7 @@ function lineUpHalo(
       return { x0, y0: p.y - h, x1: x0 + (textWidth(text, LABEL_SIZE) + 2 * LABEL_PLATE) * px, y1: p.y + h };
     };
     // What the halo keeps clear of, HALO_GAP wider: boxes, and washes as circles about their Books.
-    const gap = HALO_GAP * unit;
+    const gap = HALO_GAP * px;
     const boxes: Box[] = linked.flatMap((id) => [dotOf(point(id), g.degree(id)), labelBox(point(id), g.degree(id), labels.get(id)!)]);
     const pools: Point[] = [];
     const wash = WASH_RADIUS * unit;
@@ -578,14 +581,6 @@ function lineUpHalo(
       ...pools.flatMap((p) => Array.from({ length: sides }, (_, i) => ({ x: p.x + out * Math.cos((2 * Math.PI * i) / sides), y: p.y + out * Math.sin((2 * Math.PI * i) / sides) }))),
     ]);
     const centre = linked.length ? linked.map(point).reduce((p, q) => ({ x: p.x + q.x / linked.length, y: p.y + q.y / linked.length }), { x: 0, y: 0 }) : { x: 0, y: 0 };
-    // The view needed around everything placed so far: the area of the smallest of the canvas's shape.
-    const extent = [...boxes, ...pools.map((p) => grown({ x0: p.x, y0: p.y, x1: p.x, y1: p.y }, wash))];
-    const room = (extra: Box[]) => {
-      if (extent.length + extra.length === 0) return 0;
-      const b = union([...extent, ...extra]);
-      const across = Math.max(b.x1 - b.x0 + unit, (b.y1 - b.y0 + unit) * ASPECT);
-      return (across * across) / ASPECT;
-    };
     const taken: Box[] = [];
     const pad = HALO_PAD * px;
     const clear = (own: Box[]) => own.every((b) => !meetsHull(b, keepOut) && !taken.some((t) => overlaps(grown(b, pad), t)));
@@ -593,13 +588,18 @@ function lineUpHalo(
     const far = 200 * unit;
 
     const own = (id: string, p: Point) => {
-      const dot = grown(dotOf(p, 0), (LABEL_ROOM.spacing * unit) / 2 - nodeRadius(0) * px);
-      return [dot, labelBox(p, 0, labels.get(id)!)];
+      return [dotOf(p, 0), labelBox(p, 0, labels.get(id)!)];
     };
     // From the middle out along a direction, the first spot where the Book has room, or null.
     const nearest = (id: string, cos: number, sin: number) => {
       const at = (r: number) => ({ x: centre.x + cos * r, y: centre.y + sin * r });
-      for (let r = 0; r < far; r += step) if (clear(own(id, at(r)))) return r;
+      // In coarse steps, then back to within two pixels.
+      for (let r = 0; r < far; r += step) {
+        if (!clear(own(id, at(r)))) continue;
+        let back = Math.max(0, r - step);
+        while (back < r && !clear(own(id, at(back)))) back += 2 * px;
+        return Math.min(back, r);
+      }
       return null;
     };
     // A Book's spot in the halo as it stands: where it is, or pushed out to the nearest spot with room
@@ -610,7 +610,7 @@ function lineUpHalo(
       if (!p || r === 0) return null;
       const [cos, sin] = [(p.x - centre.x) / r, (p.y - centre.y) / r];
       const first = nearest(id, cos, sin);
-      if (first === null || r > first + HALO_LOOSENESS * unit + step) return null;
+      if (first === null || r > first + (HALO_LOOSENESS + 2 * HALO_PAD) * px) return null;
       return r >= first && clear(own(id, p)) ? p : { x: centre.x + cos * first, y: centre.y + sin * first };
     };
     const search: string[] = [];
@@ -624,39 +624,57 @@ function lineUpHalo(
       taken.push(...own(id, p));
     }
 
+    // The ring: each Book's place in turn around the connected Books, as a share of the way round from
+    // the right, measured as if their outline were stretched to a circle (so a wide graph's ends get their
+    // share of places, not only its long top and bottom); evenly spaced in the order of their aims, turned
+    // to sit as near each aim as it can, and strayed by HALO_SCATTER of a space, seeded.
+    const span = keepOut.length ? union(keepOut.map((p) => ({ x0: p.x, y0: p.y, x1: p.x, y1: p.y }))) : { x0: -1, y0: -1, x1: 1, y1: 1 };
+    const [hw, hh] = [Math.max(span.x1 - centre.x, centre.x - span.x0, 1e-9), Math.max(span.y1 - centre.y, centre.y - span.y0, 1e-9)];
+    const angleAt = (share: number) => Math.atan2(Math.sin(share * 2 * Math.PI) * hh, Math.cos(share * 2 * Math.PI) * hw);
+    const shareOf = (angle: number) => (Math.atan2(Math.sin(angle) / hh, Math.cos(angle) / hw) / (2 * Math.PI) + 1) % 1;
+    const aims = new Map(
+      lone.map((id) => {
+        const near = (similar.get(id) ?? [])
+          .filter((x) => g.hasNode(x.id) && g.degree(x.id) > 0 && x.similarity > 0)
+          .sort((p, q) => q.similarity - p.similarity || (p.id < q.id ? -1 : 1))
+          .slice(0, HALO_SIMILAR);
+        const weight = near.reduce((sum, x) => sum + x.similarity, 0);
+        const angle = near.length
+          ? Math.atan2(near.reduce((sum, x) => sum + point(x.id).y * x.similarity, 0) / weight - centre.y, near.reduce((sum, x) => sum + point(x.id).x * x.similarity, 0) / weight - centre.x)
+          : seeded(id, 1) * 2 * Math.PI;
+        return [id, shareOf(angle)];
+      }),
+    );
+    const order = [...lone].sort((p, q) => aims.get(p)! - aims.get(q)! || (p < q ? -1 : 1));
+    const space = 1 / order.length;
+    // The turn that puts the spaced places nearest their aims: the circular mean of the differences.
+    const diffs = order.map((id, i) => (aims.get(id)! - i * space) * 2 * Math.PI);
+    const offset = Math.atan2(diffs.reduce((sum, d) => sum + Math.sin(d), 0), diffs.reduce((sum, d) => sum + Math.cos(d), 0)) / (2 * Math.PI);
+    const slot = new Map(order.map((id, i) => [id, offset + (i + (seeded(id, 2) * 2 - 1) * HALO_SCATTER) * space]));
+
     for (const id of search) {
-      const near = (similar.get(id) ?? [])
-        .filter((s) => g.hasNode(s.id) && g.degree(s.id) > 0 && s.similarity > 0)
-        .sort((p, q) => q.similarity - p.similarity || (p.id < q.id ? -1 : 1))
-        .slice(0, HALO_SIMILAR);
-      const weight = near.reduce((sum, s) => sum + s.similarity, 0);
-      const toward = near.length
-        ? Math.atan2(near.reduce((sum, s) => sum + point(s.id).y * s.similarity, 0) / weight - centre.y, near.reduce((sum, s) => sum + point(s.id).x * s.similarity, 0) / weight - centre.x)
-        : seeded(id, 1) * 2 * Math.PI;
-      const aim = toward + (seeded(id, 2) * 2 - 1) * HALO_SCATTER;
-      const loose = seeded(id, 3) * HALO_LOOSENESS * unit;
-      let best: { at: Point; cost: number } | null = null;
-      const base = room(taken);
-      for (let k = 0; k < HALO_ANGLES; k++) {
-        const turn = (k % 2 ? 1 : -1) * Math.ceil(k / 2) * ((2 * Math.PI) / HALO_ANGLES);
-        const [cos, sin] = [Math.cos(aim + turn), Math.sin(aim + turn)];
-        const at = (r: number) => ({ x: centre.x + cos * r, y: centre.y + sin * r });
+      const loose = seeded(id, 3) * HALO_LOOSENESS * px;
+      const aim = angleAt(slot.get(id)!);
+      // Its own direction, or failing room there, the nearest that has it.
+      for (let k = 0; k < HALO_TRIES; k++) {
+        const angle = aim + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * ((2 * Math.PI) / HALO_TRIES);
+        const [cos, sin] = [Math.cos(angle), Math.sin(angle)];
         let r = nearest(id, cos, sin);
         if (r === null) continue;
-        if (clear(own(id, at(r + loose)))) r += loose;
-        const cost = (room([...taken, ...own(id, at(r))]) - base) / (base || 1) + (HALO_PULL * Math.abs(turn)) / Math.PI;
-        if (best === null || cost < best.cost) best = { at: at(r), cost };
+        if (clear(own(id, { x: centre.x + cos * (r + loose), y: centre.y + sin * (r + loose) }))) r += loose;
+        const at = { x: centre.x + cos * r, y: centre.y + sin * r };
+        g.mergeNodeAttributes(id, at);
+        taken.push(...own(id, at));
+        break;
       }
-      if (!best) continue;
-      g.mergeNodeAttributes(id, best.at);
-      taken.push(...own(id, best.at));
     }
   }
 }
 
 // Moves Books apart, a round at a time, until on each DESKTOP canvas, fitted, no label is drawn over another
 // label or dot and no Cluster name over a label or another name (readDrawn): each such pair across or
-// down, whichever parts them sooner, half each way, a name with its Cluster's Books. Parting them can
+// down, whichever parts them sooner, half each way (all of it on one side where the other is `fixed`), a
+// name with its Cluster's Books. Parting them can
 // shrink the fitted zoom, and so grow the labels against the graph, so it gives up after SPREAD_ROUNDS.
 // The graph as the canvas would draw it: all of it, or only the Books for which `only` holds.
 const drawnOf = (g: Graph, labels: Map<string, string>, clusters: Drawn["clusters"], unit: number, only = (_: string) => true): Drawn => ({
@@ -665,7 +683,7 @@ const drawnOf = (g: Graph, labels: Map<string, string>, clusters: Drawn["cluster
   unit,
 });
 
-function spread(g: Graph, labels: Map<string, string>, clusters: Drawn["clusters"]) {
+function spread(g: Graph, labels: Map<string, string>, clusters: Drawn["clusters"], fixed = new Set<string>()) {
   const members = new Map(clusters.map((c) => [c.id, c.bookIds.filter((id) => g.hasNode(id))]));
   const owners = (o: Clash["a"]) => ("book" in o ? [o.book] : members.get(o.cluster)!);
   for (let round = 0; round < SPREAD_ROUNDS; round++) {
@@ -684,8 +702,12 @@ function spread(g: Graph, labels: Map<string, string>, clusters: Drawn["clusters
       const [a, b] = [owners(c.a), owners(c.b)];
       if (a.some((id) => b.includes(id))) continue;
       const across = c.across < c.down;
-      const step = (((across ? c.across : c.down) + c.pad) / 2) * (c.aFirst[across ? "x" : "y"] ? -1 : 1);
-      for (const [ids, by] of [[a, step], [b, -step]] as const) {
+      // A `fixed` Book stays put, and the other side moves the whole way.
+      const [aFixed, bFixed] = [a.some((id) => fixed.has(id)), b.some((id) => fixed.has(id))];
+      if (aFixed && bFixed) continue;
+      const share = aFixed || bFixed ? 1 : 1 / 2;
+      const step = ((across ? c.across : c.down) + c.pad) * share * (c.aFirst[across ? "x" : "y"] ? -1 : 1);
+      for (const [ids, by] of [[aFixed ? [] : a, step], [bFixed ? [] : b, -step]] as const) {
         for (const id of ids) {
           const m = moves.get(id) ?? { x: 0, y: 0 };
           moves.set(id, across ? { x: m.x + by, y: m.y } : { x: m.x, y: m.y + by });

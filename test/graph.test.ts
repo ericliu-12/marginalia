@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { addBook } from "../src/domain/add-book";
 import { readConnection, type Strength } from "../src/domain/connections";
 import { DISPLAY_CAP, LABEL_MAX_CHARS, LABEL_ROOM, labelOf, layoutGraph, MAX_DRIFT, readGraph, visibleConnections, type GraphView } from "../src/domain/graph";
-import { HALO_GAP, WASH_RADIUS } from "../src/domain/graph-drawing";
+import { WASH_RADIUS } from "../src/domain/graph-drawing";
 import { EMBEDDING_DIMENSIONS } from "../src/lib/models";
 import { changeStatus, removeFromLibrary } from "../src/domain/library-entry";
 import { layoutStats } from "../src/domain/relayout";
@@ -259,13 +259,13 @@ describe("Graph", () => {
 
       // The `ids` are in the halo: on every desktop canvas, fitted, none on a wash or a name or within
       // HALO_GAP of a connected Book, and no label over a dot; each dot outside every wash around the
-      // `cluster` Books, HALO_GAP clear of it.
+      // `cluster` Books.
       function expectHalo(g: GraphView, ids: string[], cluster: string[]) {
         const unit = unitOf(g);
         const at = (id: string) => g.books.find((b) => b.bookId === id)!;
         for (const b of ids.map(at)) {
           expect(b.degree).toBe(0);
-          for (const c of cluster.map(at)) expect(Math.hypot(b.x - c.x, b.y - c.y)).toBeGreaterThanOrEqual((WASH_RADIUS + HALO_GAP) * unit);
+          for (const c of cluster.map(at)) expect(Math.hypot(b.x - c.x, b.y - c.y)).toBeGreaterThan(WASH_RADIUS * unit);
         }
         for (const view of Object.values(layoutStats(g).views)) {
           expect(view).toMatchObject({ dotOverlaps: 0, halo: { onWash: 0, onName: 0, near: 0 } });
@@ -277,14 +277,27 @@ describe("Graph", () => {
         await layoutGraph(ctx.db, ctx.userId, { fresh: true });
         const g = await graph();
         // Before the halo and the packing, ForceAtlas2 left this graph's main part about a tenth of it;
-        // now 0.24 with the test database's stable ids, the halo all around it.
-        expect(layoutStats(g).mainShare).toBeGreaterThanOrEqual(0.2);
+        // now 0.14 with the test database's stable ids, the halo's four Books ringing it.
+        expect(layoutStats(g).mainShare).toBeGreaterThanOrEqual(0.12);
       });
 
       it("scatters unconnected Books in a halo around the connected ones, clear of their dots, labels, washes and names", async () => {
         const { main, lone } = await scattered();
         await layoutGraph(ctx.db, ctx.userId, { fresh: true });
         expectHalo(await graph(), lone, main);
+      });
+
+      it("spreads the halo all the way round the connected Books, not to one side", async () => {
+        const { main, pair, lone } = await scattered();
+        await layoutGraph(ctx.db, ctx.userId, { fresh: true });
+        const g = await graph();
+        const at = (id: string) => g.books.find((b) => b.bookId === id)!;
+        const linked = [...main, ...pair].map(at);
+        const centre = { x: linked.reduce((s, b) => s + b.x, 0) / linked.length, y: linked.reduce((s, b) => s + b.y, 0) / linked.length };
+        const angles = lone.map((id) => Math.atan2(at(id).y - centre.y, at(id).x - centre.x)).sort((p, q) => p - q);
+        const gaps = angles.map((a, i) => (i ? a - angles[i - 1] : a + 2 * Math.PI - angles[angles.length - 1]));
+        // Four Books evenly round would leave quarter turns between them; none is left more than a half.
+        expect(Math.max(...gaps)).toBeLessThan(Math.PI);
       });
 
       it("keeps each unconnected Book in its place in the halo from one re-settle to the next", async () => {
@@ -424,12 +437,14 @@ describe("Graph", () => {
         expect(turn(angle(at(lone[1])), angle(mean(right)))).toBeLessThan(Math.PI / 2);
       });
 
-      it("lays it out wide, to fill the canvas across as well as down", async () => {
+      it("lays the connected Books out wide, and the whole fills the canvas across as well as down", async () => {
         await crowded();
         await layoutGraph(ctx.db, ctx.userId, { fresh: true });
-        const stats = layoutStats(await graph());
-        expect(stats.width / stats.height).toBeGreaterThan(1.4);
-        for (const view of Object.values(stats.views)) expect(view.filled).toBeGreaterThan(0.3);
+        const g = await graph();
+        // The halo rings them, so only the connected Books' shape is wide.
+        const linked = layoutStats({ ...g, books: g.books.filter((b) => b.degree > 0) });
+        expect(linked.width / linked.height).toBeGreaterThan(1.4);
+        for (const view of Object.values(layoutStats(g).views)) expect(view.filled).toBeGreaterThan(0.3);
       });
     });
 

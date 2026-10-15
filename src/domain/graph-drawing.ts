@@ -19,7 +19,7 @@ export const LABEL_CHAR = 0.48;
 // Each Cluster wash pool's radius, as a share of a typical Connection's length.
 export const WASH_RADIUS = 0.65;
 
-// Paper showing around a label, so edges pass behind it rather than through it.
+// Room kept around a label's text, each way.
 export const LABEL_PLATE = 2;
 
 // A Cluster's name, centred over it, above or below its wash. Its size follows the wash it names, within
@@ -53,6 +53,6 @@ export const DESKTOP = {
   "1920×1080": { width: 1920, height: 1080 },
 };
 
-// Unconnected Books sit in a halo around the connected ones: each dot and label at least HALO_GAP typical
-// Connection lengths clear of the connected Books' dots, labels, washes and Cluster names.
-export const HALO_GAP = 0.6;
+// Unconnected Books sit in a halo around the connected ones: each dot and label at least HALO_GAP pixels
+// clear of the connected Books' dots, labels, washes and Cluster names, as first fitted, whatever the zoom.
+export const HALO_GAP = 32;
