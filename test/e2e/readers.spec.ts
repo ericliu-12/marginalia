@@ -44,11 +44,11 @@ test("A's Book and Note stay A's: B's shelf, Book screen, graph and search show 
   // B, on the phone: an empty shelf, and A's Book screen is a Book B doesn't have, as a made-up id is.
   const bPhone = await (await asReaderB(browser, phone)).newPage();
   await bPhone.goto("/");
-  await expect(bPhone.getByRole("heading", { level: 1 })).toHaveText("Reading");
+  await expect(bPhone.getByRole("heading", { level: 1 })).toHaveAccessibleName("Reading");
   for (const title of ["Austerlitz", "Stoner", "Beloved"]) await expect(bPhone.getByText(title)).toHaveCount(0);
   for (const bookId of [id, randomUUID()]) {
     await bPhone.goto(`/?book=${bookId}`);
-    await expect(bPhone.getByRole("heading", { level: 1 })).toHaveText("Reading");
+    await expect(bPhone.getByRole("heading", { level: 1 })).toHaveAccessibleName("Reading");
     await expect(bPhone.getByRole("heading", { level: 2 })).toHaveCount(0);
     await expect(bPhone.getByText("Austerlitz")).toHaveCount(0);
     await expect(bPhone.getByText(NOTE)).toHaveCount(0);

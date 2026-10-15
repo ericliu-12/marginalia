@@ -238,7 +238,6 @@ test.describe("on a phone", () => {
   test("Edit, for a Manual Book on its screen: its fields, a missing title, and the cover rule", async ({ page }) => {
     await manualBook("Kitchen Notes", "June Ash", "Recipes.");
     await page.goto("/");
-    await page.getByRole("main").getByRole("button", { name: "Want to read 1" }).click();
     await page.getByRole("main").getByRole("button", { name: /^Kitchen Notes/ }).click();
     await page.getByRole("button", { name: "Edit details" }).click();
     const form = page.getByRole("form", { name: "Edit Kitchen Notes" });
@@ -267,7 +266,6 @@ test.describe("on a phone", () => {
   test("an edit that lands after leaving the Book's screen shows on the shelf", async ({ page }) => {
     await manualBook("Kitchen Notes", "June Ash", "Recipes.");
     await page.goto("/");
-    await page.getByRole("main").getByRole("button", { name: "Want to read 1" }).click();
     await page.getByRole("main").getByRole("button", { name: /^Kitchen Notes/ }).click();
     await page.getByRole("button", { name: "Edit details" }).click();
     const form = page.getByRole("form", { name: "Edit Kitchen Notes" });
@@ -277,7 +275,7 @@ test.describe("on a phone", () => {
     await form.getByRole("button", { name: "Save changes" }).click();
     await call.held();
     await page.getByRole("button", { name: "Back to library" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Reading");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveAccessibleName("Reading");
     await call.release();
     await expect(page.getByRole("main").getByRole("button", { name: /^Kitchen Notes, Again/ })).toBeVisible();
   });

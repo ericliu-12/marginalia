@@ -7,17 +7,17 @@ export function ViewSwitch({ current }: { current: "library" | "graph" }) {
     { key: "graph", label: "Graph", href: "/graph" },
   ] as const;
   return (
-    <nav aria-label="Views" className="hidden items-baseline gap-4 text-[0.8rem] font-medium lg:flex">
+    <nav aria-label="Views" className="caps hidden items-baseline gap-[22px] text-[16px] tracking-[1.4px] lg:flex">
       {views.map((v) =>
         v.key === current ? (
-          <span key={v.key} aria-current="page" className="text-ink underline decoration-ink underline-offset-[5px]">
+          <span key={v.key} aria-current="page" className="py-3 text-ink underline decoration-accent underline-offset-[6px]">
             {v.label}
           </span>
         ) : (
           <Link
             key={v.key}
             href={v.href}
-            className="text-ink-3 underline decoration-transparent underline-offset-[5px] transition-colors duration-150 hover:text-ink hover:decoration-rule"
+            className="py-3 text-ink-2 underline decoration-transparent underline-offset-[6px] transition-colors duration-150 hover:text-ink hover:decoration-rule"
           >
             {v.label}
           </Link>
