@@ -61,7 +61,7 @@ export function LibraryList({ items, openBookId, onOpen }: { items: LibraryItem[
 }
 
 // One Book on a shelf. The whole row opens it; its title is the button, stretched over the row. The
-// Status moves rest unseen on a pointer, coming up on hover or keyboard focus over the row's far end;
+// Status moves rest unseen on a pointer, coming up on hover or keyboard focus in the author and date's place;
 // on touch they stay, as a line of quiet buttons under the row.
 function Row({ item, open, draftPage, onOpen }: { item: LibraryItem; open: boolean; draftPage?: string; onOpen: (bookId: string) => void }) {
   const { pending, moving, error, move } = useStatusMove(item.bookId);
@@ -87,7 +87,7 @@ function Row({ item, open, draftPage, onOpen }: { item: LibraryItem; open: boole
       className={`relative z-10 flex flex-wrap gap-2 [@media(hover:hover)]:gap-4 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:transition-opacity [@media(hover:hover)]:duration-150 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100 ${
         reading
           ? "ml-auto"
-          : "col-span-full pb-1.5 [@media(hover:hover)]:absolute [@media(hover:hover)]:inset-y-0 [@media(hover:hover)]:right-2.5 [@media(hover:hover)]:items-center [@media(hover:hover)]:bg-[linear-gradient(to_right,transparent,var(--row)_1.5rem)] [@media(hover:hover)]:pb-0 [@media(hover:hover)]:pl-10"
+          : "col-span-full pb-1.5 [@media(hover:hover)]:absolute [@media(hover:hover)]:inset-y-0 [@media(hover:hover)]:right-2.5 [@media(hover:hover)]:items-center [@media(hover:hover)]:bg-(--row) [@media(hover:hover)]:pb-0 [@media(hover:hover)]:pl-4"
       }`}
     >
       {MOVES[item.status].map(({ label, to }) => (
@@ -103,6 +103,11 @@ function Row({ item, open, draftPage, onOpen }: { item: LibraryItem; open: boole
       ))}
     </div>
   );
+
+  // On a pointer, the author and date give their place to the moves as they come up, so the two never
+  // overprint; under reduced motion the swap is instant (globals.css).
+  const givesWay =
+    "[@media(hover:hover)]:transition-opacity [@media(hover:hover)]:duration-150 [@media(hover:hover)]:group-hover:opacity-0 [@media(hover:hover)]:group-focus-within:opacity-0";
 
   // The row bleeds 10px past the column, its first 2px the edge a selected row shows in the accent.
   const frame = `group relative -mx-2.5 border-l-2 pr-2.5 pl-2 ${open ? "border-l-accent bg-paper-3 [--row:var(--color-paper-3)]" : "border-l-transparent [--row:var(--color-paper)]"}`;
@@ -132,8 +137,8 @@ function Row({ item, open, draftPage, onOpen }: { item: LibraryItem; open: boole
         {title}
         {item.cluster?.name && <span className="sr-only">, in {item.cluster.name}</span>}
       </p>
-      <p title={author} className="caps max-w-[18rem] truncate text-right text-[14px] tracking-[1px] text-ink-2">{author}</p>
-      {read && <p className="text-[14px] text-ink-2 tabular-nums">{item.finishedAt !== null && shortDate(item.finishedAt)}</p>}
+      <p title={author} className={`caps max-w-[18rem] truncate text-right text-[14px] tracking-[1px] text-ink-2 ${givesWay}`}>{author}</p>
+      {read && <p className={`text-[14px] text-ink-2 tabular-nums ${givesWay}`}>{item.finishedAt !== null && shortDate(item.finishedAt)}</p>}
       {moves}
       {failed}
     </li>
