@@ -61,6 +61,8 @@ export function BookPanel({
   // Saved edits: About starts over after one, as a Manual Book's Enrichment may be running again.
   const [edits, setEdits] = useState(0);
   const [saved, setSaved] = useState(false);
+  // The Note just written here, which inks in.
+  const [written, setWritten] = useState<string | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const notesHeadingRef = useRef<HTMLHeadingElement>(null);
 
@@ -177,6 +179,7 @@ export function BookPanel({
                   key={n.id}
                   number={i + 1}
                   note={n}
+                  fresh={n.id === written}
                   editing={editing === n.id}
                   onEdit={() => setEditing(n.id)}
                   onCancel={() => setEditing(null)}
@@ -197,7 +200,10 @@ export function BookPanel({
             <NoteForm
               key={item.bookId}
               bookId={item.bookId}
-              onSaved={(note) => setNotes((ns) => [note, ...(ns ?? [])])}
+              onSaved={(note) => {
+                setWritten(note.id);
+                setNotes((ns) => [note, ...(ns ?? [])]);
+              }}
             />
           </div>
         </section>
@@ -974,6 +980,7 @@ function SaveNote({
 function NoteItem({
   number,
   note,
+  fresh,
   editing,
   onEdit,
   onCancel,
@@ -982,6 +989,7 @@ function NoteItem({
 }: {
   number: number;
   note: Note;
+  fresh: boolean;
   editing: boolean;
   onEdit: () => void;
   onCancel: () => void;
@@ -997,7 +1005,7 @@ function NoteItem({
   // A sidenote: its numeral in a narrow column, in the accent, beside the Note; under it the passage it
   // quotes, and the page.
   return (
-    <li aria-busy={pending} className="grid grid-cols-[18px_minmax(0,1fr)] gap-x-2">
+    <li aria-busy={pending} className={`grid grid-cols-[18px_minmax(0,1fr)] gap-x-2 ${fresh ? "motion-safe:animate-ink-in" : ""}`}>
       <span aria-hidden className="pt-[3px] text-[13px] text-accent tabular-nums">
         {number}
       </span>

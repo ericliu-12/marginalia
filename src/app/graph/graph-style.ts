@@ -79,7 +79,25 @@ export const WASH_HOVER_MS = 150;
 // While a drag's simulation moves the Books, each wash follows its Books, drawn again at most this often.
 export const WASH_FOLLOW_MS = 50;
 // A Cluster that forms while the graph is open fades in over this long.
-export const WASH_FADE_MS = 600;
+export const WASH_FADE_MS = 300;
+// A wash whose Books or Connections change in a fresh graph eases from its old shape to its new.
+export const WASH_SHAPE_MS = 300;
+// A Cluster's name writes itself in, left to right, when the Cluster forms or is named (CSS: write-in).
+
+// A selection fades the rest of the graph, and letting go brings it back, over this long.
+export const SELECT_FADE_MS = 200;
+
+// `from` to `to` (both #rrggbb), `t` of the way, at `alpha`: for a colour mid-fade.
+const rgb = new Map<string, number[]>();
+export function blend(from: string, to: string, t: number, alpha = 1) {
+  const [p, q] = [from, to].map((hex) => {
+    let c = rgb.get(hex);
+    if (!c) rgb.set(hex, (c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))));
+    return c;
+  });
+  const [r, g, b] = p.map((v, i) => Math.round(v + (q[i] - v) * t));
+  return `rgba(${r},${g},${b},${alpha})`;
+}
 
 // A Cluster's name is in its tint's name colour on a paper plate (as Book labels are), so no Connection
 // strikes through it; its size, place and room from the canvas edges are in src/domain/graph-drawing.ts.
@@ -90,11 +108,11 @@ export const CLUSTER_NAME_PLATE = 0.8;
 // spreads LAND_RING beyond it and fades; then its Connections draw in one at a time, the first
 // DRAW_FIRST_MS after it lands and each next DRAW_STEP_MS later, each line growing out from the new
 // Book over DRAW_MS.
-export const LAND_MS = 900;
+export const LAND_MS = 400;
 export const LAND_RING = 22;
-export const DRAW_FIRST_MS = 1100;
-export const DRAW_STEP_MS = 1000;
-export const DRAW_MS = 700;
+export const DRAW_FIRST_MS = 600;
+export const DRAW_STEP_MS = 500;
+export const DRAW_MS = 300;
 // After this many, the rest of a long run of Connections draw in twice as fast.
 export const DRAW_UNHURRIED = 3;
 // The view frames an arriving Book with the Books it connects to, keeping this much room at each edge.

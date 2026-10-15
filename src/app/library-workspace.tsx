@@ -8,7 +8,7 @@ import { LibraryList } from "./library-list";
 import { BookPanel } from "./book-panel";
 import { SearchPane } from "./search-pane";
 import { AccountLink } from "./account-link";
-import { ViewSwitch } from "./view-switch";
+import { useArrivedBySwitch, ViewSwitch } from "./view-switch";
 import type { Pause } from "@/domain/spend";
 
 export function LibraryWorkspace({ items, finding, paused }: { items: LibraryItem[]; finding: number; paused: Pause | null }) {
@@ -24,9 +24,10 @@ export function LibraryWorkspace({ items, finding, paused }: { items: LibraryIte
   const book = items.find((i) => i.bookId === bookId);
   // What the right-hand column shows: an open Book, over search when search is open.
   const searchShown = searchOpen && !book;
+  const switched = useArrivedBySwitch();
 
   return (
-    <div className="flex min-h-screen flex-col lg:h-screen">
+    <div className={`flex min-h-screen flex-col lg:h-screen ${switched ? "animate-view-in" : ""}`}>
       <header className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 px-14 pt-7 pb-6">
         <div className="mr-auto flex flex-wrap items-baseline gap-x-8">
           <h1 className="text-[30px] leading-none italic">Marginalia</h1>
@@ -61,7 +62,7 @@ export function LibraryWorkspace({ items, finding, paused }: { items: LibraryIte
           </div>
         </main>
         {(searchOpen || book) && (
-          <div className="border-t border-rule lg:w-[min(460px,40vw)] lg:shrink-0 lg:border-t-0 lg:border-l">
+          <div className="border-t border-rule lg:motion-safe:animate-panel-in lg:w-[min(460px,40vw)] lg:shrink-0 lg:border-t-0 lg:border-l">
             {book && (
               <BookPanel
                 key={book.bookId}

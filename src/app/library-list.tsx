@@ -1,9 +1,11 @@
 "use client";
 
+import { useRef } from "react";
 import type { LibraryItem } from "@/domain/library";
 import type { Status } from "@/domain/search";
 import { useStatusMove } from "./use-status-move";
-import { ClusterDot } from "./cluster-tint";
+import { useRowMoves } from "./use-row-moves";
+import { ClusterDot, clusterTint } from "./cluster-tint";
 import { DraftLine, EmptyShelves, MoreBooks, SHELVES, ShelfLabel, shortDate, useDrafts, useExpandedShelves } from "./shelf";
 
 // Quiet one-click moves per Status, on each row and in the Book panel.
@@ -24,12 +26,14 @@ export const MOVES: Record<Status, { label: string; to: Status }[]> = {
 export function LibraryList({ items, openBookId, onOpen }: { items: LibraryItem[]; openBookId?: string; onOpen: (bookId: string) => void }) {
   const { shown, expand } = useExpandedShelves();
   const drafts = useDrafts(items);
+  const listRef = useRef<HTMLDivElement>(null);
+  useRowMoves(listRef, items);
 
   if (items.length === 0) return <EmptyShelves />;
 
   const shelves = SHELVES.map((s) => ({ ...s, rows: items.filter((i) => i.status === s.status) })).filter((s) => s.status === "reading" || s.rows.length > 0);
   return (
-    <div className="flex flex-col gap-7">
+    <div ref={listRef} className="flex flex-col gap-7">
       {shelves.map(({ status, label, rows }, index) => {
         const visible = shown(status, rows);
         return (
@@ -74,6 +78,8 @@ function Row({ item, open, draftPage, onOpen }: { item: LibraryItem; open: boole
       data-book-id={item.bookId}
       aria-current={open || undefined}
       onClick={() => onOpen(item.bookId)}
+      // A Read Book's title underlines in its Cluster's tint, as its dot is coloured.
+      style={item.cluster ? { textDecorationColor: clusterTint(item.cluster.wash).tint } : undefined}
       className={`text-left italic decoration-rule underline-offset-4 after:absolute after:inset-0 group-hover:underline focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-thematic ${reading ? "text-[22px] leading-[1.2]" : "text-[18px] leading-[1.25]"}`}
     >
       {item.title}
@@ -115,7 +121,7 @@ function Row({ item, open, draftPage, onOpen }: { item: LibraryItem; open: boole
 
   if (reading) {
     return (
-      <li aria-busy={pending} className={`${frame} py-1.5`}>
+      <li data-row={item.bookId} data-shelf={item.status} aria-busy={pending} className={`${frame} py-1.5`}>
         <p>{title}</p>
         {/* The moves wait at the end of the author's line, so the block keeps no empty band for them. */}
         <div className="flex flex-wrap items-baseline gap-x-4">
@@ -131,7 +137,7 @@ function Row({ item, open, draftPage, onOpen }: { item: LibraryItem; open: boole
 
   const read = item.status === "read";
   return (
-    <li aria-busy={pending} className={`${frame} grid min-h-11 content-center items-baseline gap-x-3.5 py-2 ${read ? "grid-cols-[8px_minmax(0,1fr)_auto_auto]" : "grid-cols-[minmax(0,1fr)_auto]"}`}>
+    <li data-row={item.bookId} data-shelf={item.status} aria-busy={pending} className={`${frame} grid min-h-11 content-center items-baseline gap-x-3.5 py-2 ${read ? "grid-cols-[8px_minmax(0,1fr)_auto_auto]" : "grid-cols-[minmax(0,1fr)_auto]"}`}>
       {read && <span className="text-[18px]">{item.cluster && <ClusterDot wash={item.cluster.wash} />}</span>}
       <p className="min-w-0">
         {title}

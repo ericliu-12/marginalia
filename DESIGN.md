@@ -220,6 +220,20 @@ One deliberate exception: an element floating over the graph canvas (the Book, C
 
 Quiet, short and ease-out: 150–400ms, never bouncy, never blocking input. Motion marks a moment the reader caused (a Note saved, a Book finished, a Connection arriving, a Cluster named, a selection, a view change), never decoration. Under `prefers-reduced-motion` every movement is removed and only a short fade, or nothing, remains.
 
+The moments (#140), on paper and in ink:
+
+- **A Note saved:** its numeral and words soak in, a fade from a slight blur (300ms).
+- **A Status move:** the row glides to its new shelf (300ms, coming up from faint), and the rows around it close up or make room. Further than 400px, or with less motion, the row simply fades in where it lands (150ms).
+- **The Book panel:** slides in 12px and fades, beside the library (on a wide screen) or over the graph (250ms). Switching Book inside it does not repeat this.
+- **Library and Graph:** the view switched to fades in (200ms). A page loaded afresh just shows.
+- **A selection on the graph:** the rest fades back, and letting go brings it forward (200ms); Connections shown only by the selection fade in and out with it. A change made mid-fade switches at once.
+- **A Cluster forming or named:** its wash fades in, and its name writes itself in left to right (300ms). A wash whose Books change eases into its new shape (300ms).
+- **A Book arriving in the graph:** its dot lands with a spreading hairline ring (400ms), and its Connections draw in one by one along their lines (300ms each, half a second apart), each marked "New" in its panel. A Cluster forming fades its wash in over 300ms; the phone's sheets rise in 300ms.
+- **The reader's first Connections:** "Your first Connection." (or "Connections") above them, in ink italic with its full stop in the accent, so it reads as a moment rather than a status line. Said once on a device, counted once it has been up 1.5s.
+- **Hover:** a Read row's title underlines in its Cluster's tint.
+
+The graph draws only while something moves, and stops once the motion ends.
+
 ## Shapes
 
 Square. Buttons, fields, the segmented switch and panels have no corner radius; covers keep a 2px corner. Dots (Books on the graph, Cluster dots in the library) are the only circles.
