@@ -102,8 +102,8 @@ describe("Laying graphs out again", () => {
     expect(stats).toMatchObject({ books: 5, crossings: 1 });
     // The X is under a Connection's length across, so it is shown at the closest zoom, small.
     for (const view of Object.values(stats.views)) {
-      expect(view).toMatchObject({ labelOverlaps: 1, nameOverlaps: 0, namesOnWash: 0, limit: "max" });
-      expect(view.filled).toBeLessThan(0.05);
+      expect(view).toMatchObject({ labelOverlaps: 1, dotOverlaps: 0, nameOverlaps: 0, namesOnWash: 0, limit: "max" });
+      expect(view.filled).toBeLessThan(0.06);
     }
   });
 });

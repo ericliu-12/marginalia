@@ -105,6 +105,32 @@ export async function nearestBooks(db: Db, userId: string, bookId: string, model
   return rows.map((r) => ({ bookId: r.book_id, similarity: r.similarity }));
 }
 
+type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
+
+// How similar each of the reader's Books in `from` is to each in `to`, by the vectors already stored (a
+// Book's Enrichment and the reader's Notes on it), scored as nearestBooks scores them: its best vector
+// pair, compared only within one model. Pairs with no vectors to compare are left out. No new embeddings.
+export async function similarities(db: Db | Tx, userId: string, from: string[], to: string[]): Promise<{ a: string; b: string; similarity: number }[]> {
+  if (from.length === 0 || to.length === 0) return [];
+  const ids = (list: string[]) => sql`ARRAY[${sql.join(list.map((id) => sql`${id}::uuid`), sql`, `)}]`;
+  const { rows } = await db.execute<{ a: string; b: string; similarity: number }>(sql`
+    WITH vectors AS (
+      SELECT e.book_id, e.embedding, e.embedding_model AS model
+      FROM enrichment e
+      WHERE e.embedding IS NOT NULL AND e.embedding_model IS NOT NULL
+      UNION ALL
+      SELECT le.book_id, n.embedding, n.embedding_model
+      FROM note n JOIN library_entry le ON le.id = n.library_entry_id
+      WHERE le.user_id = ${userId} AND n.embedding IS NOT NULL AND n.embedding_model IS NOT NULL
+    )
+    SELECT mine.book_id AS a, other.book_id AS b, max(1 - (other.embedding <=> mine.embedding))::float8 AS similarity
+    FROM vectors mine JOIN vectors other ON other.model = mine.model AND other.book_id <> mine.book_id
+    WHERE mine.book_id = ANY(${ids(from)}) AND other.book_id = ANY(${ids(to)})
+    GROUP BY mine.book_id, other.book_id
+  `);
+  return rows;
+}
+
 // Every recognised Enrichment and every Note with no vector, or one from another model: what the
 // embed backfill queues.
 export async function staleEmbeddings(db: Db, model: string): Promise<EmbeddingTarget[]> {

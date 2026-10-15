@@ -5,8 +5,9 @@
 // The layout is scaled so a typical Connection is this long at zoom 1, which the drag forces assume.
 export const TYPICAL_EDGE_LENGTH = 70;
 
-// A Book's dot grows with its Connections, slowly, so hubs stand out without swallowing their labels.
-export const nodeRadius = (degree: number) => 3.5 + 1.7 * Math.sqrt(degree);
+// A Book's dot grows with its Connections, slowly, so hubs stand out without swallowing their labels. A
+// Book with none is a hollow ring the size of a dot with one, so it still reads as a Book.
+export const nodeRadius = (degree: number) => (degree === 0 ? 5 : 3.5 + 1.7 * Math.sqrt(degree));
 
 // A label's type size, its line (so the height of its plate) as a share of that, and its gap from the dot.
 export const LABEL_SIZE = 13;
@@ -41,6 +42,17 @@ export const CLUSTER_NAME_CLEAR = { top: 96, bottom: 88, side: 16 };
 export const FIT_MARGIN = { top: 72, bottom: 72, side: 48 };
 export const MAX_FIT_ZOOM = 4;
 
-// The desktop canvases the layout is shaped for: it fills them as best it can, and spreads its Books so
-// no labels or names are drawn over each other on either, as first fitted.
-export const DESKTOP = { "1440×900": { width: 1440, height: 900 }, "1280×800": { width: 1280, height: 800 } };
+// The desktop canvases the layout is shaped for, from a small laptop to a large monitor: it fills them as
+// best it can, and spreads its Books so no label is drawn over another label, a dot or a name on any of
+// them, as first fitted.
+export const DESKTOP = {
+  "1024×700": { width: 1024, height: 700 },
+  "1280×800": { width: 1280, height: 800 },
+  "1440×900": { width: 1440, height: 900 },
+  "1680×1050": { width: 1680, height: 1050 },
+  "1920×1080": { width: 1920, height: 1080 },
+};
+
+// Unconnected Books sit in a halo around the connected ones: each dot and label at least HALO_GAP typical
+// Connection lengths clear of the connected Books' dots, labels, washes and Cluster names.
+export const HALO_GAP = 0.6;

@@ -5,7 +5,7 @@ import { overlaps, placeLabels, placeNames, type Box, type Dot, type LabelReques
 // plates reaching 2 back toward it beside the dot.
 const VIEW = { width: 1000, height: 800 };
 const dot = (id: string, x: number, y: number, radius = 4): Dot => ({ id, x, y, radius });
-const ask = (d: Dot, must = false, w = 60, over = false): LabelRequest => ({ id: d.id, x: d.x, y: d.y, gap: 12, plate: 2, w, h: 16, must, over });
+const ask = (d: Dot, must = false, w = 60): LabelRequest => ({ id: d.id, x: d.x, y: d.y, gap: 12, plate: 2, w, h: 16, must });
 const at = (placed: { id: string; box: Box }[], id: string) => placed.find((p) => p.id === id)?.box;
 const sideOf = (box: Box | undefined, d: Dot) =>
   !box ? "off" : box.x0 > d.x ? "right" : box.x1 < d.x ? "left" : box.y1 < d.y ? "above" : "below";
@@ -38,16 +38,6 @@ describe("Label placement", () => {
     const crowd = [dot("r", 540, 400), dot("l", 460, 400), dot("u", 500, 380), dot("d", 500, 420)];
     expect(at(placeLabels({ view: VIEW, dots: [a, ...crowd], requests: [ask(a)] }), "a")).toBeUndefined();
     expect(sideOf(at(placeLabels({ view: VIEW, dots: [a, ...crowd], requests: [ask(a, true)] }), "a"), a)).toBe("right");
-  });
-
-  it("lets a label marked `over` sit on other Books' dots where no side is clear, but never on a label", () => {
-    const a = dot("a", 500, 400);
-    const crowd = [dot("r", 540, 400), dot("l", 460, 400), dot("u", 500, 380), dot("d", 500, 420)];
-    expect(sideOf(at(placeLabels({ view: VIEW, dots: [a, ...crowd], requests: [ask(a, false, 60, true)] }), "a"), a)).toBe("right");
-    const b = dot("b", 500, 450);
-    // b's label goes first and takes its right; a's label, over the crowd, still finds a side clear of it.
-    const placed = placeLabels({ view: VIEW, dots: [a, b, ...crowd], requests: [ask(b), ask(a, false, 60, true)], obstacles: [{ x0: 505, y0: 390, x1: 580, y1: 410 }] });
-    expect(sideOf(at(placed, "a"), a)).toBe("left");
   });
 
   it("gives earlier requests first pick, so later ones move aside or are left off", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FIT_MARGIN, LABEL_SIZE, MAX_FIT_ZOOM, TYPICAL_EDGE_LENGTH } from "../src/domain/graph-drawing";
+import { DESKTOP, FIT_MARGIN, HALO_GAP, LABEL_SIZE, MAX_FIT_ZOOM, TYPICAL_EDGE_LENGTH, WASH_RADIUS } from "../src/domain/graph-drawing";
 import { fitDrawn, readDrawn, textWidth, type Drawn } from "../src/domain/graph-fit";
 
 const VIEW = { width: 1440, height: 900 };
@@ -56,6 +56,7 @@ describe("How a fitted graph reads", () => {
     expect(r.zoom).toBeLessThan(1);
     // A's label covers B's dot and C's label (C sits just below A).
     expect(r.labelOverlaps).toBe(2);
+    expect(r.dotOverlaps).toBe(1);
     expect(r.clashes).toHaveLength(2);
   });
 
@@ -66,5 +67,20 @@ describe("How a fitted graph reads", () => {
     const r = readDrawn(drawn([...books, book("Far", 12, 1)], clusters), VIEW);
     expect(r.nameOverlaps).toBe(1);
     expect(r.clashes.some((c) => "cluster" in c.a && "book" in c.b && c.b.book === "Over")).toBe(true);
+  });
+
+  it("counts the halo's Books on a wash, on a name, or too near the connected Books, on every canvas size", () => {
+    // A Cluster of three, connected, and Books with no Connections: one far off, one on its wash, and one
+    // right of it, its label leading away.
+    const linked = [book("A", 0, 0), book("B", 1, 0), book("C", 0.5, 0.8)];
+    const clusters = [{ id: "c", bookIds: ["A", "B", "C"], name: "Inheritance and silence" }];
+    const lone = (id: string, x: number, y: number) => ({ ...book(id, x, y), degree: 0 });
+    for (const view of Object.values(DESKTOP)) {
+      expect(readDrawn(drawn([...linked, lone("Far", 5, 3)], clusters), view).halo).toEqual({ onWash: 0, onName: 0, near: 0 });
+      expect(readDrawn(drawn([...linked, lone("Far", 5, 3), lone("Wash", -0.5, 0.4)], clusters), view).halo).toEqual({ onWash: 1, onName: 0, near: 1 });
+      // Just past the wash, but nearer it than HALO_GAP.
+      const r = readDrawn(drawn([...linked, lone("Far", 5, 3), lone("Close", 1 + WASH_RADIUS + HALO_GAP / 2, 0)], clusters), view);
+      expect(r.halo).toEqual({ onWash: 0, onName: 0, near: 1 });
+    }
   });
 });
