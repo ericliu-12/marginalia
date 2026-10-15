@@ -20,36 +20,39 @@ export function LibraryWorkspace({ items, finding, paused }: { items: LibraryIte
 
   return (
     <div className="flex min-h-screen flex-col lg:h-screen">
-      <header className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 px-8 pt-7 pb-5 lg:px-12">
-        <div className="mr-auto flex items-baseline gap-8">
-          <h1 className="text-[1.75rem] leading-none font-medium tracking-[-0.01em] italic">Marginalia</h1>
+      <header className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 px-14 pt-7 pb-6">
+        <div className="mr-auto flex flex-wrap items-baseline gap-x-8">
+          <h1 className="text-[30px] leading-none italic">Marginalia</h1>
           <ViewSwitch current="library" />
           <FindingIndicator initial={finding} paused={paused} />
         </div>
-        <AccountLink />
-        {/* Kept in place, unseen, while search is open: the header keeps its height, so the library doesn't move. */}
-        <button
-          ref={openRef}
-          type="button"
-          aria-expanded={false}
-          aria-controls="add-a-book"
-          onClick={() => setSearchOpen(true)}
-          className={`bg-ink px-4 py-2 text-sm font-medium text-paper transition-colors hover:bg-ink-2 ${searchOpen ? "invisible" : ""}`}
-        >
-          Add a book
-        </button>
+        <div className="flex items-baseline gap-6">
+          {/* Kept in place, unseen, while search is open: the header keeps its height, so the library doesn't move. */}
+          <button
+            ref={openRef}
+            type="button"
+            aria-expanded={false}
+            aria-controls="add-a-book"
+            onClick={() => setSearchOpen(true)}
+            className={`min-h-11 bg-ink px-[18px] text-[16px] text-paper italic transition-colors duration-150 hover:bg-ink-2 ${searchOpen ? "invisible" : ""}`}
+          >
+            Add a Book
+          </button>
+          <AccountLink />
+        </div>
       </header>
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <main className="min-w-0 flex-1 overflow-y-auto px-8 pt-4 pb-16 lg:px-12">
-          <div className="max-w-[42rem]">
+        <main className="min-w-0 flex-1 overflow-y-auto pt-1 pr-12 pb-16 pl-14">
+          <div className="max-w-[48rem]">
             <LibraryList items={items} openBookId={book?.bookId} onOpen={(id) => { setBookId(id); setSearchOpen(true); }} />
           </div>
         </main>
         {searchOpen && (
-          <div className="border-t border-rule lg:w-[27rem] lg:shrink-0 lg:border-t-0 lg:border-l">
+          <div className="border-t border-rule lg:w-[min(460px,40vw)] lg:shrink-0 lg:border-t-0 lg:border-l">
             {book && (
               <BookPanel
                 key={book.bookId}
+                variant="docked"
                 item={book}
                 backLabel="Back to search"
                 onOpenBook={setBookId}

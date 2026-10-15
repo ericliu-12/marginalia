@@ -8,11 +8,14 @@ import { dangerLink, quietLink } from "./quiet-link";
 import { useInlineConfirm } from "./use-inline-confirm";
 import { POLL_MS, usePoll } from "./use-poll";
 
-const TYPE: Record<ConnectionCard["type"], { label: string; swatch: string }> = {
-  thematic: { label: "Thematic", swatch: "bg-thematic" },
-  contrast: { label: "Contrast", swatch: "bg-contrast" },
-  context: { label: "Context", swatch: "bg-context" },
+const TYPE: Record<ConnectionCard["type"], { label: string; hue: string }> = {
+  thematic: { label: "Thematic", hue: "text-thematic" },
+  contrast: { label: "Contrast", hue: "text-contrast" },
+  context: { label: "Context", hue: "text-context" },
 };
+
+// The small-caps label over each part of the Book's panel, in the accent: "notes", "connections".
+export const panelLabel = "caps text-[13px] font-medium tracking-[1.8px] text-accent outline-none";
 
 // A Book's title that opens that Book: here, and in the graph's Connection panel.
 export const titleLink =
@@ -44,9 +47,9 @@ export function ConnectionsSection({ bookId, onOpenBook, withheld }: { bookId: s
   if (!view) {
     if (!loadFailed) return null;
     return (
-      <section aria-label="Connections" className="mb-8 border-b border-rule pb-6">
-        <h3 className="border-b border-rule pb-2 text-[1.35rem] leading-tight font-medium">Connections</h3>
-        <p role="alert" className="pt-4 text-contrast">
+      <section aria-label="Connections" className="mt-7 border-t border-rule-2 pt-3.5">
+        <h3 className={panelLabel}>Connections</h3>
+        <p role="alert" className="pt-2 text-contrast">
           Couldn’t load Connections.{" "}
           <button type="button" onClick={() => setLoadFailed(false)} className="underline underline-offset-2">
             Try again
@@ -59,39 +62,29 @@ export function ConnectionsSection({ bookId, onOpenBook, withheld }: { bookId: s
   if (!finished && cards.length === 0) return null;
 
   return (
-    <section aria-label="Connections" className="mb-8 border-b border-rule pb-6">
-      <h3 ref={headingRef} tabIndex={-1} className="border-b border-rule pb-2 text-[1.35rem] leading-tight font-medium outline-none">
+    <section aria-label="Connections" className="mt-7 border-t border-rule-2 pt-3.5">
+      <h3 ref={headingRef} tabIndex={-1} className={panelLabel}>
         Connections
       </h3>
-      {status === "running" && <p className="pt-4 text-ink-2 italic">Finding Connections…</p>}
-      {status === "failed" && <p className="pt-4 text-ink-2 italic">Couldn’t find Connections just now.</p>}
-      {status === "idle" && cards.length === 0 && <p className="pt-4 text-ink-2 italic">No Connections yet.</p>}
+      {status === "running" && <p className="pt-2 text-ink-2 italic">Finding Connections…</p>}
+      {status === "failed" && <p className="pt-2 text-ink-2 italic">Couldn’t find Connections just now.</p>}
+      {status === "idle" && cards.length === 0 && <p className="pt-2 text-ink-2 italic">No Connections yet.</p>}
       {cards.length > 0 && (
-        <ul className="divide-y divide-rule/60">
+        <ul className="mt-1.5 flex flex-col gap-3">
           {cards
             .filter((c) => !withheld?.has(c.id))
             .map((c) => (
-            <li key={c.id} className={`py-4 ${withheld ? "motion-safe:animate-draw-in" : ""}`}>
-              <p className="text-[1.05rem] leading-snug font-medium">
-                <button
-                  type="button"
-                  onClick={() => onOpenBook(c.otherBookId)}
-                  className={`${titleLink} -my-2.5 py-2.5 lg:my-0 lg:py-0`}
-                >
-                  {c.otherTitle}
-                </button>
-              </p>
-              <p className="mt-2 max-w-[60ch]">{c.explanation}</p>
-              <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.8rem] text-ink-2">
-                <span aria-hidden className={`inline-block h-2.5 w-2.5 shrink-0 rounded-[2px] ${TYPE[c.type].swatch}`} />
-                <span>
+            <li key={c.id} className={withheld ? "motion-safe:animate-draw-in" : undefined}>
+              {/* The type in its hue, then the other Book in italic and why. */}
+              <div className="flex flex-wrap items-baseline gap-x-2">
+                <p className={`caps text-[12px] tracking-[1.2px] ${TYPE[c.type].hue}`}>
                   {TYPE[c.type].label} · {STRENGTH_LABEL[c.strength]}
-                  {c.grounding === "enrichment" && " · Not drawn from your notes"}
-                </span>
+                  {c.grounding === "enrichment" && <span className="text-ink-3"> · Not drawn from your notes</span>}
+                </p>
                 <DismissConnection
                   connectionId={c.id}
                   label={`Dismiss the Connection to ${c.otherTitle}`}
-                  className="lg:ml-auto"
+                  className="ml-auto"
                   onDismissed={() => {
                     setSaid(`Connection to ${c.otherTitle} dismissed`);
                     setView((v) => v && { ...v, cards: v.cards.filter((x) => x.id !== c.id) });
@@ -100,6 +93,12 @@ export function ConnectionsSection({ bookId, onOpenBook, withheld }: { bookId: s
                   }}
                 />
               </div>
+              <p className="max-w-[60ch] text-[16px] leading-normal">
+                <button type="button" onClick={() => onOpenBook(c.otherBookId)} className={`${titleLink} -my-2.5 py-2.5 italic lg:my-0 lg:py-0`}>
+                  {c.otherTitle}
+                </button>
+                : {c.explanation}
+              </p>
             </li>
           ))}
         </ul>
@@ -118,7 +117,7 @@ function LeftOut({ leftOut: { notes, enrichment } }: { leftOut: ConnectionsView[
   if (notes === 0 && !enrichment) return null;
   const yours = notes === 1 ? "one of your notes" : `${notes} of your notes`;
   const what = enrichment ? (notes > 0 ? `this book’s summary or ${yours}` : "this book’s summary") : yours;
-  return <p className="pt-4 text-[0.8rem] text-ink-2">Connections can’t draw on {what} yet. Refresh to try again.</p>;
+  return <p className="pt-3 text-[0.8rem] text-ink-2">Connections can’t draw on {what} yet. Refresh to try again.</p>;
 }
 
 // Last in the section: regenerates the Book's Connections from its current Notes. Afterwards the section

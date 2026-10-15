@@ -17,5 +17,5 @@ export const clusterTint = (wash: number) => CLUSTER_TINTS[wash % CLUSTER_TINTS.
 // A Finished Book's Cluster, beside its row: the tint, ringed in the name colour so the mark holds 3:1.
 export function ClusterDot({ wash }: { wash: number }) {
   const { tint, name } = clusterTint(wash);
-  return <span aria-hidden className="inline-block size-2 shrink-0 rounded-full" style={{ backgroundColor: tint, boxShadow: `inset 0 0 0 1px ${name}` }} />;
+  return <span aria-hidden className="inline-block size-2 shrink-0 rounded-full align-[0.1em]" style={{ backgroundColor: tint, boxShadow: `inset 0 0 0 1px ${name}` }} />;
 }
