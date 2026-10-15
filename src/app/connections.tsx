@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import type { ConnectionCard, ConnectionsView } from "@/domain/connections";
 import type { Pause } from "@/domain/spend";
 import { backgroundStatusAction, dismissConnectionAction, getConnectionsAction, refreshConnectionsAction } from "./client-actions";
@@ -23,6 +23,23 @@ export const titleLink =
 
 const STRENGTH_LABEL: Record<ConnectionCard["strength"], string> = { strong: "Strong", moderate: "Moderate", weak: "Weak" };
 
+// "Your first Connection.", said once on this device, over the reader's first Connections.
+const firstSaidKey = "marginalia:first-connection-said";
+function useFirstSaid(first: boolean) {
+  const [say, setSay] = useState(false);
+  useEffect(() => {
+    if (!first) return;
+    try {
+      if (localStorage.getItem(firstSaidKey)) return;
+      localStorage.setItem(firstSaidKey, "1");
+    } catch {
+      return;
+    }
+    setSay(true);
+  }, [first]);
+  return say;
+}
+
 // The Book's Connections: each other Book it links to and why. Quiet while there is nothing to say.
 // Each other Book's title opens that Book, as the host decides (in the graph, it is followed).
 // While the graph draws an arriving Book's Connections in, the ones still `withheld` wait, and each
@@ -43,6 +60,9 @@ export function ConnectionsSection({ bookId, onOpenBook, withheld }: { bookId: s
   );
   // With nothing to show, a failed load stops the polling until "Try again".
   usePoll(load, POLL_MS, !(loadFailed && !view) && (view === undefined || view.status === "running"));
+  // Not while the graph still holds them back: said as the first one appears.
+  const shown = view?.cards.filter((c) => !withheld?.has(c.id)) ?? [];
+  const sayFirst = useFirstSaid(!!view?.first && shown.length > 0);
 
   if (!view) {
     if (!loadFailed) return null;
@@ -69,17 +89,18 @@ export function ConnectionsSection({ bookId, onOpenBook, withheld }: { bookId: s
       {status === "running" && <p className="pt-2 text-ink-2 italic">Finding Connections…</p>}
       {status === "failed" && <p className="pt-2 text-ink-2 italic">Couldn’t find Connections just now.</p>}
       {status === "idle" && cards.length === 0 && <p className="pt-2 text-ink-2 italic">No Connections yet.</p>}
+      {sayFirst && <p className="pt-1.5 text-ink-2 italic motion-safe:animate-ink-in">{cards.length === 1 ? "Your first Connection." : "Your first Connections."}</p>}
       {cards.length > 0 && (
         <ul className="mt-1.5 flex flex-col gap-3">
-          {cards
-            .filter((c) => !withheld?.has(c.id))
-            .map((c) => (
+          {shown.map((c) => (
             <li key={c.id} className={withheld ? "motion-safe:animate-draw-in" : undefined}>
               {/* The type in its hue, then the other Book in italic and why. */}
               <div className="flex flex-wrap items-baseline gap-x-2">
                 <p className={`caps text-[12px] tracking-[1.2px] ${TYPE[c.type].hue}`}>
                   {TYPE[c.type].label} · {STRENGTH_LABEL[c.strength]}
                   {c.grounding === "enrichment" && <span className="text-ink-3"> · Not drawn from your notes</span>}
+                  {/* While its Book arrives in the graph, each Connection is marked new. */}
+                  {withheld && <span className="text-accent"> · New</span>}
                 </p>
                 <DismissConnection
                   connectionId={c.id}

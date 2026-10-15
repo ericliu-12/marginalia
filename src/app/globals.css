@@ -56,6 +56,31 @@
       opacity: 0;
     }
   }
+  /* A Cluster's name on the graph, written in left to right as the Cluster forms or is named. */
+  --animate-write-in: write-in 0.4s var(--ease-out-expo) both;
+  @keyframes write-in {
+    from {
+      clip-path: inset(0 100% 0 0);
+    }
+  }
+  /* The Book panel coming in beside the library or over the graph. */
+  --animate-panel-in: panel-in 0.25s var(--ease-out-expo) both;
+  @keyframes panel-in {
+    from {
+      opacity: 0;
+      transform: translateX(12px);
+    }
+  }
+  /* A Note just saved: its numeral and words soak in like ink. */
+  --animate-ink-in: ink-in 0.3s ease-out both;
+  @keyframes ink-in {
+    from {
+      opacity: 0;
+      filter: blur(1.5px);
+    }
+  }
+  /* Library and Graph, each fading in as the other is left. */
+  --animate-view-in: fade-in 0.2s ease-out both;
 }
 
 html {

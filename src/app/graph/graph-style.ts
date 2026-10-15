@@ -80,6 +80,24 @@ export const WASH_HOVER_MS = 150;
 export const WASH_FOLLOW_MS = 50;
 // A Cluster that forms while the graph is open fades in over this long.
 export const WASH_FADE_MS = 600;
+// A wash whose Books or Connections change in a fresh graph eases from its old shape to its new.
+export const WASH_SHAPE_MS = 300;
+// A Cluster's name writes itself in, left to right, when the Cluster forms or is named (CSS: write-in).
+
+// A selection fades the rest of the graph, and letting go brings it back, over this long.
+export const SELECT_FADE_MS = 200;
+
+// `from` to `to` (both #rrggbb), `t` of the way, at `alpha`: for a colour mid-fade.
+const rgb = new Map<string, number[]>();
+export function blend(from: string, to: string, t: number, alpha = 1) {
+  const [p, q] = [from, to].map((hex) => {
+    let c = rgb.get(hex);
+    if (!c) rgb.set(hex, (c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))));
+    return c;
+  });
+  const [r, g, b] = p.map((v, i) => Math.round(v + (q[i] - v) * t));
+  return `rgba(${r},${g},${b},${alpha})`;
+}
 
 // A Cluster's name is in its tint's name colour on a paper plate (as Book labels are), so no Connection
 // strikes through it; its size, place and room from the canvas edges are in src/domain/graph-drawing.ts.

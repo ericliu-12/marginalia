@@ -72,6 +72,18 @@ describe("Pipeline", () => {
     expect((await readConnections(ctx.db, ctx.userId, second.bookId)).cards.map((c) => c.otherBookId)).toEqual([first.bookId]);
   });
 
+  it("says which Connections are the reader's first: every one they have is the Book's", async () => {
+    const first = await add("first", "read");
+    expect(await readConnections(ctx.db, ctx.userId, first.bookId)).toMatchObject({ cards: [], first: false });
+    const second = await add("second", "read");
+    await ctx.jobs.drain(deps());
+    expect(await readConnections(ctx.db, ctx.userId, second.bookId)).toMatchObject({ first: true });
+    const third = await add("third", "read");
+    await ctx.jobs.drain(deps());
+    // Now some Connection leaves each Book out.
+    for (const { bookId } of [first, second, third]) expect(await readConnections(ctx.db, ctx.userId, bookId)).toMatchObject({ first: false });
+  });
+
   it("runs a requested Refresh after Connections were generated, judging existing pairs again", async () => {
     const first = await add("first", "read");
     const second = await add("second", "read");

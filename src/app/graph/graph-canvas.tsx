@@ -7,6 +7,7 @@ import { fitDrawn } from "@/domain/graph-fit";
 import { visibleConnections, type GraphBook, type GraphCluster, type GraphConnection, type GraphView } from "@/domain/graph";
 import {
   ARRIVAL_FRAME,
+  blend,
   CLUSTER_NAME_CLEAR,
   CLUSTER_NAME_GAP,
   CLUSTER_NAME_SIZE,
@@ -33,6 +34,7 @@ import {
   RECENT_LABELS,
   TYPE_COLOR,
   RING_GAP,
+  SELECT_FADE_MS,
   TRAIL_CASING,
   TYPICAL_EDGE_LENGTH,
   WASH_ALPHA,
@@ -42,6 +44,7 @@ import {
   WASH_FOLLOW_MS,
   WASH_HOVER_MS,
   WASH_REACH,
+  WASH_SHAPE_MS,
   nodeRadius,
 } from "./graph-style";
 import { clusterTint } from "../cluster-tint";
@@ -176,7 +179,20 @@ function focusFor(graph: GraphView, prepared: ReturnType<typeof prepare>, select
 // tint, blurred, in a canvas of its own covering it at (x, y), w by h graph units. Being blurred, it is
 // drawn coarse, WASH_PIXELS of blur deep, and scaled up on the paper, so it never needs drawing again
 // for a zoom: only when its Books move. Where they were when it was drawn is kept to tell.
-type Wash = { canvas: HTMLCanvasElement; nodes: Node[]; drawnAt: Float64Array; drawn: number; x: number; y: number; w: number; h: number };
+// A wash whose shape changed with a fresh graph keeps its last shape, `was`, to ease out of.
+type Wash = {
+  canvas: HTMLCanvasElement;
+  nodes: Node[];
+  drawnAt: Float64Array;
+  drawn: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  // Its Connections, by their Books, to tell a fresh graph that changed its shape from one that didn't.
+  bands: string;
+  was?: { canvas: HTMLCanvasElement; x: number; y: number; w: number; h: number; since: number };
+};
 const WASH_PIXELS = 8;
 const WASH_MAX_SIDE = 2048;
 // The solid shape, before its blur.
@@ -222,7 +238,14 @@ function drawWash(nodes: Node[], bands: [Node, Node][], tint: string, canvas = d
   lc.drawImage(solid, -width, 0);
   const drawnAt = new Float64Array(nodes.length * 2);
   nodes.forEach((n, i) => drawnAt.set([n.x!, n.y!], i * 2));
-  return { canvas, nodes, drawnAt, drawn: performance.now(), x, y, w, h };
+  return { canvas, nodes, drawnAt, drawn: performance.now(), x, y, w, h, bands: bandsKey(bands) };
+}
+
+const bandsKey = (bands: [Node, Node][]) => bands.map(([p, q]) => `${p.id}-${q.id}`).join();
+// Whether a fresh graph gives a wash another shape: other Books, Books elsewhere, or other Connections.
+function reshaped(wash: Wash, nodes: Node[], bands: [Node, Node][]) {
+  if (wash.nodes.length !== nodes.length || wash.bands !== bandsKey(bands)) return true;
+  return nodes.some((n, i) => n.id !== wash.nodes[i].id || Math.abs(n.x! - wash.drawnAt[i * 2]) > WASH_STILL || Math.abs(n.y! - wash.drawnAt[i * 2 + 1]) > WASH_STILL);
 }
 
 // Whether any of a wash's Books has moved since it was drawn, by more than a hair.
@@ -296,6 +319,9 @@ export function GraphCanvas({
   const animateFor = useRef<(ms: number) => void>(() => {});
   const focus = useMemo(() => focusFor(graph, prepared, selection, trail), [graph, prepared, selection, trail]);
   const focusRef = useRef(focus);
+  // The focus before the last selection change, and when it changed: the graph fades from one to the other.
+  const wasFocusRef = useRef<Focus | null>(null);
+  const focusAt = useRef(0);
   const hoverRef = useRef<string | null>(null);
   const hoverLinkRef = useRef<string | null>(null);
   const pointedRef = useRef(pointedBookId);
@@ -367,6 +393,8 @@ export function GraphCanvas({
       const progress = (since: number | undefined, ms: number) => (since === undefined ? 1 : Math.min(1, (performance.now() - since) / ms));
       const data = () => dataRef.current;
       const pointed = () => hoverRef.current ?? pointedRef.current;
+      // A wash's strength under a focus, before any hover deepens it.
+      const washBase = (focus: Focus, id: string) => (id === focus.chosenClusterId ? WASH_ALPHA.chosen : focus.litBooks ? WASH_ALPHA.faded : WASH_ALPHA.rest);
       // The wash at a point on the canvas, in screen pixels: the smallest, where washes overlap.
       const washUnder = (x: number, y: number) => {
         const at = f.screen2GraphCoords(x, y);
@@ -389,18 +417,48 @@ export function GraphCanvas({
         redraw();
       };
       const ringed = (id: string) => id === focusRef.current.chosenBookId || id === pointed() || focusRef.current.trailBooks.has(id);
-      const isLitBook = (id: string) => !focusRef.current.litBooks || focusRef.current.litBooks.has(id);
-      const linkState = (l: Link) => {
-        const { litLinks, chosenLinkId } = focusRef.current;
-        if (l.id === chosenLinkId) return "chosen";
-        return !litLinks || litLinks.has(l.id) ? "lit" : "faded";
+      // How far the graph is from the last focus to this one, 0 to 1; 1 once the fade is over, or with
+      // no fade to make.
+      const shift = () => {
+        const was = wasFocusRef.current;
+        return was ? easeOut(progress(focusAt.current, SELECT_FADE_MS)) : 1;
       };
-      const colorOf = (l: Link) => (linkState(l) === "faded" ? FADED_EDGE : TYPE_COLOR[l.connection.type]);
+      // How lit a Book is, 0 (faded) to 1, part way while a selection fades the rest in or out.
+      const litIn = (focus: Focus, id: string) => (!focus.litBooks || focus.litBooks.has(id) ? 1 : 0);
+      const bookLit = (id: string) => {
+        const now = litIn(focusRef.current, id);
+        const t = shift();
+        if (t >= 1) return now;
+        const was = litIn(wasFocusRef.current!, id);
+        return was + (now - was) * t;
+      };
+      // Two colours by how lit a Book is: either, or a blend while it fades.
+      const byLit = (lit: number, faded: string, full: string) => (lit >= 1 ? full : lit <= 0 ? faded : blend(faded, full, lit));
+      // A Connection as one focus draws it: whether shown, its colour and its width.
+      const linkLook = (focus: Focus, l: Link) => {
+        const shown = focus.visible.has(l.id);
+        if (l.id === focus.chosenLinkId) return { shown, color: TYPE_COLOR[l.connection.type], width: EDGE_WIDTH[l.connection.strength] + EDGE_WIDTH_CHOSEN_EXTRA };
+        if (focus.litLinks && !focus.litLinks.has(l.id)) return { shown, color: FADED_EDGE, width: EDGE_WIDTH_FADED };
+        const extra = l.id === hoverLinkRef.current ? EDGE_WIDTH_HOVER_EXTRA : 0;
+        return { shown, color: TYPE_COLOR[l.connection.type], width: EDGE_WIDTH[l.connection.strength] + extra };
+      };
+      // Mid-fade, a Connection eases from the last focus's look to this one's, fading in or out where
+      // only one of them shows it.
+      const colorOf = (l: Link) => {
+        const now = linkLook(focusRef.current, l);
+        const t = shift();
+        if (t >= 1) return now.color;
+        const was = linkLook(wasFocusRef.current!, l);
+        if (!was.shown) return blend(now.color, now.color, 1, t);
+        if (!now.shown) return blend(was.color, was.color, 1, 1 - t);
+        return blend(was.color, now.color, t);
+      };
       const widthOf = (l: Link) => {
-        const state = linkState(l);
-        if (state === "faded") return EDGE_WIDTH_FADED;
-        const extra = state === "chosen" ? EDGE_WIDTH_CHOSEN_EXTRA : l.id === hoverLinkRef.current ? EDGE_WIDTH_HOVER_EXTRA : 0;
-        return EDGE_WIDTH[l.connection.strength] + extra;
+        const now = linkLook(focusRef.current, l);
+        const t = shift();
+        if (t >= 1 || !now.shown) return now.width;
+        const was = linkLook(wasFocusRef.current!, l);
+        return was.shown ? was.width + (now.width - was.width) * t : now.width;
       };
 
       // Places every label and Cluster name afresh, moving the names into place; the labels, each with
@@ -514,8 +572,8 @@ export function GraphCanvas({
         // camera moves; drawn again for a fresh graph, or once its Books have moved: while a drag's
         // simulation runs, at most every WASH_FOLLOW_MS, so it follows the Book being dragged.
         .onRenderFramePre((ctx) => {
-          const { chosenClusterId, litBooks } = focusRef.current;
           const now = performance.now();
+          const t = shift();
           const { clusters } = data();
           // The deepened wash eases in as the last one eases out.
           const deep = deepened.current;
@@ -525,18 +583,33 @@ export function GraphCanvas({
           ctx.save();
           for (const { cluster, nodes, bands } of clusters) {
             const depth = cluster.id === deep.id ? eased : cluster.id === deep.was ? 1 - eased : 0;
-            const base = cluster.id === chosenClusterId ? WASH_ALPHA.chosen : litBooks ? WASH_ALPHA.faded : WASH_ALPHA.rest;
+            const toBase = washBase(focusRef.current, cluster.id);
+            const base = t >= 1 ? toBase : washBase(wasFocusRef.current!, cluster.id) * (1 - t) + toBase * t;
             const alpha = (base + Math.max(0, WASH_ALPHA.hover - base) * depth) * faded(cluster.id, now);
             if (alpha <= 0 || nodes.length === 0) continue;
             let wash = washes.get(cluster.id);
-            const stale = !wash || wash.nodes !== nodes || ((!simulating || now - wash.drawn >= WASH_FOLLOW_MS) && washMoved(wash));
-            if (stale) washes.set(cluster.id, (wash = drawWash(nodes, bands, clusterTint(cluster.wash).tint, wash?.canvas)));
-            ctx.globalAlpha = alpha;
-            ctx.drawImage(wash!.canvas, wash!.x, wash!.y, wash!.w, wash!.h);
+            if (wash && wash.nodes !== nodes && !reducedMotion() && reshaped(wash, nodes, bands)) {
+              // A fresh graph: drawn anew on a canvas of its own, easing out of the shape it had.
+              const { canvas, x, y, w, h } = wash;
+              washes.set(cluster.id, (wash = drawWash(nodes, bands, clusterTint(cluster.wash).tint)));
+              wash.was = { canvas, x, y, w, h, since: now };
+            } else if (!wash || wash.nodes !== nodes || ((!simulating || now - wash.drawn >= WASH_FOLLOW_MS) && washMoved(wash))) {
+              washes.set(cluster.id, (wash = drawWash(nodes, bands, clusterTint(cluster.wash).tint, wash?.canvas)));
+            }
+            const reshaping = wash.was ? easeOut(progress(wash.was.since, WASH_SHAPE_MS)) : 1;
+            if (reshaping < 1) {
+              ctx.globalAlpha = alpha * (1 - reshaping);
+              ctx.drawImage(wash.was!.canvas, wash.was!.x, wash.was!.y, wash.was!.w, wash.was!.h);
+            } else wash.was = undefined;
+            ctx.globalAlpha = alpha * reshaping;
+            ctx.drawImage(wash.canvas, wash.x, wash.y, wash.w, wash.h);
           }
           ctx.restore();
         })
-        .linkVisibility((l) => focusRef.current.visible.has(l.id) && !withheldRef.current.has(l.id))
+        // Mid-fade, a Connection the last focus showed stays, fading out.
+        .linkVisibility(
+          (l) => !withheldRef.current.has(l.id) && (focusRef.current.visible.has(l.id) || (shift() < 1 && wasFocusRef.current!.visible.has(l.id))),
+        )
         .linkColor(colorOf)
         // Screen pixels: force-graph keeps link widths constant across zoom.
         .linkWidth(widthOf)
@@ -583,7 +656,7 @@ export function GraphCanvas({
             ctx.globalAlpha = 1;
           }
           const r = (n.radius * land) / k;
-          const lit = isLitBook(n.id);
+          const lit = bookLit(n.id);
           if (ringed(n.id)) {
             // A Book on the trail behind the chosen one gets a lighter ring.
             const behind = n.id !== focusRef.current.chosenBookId && n.id !== pointed();
@@ -599,12 +672,12 @@ export function GraphCanvas({
             ctx.arc(n.x!, n.y!, Math.max(0, r - LONE_RING / 2 / k), 0, Math.PI * 2);
             ctx.lineWidth = LONE_RING / k;
             // Behind a selection, in the faded label's colour: FADED_NODE as a hairline would all but vanish.
-            ctx.strokeStyle = lit ? LONE_INK : FADED_LABEL;
+            ctx.strokeStyle = byLit(lit, FADED_LABEL, LONE_INK);
             ctx.stroke();
             return;
           }
           ctx.arc(n.x!, n.y!, r, 0, Math.PI * 2);
-          ctx.fillStyle = lit ? INK : FADED_NODE;
+          ctx.fillStyle = byLit(lit, FADED_NODE, INK);
           ctx.fill();
         })
         .nodePointerAreaPaint((n, color, ctx, k) => {
@@ -626,7 +699,6 @@ export function GraphCanvas({
           const scene = { focus: focusRef.current, data: data(), key: [k, origin.x, origin.y, view.width, view.height, insetRef.current, pointed()].join() };
           const still = simulating && kept && kept.scene.focus === scene.focus && kept.scene.data === scene.data && kept.scene.key === scene.key;
           if (!still) kept = { scene, labels: place(ctx, k, view, dots, screen) };
-          const { litBooks } = focusRef.current;
           ctx.textBaseline = "middle";
           for (const { id, text, box } of kept!.labels) {
             const n = byId.get(id)!;
@@ -638,7 +710,7 @@ export function GraphCanvas({
             const [align, sx] = box.x0 > 0 ? (["left", box.x0 + LABEL_PLATE] as const) : box.x1 < 0 ? (["right", box.x1 - LABEL_PLATE] as const) : (["center", (box.x0 + box.x1) / 2] as const);
             ctx.textAlign = align;
             const at = p(sx, (box.y0 + box.y1) / 2);
-            ctx.fillStyle = litBooks && !litBooks.has(id) ? FADED_LABEL : lone ? LONE_INK : INK;
+            ctx.fillStyle = byLit(bookLit(id), FADED_LABEL, lone ? LONE_INK : INK);
             ctx.fillText(text, at.x, at.y);
           }
         })
@@ -733,7 +805,9 @@ export function GraphCanvas({
 
   // Each graph in turn: the first is fitted to the screen; a later one, fetched after background work,
   // keeps the reader's view, and any Cluster it has that the last one lacked fades in.
-  const shown = useRef<Set<string> | null>(null);
+  // The Clusters last shown, with their names; and those whose name is writing in.
+  const shown = useRef<Map<string, string> | null>(null);
+  const [writing, setWriting] = useState<Set<string>>(new Set());
   useEffect(() => {
     const f = fgRef.current;
     if (!f) return;
@@ -741,12 +815,15 @@ export function GraphCanvas({
     const now = performance.now();
     const fresh = first || reducedMotion() ? [] : prepared.clusters.filter((c) => !shown.current!.has(c.cluster.id));
     for (const c of fresh) appeared.current.set(c.cluster.id, now);
-    shown.current = new Set(prepared.clusters.map((c) => c.cluster.id));
+    // A Cluster that forms or takes a new name writes it in.
+    if (!first) setWriting(new Set(prepared.clusters.filter((c) => shown.current!.get(c.cluster.id) !== c.cluster.name).map((c) => c.cluster.id)));
+    shown.current = new Map(prepared.clusters.map((c) => [c.cluster.id, c.cluster.name]));
     dataRef.current = prepared;
     // The stored layout stays put; a drag wakes the simulation, which settles everything back home.
     f.cooldownTicks(0).graphData({ nodes: prepared.nodes, links: prepared.links });
-    // Redrawn every frame while a Cluster fades in, since nothing else is moving.
+    // Redrawn every frame while a Cluster fades in or a wash changes shape, since nothing else is moving.
     if (fresh.length) animateFor.current(WASH_FADE_MS);
+    else if (!first && !reducedMotion()) animateFor.current(WASH_SHAPE_MS);
     // Once the canvas has its size, fit the first graph.
     let frame = requestAnimationFrame(function fit() {
       if (first && !fitFirst(f)) frame = requestAnimationFrame(fit);
@@ -787,9 +864,14 @@ export function GraphCanvas({
   // Arriving Books already framed: only the arrival brings the Books a Book connects to into view.
   const framed = useRef(new Set<string>());
   useEffect(() => {
+    // The graph fades from the last focus to this one, or with less motion changes at once.
+    const fade = focusRef.current !== focus && !reducedMotion();
+    wasFocusRef.current = fade ? focusRef.current : null;
+    focusAt.current = performance.now();
     focusRef.current = focus;
     const f = fgRef.current;
     if (!f) return;
+    if (fade) animateFor.current(SELECT_FADE_MS);
     f.linkVisibility(f.linkVisibility());
     const key = focus.chosenBookId ?? focus.chosenLinkId ?? focus.chosenClusterId;
     // On the next frame, once the canvas has its size, moving from the fitted view.
@@ -858,8 +940,10 @@ export function GraphCanvas({
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
         {graph.clusters.map((c) => (
           <ClusterName
-            key={c.id}
+            // Keyed by name too, so each new name writes in afresh.
+            key={`${c.id}:${c.name}`}
             cluster={c}
+            writing={writing.has(c.id)}
             chosen={c.id === focus.chosenClusterId}
             pointed={c.id === pointedClusterId}
             onSelect={() => onSelect({ kind: "cluster", id: c.id })}
@@ -878,10 +962,12 @@ function ClusterName({
   cluster,
   chosen,
   pointed,
+  writing,
   onSelect,
   nameRef,
 }: {
   cluster: GraphCluster;
+  writing: boolean;
   chosen: boolean;
   pointed: boolean;
   onSelect: () => void;
@@ -904,7 +990,7 @@ function ClusterName({
           visibility: "hidden",
         } as React.CSSProperties
       }
-      className="pointer-events-auto absolute top-0 left-0 rounded-[2px] bg-paper/80 px-1.5 py-0.5 font-serif leading-tight font-medium whitespace-nowrap text-(--name) italic decoration-(--name) decoration-1 underline-offset-[5px] transition-colors duration-150 hover:bg-paper/95 hover:underline data-chosen:bg-paper/95 data-chosen:underline data-hovered:bg-paper/95 data-hovered:underline data-pointed:bg-paper/95 data-pointed:underline data-pointed:outline-2 data-pointed:outline-offset-2 data-pointed:outline-thematic data-faded:bg-paper/60 data-faded:text-(--faded) data-faded:decoration-(--faded) motion-reduce:transition-none"
+      className={`pointer-events-auto absolute top-0 left-0 rounded-[2px] bg-paper/80 px-1.5 py-0.5 font-serif leading-tight font-medium whitespace-nowrap text-(--name) italic decoration-(--name) decoration-1 underline-offset-[5px] transition-colors duration-150 hover:bg-paper/95 hover:underline data-chosen:bg-paper/95 data-chosen:underline data-hovered:bg-paper/95 data-hovered:underline data-pointed:bg-paper/95 data-pointed:underline data-pointed:outline-2 data-pointed:outline-offset-2 data-pointed:outline-thematic data-faded:bg-paper/60 data-faded:text-(--faded) data-faded:decoration-(--faded) motion-reduce:transition-none ${writing ? "animate-write-in" : ""}`}
     >
       {cluster.name}
     </button>

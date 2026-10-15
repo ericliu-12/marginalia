@@ -11,7 +11,7 @@ import { BookPanel } from "../book-panel";
 import { FindingIndicator } from "../connections";
 import { POLL_MS, usePoll } from "../use-poll";
 import { AccountLink } from "../account-link";
-import { ViewSwitch } from "../view-switch";
+import { useArrivedBySwitch, ViewSwitch } from "../view-switch";
 import { arriving, drawOrder, justFinished } from "./arrival";
 import { ClusterPanel } from "./cluster-panel";
 import { ConnectionPanel } from "./connection-panel";
@@ -59,6 +59,7 @@ export function GraphWorkspace({
   loneThemes: string[];
 }) {
   const router = useRouter();
+  const switched = useArrivedBySwitch();
   const wide = useWide(true);
   // While background work is about to change the graph (after a dismissal, a removal, a Refresh or a
   // Connections run), check back until it settles, then fetch the page again for the fresh graph. The
@@ -166,7 +167,7 @@ export function GraphWorkspace({
   const byTitle = [...graph.books].sort((a, b) => a.title.localeCompare(b.title));
 
   return (
-    <div className="relative h-screen overflow-hidden">
+    <div className={`relative h-screen overflow-hidden ${switched ? "animate-view-in" : ""}`}>
       {wide && graph.books.length > 0 && (
         <GraphCanvas
           graph={graph}
@@ -287,7 +288,7 @@ export function GraphWorkspace({
       </p>
 
       {wide && selection && (
-        <div ref={panelRef} className="absolute top-6 right-6 bottom-6 w-[27rem] overflow-hidden border border-rule shadow-[0_12px_32px_-8px_rgb(26_26_26/0.18),0_2px_6px_rgb(26_26_26/0.06)]">
+        <div ref={panelRef} className="absolute top-6 right-6 bottom-6 w-[27rem] overflow-hidden border motion-safe:animate-panel-in border-rule shadow-[0_12px_32px_-8px_rgb(26_26_26/0.18),0_2px_6px_rgb(26_26_26/0.06)]">
           {selection.kind === "cluster" ? (
             <ClusterPanel
               key={selection.id}

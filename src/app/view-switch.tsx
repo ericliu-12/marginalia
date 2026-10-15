@@ -1,4 +1,17 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
+
+// Set as the reader switches views, so the view they arrive in fades in; a page loaded afresh just shows.
+let switched = false;
+export function useArrivedBySwitch() {
+  const [arrived] = useState(() => switched);
+  useEffect(() => {
+    switched = false;
+  }, []);
+  return arrived;
+}
 
 // The two ways into the reader's books. The graph needs a larger screen, so below lg there is no switch.
 export function ViewSwitch({ current }: { current: "library" | "graph" }) {
@@ -17,6 +30,7 @@ export function ViewSwitch({ current }: { current: "library" | "graph" }) {
           <Link
             key={v.key}
             href={v.href}
+            onClick={() => (switched = true)}
             className="py-3 text-ink-2 underline decoration-transparent underline-offset-[6px] transition-colors duration-150 hover:text-ink hover:decoration-rule"
           >
             {v.label}
