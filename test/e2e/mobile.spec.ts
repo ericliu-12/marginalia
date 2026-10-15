@@ -55,7 +55,7 @@ const answerSearch = async (page: Page) => {
   });
 };
 const addScreen = (page: Page) => page.getByRole("dialog", { name: "Add a Book" });
-const searchbox = (page: Page) => page.getByRole("searchbox", { name: "Search by title and author" });
+const searchbox = (page: Page) => page.getByRole("searchbox", { name: "Title or author" });
 const selectedText = (page: Page) => searchbox(page).evaluate((el: HTMLInputElement) => el.value.slice(el.selectionStart!, el.selectionEnd!));
 
 test("Add adds a Book in one tap, stays open with the search selected for the next, and Undo takes one back out", async ({ page }) => {
@@ -72,8 +72,8 @@ test("Add adds a Book in one tap, stays open with the search selected for the ne
 
   // Typing goes over the selected search, and the next Book is one tap too.
   await page.keyboard.type("Austerlitz");
-  await addScreen(page).getByRole("group", { name: "Add Austerlitz" }).getByRole("button", { name: "Already read" }).click();
-  await expect(addScreen(page).getByText("Added · Already read")).toBeVisible();
+  await addScreen(page).getByRole("group", { name: "Add Austerlitz" }).getByRole("button", { name: "Read", exact: true }).click();
+  await expect(addScreen(page).getByText("Added · Read", { exact: true })).toBeVisible();
   await expect(addScreen(page).getByText("1 Book finding Connections")).toBeVisible();
   expect(await selectedText(page)).toBe("Austerlitz");
 
@@ -99,6 +99,27 @@ test("Add adds a Book in one tap, stays open with the search selected for the ne
   await expect(add).toBeFocused();
   await expect(shelf(page).getByRole("button", { name: /^Piranesi/ })).toBeVisible();
   await expect(shelfNamed(page, "Want to read").getByRole("button", { name: /^The Peregrine/ })).toBeVisible();
+});
+
+test("Add opens the first result on its choices; tapping another opens that one instead, with the keyboard kept up", async ({ page }) => {
+  await catalog(CATALOG);
+  await page.route("**/api/search?**", (route) => route.fulfill({ json: CATALOG }));
+  await page.getByRole("button", { name: "Add a Book" }).click();
+  await expect(addScreen(page).getByRole("button", { name: "Add it by hand" })).toBeVisible();
+  await searchbox(page).fill("a");
+
+  const row = (title: string) => addScreen(page).getByRole("button", { name: new RegExp(`^${title}`) });
+  await expect(row("Piranesi")).toHaveAttribute("aria-expanded", "true");
+  await expect(addScreen(page).getByRole("group", { name: /^Add / })).toHaveCount(1);
+
+  await row("Austerlitz").click();
+  await expect(row("Austerlitz")).toHaveAttribute("aria-expanded", "true");
+  await expect(row("Piranesi")).toHaveAttribute("aria-expanded", "false");
+  await expect(searchbox(page)).toBeFocused();
+  await addScreen(page).getByRole("group", { name: "Add Austerlitz" }).getByRole("button", { name: "Read", exact: true }).click();
+  await expect(addScreen(page).getByText("Added · Read", { exact: true })).toBeVisible();
+  // Once something is added, closing keeps it: Cancel gives way to Done alone.
+  await expect(addScreen(page).getByRole("button", { name: "Cancel" })).toHaveCount(0);
 });
 
 // Holds the next Server Function call, as on a slow connection, until it is let go. Next sends them one
@@ -232,7 +253,7 @@ test("what is done on a Book's screen shows back in Add: a new Status, and a rem
   await expect(status(page).getByRole("button", { name: "Read", exact: true })).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: "Back to Add a Book" }).click();
   await searchbox(page).fill("");
-  await expect(addedSoFar.getByText("Added · Already read")).toBeVisible();
+  await expect(addedSoFar.getByText("Added · Read", { exact: true })).toBeVisible();
 
   await toPiranesi();
   await page.getByRole("button", { name: "Remove from library" }).click();

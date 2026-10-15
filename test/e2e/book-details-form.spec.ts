@@ -43,7 +43,8 @@ test.describe("on a desktop", () => {
 
   test("Add by hand: its fields, each missing field in turn, the cover rule, and a www. cover kept as https", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("searchbox", { name: "Search by title and author" }).fill("Kitchen");
+    await page.getByRole("button", { name: "Add a Book" }).click();
+    await page.getByRole("searchbox", { name: "Title or author" }).fill("Kitchen");
     await searchPane(page).getByRole("button", { name: "Add it by hand" }).click();
     const form = searchPane(page).getByRole("form", { name: "Add a book by hand" });
 
@@ -68,7 +69,7 @@ test.describe("on a desktop", () => {
     await expect(form.getByLabel("Cover image address")).toBeFocused();
     await expect(form.getByLabel("Cover image address")).toHaveAttribute("placeholder", "https://");
     await form.getByLabel("Cover image address").fill("ftp://example.com/c.jpg");
-    await wrongAt(form, "Already read", "Cover image address", COVER_ERROR);
+    await wrongAt(form, "Read", "Cover image address", COVER_ERROR);
 
     await form.getByRole("button", { name: "Add a description" }).click();
     await expect(form.getByLabel("Description")).toBeFocused();
@@ -84,7 +85,8 @@ test.describe("on a desktop", () => {
 
   test("Escape closes Add by hand with the draft kept; Cancel discards it", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("searchbox", { name: "Search by title and author" }).fill("Kitchen");
+    await page.getByRole("button", { name: "Add a Book" }).click();
+    await page.getByRole("searchbox", { name: "Title or author" }).fill("Kitchen");
     await searchPane(page).getByRole("button", { name: "Add it by hand" }).click();
     const form = searchPane(page).getByRole("form", { name: "Add a book by hand" });
     await form.getByLabel("Author", { exact: true }).fill("June Ash");
@@ -99,7 +101,8 @@ test.describe("on a desktop", () => {
 
   test("Add by hand says Adding… on the chosen Status while it adds, and says so when the add fails", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("searchbox", { name: "Search by title and author" }).fill("Kitchen");
+    await page.getByRole("button", { name: "Add a Book" }).click();
+    await page.getByRole("searchbox", { name: "Title or author" }).fill("Kitchen");
     await searchPane(page).getByRole("button", { name: "Add it by hand" }).click();
     const form = searchPane(page).getByRole("form", { name: "Add a book by hand" });
     await form.getByLabel("Title").fill(UNSTORABLE);
@@ -109,13 +112,13 @@ test.describe("on a desktop", () => {
     await form.getByRole("button", { name: "Reading" }).click();
     await call.held();
     const choices = form.getByRole("group", { name: "Add to your library as" }).getByRole("button");
-    await expect(choices).toHaveText(["Want to read", "Adding…", "Already read"]);
+    await expect(choices).toHaveText(["Want to read", "Adding…", "Read"]);
     for (const choice of await choices.all()) await expect(choice).toBeDisabled();
     await expect(form.getByRole("button", { name: "Cancel" })).toBeDisabled();
     await call.release();
 
     await expect(form.getByRole("alert")).toHaveText("Couldn’t add this book. Try again.");
-    await expect(choices).toHaveText(["Want to read", "Reading", "Already read"]);
+    await expect(choices).toHaveText(["Want to read", "Reading", "Read"]);
     await expect(form.getByLabel("Title")).not.toHaveAttribute("aria-invalid");
   });
 

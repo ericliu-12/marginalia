@@ -62,7 +62,6 @@ test("the Book's panel reads About, then Notes, then Connections", async ({ page
 
 test("a row's Status moves take the author and date's place on hover and focus, never over them", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Close search" }).click();
   const row = shelf(page, "Read · 6").getByRole("listitem").filter({ hasText: "Candide" });
   const author = row.getByText("Voltaire");
   const date = row.getByText("6 Jan");

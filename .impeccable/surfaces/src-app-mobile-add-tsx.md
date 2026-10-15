@@ -15,7 +15,7 @@ related_targets: ["src/app/search-pane.tsx"]
 - Header: quiet "Cancel", small-caps "add a book", accent "Done".
 - Search: small-caps "title or author" label, 19px serif query, 1.5px ink underline, no box.
 - Results: cover, italic title, small-caps "author · year", hairline rows.
-- The chosen result expands in place on the selected ground with a 2px accent edge: a small-caps "add to" legend and three 44px choice buttons, Want to read / Reading / Finished.
+- The chosen result expands in place on the selected ground with a 2px accent edge: a small-caps "add to" legend and three choice buttons, Want to read / Reading / Read (named as the shelf names them).
 - "Can’t find it? Add it by hand" at the bottom.
 - Desktop: the same language in the right-hand pane.
 

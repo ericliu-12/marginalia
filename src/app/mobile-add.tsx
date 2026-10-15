@@ -7,8 +7,20 @@ import { addBookAction, removeFromLibraryAction } from "./client-actions";
 import { EMPTY_BOOK, type BookDraft } from "./book-draft";
 import { FindingIndicator } from "./connections";
 import { Cover } from "./cover";
-import { quietLink } from "./quiet-link";
-import { addButton, addChoices, LABELS, LookalikeNote, ManualBookForm, useBookSearch } from "./search-pane";
+import {
+  AddByHand,
+  addButton,
+  addChoices,
+  LABELS,
+  LookalikeNote,
+  ManualBookForm,
+  resultMeta,
+  resultMetaOf,
+  resultTitle,
+  searchInput,
+  searchLabel,
+  useBookSearch,
+} from "./search-pane";
 import { useScrollLock, useVisibleViewport } from "./use-visible-viewport";
 import type { Pause } from "@/domain/spend";
 
@@ -24,8 +36,9 @@ const check = (
   </svg>
 );
 
-// The phone's Add a Book: full screen over the shelf, for adding several Books in a row. Each result
-// goes in with one tap as Want to read, Reading or Already read; search stays open with its text
+// The phone's Add a Book: full screen over the shelf, for adding several Books in a row. The chosen
+// result (the first, until another is tapped) opens in place on its three choices, Want to read,
+// Reading or Read, and goes in with one tap; search stays open with its text
 // selected, so the next Book is typed straight over it. Every add can be undone until Done. A Book
 // opened from here `hidden`s it, keeping the visit for back to return to; what was done there to the
 // Books added (`items`, the library) shows here. `onAddedChange` hears the Statuses of what is added,
@@ -67,6 +80,9 @@ export function MobileAdd({
     if (arrived.length) setSeen((s) => new Set([...s, ...arrived.map((a) => a.bookId)]));
   }, [adds, items, seen]);
   const [said, setSaid] = useState("");
+  // The result tapped open, or the one just added (or undone): until one is, a new search opens the
+  // first that still offers its choices. After an add, none is open until the next is chosen.
+  const [picked, setPicked] = useState<string | null>(null);
   const [manualOpen, setManualOpen] = useState(false);
   const [manualDraft, setManualDraft] = useState<BookDraft | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -99,6 +115,7 @@ export function MobileAdd({
 
   function onAdded(entry: Added) {
     setAdds((a) => [entry, ...a]);
+    setPicked(entry.workKey);
     setSaid(`Added ${entry.title} as ${LABELS[entry.status]}.`);
     ready();
   }
@@ -118,6 +135,7 @@ export function MobileAdd({
   // What became of a result on this visit: added (and not undone), or already in the library.
   const inLibraryNow = (r: SearchResult) => (undone.has(r.workKey) ? null : r.libraryStatus);
   const offersChoices = (r: SearchResult) => !inLibraryNow(r) && !added.some((a) => a.workKey === r.workKey);
+  const open = picked ? results.find((r) => r.workKey === picked && offersChoices(r)) : results.find(offersChoices);
 
   const q = query.trim();
   return (
@@ -138,17 +156,23 @@ export function MobileAdd({
       onAnimationEnd={(e) => e.target === e.currentTarget && setRisen(true)}
       className="fixed inset-0 z-10 flex flex-col bg-paper motion-safe:animate-sheet-up"
     >
-      <div className="mx-auto w-full max-w-[40rem] flex-none px-6 pt-[max(1rem,env(safe-area-inset-top))]">
-        <div className="flex min-h-11 items-center justify-between">
-          <h2 id="mobile-add-heading" className="text-[1.75rem] leading-tight font-medium">
+      <div className="mx-auto w-full max-w-[40rem] flex-none px-5 pt-[max(0.5rem,env(safe-area-inset-top))]">
+        {/* Cancel only until something is added: after that, closing keeps what was added, so it is Done. */}
+        <div className="grid min-h-11 grid-cols-[1fr_auto_1fr] items-center">
+          {added.length === 0 && (
+            <button type="button" onClick={onDone} className="-ml-3 min-h-11 justify-self-start px-3 text-[16px] text-ink-2 transition-colors active:text-ink">
+              Cancel
+            </button>
+          )}
+          <h2 id="mobile-add-heading" className="caps col-start-2 text-[17px] leading-tight font-medium tracking-[1.6px]">
             Add a Book
           </h2>
-          <button type="button" onClick={onDone} className="-mr-3 min-h-11 px-3 text-[0.95rem] font-medium text-ink transition-colors active:text-ink-2">
+          <button type="button" onClick={onDone} className="-mr-3 min-h-11 justify-self-end px-3 text-[16px] text-accent transition-colors active:text-accent-deep">
             Done
           </button>
         </div>
-        <label htmlFor="book-search" className="sr-only">
-          Search by title and author
+        <label htmlFor="book-search" className={`${searchLabel} mt-3`}>
+          Title or author
         </label>
         <input
           ref={inputRef}
@@ -158,14 +182,14 @@ export function MobileAdd({
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
+            setPicked(null);
             setManualOpen(false);
           }}
-          placeholder="Title and author"
           autoComplete="off"
           autoCapitalize="off"
-          className={`mt-3 min-h-12 w-full border border-edge bg-paper-2 px-3 ${risen ? "" : "motion-safe:caret-transparent"} text-base text-ink placeholder:text-ink-3 focus-visible:border-thematic focus-visible:ring-2 focus-visible:ring-thematic/30 focus-visible:outline-none`}
+          className={`mt-1 ${searchInput} ${risen ? "" : "motion-safe:caret-transparent"}`}
         />
-        <FindingIndicator initial={finding} paused={paused} className="mt-2 min-h-5" />
+        <FindingIndicator initial={finding} paused={paused} className="mt-2 min-h-5 text-[15px]" />
       </div>
 
       <p aria-live="polite" className="sr-only">
@@ -175,7 +199,7 @@ export function MobileAdd({
         {phase === "done" && !manualOpen ? `${results.length} results` : ""}
       </p>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        <div className="mx-auto max-w-[40rem] px-6 pb-[max(2rem,env(safe-area-inset-bottom))]">
+        <div className="mx-auto max-w-[40rem] px-5 pb-6">
           {manualOpen && manualDraft ? (
             <div className="pt-4">
               <ManualBookForm
@@ -196,38 +220,35 @@ export function MobileAdd({
             </div>
           ) : !q ? (
             added.length > 0 ? (
-              <section aria-labelledby="added-so-far" className="pt-5">
-                <h3 id="added-so-far" className="border-b border-rule pb-2 text-[1.05rem] leading-snug font-medium">
+              <section aria-labelledby="added-so-far" className="pt-3">
+                <h3 id="added-so-far" className="caps border-b border-ink pb-1.5 text-[14px] leading-tight font-medium tracking-[2px]">
                   Added so far
                 </h3>
-                <ul className="divide-y divide-rule/60">
+                <ul className="divide-y divide-rule-3">
                   {added.map((a) => (
-                    <li key={a.bookId} className="flex gap-4 py-3">
-                      <Cover title={a.title} url={a.coverUrl} />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[1.05rem] leading-snug font-medium">{a.title}</p>
-                        <p className="text-sm text-ink-2">
-                          {a.byline}
-                          {!a.workKey && (
-                            <span className="font-serif text-ink-3 italic">
-                              {a.byline && " · "}Manual Book
-                            </span>
-                          )}
-                        </p>
-                        <AddedLine entry={a} onUndone={onUndone} onTap={ready} />
-                      </div>
+                    <li key={a.bookId} className="pt-3">
+                      <p className={resultTitle}>{a.title}</p>
+                      <p className={resultMeta}>
+                        {a.byline}
+                        {!a.workKey && (
+                          <span className="text-ink-3 normal-case italic [font-variant-caps:normal]">
+                            {a.byline && " · "}Manual Book
+                          </span>
+                        )}
+                      </p>
+                      <AddedLine entry={a} onUndone={onUndone} onTap={ready} />
                     </li>
                   ))}
                 </ul>
               </section>
             ) : (
-              <p className="max-w-[34ch] pt-5 text-ink-2 italic">
-                Search by title; add the author to narrow it. Each Book goes in with one tap, and search stays open for the next.
+              <p className="max-w-[34ch] pt-3 text-ink-2 italic">
+                Search by title; add the author to narrow it.
               </p>
             )
           ) : (
             <>
-              {phase === "loading" && results.length === 0 && <p className="pt-5 text-ink-2 italic">Searching…</p>}
+              {phase === "loading" && results.length === 0 && <p className="pt-3 text-ink-2 italic">Searching…</p>}
               {phase === "error" && (
                 <p className="pt-5">
                   <span className="text-contrast">Search is unavailable right now.</span>{" "}
@@ -237,16 +258,10 @@ export function MobileAdd({
                 </p>
               )}
               {phase === "done" && results.length === 0 && (
-                <>
-                  <p className="pt-5 text-ink-2 italic">No match for “{q}”. Check the spelling, or try the title alone.</p>
-                  <p className="mt-1 text-sm text-ink-2">
-                    Not on Open Library? <AddByHand onOpen={openManual} />
-                  </p>
-                </>
+                <p className="pt-3 text-ink-2 italic">No match for “{q}”. Check the spelling, or try the title alone.</p>
               )}
               {results.length > 0 && phase !== "idle" && phase !== "error" && (
-                <>
-                  <ul aria-busy={phase === "loading"} className={`divide-y divide-rule/60 transition-opacity ${phase === "loading" ? "opacity-60" : ""}`}>
+                <ul aria-busy={phase === "loading"} className={`-mx-3 transition-opacity ${phase === "loading" ? "opacity-60" : ""}`}>
                     {results.map((r, i) => {
                       const inLibrary = inLibraryNow(r);
                       return (
@@ -255,6 +270,8 @@ export function MobileAdd({
                           result={r}
                           added={added.find((a) => a.workKey === r.workKey)}
                           inLibrary={inLibrary}
+                          open={r === open}
+                          onPick={() => setPicked(r.workKey)}
                           // The full note shows on the first result still offering its choices; later ones point back to it.
                           lookalikeAgain={!!r.lookalike && results.slice(0, i).some((p) => offersChoices(p) && p.lookalike?.bookId === r.lookalike!.bookId)}
                           onAdded={onAdded}
@@ -269,13 +286,9 @@ export function MobileAdd({
                         />
                       );
                     })}
-                  </ul>
-                  <p className="border-t border-rule/60 pt-2 text-sm text-ink-2">
-                    Not the book you mean? <AddByHand onOpen={openManual} />
-                  </p>
-                </>
+                </ul>
               )}
-              <p className="mt-6 text-xs text-ink-3">
+              <p className="mt-6 text-[13px] text-ink-3">
                 Results from{" "}
                 <a href="https://openlibrary.org" target="_blank" rel="noreferrer" className={`${hitArea} underline underline-offset-2`}>
                   Open Library
@@ -285,6 +298,9 @@ export function MobileAdd({
           )}
         </div>
       </div>
+      {!(manualOpen && manualDraft) && (
+        <AddByHand onOpen={openManual} className="mx-auto w-full max-w-[40rem] flex-none border-t border-rule-2 px-5 pb-[max(0.25rem,env(safe-area-inset-bottom))] text-center" />
+      )}
     </div>
   );
 
@@ -294,22 +310,21 @@ export function MobileAdd({
   }
 }
 
+// Undo and Open beside what became of a result: quiet, but at the line's size, so they read as the way back.
+const sideAction =
+  "-mr-2 min-h-11 min-w-11 px-2 text-[15px] text-ink-2 underline decoration-ink-3 underline-offset-4 transition-colors duration-150 hover:text-ink hover:decoration-ink disabled:text-ink-3";
+
 // A touch target past the line a link sits in, without spacing the text out.
 const hitArea = "relative after:absolute after:-inset-x-1 after:-inset-y-3.5 after:content-['']";
 
-function AddByHand({ onOpen }: { onOpen: () => void }) {
-  return (
-    <button type="button" onClick={onOpen} className={quietLink}>
-      Add it by hand
-    </button>
-  );
-}
-
-// One search result: its three choices, or what became of it.
+// One search result, and what became of it on this visit. While it offers its choices it is a row to
+// tap open; `open`, it lies on the selected ground with an accent edge, its three choices showing.
 function AddResult({
   result: r,
   added,
   inLibrary,
+  open,
+  onPick,
   lookalikeAgain,
   onAdded,
   onUndone,
@@ -320,6 +335,8 @@ function AddResult({
   result: SearchResult;
   added: Added | undefined;
   inLibrary: Status | null;
+  open: boolean;
+  onPick: () => void;
   lookalikeAgain: boolean;
   onAdded: (entry: Added) => void;
   onUndone: (entry: Added) => void;
@@ -347,53 +364,69 @@ function AddResult({
     });
   }
 
-  const meta = [r.authors.join(", "), r.firstPublishedYear].filter(Boolean).join(" · ");
+  const meta = resultMetaOf(r);
+  const offers = !added && !inLibrary && !duplicate;
+  const book = (
+    <>
+      <Cover title={r.title} url={r.coverUrl} />
+      <span className="min-w-0 flex-1">
+        <span className={`block ${resultTitle}`}>{r.title}</span>
+        {meta && <span className={`block ${resultMeta}`}>{meta}</span>}
+      </span>
+    </>
+  );
   return (
-    <li className="py-4">
-      <div className="flex gap-4">
-        <Cover title={r.title} url={r.coverUrl} />
-        <div className="min-w-0 flex-1">
-          <p className="text-[1.05rem] leading-snug font-medium">{r.title}</p>
-          {meta && <p className="text-sm text-ink-2">{meta}</p>}
-          {r.lookalike && !inLibrary && !added && <LookalikeNote lookalike={r.lookalike} again={lookalikeAgain} onOpenBook={onOpenBook} />}
-        </div>
-      </div>
-      {/* The full width under the Book, so each choice reads on one line. */}
-      <div className="mt-3">
-        {added ? (
-          <AddedLine entry={added} onUndone={onUndone} onTap={onTap} />
-        ) : inLibrary ? (
-          <p className="flex min-h-11 items-center justify-between gap-3 text-sm text-ink-2">
-            <span>
-              {check}In your library · {LABELS[inLibrary]}
-            </span>
-            {r.libraryBookId && (
-              <button type="button" onClick={() => onOpenBook(r.libraryBookId!)} aria-label={`Open ${r.title}`} className={`${quietLink} -mr-2 px-2`}>
-                Open
-              </button>
-            )}
-          </p>
-        ) : duplicate ? (
-          // Until the search, fetched again, gives its Status.
-          <p className="flex min-h-11 items-center text-sm text-ink-2">{check}In your library</p>
-        ) : (
-          <div className={addChoices} role="group" aria-label={`Add ${r.title}`}>
-            {(Object.keys(LABELS) as Status[]).map((s) => (
-              <button key={s} type="button" disabled={pending} onMouseDown={keepFocus} onClick={() => add(s)} className={addButton}>
-                {pending && adding === s ? "Adding…" : LABELS[s]}
-              </button>
-            ))}
-          </div>
-        )}
-        {failed && adding && (
-          <p className="mt-1.5 text-sm">
-            <span className="text-contrast">Couldn’t add this book.</span>{" "}
-            <button type="button" onMouseDown={keepFocus} onClick={() => add(adding)} className={`${hitArea} whitespace-nowrap text-ink underline underline-offset-2`}>
-              Try again
+    <li className={`px-3 py-3.5 ${open ? "border-l-2 border-accent bg-paper-3 pl-[10px]" : "border-b border-rule-3"}`}>
+      {offers ? (
+        // Tapping a row opens it without taking focus from the search, so the keyboard stays up.
+        <button type="button" aria-expanded={open} onMouseDown={keepFocus} onClick={onPick} className="flex w-full gap-3 text-left">
+          {book}
+        </button>
+      ) : (
+        <div className="flex gap-3">{book}</div>
+      )}
+      {r.lookalike && offers && <LookalikeNote lookalike={r.lookalike} again={lookalikeAgain} onOpenBook={onOpenBook} className="mt-2 ml-14" />}
+      {added ? (
+        <AddedLine entry={added} onUndone={onUndone} onTap={onTap} />
+      ) : inLibrary ? (
+        <p className="mt-1 flex min-h-11 items-center justify-between gap-3 text-[15px] text-ink-2">
+          <span>
+            {check}In your library · {LABELS[inLibrary]}
+          </span>
+          {r.libraryBookId && (
+            <button type="button" onClick={() => onOpenBook(r.libraryBookId!)} aria-label={`Open ${r.title}`} className={sideAction}>
+              Open
             </button>
-          </p>
-        )}
-      </div>
+          )}
+        </p>
+      ) : duplicate ? (
+        // Until the search, fetched again, gives its Status.
+        <p className="mt-1 flex min-h-11 items-center text-[15px] text-ink-2">{check}In your library</p>
+      ) : (
+        open && (
+          <div className="mt-3">
+            <p aria-hidden className="caps mb-2 text-[13px] tracking-[1.4px] text-ink-2">
+              Add to
+            </p>
+            {/* The full width under the Book, so each choice reads large. */}
+            <div className={addChoices} role="group" aria-label={`Add ${r.title}`}>
+              {(Object.keys(LABELS) as Status[]).map((s) => (
+                <button key={s} type="button" disabled={pending} onMouseDown={keepFocus} onClick={() => add(s)} className={addButton(pending && adding === s)}>
+                  {pending && adding === s ? "Adding…" : LABELS[s]}
+                </button>
+              ))}
+            </div>
+          </div>
+        )
+      )}
+      {failed && adding && (
+        <p className="mt-1.5 text-[15px]">
+          <span className="text-contrast">Couldn’t add this book.</span>{" "}
+          <button type="button" onMouseDown={keepFocus} onClick={() => add(adding)} className={`${hitArea} whitespace-nowrap text-ink underline underline-offset-2`}>
+            Try again
+          </button>
+        </p>
+      )}
     </li>
   );
 }
@@ -404,7 +437,7 @@ function AddedLine({ entry, onUndone, onTap }: { entry: Added; onUndone: (entry:
   const [failed, setFailed] = useState(false);
   return (
     <>
-      <p className="flex min-h-11 items-center justify-between gap-3 text-sm text-ink">
+      <p className="mt-1 flex min-h-11 items-center justify-between gap-3 text-[15px] text-ink">
         <span>
           {check}Added · {LABELS[entry.status]}
         </span>
@@ -421,12 +454,12 @@ function AddedLine({ entry, onUndone, onTap }: { entry: Added; onUndone: (entry:
             });
           }}
           aria-label={`Undo adding ${entry.title}`}
-          className={`${quietLink} -mr-2 px-2`}
+          className={sideAction}
         >
           {pending ? "Undoing…" : "Undo"}
         </button>
       </p>
-      {failed && <p className="text-sm text-contrast">Couldn’t undo. Try again.</p>}
+      {failed && <p className="text-[15px] text-contrast">Couldn’t undo. Try again.</p>}
     </>
   );
 }
