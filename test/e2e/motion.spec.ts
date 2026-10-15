@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { seedLibrary, wantBook } from "./database";
+import { seedLibrary, seedSmallLibrary, wantBook } from "./database";
 
 // Motion stays quiet: under reduced motion nothing slides, and the graph stops drawing once a
 // selection's fade is over.
@@ -65,12 +65,28 @@ test("the graph stops drawing once a selection has faded in", async ({ page }) =
   await page.goto("/graph");
   await expect(page.locator("canvas")).toBeVisible();
   const stoner = page.getByRole("navigation", { name: "Books in the graph" }).getByRole("button", { name: /^Stoner,/ });
+  await page.waitForTimeout(500);
+  const before = await frames();
   await stoner.focus();
   await stoner.press("Enter");
   await expect(page.getByRole("heading", { name: "Stoner", level: 2 })).toBeVisible();
   // Past the camera's glide and the fade.
   await page.waitForTimeout(1500);
   const settled = await frames();
+  expect(settled).toBeGreaterThan(before);
   await page.waitForTimeout(1000);
   expect(await frames()).toBe(settled);
+});
+
+test("the reader's first Connection is said once", async ({ page }) => {
+  await seedSmallLibrary(["Stoner", "Middlemarch"], [[0, 1]]);
+  const open = async () => {
+    await page.goto("/");
+    await page.getByRole("main").getByRole("button", { name: "Stoner", exact: true }).click();
+    await expect(page.getByRole("region", { name: "Connections" }).getByRole("button", { name: "Middlemarch", exact: true })).toBeVisible();
+  };
+  await open();
+  await expect(page.getByText("Your first Connection.")).toBeVisible();
+  await open();
+  await expect(page.getByText("Your first Connection.")).toHaveCount(0);
 });
