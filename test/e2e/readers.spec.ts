@@ -62,6 +62,6 @@ test("A's Book and Note stay A's: B's shelf, Book screen, graph and search show 
   await expect(b.getByRole("group", { name: "Add Austerlitz" }).getByRole("button", { name: "Reading" })).toBeVisible();
   await expect(b.getByText(NOTE)).toHaveCount(0);
   await b.goto("/graph");
-  await expect(b.getByText("Your graph begins with a finished Book.", { exact: false })).toBeVisible();
+  await expect(b.getByText("Finish a Book and its Connections will gather here.")).toBeVisible();
   for (const title of ["Austerlitz", "Stoner", "Beloved"]) await expect(b.getByText(title)).toHaveCount(0);
 });

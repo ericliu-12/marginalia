@@ -6,16 +6,16 @@ import { markFinding, seedSmallLibrary } from "./database";
 const books = (page: Page) => page.getByRole("navigation", { name: "Books in the graph" }).getByRole("button");
 const legend = (page: Page) => page.getByRole("list", { name: "Connection types" });
 
-test("with no Finished Books, the graph invites both ways in and shows no Books", async ({ page }) => {
+test("with no Finished Books, the graph says what will gather there, and shows no Books", async ({ page }) => {
   await seedSmallLibrary([]);
   await page.goto("/graph");
 
-  await expect(page.getByText("Your graph begins with a finished Book. Mark one finished, or add the ones you’ve already read, in your library.")).toBeVisible();
+  await expect(page.getByText("Finish a Book and its Connections will gather here.")).toBeVisible();
   await expect(books(page)).toHaveCount(0);
   await expect(legend(page)).toHaveCount(0);
 
   // The library opens with its search ready for Books already read.
-  await page.getByRole("link", { name: "your library" }).click();
+  await page.getByRole("link", { name: "Add a Book" }).click();
   await expect(page.getByRole("searchbox", { name: "Title or author" })).toBeFocused();
 });
 
