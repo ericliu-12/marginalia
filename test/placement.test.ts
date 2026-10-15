@@ -40,6 +40,16 @@ describe("Label placement", () => {
     expect(sideOf(at(placeLabels({ view: VIEW, dots: [a, ...crowd], requests: [ask(a, true)] }), "a"), a)).toBe("right");
   });
 
+  it("keeps a label off Connection lines, taking the next side clear of them, or the side over fewest", () => {
+    const a = dot("a", 500, 400);
+    // A line out to the right: the label goes left.
+    const right = { x0: 500, y0: 400, x1: 700, y1: 400 };
+    expect(sideOf(at(placeLabels({ view: VIEW, dots: [a], requests: [ask(a)], lines: [right] }), "a"), a)).toBe("left");
+    // Lines out of all four sides, and a second to the right: it goes where fewest cross, the left.
+    const lines = [right, { x0: 500, y0: 405, x1: 700, y1: 395 }, { x0: 500, y0: 400, x1: 300, y1: 400 }, { x0: 500, y0: 400, x1: 500, y1: 200 }, { x0: 500, y0: 400, x1: 500, y1: 600 }];
+    expect(sideOf(at(placeLabels({ view: VIEW, dots: [a], requests: [ask(a)], lines }), "a"), a)).toBe("left");
+  });
+
   it("gives earlier requests first pick, so later ones move aside or are left off", () => {
     const a = dot("a", 500, 400);
     const b = dot("b", 500, 410);

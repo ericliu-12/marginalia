@@ -1,5 +1,6 @@
 // Where the graph's Book labels and Cluster names go, worked out over boxes in screen pixels. Pure, so
 // the canvas only measures, places and draws.
+import { crossesBox, labelSides } from "@/domain/graph-fit";
 
 export type Box = { x0: number; y0: number; x1: number; y1: number };
 export const overlaps = (p: Box, q: Box) => p.x0 < q.x1 && q.x0 < p.x1 && p.y0 < q.y1 && q.y0 < p.y1;
@@ -55,8 +56,13 @@ function filed<T>(items: T[], boxOf: (item: T) => Box) {
   return { add, around, any };
 }
 
+// A Connection's line on screen, from one Book to the other.
+export type Line = { x0: number; y0: number; x1: number; y1: number };
+
 // In priority order, each label goes to the first side of its dot (right, left, above, below) where it
-// overlaps no dot and no label already placed, or it is left off. One that must show takes the right if nothing is free. A label that could not reach the view is left off unless it must show, and dots too
+// overlaps no dot, no label already placed and no line; failing that, to the side clear of dots and
+// labels that crosses fewest lines; or it is left off (readDrawn in src/domain/graph-fit.ts reads a
+// graph the same way). One that must show takes the right if nothing is free. A label that could not reach the view is left off unless it must show, and dots too
 // far out to meet any label that could are left out of the checks. `obstacles` (Cluster names) are kept
 // clear of as dots are.
 export function placeLabels({
@@ -64,11 +70,13 @@ export function placeLabels({
   dots,
   requests,
   obstacles = [],
+  lines = [],
 }: {
   view: { width: number; height: number };
   dots: Dot[];
   requests: LabelRequest[];
   obstacles?: Box[];
+  lines?: Line[];
 }): PlacedLabel[] {
   const reach = (r: LabelRequest) => r.gap + r.w;
   const seen = (r: LabelRequest) => r.must || (r.x + reach(r) > 0 && r.x - reach(r) < view.width && r.y + reach(r) > 0 && r.y - reach(r) < view.height);
@@ -80,15 +88,12 @@ export function placeLabels({
   const clear = (b: Box) => !taken.any(b, (o) => overlaps(o, b));
   const placed: PlacedLabel[] = [];
   for (const { id, x, y, gap, plate, w, h, must } of wanted) {
-    const beside = gap - plate;
-    const sides: Box[] = [
-      { x0: x + beside, y0: y - h / 2, x1: x + beside + w, y1: y + h / 2 },
-      { x0: x - beside - w, y0: y - h / 2, x1: x - beside, y1: y + h / 2 },
-      { x0: x - w / 2, y0: y - gap - h, x1: x + w / 2, y1: y - gap },
-      { x0: x - w / 2, y0: y + gap, x1: x + w / 2, y1: y + gap + h },
-    ];
+    const sides = labelSides(x, y, gap, plate, w, h);
     // The label's own dot is no obstacle to it: no side reaches back over it.
-    const box = sides.find((b) => clear(b) && !covered.any(b, (o) => overlaps(o, b))) ?? (must ? sides[0] : undefined);
+    const open = sides.filter((b) => clear(b) && !covered.any(b, (o) => overlaps(o, b)));
+    const crossings = (b: Box) => lines.filter((l) => crossesBox(b, { x: l.x0, y: l.y0 }, { x: l.x1, y: l.y1 })).length;
+    const counted = open.map((b) => ({ b, n: crossings(b) }));
+    const box = counted.reduce<{ b: Box; n: number } | undefined>((best, c) => (best === undefined || c.n < best.n ? c : best), undefined)?.b ?? (must ? sides[0] : undefined);
     if (!box) continue;
     taken.add(box);
     placed.push({ id, box });

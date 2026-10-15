@@ -9,14 +9,15 @@ import { readDrawn, typicalLength, type Reading } from "./graph-fit";
 
 // How a laid-out graph reads: its Books; how it reads on each DESKTOP canvas once fitted (see readDrawn:
 // the zoom and what bounds it, the share of the canvas the Books fill, labels drawn over labels and over
-// dots, names drawn over labels and names, names on their wash, and the halo's Books on a wash, on a
-// name or too near the connected Books); crossings among the Connections shown at rest; how far it spreads, width
+// dots, names drawn over labels and names, names on their wash, the halo's Books on a wash, on a name or
+// too near the connected Books, labels crossed by a Connection, Connections past other Books, and
+// Connections along each other); crossings among the Connections shown at rest; how far it spreads, width
 // by height, in typical Connection lengths; and the share of the fitted view (the box around every
 // Book's dot, half a length wider each way) that the box around the main connected part takes up, null
 // with no Connections.
 export type LayoutStats = {
   books: number;
-  views: Record<keyof typeof DESKTOP, Omit<Reading, "clashes">>;
+  views: Record<keyof typeof DESKTOP, Omit<Reading, "clashes" | "pushes" | "sides">>;
   crossings: number;
   width: number;
   height: number;
@@ -26,10 +27,10 @@ export type LayoutStats = {
 export function layoutStats(graph: GraphView): LayoutStats {
   const at = new Map(graph.books.map((b) => [b.bookId, b]));
   const unit = typicalLength(graph.books, graph.connections) || 1;
-  const drawn = { books: graph.books.map((b) => ({ ...b, id: b.bookId })), clusters: graph.clusters, unit };
+  const drawn = { books: graph.books.map((b) => ({ ...b, id: b.bookId })), clusters: graph.clusters, connections: graph.connections.filter((c) => c.featured), unit };
   const views = Object.fromEntries(
     Object.entries(DESKTOP).map(([name, view]) => {
-      const { clashes: _, ...reading } = readDrawn(drawn, view);
+      const { clashes: _, pushes: __, sides: ___, ...reading } = readDrawn(drawn, view);
       return [name, reading];
     }),
   ) as LayoutStats["views"];

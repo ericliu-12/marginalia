@@ -18,7 +18,7 @@ import {
   TYPICAL_EDGE_LENGTH,
   WASH_RADIUS,
 } from "./graph-drawing";
-import { fitDrawn, nameBox, readDrawn, textWidth, type Clash, type Drawn } from "./graph-fit";
+import { fitDrawn, labelSides, nameBox, readDrawn, textWidth, type Clash, type Drawn } from "./graph-fit";
 import { similarities } from "./embeddings";
 import { readGraphStatus } from "./graph-job";
 import { byStrength, otherBook, touches, type Pair } from "./connection-pair";
@@ -94,8 +94,12 @@ const HALO_PAD = 6;
 // halo aim to fill a view of the desktop's shape.
 export const WIDEN = 1.6;
 const ASPECT = DESKTOP["1280×800"].width / DESKTOP["1280×800"].height;
-// Rounds of spreading Books apart where labels and names would be drawn over each other, at most.
+// Rounds of spreading Books apart where labels and names would be drawn over each other, at most; and
+// how many in a row may pass without the graph reading better before it stops at the best it found: in a
+// graph laid out afresh, and in one settled again (which the worker does after every Connections job,
+// and which starts from a layout already spread).
 const SPREAD_ROUNDS = 200;
+const SPREAD_STALL = { fresh: 25, settle: 5 };
 
 export type GraphBook = {
   bookId: string;
@@ -204,18 +208,9 @@ const stored = (r: { x: number | null; y: number | null }) => (r.x === null || r
 // and their Clusters.
 export async function readGraph(db: Db, userId: string): Promise<GraphView> {
   const { books, connections, at, finished } = await loadGraph(db, userId);
-
-  // Each Book's Connections, strongest first, then most similar, then by id so ties hold still.
   const byBook = new Map<string, typeof connections>();
   for (const c of connections) for (const id of [c.a, c.b]) byBook.set(id, [...(byBook.get(id) ?? []), c]);
-  const featured = new Set<string>();
-  for (const list of byBook.values()) {
-    list
-      .filter((c) => AT_REST_STRENGTHS.includes(c.strength))
-      .sort(byStrength)
-      .slice(0, DISPLAY_CAP)
-      .forEach((c) => featured.add(c.id));
-  }
+  const featured = featuredOf(connections);
 
   return {
     books: books.map((r) => {
@@ -234,6 +229,22 @@ export async function readGraph(db: Db, userId: string): Promise<GraphView> {
     clusters: await readClusters(db, userId, new Set(books.map((r) => r.book.id))),
     ...(await readGraphStatus(db, userId)),
   };
+}
+
+// The Connections shown at rest, by id: each Book's strongest DISPLAY_CAP of AT_REST_STRENGTHS, strongest
+// first, then most similar, then by id so ties hold still.
+function featuredOf<C extends { id: string; a: string; b: string; strength: Strength; similarity?: number }>(connections: C[]): Set<string> {
+  const byBook = new Map<string, C[]>();
+  for (const c of connections) for (const id of [c.a, c.b]) byBook.set(id, [...(byBook.get(id) ?? []), c]);
+  const featured = new Set<string>();
+  for (const list of byBook.values()) {
+    list
+      .filter((c) => AT_REST_STRENGTHS.includes(c.strength))
+      .sort(byStrength)
+      .slice(0, DISPLAY_CAP)
+      .forEach((c) => featured.add(c.id));
+  }
+  return featured;
 }
 
 // The Connections on show: the featured ones, and every one of the selected Book's.
@@ -266,7 +277,9 @@ async function layOut(db: Tx, userId: string, fresh: boolean, dryRun: boolean): 
 
   const g = new Graph({ type: "undirected" });
   for (const r of books) g.addNode(r.book.id, { ...at.get(r.book.id)! });
-  for (const c of connections) g.addEdge(c.a, c.b, { weight: CLUSTER_WEIGHT[c.strength] });
+  // Each Connection weighted by its Strength, and marked whether it is drawn at rest.
+  const featured = featuredOf(connections);
+  for (const c of connections) g.addEdge(c.a, c.b, { weight: CLUSTER_WEIGHT[c.strength], shown: featured.has(c.id) });
   const unit = typicalLength(g);
   // Only the connected Books settle: the halo places the rest, which would otherwise push them about.
   const linkedGraph = g.copy();
@@ -324,13 +337,16 @@ async function layOut(db: Tx, userId: string, fresh: boolean, dryRun: boolean): 
   }
   const homes = new Map(lone.filter((id) => kept.has(id)).map((id) => [id, at.get(id)!]));
   lineUpHalo(g, labels, clusters, similar, homes);
-  spread(g, labels, clusters);
+  const patience = books.some(placed) ? SPREAD_STALL.settle : SPREAD_STALL.fresh;
+  spread(g, labels, clusters, patience);
   hold(settled);
   lineUpHalo(g, labels, clusters, similar, homes);
   // The halo can change the fitted zoom, and so the labels' size: the connected Books are spread again
   // at the zoom it leaves, the halo held where it is.
-  spread(g, labels, clusters, new Set(lone));
+  spread(g, labels, clusters, patience, new Set(lone));
   hold(settled);
+  // And the halo kept where it is, pushed out only where the connected Books have come too near.
+  lineUpHalo(g, labels, clusters, similar, new Map(lone.map((id) => [id, { x: g.getNodeAttribute(id, "x"), y: g.getNodeAttribute(id, "y") }])));
   const laidOut = new Map(books.map((r) => [r.book.id, { x: g.getNodeAttribute(r.book.id, "x") as number, y: g.getNodeAttribute(r.book.id, "y") as number }]));
   if (dryRun) return laidOut;
 
@@ -555,7 +571,12 @@ function lineUpHalo(
     };
     // What the halo keeps clear of, HALO_GAP wider: boxes, and washes as circles about their Books.
     const gap = HALO_GAP * px;
-    const boxes: Box[] = linked.flatMap((id) => [dotOf(point(id), g.degree(id)), labelBox(point(id), g.degree(id), labels.get(id)!)]);
+    // A connected Book's label may take any side of its dot (readDrawn), so all four are kept clear of.
+    const boxes: Box[] = linked.flatMap((id) => {
+      const p = point(id);
+      const r = nodeRadius(g.degree(id));
+      return [dotOf(p, g.degree(id)), ...labelSides(p.x, p.y, (r + LABEL_GAP) * px, LABEL_PLATE * px, (textWidth(labels.get(id)!, LABEL_SIZE) + 2 * LABEL_PLATE) * px, LABEL_SIZE * LABEL_LINE * px)];
+    });
     const pools: Point[] = [];
     const wash = WASH_RADIUS * unit;
     for (const c of clusters) {
@@ -672,32 +693,52 @@ function lineUpHalo(
 }
 
 // Moves Books apart, a round at a time, until on each DESKTOP canvas, fitted, no label is drawn over another
-// label or dot and no Cluster name over a label or another name (readDrawn): each such pair across or
+// label or dot and no Cluster name over a label or another name, and no Connection crosses a label, runs
+// past another Book or along another (readDrawn's pushes, averaged over the canvases): each clashing pair across or
 // down, whichever parts them sooner, half each way (all of it on one side where the other is `fixed`), a
-// name with its Cluster's Books. Parting them can
+// name with its Cluster's Books. It ends at the best reading it found, once `patience` rounds in a row
+// have not bettered it, or after SPREAD_ROUNDS. Parting them can
 // shrink the fitted zoom, and so grow the labels against the graph, so it gives up after SPREAD_ROUNDS.
-// The graph as the canvas would draw it: all of it, or only the Books for which `only` holds.
+// The graph as the canvas would draw it at rest: all of it, or only the Books for which `only` holds.
 const drawnOf = (g: Graph, labels: Map<string, string>, clusters: Drawn["clusters"], unit: number, only = (_: string) => true): Drawn => ({
   books: g.filterNodes(only).map((id) => ({ id, x: g.getNodeAttribute(id, "x") as number, y: g.getNodeAttribute(id, "y") as number, label: labels.get(id)!, degree: g.degree(id) })),
   clusters: clusters.map((c) => ({ ...c, bookIds: c.bookIds.filter((id) => g.hasNode(id) && only(id)) })),
+  connections: g.filterEdges((_, a, s, t) => a.shown && only(s) && only(t)).map((e) => ({ a: g.source(e), b: g.target(e) })),
   unit,
 });
 
-function spread(g: Graph, labels: Map<string, string>, clusters: Drawn["clusters"], fixed = new Set<string>()) {
+function spread(g: Graph, labels: Map<string, string>, clusters: Drawn["clusters"], patience: number, fixed = new Set<string>()) {
   const members = new Map(clusters.map((c) => [c.id, c.bookIds.filter((id) => g.hasNode(id))]));
   const owners = (o: Clash["a"]) => ("book" in o ? [o.book] : members.get(o.cluster)!);
+  // The best the graph has read so far (fewest overlaps, then fewest pushes), and where its Books were.
+  let best: { score: number; at: Map<string, Point>; round: number } | null = null;
+  const settle = () => {
+    if (best) for (const [id, p] of best.at) g.mergeNodeAttributes(id, p);
+  };
   for (let round = 0; round < SPREAD_ROUNDS; round++) {
     const unit = typicalLength(g);
     if (!(unit > 0) || !Number.isFinite(unit)) return;
-    // Each clash on the canvas where it is worst, in graph units.
+    // Each clash on the canvas where it is worst, and each push off a Connection, in graph units.
     const d = drawnOf(g, labels, clusters, unit);
-    const clashes = Object.values(DESKTOP).flatMap((view) => {
-      const r = readDrawn(d, view);
-      const perPixel = unit / (TYPICAL_EDGE_LENGTH * r.zoom);
-      return r.clashes.map((c) => ({ ...c, across: c.across * perPixel, down: c.down * perPixel, pad: perPixel }));
+    const readings = Object.values(DESKTOP).map((view) => {
+      const r = readDrawn(d, view, fitDrawn(d, view, false));
+      return { r, perPixel: unit / (TYPICAL_EDGE_LENGTH * r.zoom) };
     });
-    if (clashes.length === 0) return;
+    const clashes = readings.flatMap(({ r, perPixel }) => r.clashes.map((c) => ({ ...c, across: c.across * perPixel, down: c.down * perPixel, pad: perPixel })));
+    const pushes = readings.flatMap(({ r, perPixel }) => r.pushes.map((p) => ({ ...p, dx: p.dx * perPixel, dy: p.dy * perPixel })));
+    if (clashes.length === 0 && pushes.length === 0) return;
+    const score = clashes.length * 1000 + pushes.length;
+    if (best === null || score < best.score) best = { score, round, at: new Map(g.mapNodes((id, a) => [id, { x: a.x as number, y: a.y as number }])) };
+    else if (round - best.round >= patience) return settle();
     const moves = new Map<string, Point>();
+    // Pushes are averaged over the canvases: at full strength they spread the whole graph out, which only
+    // shrinks the fitted zoom and brings them back.
+    for (const p of pushes) {
+      for (const id of p.ids.filter((id) => !fixed.has(id))) {
+        const m = moves.get(id) ?? { x: 0, y: 0 };
+        moves.set(id, { x: m.x + p.dx / readings.length, y: m.y + p.dy / readings.length });
+      }
+    }
     for (const c of clashes) {
       const [a, b] = [owners(c.a), owners(c.b)];
       if (a.some((id) => b.includes(id))) continue;
@@ -717,6 +758,7 @@ function spread(g: Graph, labels: Map<string, string>, clusters: Drawn["clusters
     if (moves.size === 0) return;
     for (const [id, m] of moves) g.mergeNodeAttributes(id, { x: g.getNodeAttribute(id, "x") + m.x, y: g.getNodeAttribute(id, "y") + m.y });
   }
+  settle();
 }
 
 // Moves each new Book, one at a time, to the first spot near where ForceAtlas2 left it with room for it

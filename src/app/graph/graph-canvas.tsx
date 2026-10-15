@@ -363,7 +363,14 @@ export function GraphCanvas({
           return { x0: r.left - origin.left, y0: r.top - origin.top, x1: r.right - origin.left, y1: r.bottom - origin.top };
         });
         if (insetRef.current) chrome.push({ x0: view.width - insetRef.current, y0: 0, x1: view.width, y1: view.height });
-        const first = placeLabels({ view, dots: blocking, requests, obstacles: chrome });
+        // The Connections drawn now, which labels keep off where they can.
+        const idOf = (end: string | Node) => (typeof end === "string" ? end : end.id);
+        const lines = data()
+          .links.filter((l) => focusRef.current.visible.has(l.id) && !withheldRef.current.has(l.id))
+          .map((l) => [screen.get(idOf(l.source)), screen.get(idOf(l.target))])
+          .filter((ends): ends is [Dot, Dot] => ends.every((e) => e !== undefined))
+          .map(([p, q]) => ({ x0: p.x, y0: p.y, x1: q.x, y1: q.y }));
+        const first = placeLabels({ view, dots: blocking, requests, obstacles: chrome, lines });
 
         const r = WASH_RADIUS * TYPICAL_EDGE_LENGTH * k;
         const fontSize = clusterNameSize(k);
@@ -400,7 +407,7 @@ export function GraphCanvas({
         // Placed again, now clear of the names, so none is drawn under one; behind a selection, only the
         // chosen Cluster's name holds its place, and any other a label then lands on is left off.
         const holding = [...placed].filter(([id, box]) => box !== null && (!litBooks || id === chosenClusterId)).map(([, box]) => box!);
-        const labels = holding.length ? placeLabels({ view, dots: blocking, requests, obstacles: [...chrome, ...holding] }) : first;
+        const labels = holding.length ? placeLabels({ view, dots: blocking, requests, obstacles: [...chrome, ...holding], lines }) : first;
         for (const [id, box] of placed) {
           if (!box || holding.includes(box) || !labels.some((l) => overlaps(l.box, box))) continue;
           nameEls.current.get(id)!.style.visibility = "hidden";
@@ -611,11 +618,12 @@ export function GraphCanvas({
     if (!f.getGraphBbox()) return false;
     fitted.current = true;
     // Positions are already drawn to scale: a typical Connection is TYPICAL_EDGE_LENGTH long.
-    const { nodes, clusters } = dataRef.current;
+    const { nodes, clusters, links } = dataRef.current;
     const fit = fitDrawn(
       {
         books: nodes.map((n) => ({ id: n.id, x: n.x!, y: n.y!, label: n.label, degree: n.book.degree })),
         clusters: clusters.map(({ cluster }) => cluster),
+        connections: links.filter((l) => l.connection.featured).map((l) => ({ a: l.connection.a, b: l.connection.b })),
         unit: TYPICAL_EDGE_LENGTH,
       },
       { width: f.width(), height: f.height() },

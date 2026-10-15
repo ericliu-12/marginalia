@@ -3,6 +3,7 @@ import {
   CLUSTER_NAME_GAP,
   CLUSTER_NAME_PAD,
   clusterNameSize,
+  EDGE_CLEARANCE,
   FIT_MARGIN,
   HALO_GAP,
   LABEL_GAP,
@@ -11,6 +12,7 @@ import {
   LABEL_SIZE,
   MAX_FIT_ZOOM,
   nodeRadius,
+  PARALLEL_MIN,
   TYPICAL_EDGE_LENGTH,
   WASH_RADIUS,
 } from "./graph-drawing";
@@ -96,29 +98,107 @@ export function fitView(extents: Extent[], view: View, max = MAX_FIT_ZOOM): Fit 
   return { zoom, x: centre("x"), y: centre("y"), limit };
 }
 
-// A graph as the canvas draws it at rest: each Book's dot and label, each Cluster's wash and name.
-// Positions are in any units; `unit` is the typical Connection length in them, drawn TYPICAL_EDGE_LENGTH
-// pixels long at zoom 1.
+// A graph as the canvas draws it at rest: each Book's dot and label, each Cluster's wash and name, and
+// the Connections shown at rest. Positions are in any units; `unit` is the typical Connection length in
+// them, drawn TYPICAL_EDGE_LENGTH pixels long at zoom 1.
 export type Drawn = {
   books: { id: string; x: number; y: number; label: string; degree: number }[];
   clusters: { id: string; bookIds: string[]; name: string }[];
+  connections?: { a: string; b: string }[];
   unit: number;
 };
+
+// Whether the line from p to q passes through box b.
+export function crossesBox(b: Box, p: { x: number; y: number }, q: { x: number; y: number }) {
+  if (Math.max(p.x, q.x) < b.x0 || Math.min(p.x, q.x) > b.x1 || Math.max(p.y, q.y) < b.y0 || Math.min(p.y, q.y) > b.y1) return false;
+  let [t0, t1] = [0, 1];
+  const [dx, dy] = [q.x - p.x, q.y - p.y];
+  for (const [num, den] of [
+    [p.x - b.x0, -dx],
+    [b.x1 - p.x, dx],
+    [p.y - b.y0, -dy],
+    [b.y1 - p.y, dy],
+  ]) {
+    if (den === 0) {
+      if (num < 0) return false;
+      continue;
+    }
+    const t = num / den;
+    if (den < 0) t0 = Math.max(t0, t);
+    else t1 = Math.min(t1, t);
+    if (t0 > t1) return false;
+  }
+  return true;
+}
+
+// Things filed by the coarse cells of the screen their boxes cover, so a check looks only at its
+// neighbours: those whose boxes share a cell with `b`, each once.
+function filed<T>(boxOf: (item: T) => Box, items: T[] = []) {
+  const CELL = 64;
+  const cells = new Map<number, T[]>();
+  const each = (b: Box, f: (key: number) => void) => {
+    for (let i = Math.floor(b.x0 / CELL); i <= Math.floor(b.x1 / CELL); i++) for (let j = Math.floor(b.y0 / CELL); j <= Math.floor(b.y1 / CELL); j++) f(i * 1_000_003 + j);
+  };
+  const add = (item: T) =>
+    each(boxOf(item), (k) => {
+      const cell = cells.get(k);
+      if (cell) cell.push(item);
+      else cells.set(k, [item]);
+    });
+  items.forEach(add);
+  const near = (b: Box) => {
+    const out = new Set<T>();
+    each(b, (k) => cells.get(k)?.forEach((item) => out.add(item)));
+    return out;
+  };
+  return { add, near };
+}
+
+// How far point c is from the line from p to q, and the nearest point of it.
+function toSegment(c: { x: number; y: number }, p: { x: number; y: number }, q: { x: number; y: number }) {
+  const [dx, dy] = [q.x - p.x, q.y - p.y];
+  const t = Math.max(0, Math.min(1, ((c.x - p.x) * dx + (c.y - p.y) * dy) / (dx * dx + dy * dy || 1)));
+  const at = { x: p.x + t * dx, y: p.y + t * dy };
+  return { distance: Math.hypot(c.x - at.x, c.y - at.y), at };
+}
+
+// The four places a label may take beside a dot of radius r at (x, y), in the order tried: right, left,
+// above, below, each `gap` from the dot's middle (its plate reaching `plate` back toward it beside the
+// dot), `w` by `h`.
+export function labelSides(x: number, y: number, gap: number, plate: number, w: number, h: number): Box[] {
+  const beside = gap - plate;
+  return [
+    { x0: x + beside, y0: y - h / 2, x1: x + beside + w, y1: y + h / 2 },
+    { x0: x - beside - w, y0: y - h / 2, x1: x - beside, y1: y + h / 2 },
+    { x0: x - w / 2, y0: y - gap - h, x1: x + w / 2, y1: y - gap },
+    { x0: x - w / 2, y0: y + gap, x1: x + w / 2, y1: y + gap + h },
+  ];
+}
 
 const LABEL_HEIGHT = LABEL_SIZE * LABEL_LINE;
 // A Cluster name's box: its italic line on a padded plate (as the canvas's name button).
 export const nameBox = (name: string, size: number) => ({ w: textWidth(name, size, true) + 2 * CLUSTER_NAME_PAD.x, h: size * 1.25 + 2 * CLUSTER_NAME_PAD.y });
 
 // What the fit must show, in graph units of TYPICAL_EDGE_LENGTH to a Connection: every Book with its
-// label to the right, and every Cluster's wash with its name above it, within CLUSTER_NAME_CLEAR (a name
+// label to the right (or on the side `sides` gives it, by index into labelSides), and every Cluster's wash with its name above it, within CLUSTER_NAME_CLEAR (a name
 // goes below only where that is as clear; see readDrawn).
-export function drawnExtents(d: Drawn, nameSize = CLUSTER_NAME_SIZE_MAX): Extent[] {
+export function drawnExtents(d: Drawn, nameSize = CLUSTER_NAME_SIZE_MAX, sides = new Map<string, number>()): Extent[] {
   const scale = TYPICAL_EDGE_LENGTH / d.unit;
   const at = new Map(d.books.map((b) => [b.id, { x: b.x * scale, y: b.y * scale }]));
   const extents: Extent[] = d.books.map((b) => {
     const r = nodeRadius(b.degree);
     const { x, y } = at.get(b.id)!;
-    return { x0: x, x1: x, y0: y, y1: y, left: r, right: r + LABEL_GAP + textWidth(b.label, LABEL_SIZE) + LABEL_PLATE, up: Math.max(r, LABEL_HEIGHT / 2), down: Math.max(r, LABEL_HEIGHT / 2) };
+    const reach = r + LABEL_GAP + textWidth(b.label, LABEL_SIZE) + LABEL_PLATE;
+    const across = Math.max(r, textWidth(b.label, LABEL_SIZE) / 2 + LABEL_PLATE);
+    const level = Math.max(r, LABEL_HEIGHT / 2);
+    const side = sides.get(b.id) ?? 0;
+    // Its label to the right of its dot, unless `sides` puts it left (1), above (2) or below (3).
+    const [left, right, up, down] =
+      side === 1 ? [reach, r, level, level]
+      : side === 2 ? [across, across, r + LABEL_GAP + LABEL_HEIGHT, r]
+      : side === 3 ? [across, across, r, r + LABEL_GAP + LABEL_HEIGHT]
+      : [r, reach, level, level];
+    return { x0: x, x1: x, y0: y, y1: y, left, right, up, down };
   });
   const wash = WASH_RADIUS * TYPICAL_EDGE_LENGTH;
   for (const c of d.clusters) {
@@ -135,21 +215,31 @@ export function drawnExtents(d: Drawn, nameSize = CLUSTER_NAME_SIZE_MAX): Extent
 }
 const CLUSTER_NAME_SIZE_MAX = clusterNameSize(Infinity);
 
-// Where the canvas first frames the graph: fitted with the names at the largest size they can take,
-// then again at the size they take at that zoom.
-export function fitDrawn(d: Drawn, view: View): Fit {
+// Where the canvas first frames the graph: fitted with the names at the largest size they can take, then
+// again at the size they take at that zoom, then again with each label on the side readDrawn gives it.
+export function fitDrawn(d: Drawn, view: View, sides = true): Fit {
   const first = fitView(drawnExtents(d), view);
-  return fitView(drawnExtents(d, clusterNameSize(first.zoom)), view);
+  const size = clusterNameSize(first.zoom);
+  const second = fitView(drawnExtents(d, size), view);
+  // Then again with each label on the side it takes there, unless `sides` is false (a quicker, slightly
+  // rougher fit, for the many readings the layout takes as it spreads Books apart).
+  return sides ? fitView(drawnExtents(d, size, readDrawn(d, view, second).sides), view) : second;
 }
 
 // Two things drawn over each other, which spreading the Books apart would part: Books by id, Clusters
 // (their names) by id; and by how many pixels they overlap across and down.
 export type Clash = { a: { book: string } | { cluster: string }; b: { book: string } | { cluster: string }; across: number; down: number; aFirst: { x: boolean; y: boolean } };
+// A move that would ease a Connection that runs near a Book, lies along another, or crosses a label: these
+// Books, by this many pixels across and down.
+export type Push = { ids: string[]; dx: number; dy: number };
 
 // How the graph reads in `view` once fitted: the zoom and what bounds it, the share of the canvas the
-// box around the Books' dots fills, and what is drawn over what. Each label sits right of its dot (where
-// the canvas puts one first) at its real size: pairs of Books where a label covers the other's label or
-// dot, and of those, where it covers a dot; names (each above its Cluster, or below where that is as
+// box around the Books' dots fills, and what is drawn over what. Each label takes the first side of its
+// dot (right, left, above, below) clear of other dots, labels placed before it (most connected Books
+// first), Cluster names and the Connections shown at rest, or failing that the side over fewest of them,
+// at its real size: pairs of Books where a label covers the other's label or dot, and of those, where it
+// covers a dot; labels crossed by a Connection, pair by pair; Connections passing within EDGE_CLEARANCE
+// dot-widths of a Book not at either end; pairs of Connections from one Book nearer than PARALLEL_MIN; names (each above its Cluster, or below where that is as
 // clear of the canvas edges and covers fewer labels, kept clear of the edges as the canvas keeps them)
 // over a label or another name; and names nearer their own wash than half of CLUSTER_NAME_GAP. And the
 // halo, the Books with no Connections around a graph that has some: how many have their dot or label
@@ -164,7 +254,13 @@ export type Reading = {
   nameOverlaps: number;
   namesOnWash: number;
   halo: { onWash: number; onName: number; near: number };
+  labelEdgeCrossings: number;
+  edgesNearBooks: number;
+  parallelEdges: number;
   clashes: Clash[];
+  pushes: Push[];
+  // Each Book's label side, by index into labelSides.
+  sides: Map<string, number>;
 };
 
 export function readDrawn(d: Drawn, view: View, fit = fitDrawn(d, view)): Reading {
@@ -174,41 +270,47 @@ export function readDrawn(d: Drawn, view: View, fit = fitDrawn(d, view)): Readin
   const books = d.books.map((b) => {
     const { x, y } = screen.get(b.id)!;
     const r = nodeRadius(b.degree);
-    const x0 = x + r + LABEL_GAP - LABEL_PLATE;
-    return {
-      id: b.id,
-      x,
-      y,
-      degree: b.degree,
-      dot: { x0: x - r, y0: y - r, x1: x + r, y1: y + r },
-      label: { x0, y0: y - LABEL_HEIGHT / 2, x1: x0 + textWidth(b.label, LABEL_SIZE) + 2 * LABEL_PLATE, y1: y + LABEL_HEIGHT / 2 },
-    };
+    const sides = labelSides(x, y, r + LABEL_GAP, LABEL_PLATE, textWidth(b.label, LABEL_SIZE) + 2 * LABEL_PLATE, LABEL_HEIGHT);
+    return { id: b.id, x, y, r, degree: b.degree, dot: { x0: x - r, y0: y - r, x1: x + r, y1: y + r }, sides, label: sides[0] };
   });
+  const byId = new Map(books.map((b) => [b.id, b]));
+  const lines = (d.connections ?? []).filter((c) => byId.has(c.a) && byId.has(c.b)).map((c) => ({ a: c.a, b: c.b, p: byId.get(c.a)!, q: byId.get(c.b)! }));
+  const span = (l: (typeof lines)[number]) => ({ x0: Math.min(l.p.x, l.q.x), y0: Math.min(l.p.y, l.q.y), x1: Math.max(l.p.x, l.q.x), y1: Math.max(l.p.y, l.q.y) });
+  const dotsNear = filed((b: (typeof books)[number]) => b.dot, books);
+  const linesNear = filed(span, lines);
+  // Each label to its side, most connected Books first, among `names`.
+  const order = [...books].sort((p, q) => q.degree - p.degree || (p.id < q.id ? -1 : 1));
+  const chooseLabels = (names: Box[]) => {
+    const placed = filed((b: Box) => b);
+    for (const b of order) {
+      const cost = (box: Box) => {
+        let over = 0;
+        let crossed = 0;
+        for (const o of dotsNear.near(box)) if (o !== b && overlaps(box, o.dot)) over++;
+        for (const o of placed.near(box)) if (overlaps(box, o)) over++;
+        for (const n of names) if (overlaps(box, n)) over++;
+        for (const l of linesNear.near(box)) if (crossesBox(box, l.p, l.q)) crossed++;
+        return [over, crossed];
+      };
+      let best = 0;
+      let least = cost(b.sides[0]);
+      for (let i = 1; i < b.sides.length && (least[0] > 0 || least[1] > 0); i++) {
+        const c = cost(b.sides[i]);
+        if (c[0] < least[0] || (c[0] === least[0] && c[1] < least[1])) [best, least] = [i, c];
+      }
+      b.label = b.sides[best];
+      placed.add(b.label);
+    }
+  };
+  chooseLabels([]);
   const clashes: Clash[] = [];
   const clash = (a: Clash["a"], p: Box, b: Clash["b"], q: Box) => {
     const across = Math.min(p.x1, q.x1) - Math.max(p.x0, q.x0);
     const down = Math.min(p.y1, q.y1) - Math.max(p.y0, q.y0);
     clashes.push({ a, b, across, down, aFirst: { x: p.x0 + p.x1 < q.x0 + q.x1, y: p.y0 + p.y1 < q.y0 + q.y1 } });
   };
-  let labelOverlaps = 0;
-  let dotOverlaps = 0;
-  books.forEach((p, i) => {
-    for (const q of books.slice(i + 1)) {
-      const hit = [
-        [p.label, q.label],
-        [p.label, q.dot],
-        [p.dot, q.label],
-      ].find(([s, t]) => overlaps(s, t));
-      if (!hit) continue;
-      labelOverlaps++;
-      if (overlaps(p.label, q.dot) || overlaps(p.dot, q.label)) dotOverlaps++;
-      clash({ book: p.id }, hit[0], { book: q.id }, hit[1]);
-    }
-  });
-
   const wash = WASH_RADIUS * TYPICAL_EDGE_LENGTH * fit.zoom;
   const size = clusterNameSize(fit.zoom);
-  const byId = new Map(books.map((b) => [b.id, b]));
   const names: { id: string; box: Box }[] = [];
   let namesOnWash = 0;
   for (const c of d.clusters) {
@@ -229,6 +331,24 @@ export function readDrawn(d: Drawn, view: View, fit = fitDrawn(d, view)): Readin
     const nearest = Math.min(...pts.map((p) => Math.hypot(Math.max(box.x0 - p.x, 0, p.x - box.x1), Math.max(box.y0 - p.y, 0, p.y - box.y1))));
     if (nearest < wash + CLUSTER_NAME_GAP / 2) namesOnWash++;
   }
+  // The labels again, now clear of the names, as the canvas places them.
+  chooseLabels(names.map((n) => n.box));
+  let labelOverlaps = 0;
+  let dotOverlaps = 0;
+  books.forEach((p, i) => {
+    for (const q of books.slice(i + 1)) {
+      const hit = [
+        [p.label, q.label],
+        [p.label, q.dot],
+        [p.dot, q.label],
+      ].find(([s, t]) => overlaps(s, t));
+      if (!hit) continue;
+      labelOverlaps++;
+      if (overlaps(p.label, q.dot) || overlaps(p.dot, q.label)) dotOverlaps++;
+      clash({ book: p.id }, hit[0], { book: q.id }, hit[1]);
+    }
+  });
+
   let nameOverlaps = 0;
   names.forEach((n, i) => {
     for (const b of books) {
@@ -260,8 +380,66 @@ export function readDrawn(d: Drawn, view: View, fit = fitDrawn(d, view)): Readin
       halo.near++;
   }
 
+  // The Connections: through labels, past other Books, along each other. Each, with the move that would
+  // ease it, half on each side.
+  const pushes: Push[] = [];
+  const away = (ids: string[], from: { x: number; y: number }, to: { x: number; y: number }, by: number, back: string[]) => {
+    const len = Math.hypot(to.x - from.x, to.y - from.y) || 1;
+    const [ux, uy] = [(to.x - from.x) / len, (to.y - from.y) / len];
+    pushes.push({ ids, dx: (ux * by) / 2, dy: (uy * by) / 2 }, { ids: back, dx: (-ux * by) / 2, dy: (-uy * by) / 2 });
+  };
+  let labelEdgeCrossings = 0;
+  for (const b of books) {
+    for (const l of linesNear.near(b.label)) {
+      if (!crossesBox(b.label, l.p, l.q)) continue;
+      labelEdgeCrossings++;
+      const mid = { x: (b.label.x0 + b.label.x1) / 2, y: (b.label.y0 + b.label.y1) / 2 };
+      const { distance, at } = toSegment(mid, l.p, l.q);
+      const reach = Math.hypot(b.label.x1 - b.label.x0, b.label.y1 - b.label.y0) / 2;
+      const off = distance > 0.5 ? mid : { x: at.x - (l.q.y - l.p.y), y: at.y + (l.q.x - l.p.x) };
+      // Its own Connection is left to the choice of side: turning it aside unsettles the layout.
+      if (l.a === b.id || l.b === b.id) continue;
+      // Another's: the Book moves off the line by as far as its label reaches across it.
+      away([b.id], at, off, reach - distance + 2, [l.a, l.b]);
+    }
+  }
+  let edgesNearBooks = 0;
+  const reachOff = EDGE_CLEARANCE * 2 * Math.max(0, ...books.map((b) => b.r));
+  for (const l of lines) {
+    const b = span(l);
+    for (const c of dotsNear.near({ x0: b.x0 - reachOff, y0: b.y0 - reachOff, x1: b.x1 + reachOff, y1: b.y1 + reachOff })) {
+      if (c.id === l.a || c.id === l.b) continue;
+      const clearance = EDGE_CLEARANCE * 2 * c.r;
+      const { distance, at } = toSegment(c, l.p, l.q);
+      if (distance >= clearance) continue;
+      edgesNearBooks++;
+      away([c.id], at, distance > 0.5 ? c : { x: at.x - (l.q.y - l.p.y), y: at.y + (l.q.x - l.p.x) }, clearance - distance + 1, [l.a, l.b]);
+    }
+  }
+  let parallelEdges = 0;
+  const ends = new Map<string, (typeof books)[number][]>();
+  for (const l of lines) {
+    ends.set(l.a, [...(ends.get(l.a) ?? []), l.q]);
+    ends.set(l.b, [...(ends.get(l.b) ?? []), l.p]);
+  }
+  for (const s of books) {
+    const own = ends.get(s.id) ?? [];
+    own.forEach((o, i) => {
+      for (const t of own.slice(i + 1)) {
+        const turn = Math.abs(Math.atan2(Math.sin(Math.atan2(o.y - s.y, o.x - s.x) - Math.atan2(t.y - s.y, t.x - s.x)), Math.cos(Math.atan2(o.y - s.y, o.x - s.x) - Math.atan2(t.y - s.y, t.x - s.x))));
+        if (turn >= PARALLEL_MIN) continue;
+        parallelEdges++;
+        // The nearer end moves off the other's line, sideways, by the arc it lacks.
+        const [near, other] = Math.hypot(o.x - s.x, o.y - s.y) < Math.hypot(t.x - s.x, t.y - s.y) ? [o, t] : [t, o];
+        const { at } = toSegment(near, s, other);
+        const side = Math.hypot(near.x - at.x, near.y - at.y) > 0.5 ? near : { x: at.x - (other.y - s.y), y: at.y + (other.x - s.x) };
+        away([near.id], at, side, (PARALLEL_MIN - turn) * Math.hypot(near.x - s.x, near.y - s.y) + 1, [other.id]);
+      }
+    });
+  }
+
   const xs = books.map((b) => b.x);
   const ys = books.map((b) => b.y);
   const filled = books.length ? ((Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys))) / (view.width * view.height) : 0;
-  return { zoom: fit.zoom, limit: fit.limit, filled, labelOverlaps, dotOverlaps, nameOverlaps, namesOnWash, halo, clashes };
+  return { zoom: fit.zoom, limit: fit.limit, filled, labelOverlaps, dotOverlaps, nameOverlaps, namesOnWash, halo, labelEdgeCrossings, edgesNearBooks, parallelEdges, clashes, pushes, sides: new Map(books.map((b) => [b.id, b.sides.indexOf(b.label)])) };
 }

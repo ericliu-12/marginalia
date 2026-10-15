@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { addBook } from "../src/domain/add-book";
@@ -39,10 +40,14 @@ describe("Graph", () => {
   // Stored as the judge would leave it; `similarity` breaks ties within a Strength.
   async function connect(x: string, y: string, strength: Strength = "strong", similarity = 0.5, dismissed = false) {
     const [a, b] = [x, y].sort();
+    // An id made from its Books, as theirs are made from their work keys: which Connections show at rest
+    // breaks ties by id, so a random one would lay the same graph out differently on every run.
+    const h = createHash("md5").update(`${a}:${b}`).digest("hex");
+    const id = `${h.slice(0, 12)}4${h.slice(13, 16)}8${h.slice(17, 32)}`.replace(/^(.{8})(.{4})(.{4})(.{4})/, "$1-$2-$3-$4-");
     const [row] = await ctx.db
       .insert(connection)
       .values({
-        userId: ctx.userId, bookAId: a, bookBId: b, type: "thematic", strength, similarity, similarityModel: "m",
+        id, userId: ctx.userId, bookAId: a, bookBId: b, type: "thematic", strength, similarity, similarityModel: "m",
         explanation: `Why ${a} meets ${b}.`, grounding: "enrichment", model: "m", promptVersion: "p",
         dismissedAt: dismissed ? new Date() : null,
       })
@@ -406,7 +411,26 @@ describe("Graph", () => {
         const { views } = layoutStats(await graph());
         expect(Object.keys(views)).toEqual(["1024×700", "1280×800", "1440×900", "1680×1050", "1920×1080"]);
         for (const view of Object.values(views)) {
-          expect(view).toMatchObject({ labelOverlaps: 0, dotOverlaps: 0, nameOverlaps: 0, namesOnWash: 0, halo: { onWash: 0, onName: 0, near: 0 } });
+          expect(view).toMatchObject({ labelOverlaps: 0, dotOverlaps: 0, nameOverlaps: 0, namesOnWash: 0, halo: { onWash: 0, onName: 0, near: 0 }, parallelEdges: 0 });
+          // Packed this tight (each Book linked to six in its Cluster), with the stable ids: a few labels are
+          // crossed by their own Book's Connections, which leave it on every side, and on the smaller
+          // canvases a chord of a Cluster's ring still runs within EDGE_CLEARANCE of the Book between its
+          // ends, where spreading settles.
+          expect(view.labelEdgeCrossings).toBeLessThanOrEqual(8);
+          expect(view.edgesNearBooks).toBeLessThanOrEqual(2);
+        }
+      });
+
+      it("keeps Connections off Books not at their ends, apart from each other, and out of labels, on every desktop canvas", async () => {
+        // Four Books all linked: as first laid out, Murder on the Orient Express to Ten Little Indians ran
+        // right past The Murder of Roger Ackroyd. And five with no Connections, ringing them.
+        const t = ["Ten Little Indians", "Murder on the Orient Express", "The Murder of Roger Ackroyd", "Closed Casket", "1984", "An Edible History of Humanity", "Die Trying", "Freakonomics", "The Devil in the White City"];
+        const ids = [];
+        for (const x of t) ids.push(await add(x));
+        for (const [i, j] of [[0, 1], [0, 2], [1, 2], [1, 3], [2, 3]]) await connect(ids[i], ids[j]);
+        await layoutGraph(ctx.db, ctx.userId, { fresh: true });
+        for (const view of Object.values(layoutStats(await graph()).views)) {
+          expect(view).toMatchObject({ labelOverlaps: 0, labelEdgeCrossings: 0, edgesNearBooks: 0, parallelEdges: 0, halo: { onWash: 0, onName: 0, near: 0 } });
         }
       });
 

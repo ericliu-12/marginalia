@@ -53,6 +53,12 @@ export const DESKTOP = {
   "1920×1080": { width: 1920, height: 1080 },
 };
 
+// A Connection drawn at rest keeps more than EDGE_CLEARANCE dot-widths from the middle of any Book that
+// is not one of its ends, so it never seems to run through it; and two Connections from one Book part by
+// more than PARALLEL_MIN (radians), so neither lies along the other.
+export const EDGE_CLEARANCE = 1.5;
+export const PARALLEL_MIN = (12 * Math.PI) / 180;
+
 // Unconnected Books sit in a halo around the connected ones: each dot and label at least HALO_GAP pixels
 // clear of the connected Books' dots, labels, washes and Cluster names, as first fitted, whatever the zoom.
 export const HALO_GAP = 32;
