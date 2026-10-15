@@ -119,7 +119,7 @@ export function BookPanel({
       <div className={`relative min-h-0 flex-1 overflow-y-auto ${pad} pt-4 pb-10`}>
         <header>
           <Cover title={item.title} url={item.coverUrl} size="large" />
-          <h2 ref={headingRef} tabIndex={-1} className="mt-5 text-[28px] leading-[1.1] font-medium text-balance italic outline-none lg:text-[30px]">
+          <h2 ref={headingRef} tabIndex={-1} className="mt-5 text-[30px] leading-[1.1] font-medium text-balance italic outline-none">
             {item.title}
           </h2>
           {meta && <p className="caps mt-1.5 text-[15px] leading-snug tracking-[1.2px] text-ink-2">{meta}</p>}

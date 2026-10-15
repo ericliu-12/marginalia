@@ -35,11 +35,26 @@ typography:
     fontSize: "18px"
     fontWeight: 400
     lineHeight: 1.25
+  wordmark-phone:
+    fontFamily: "Newsreader, Georgia, serif"
+    fontSize: "24px"
+    fontWeight: 400
+    lineHeight: 1
   book-title-reading:
     fontFamily: "Newsreader, Georgia, serif"
     fontSize: "22px"
     fontWeight: 400
     lineHeight: 1.2
+  book-title-reading-phone:
+    fontFamily: "Newsreader, Georgia, serif"
+    fontSize: "20px"
+    fontWeight: 400
+    lineHeight: 1.2
+  book-title-phone:
+    fontFamily: "Newsreader, Georgia, serif"
+    fontSize: "17px"
+    fontWeight: 400
+    lineHeight: 1.25
   body:
     fontFamily: "Newsreader, Georgia, serif"
     fontSize: "17px"
@@ -56,6 +71,18 @@ typography:
     fontSize: "14px"
     fontWeight: 400
     letterSpacing: "1px"
+    fontFeature: "all-small-caps"
+  meta-phone:
+    fontFamily: "Newsreader, Georgia, serif"
+    fontSize: "13px"
+    fontWeight: 400
+    letterSpacing: "1px"
+    fontFeature: "all-small-caps"
+  nav:
+    fontFamily: "Newsreader, Georgia, serif"
+    fontSize: "16px"
+    fontWeight: 400
+    letterSpacing: "1.4px"
     fontFeature: "all-small-caps"
 rounded:
   none: "0px"
@@ -123,7 +150,7 @@ A printer's palette: ink on warm paper, three muted Connection hues, and a singl
 - **Thematic** (blue), **Contrast** (rust) and **Context** (olive) are the three Connection Type hues: lines on the graph, and the small-caps type label in the Book panel. A line's strength is its thickness, never its colour. Context's text label uses **context-text**, a hair darker than the line, to hold 4.5:1. Outside Connection UI, thematic is the focus ring and contrast is error text and the caret.
 
 ### Cluster Tints
-- Each Cluster has a muted tint and a darker name colour that holds 4.5:1 on the ground: sage (`#9fb39a` / `#4d6349`), terracotta (`#d3a189` / `#8a4a30`), mauve (`#b9a1b4` / `#6a4c63`), extended to eight in the same family (#138 sets the full table). A Cluster keeps its tint for as long as it keeps its identity. The tint is the Cluster's wash on the graph and a small dot beside each finished Book of that Cluster in the library; the name colour sets its italic name.
+- Each Cluster has a muted tint and a darker name colour that holds 4.5:1 on ground, raised and selected, eight in one family (`src/app/cluster-tint.tsx`): sage (`#9fb39a` / `#4d6349`), terracotta (`#d3a189` / `#8a4a30`), mauve (`#b9a1b4` / `#6a4c63`), ochre (`#cdb27a` / `#6e5a24`), teal (`#8fb5ae` / `#3d635d`), rose (`#d6a6aa` / `#8a434b`), heather (`#a9a6c8` / `#544f7a`) and umber (`#c4ad96` / `#6b543e`). A Cluster's stored wash picks its tint, so it keeps the tint for as long as it keeps its identity. The tint is a small dot beside each finished Book of that Cluster in the library, ringed in its name colour so the mark holds 3:1, and (from #138) the Cluster's wash on the graph; the name colour sets its italic name.
 
 **The One Red Rule.** Deep red appears only in its listed roles. If a new element wants it, it is asking for emphasis that typography should give instead.
 
@@ -152,9 +179,9 @@ A printer's palette: ink on warm paper, three muted Connection hues, and a singl
 
 Operate mode. Desktop (1024px and up): a header row with the wordmark, the small-caps nav, a solid "Add a Book" and "account"; below it, the library sections on the left and the Book panel on the right (up to 460px), separated by a hairline and a 48px gap. Side padding 56px.
 
-The sections stack 28px apart. "i. reading" is a two-column block of titles, each with its author and, for a draft Note, a red status line. "ii. want to read" and "iii. read" are hairline rows: italic title, small-caps author, and for Read a date and a Cluster dot. A long Read section shows its latest Books and "and N more".
+The sections stack 28px apart. "i. reading" is a two-column block of titles, each with its author and, for a draft Note, a red status line. "ii. want to read" and "iii. read" are hairline rows: italic title, small-caps author, and for Read a date and a Cluster dot. Rows carry no covers. Read shows its latest 8, and Want to read does once it holds more than 8: "and N more", in italic ink secondary, shows the rest, and the shelf stays shown whole on that device. Reading always shows everything. An empty library says "Your shelves are waiting."
 
-Below 1024px the library is the phone's shelf: a 20px gutter, the wordmark and "account" on one row, a full-width Shelf/Graph segmented switch under it, the same three sections, and "Add a Book" pinned full width at the bottom over a hairline. A row opens the Book screen (`/?book=<id>`), which is the Book panel at full width.
+Below 1024px the library is the phone's shelf: a 20px gutter, the wordmark and "account" on one row (the Shelf/Graph switch comes with the phone's graph), the same three sections, and "Add a Book" pinned full width at the bottom over a hairline. A row opens the Book screen (`/?book=<id>`), which is the Book panel at full width.
 
 ## Elevation & Depth
 
@@ -175,9 +202,9 @@ Square. Buttons, fields, the segmented switch and panels have no corner radius; 
 - **Primary button:** ink fill, ground text, italic serif ("Add a Book", "Save note", "Send code"), 44px tall, square. Hover lifts it to ink secondary. One per surface.
 - **Choice buttons:** the Want to read / Reading / Finished choices in Add. Three equal buttons in a row, 44px or taller, ground fill with a hairline border; the chosen one fills with ink.
 - **Section label:** lowercase roman numeral and name in small caps over a 1px ink rule ("iii. read · 11"); the count is part of the label, never a badge.
-- **Book row:** italic title, small-caps author, and for Read the finished date in ink secondary and a Cluster dot (8px, the Cluster's tint) at the start. A hairline faint rule between rows. Selected, it takes the selected ground and a 2px accent left edge, bleeding 10px past the column.
-- **Nav:** small-caps links; the current one is ink with an accent underline 6px below, the others ink secondary. On the phone, a full-width two-segment switch (Shelf / Graph) with a 1px ink border; the current segment fills with ink.
-- **Sidenote:** a Note in the Book panel. A narrow 18px column holds its numeral (13px, accent), beside the Note in body text. A quote under it is italic in ink secondary; a page is small-caps meta.
+- **Book row:** italic title, small-caps author, and for Read the finished date in ink secondary and a Cluster dot (8px, the Cluster's tint) at the start. A hairline faint rule between rows. Selected, it takes the selected ground and a 2px accent left edge, bleeding 10px past the column. A Reading Book with a draft Note adds a line in the accent, "Draft note, p. 214".
+- **Nav:** small-caps links; the current one is ink with an accent underline 6px below, the others ink secondary. On the phone, once it has the graph, a full-width two-segment switch (Shelf / Graph) with a 1px ink border; the current segment fills with ink.
+- **Sidenote:** a Note in the Book panel, oldest first, so a Note keeps its number. A narrow 18px column holds its numeral (13px, accent), beside the Note in body text. A quote under it is italic in ink secondary; a page is small-caps meta. Under the Notes, "Write a Note" in accent italic labels the field for the next.
 - **Connection entry:** in the Book panel, a small-caps type label in its hue ("thematic · strong", "contrast"), then the other Book in italic, a colon, and the one-line reason in body text.
 - **Search field:** no box. A small-caps label above, the query in 19px serif, a 1.5px ink underline; the focus ring is the thematic outline.
 - **Row actions:** the per-row Status moves in the library (Start reading, Mark finished, Want to read, Read again). On touch devices they stay visible as quiet buttons with 44px targets. On pointer devices they rest as invisible, quiet text links in ink tertiary (underlined, hairline underline), revealed on row hover or keyboard focus within the row; hovering a link darkens it to ink. Rows stay titles-first: actions never compete with the title at rest.
@@ -189,9 +216,9 @@ Square. Buttons, fields, the segmented switch and panels have no corner radius; 
 - **Privacy and Terms:** `/privacy` and `/terms` (#62), public. One serif column of 36rem set high on the ground: the italic wordmark with a quiet "Back to Marginalia" at the row's far end, a 2rem serif title, "Updated …" in small tertiary small caps, then short sections under serif headings, each with an id to link to (`/privacy#services`); a heading is a link to its own section, taking a rule-coloured underline on hover and when it is the linked-to section. The services are a hairline-ruled list, the name in small caps beside one serif sentence in ink secondary (stacked on the phone). A hairline footer links the other page and the email. The Reader sign-in page carries quiet "Privacy" and "Terms" links under its form.
 - **Quiet line:** serif italic in ink tertiary beside the wordmark (under the search on the phone's Add): "N Books finding Connections" while any are. While background work is paused at the month's spending limit it says "Spending limit reached · resumes 1 November" instead, calmly, with no warning colour, and clears itself when the month turns. A Reader in their first 30 days who reaches their own first-month limit sees "First-month limit · Connections back 30 October" (30 days after they signed up, or the 1st if sooner), naming the limit as the first month's so it reads as expected, and naming Connections so it can't read as a block on adding Books. Only that Reader sees it. The finish line keeps its plain "Connections paused until…". On the phone's shelf, a line too long for the wordmark's row drops under it whole.
 - **Finish line:** the one moment on the phone. The first time a Book becomes Read, a selected block rises in under the Status control: "**Finished.** Connections are being found; they'll gather below, and in the graph on a larger screen." A later Read-through never shows it. While background work is paused at the spending limit it reads "**Finished.** Connections paused until 1 November; then they’ll gather below, and in the graph on a larger screen."
-- **Note sheet:** the phone's Note on one Book (`/?note=<id>`, so back closes it). The pen on a Reading row opens it; a Reading row carries the pen where other rows have the chevron. It rises over a soft ink shade on raised, 3px top corners, a hairline top edge and the lifted shadow turned upward, and goes back down the same way when closed or saved. Its bottom edge follows the visual viewport, so it rides on top of the on-screen keyboard, and the tap that opens it focuses the text, so the keyboard comes up at once. "Note on *Title*" with a quiet Close heads it; then the Note's text in serif body size with no field box, growing as it is written; "Add a quote" and "Add a page" reveal hairline-ruled rows, each with a quiet Remove; and a full-width ink "Save note". Saving lowers the sheet and says "Note saved on *Title*" with Open, quietly above Add a Book, until the next move or a few seconds pass. A failed or hung save keeps everything: "Couldn't save. Your note is kept here." and the button reads Try again. The draft is per Book, shared with the Book screen's form, survives closing, back and a refresh, and its row reads "· *Draft note*" in italic tertiary ink.
+- **Note sheet:** the phone's Note on one Book (`/?note=<id>`, so back closes it). The pen beside each Reading row opens it. It rises over a soft ink shade on raised, 3px top corners, a hairline top edge and the lifted shadow turned upward, and goes back down the same way when closed or saved. Its bottom edge follows the visual viewport, so it rides on top of the on-screen keyboard, and the tap that opens it focuses the text, so the keyboard comes up at once. "Note on *Title*" with a quiet Close heads it; then the Note's text in serif body size with no field box, growing as it is written; "Add a quote" and "Add a page" reveal hairline-ruled rows, each with a quiet Remove; and a full-width ink "Save note". Saving lowers the sheet and says "Note saved on *Title*" with Open, quietly above Add a Book, until the next move or a few seconds pass. A failed or hung save keeps everything: "Couldn't save. Your note is kept here." and the button reads Try again. The draft is per Book, shared with the Book screen's form, survives closing, back and a refresh, and its Reading row adds "Draft note" in the accent (with its page, when one is given).
 - **App icon:** the wordmark's italic M in ink, centred on paper; the maskable one smaller, inside the safe zone. Installed, the app opens standalone on paper, and the status bar takes the paper's colour. `scripts/render-icons.mjs` renders them.
-- **Cover:** the image, or a typeset placeholder on a selected tone (title in serif, author in small caps) when there is no cover or it fails to load.
+- **Cover:** the image, or a typeset placeholder on a selected tone (title in serif) when there is no cover or it fails to load. Small beside Add's results; one larger cover (88 by 132px) at the top of the Book panel; none in library rows.
 - **Cluster name:** italic serif in its Cluster's name colour on a soft ground plate, centred above or below its wash, whichever crosses fewer Book labels. It is sized with the zoom (13–18px), takes a hairline underline on hover, and fades with the rest of the graph behind a selection. Choosing it, or the wash itself, opens the Cluster panel.
 - **Cluster wash:** one continuous soft shape per Cluster: a thick, round-capped stroke along its internal Connections plus a disc for each Book, blurred, in the Cluster's tint. Books are ink dots; a Book with no Connections is a hollow dot with a muted italic label.
 - **Graph legend:** a footer under a hairline: a short bar of each type hue beside its small-caps name, and on the right, in italic, "Thicker lines are stronger Connections."
