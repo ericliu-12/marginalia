@@ -1,6 +1,6 @@
 // The Cluster tints: a muted tint for a Cluster's mark, and a darker name colour that holds 4.5:1 on
-// ground, raised and selected. A Cluster keeps its stored `wash`, so it keeps its tint. The library's
-// dots use them now; the graph's washes move onto the same table in #138.
+// ground, raised and selected. A Cluster keeps its stored `wash`, so it keeps its tint: its dot in the
+// library, its wash and its name on the graph.
 export const CLUSTER_TINTS = [
   { tint: "#9fb39a", name: "#4d6349" }, // sage
   { tint: "#d3a189", name: "#8a4a30" }, // terracotta

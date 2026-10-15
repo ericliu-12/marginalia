@@ -1,5 +1,4 @@
 import type { ConnectionType, Strength } from "@/domain/connections";
-import type { WASH_COUNT } from "@/domain/clusters";
 import type { GraphBook, GraphConnection } from "@/domain/graph";
 import { TYPICAL_EDGE_LENGTH } from "@/domain/graph-drawing";
 import { typicalLength } from "@/domain/graph-fit";
@@ -61,23 +60,31 @@ export const TYPE_COLOR: Record<ConnectionType, string> = { thematic: "#3e5a80",
 export const TYPE_LABEL: Record<ConnectionType, string> = { thematic: "Thematic", contrast: "Contrast", context: "Context" };
 export const STRENGTH_LABEL: Record<Strength, string> = { strong: "Strong", moderate: "Moderate", weak: "Weak" };
 
-// Cluster washes: soft pools of colour behind each Cluster's Books, under the Connections. Six pale
-// tints kept apart from the Connection Type hues, so no Connection's line sinks into its wash; a
-// Cluster keeps its tint (its stored `wash`) for as long as it keeps its identity. There is one for each
-// of the WASH_COUNT the Clusters are handed out from.
-// Equal in lightness and chroma (OKLCH 0.76, 0.065), so no Cluster reads stronger than another.
-export const WASH = ["#c4ae82", "#d0a1bb", "#81bfb6", "#d6a492", "#b0abd8", "#d1a888"] as const satisfies { length: typeof WASH_COUNT };
-// How much of its tint a wash lays on the paper where it is fullest: at rest, while its Cluster is
-// chosen, and behind some other selection. A Cluster's pools never add up past this.
-export const WASH_ALPHA = { rest: 0.35, chosen: 0.55, faded: 0.16 };
+// Cluster washes: one soft shape per Cluster behind its Books, under the Connections, in the Cluster's
+// tint (src/app/cluster-tint.tsx, as its dot in the library). The shape is a disc at each Book and a
+// band along each Connection drawn between two of them, WASH_CORE from centre or line, blurred by
+// WASH_BLUR (a standard deviation): both in typical Connection lengths. Together they reach about
+// WASH_RADIUS, which the names and the first view's fit keep clear of.
 export { WASH_RADIUS } from "@/domain/graph-drawing";
+export const WASH_CORE = 0.38;
+export const WASH_BLUR = 0.17;
+// A click or hover this near a wash's Books or bands is on it: where its tint is still plainly seen.
+export const WASH_REACH = WASH_CORE + WASH_BLUR;
+// How much of its tint a wash lays on the paper where it is fullest: at rest, under the pointer (or
+// reached from the keyboard), while its Cluster is chosen, and behind some other selection. A Cluster's
+// shape never adds up past this.
+export const WASH_ALPHA = { rest: 0.4, hover: 0.56, chosen: 0.6, faded: 0.16 };
+// A wash deepens under the pointer over this long (at once for less motion).
+export const WASH_HOVER_MS = 150;
+// While a drag's simulation moves the Books, each wash follows its Books, drawn again at most this often.
+export const WASH_FOLLOW_MS = 50;
 // A Cluster that forms while the graph is open fades in over this long.
 export const WASH_FADE_MS = 600;
 
-// A Cluster's name is on a paper plate (as Book labels are) so no Connection strikes through it; its
-// size, place and room from the canvas edges are in src/domain/graph-drawing.ts. Its colour holds 4.5:1
-// even without the plate, where two of the darkest washes overlap at rest.
-export const CLUSTER_NAME_COLOR = "#4a4137";
+// A Cluster's name is in its tint's name colour on a paper plate (as Book labels are), so no Connection
+// strikes through it; its size, place and room from the canvas edges are in src/domain/graph-drawing.ts.
+// The plate's opacity (bg-paper/80 in ClusterName), which the names' contrast is checked through.
+export const CLUSTER_NAME_PLATE = 0.8;
 
 // The arrival of a Book the graph has not shown before. Its dot grows in while one hairline ink ring
 // spreads LAND_RING beyond it and fades; then its Connections draw in one at a time, the first

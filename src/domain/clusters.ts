@@ -10,8 +10,8 @@ import { completedPasses } from "./library-entry";
 
 // Fewer Books than this are not a Cluster.
 export const MIN_CLUSTER_SIZE = 3;
-// How many wash colours a Cluster is handed one of; the graph's WASH must have exactly this many.
-export const WASH_COUNT = 6;
+// How many tints a Cluster is handed one of; src/app/cluster-tint.tsx has one for each.
+export const WASH_COUNT = 8;
 // A new Cluster continues an old one when their Books overlap at least this much (Jaccard), or when it
 // holds at least this share of the old one's Books (so a Cluster can grow fast and keep its identity).
 const MATCH_JACCARD = 0.5;

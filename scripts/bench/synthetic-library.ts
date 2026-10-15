@@ -2,7 +2,7 @@
 // 80% inside their Cluster with preferential attachment, 40% strong. The same for every run of a size.
 import { sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
-import { book, bookPosition, clusterLabel, connection, enrichment, libraryEntry, readThrough, user } from "@/db/schema";
+import { book, bookPosition, clusterLabel, connection, enrichment, libraryEntry, readThrough, session, user } from "@/db/schema";
 import { recomputeClusters } from "@/domain/clusters";
 import { layoutGraph } from "@/domain/graph";
 
@@ -57,10 +57,11 @@ function library(n: number) {
 }
 
 // Replaces everything in `db` with a synthetic library of `n` Finished Books, laid out and clustered as
-// the worker would, every Cluster named.
-export async function seedSyntheticLibrary(db: Db, n: number) {
+// the worker would, every Cluster named. Its Reader is signed in with the session `token`.
+export async function seedSyntheticLibrary(db: Db, n: number, token: string) {
   await db.execute(sql`TRUNCATE "user" CASCADE`);
-  const [{ id: userId }] = await db.insert(user).values({ email: "bench@marginalia.local" }).returning();
+  const [{ id: userId }] = await db.insert(user).values({ email: "bench@marginalia.local", emailVerified: true }).returning();
+  await db.insert(session).values({ userId, token, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) });
   const { titles, pairs, degree } = library(n);
   const books = await db.insert(book).values(titles.map((title) => ({ title, authors: ["A. Writer"] }))).returning({ id: book.id });
   const entries = await db
