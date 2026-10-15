@@ -23,19 +23,26 @@ export const titleLink =
 
 const STRENGTH_LABEL: Record<ConnectionCard["strength"], string> = { strong: "Strong", moderate: "Moderate", weak: "Weak" };
 
-// "Your first Connection.", said once on this device, over the reader's first Connections.
+// "Your first Connection.", said once on this device, over the reader's first Connections: counted as
+// said once it has been up long enough to read.
 const firstSaidKey = "marginalia:first-connection-said";
+const FIRST_READ_MS = 1500;
 function useFirstSaid(first: boolean) {
   const [say, setSay] = useState(false);
   useEffect(() => {
     if (!first) return;
     try {
       if (localStorage.getItem(firstSaidKey)) return;
-      localStorage.setItem(firstSaidKey, "1");
     } catch {
       return;
     }
     setSay(true);
+    const said = setTimeout(() => {
+      try {
+        localStorage.setItem(firstSaidKey, "1");
+      } catch {}
+    }, FIRST_READ_MS);
+    return () => clearTimeout(said);
   }, [first]);
   return say;
 }
@@ -89,7 +96,13 @@ export function ConnectionsSection({ bookId, onOpenBook, withheld }: { bookId: s
       {status === "running" && <p className="pt-2 text-ink-2 italic">Finding Connections…</p>}
       {status === "failed" && <p className="pt-2 text-ink-2 italic">Couldn’t find Connections just now.</p>}
       {status === "idle" && cards.length === 0 && <p className="pt-2 text-ink-2 italic">No Connections yet.</p>}
-      {sayFirst && <p className="pt-1.5 text-ink-2 italic motion-safe:animate-ink-in">{cards.length === 1 ? "Your first Connection." : "Your first Connections."}</p>}
+      {/* In ink, not the secondary of the status lines, with its full stop in the accent: a moment, not a status. */}
+      {sayFirst && (
+        <p role="status" className="pt-2 text-[17px] text-ink italic motion-safe:animate-ink-in">
+          Your first {cards.length === 1 ? "Connection" : "Connections"}
+          <span className="text-accent">.</span>
+        </p>
+      )}
       {cards.length > 0 && (
         <ul className="mt-1.5 flex flex-col gap-3">
           {shown.map((c) => (

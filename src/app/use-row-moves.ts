@@ -1,11 +1,14 @@
 import { useLayoutEffect, useRef, type RefObject } from "react";
 
 export const ROW_MOVE_MS = 300;
+// Further than this, a glide would be a swoosh across the page: the row fades in where it lands instead.
+const GLIDE_MAX = 400;
 
 // Rows move rather than jump. When `rows` changes (a Status move, a Book added or removed), each row
 // [data-row] still in `list` glides from where it was to where it is now: one that changed shelf
 // [data-shelf] crosses to its new one, coming up from faint as it goes, and the rows around it close up
-// or make room. With less motion, rows simply take their places, and only one that changed shelf fades in.
+// or make room. With less motion, or for a long way, rows simply take their places, and only one that
+// changed shelf fades in.
 export function useRowMoves(list: RefObject<HTMLElement | null>, rows: unknown) {
   // Where each row was, relative to the list, and on which shelf, as of the last change.
   const last = useRef(new Map<string, { top: number; shelf?: string }>());
@@ -49,7 +52,8 @@ export function useRowMoves(list: RefObject<HTMLElement | null>, rows: unknown) 
       if (!changed || !was) continue;
       const crossed = was.shelf !== at.shelf;
       const dy = was.top + (glide ? offset : 0) - at.top;
-      if (still) {
+      if (still || Math.abs(dy) > GLIDE_MAX) {
+        glide?.cancel();
         if (crossed) row.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 150, easing: "ease-out" });
         continue;
       }

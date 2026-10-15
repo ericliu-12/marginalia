@@ -87,6 +87,8 @@ test("the reader's first Connection is said once", async ({ page }) => {
   };
   await open();
   await expect(page.getByText("Your first Connection.")).toBeVisible();
+  // Counted as said once it has been up long enough to read.
+  await page.waitForTimeout(1600);
   await open();
   await expect(page.getByText("Your first Connection.")).toHaveCount(0);
 });

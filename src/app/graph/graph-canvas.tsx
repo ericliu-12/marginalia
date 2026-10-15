@@ -816,7 +816,11 @@ export function GraphCanvas({
     const fresh = first || reducedMotion() ? [] : prepared.clusters.filter((c) => !shown.current!.has(c.cluster.id));
     for (const c of fresh) appeared.current.set(c.cluster.id, now);
     // A Cluster that forms or takes a new name writes it in.
-    if (!first) setWriting(new Set(prepared.clusters.filter((c) => shown.current!.get(c.cluster.id) !== c.cluster.name).map((c) => c.cluster.id)));
+    // Kept, not replaced, so a graph fetched mid-write doesn't cut it short; a name writes in once, as it mounts.
+    if (!first) {
+      const named = prepared.clusters.filter((c) => shown.current!.get(c.cluster.id) !== c.cluster.name).map((c) => c.cluster.id);
+      if (named.length) setWriting((w) => new Set([...w, ...named]));
+    }
     shown.current = new Map(prepared.clusters.map((c) => [c.cluster.id, c.cluster.name]));
     dataRef.current = prepared;
     // The stored layout stays put; a drag wakes the simulation, which settles everything back home.
@@ -864,8 +868,10 @@ export function GraphCanvas({
   // Arriving Books already framed: only the arrival brings the Books a Book connects to into view.
   const framed = useRef(new Set<string>());
   useEffect(() => {
-    // The graph fades from the last focus to this one, or with less motion changes at once.
-    const fade = focusRef.current !== focus && !reducedMotion();
+    // The graph fades from the last focus to this one, or with less motion changes at once; so does a
+    // change that comes mid-fade, rather than jumping back to fade again.
+    const midFade = wasFocusRef.current !== null && performance.now() - focusAt.current < SELECT_FADE_MS;
+    const fade = focusRef.current !== focus && !reducedMotion() && !midFade;
     wasFocusRef.current = fade ? focusRef.current : null;
     focusAt.current = performance.now();
     focusRef.current = focus;
@@ -990,9 +996,10 @@ function ClusterName({
           visibility: "hidden",
         } as React.CSSProperties
       }
-      className={`pointer-events-auto absolute top-0 left-0 rounded-[2px] bg-paper/80 px-1.5 py-0.5 font-serif leading-tight font-medium whitespace-nowrap text-(--name) italic decoration-(--name) decoration-1 underline-offset-[5px] transition-colors duration-150 hover:bg-paper/95 hover:underline data-chosen:bg-paper/95 data-chosen:underline data-hovered:bg-paper/95 data-hovered:underline data-pointed:bg-paper/95 data-pointed:underline data-pointed:outline-2 data-pointed:outline-offset-2 data-pointed:outline-thematic data-faded:bg-paper/60 data-faded:text-(--faded) data-faded:decoration-(--faded) motion-reduce:transition-none ${writing ? "animate-write-in" : ""}`}
+      className={`pointer-events-auto absolute top-0 left-0 rounded-[2px] bg-paper/80 px-1.5 py-0.5 font-serif leading-tight font-medium whitespace-nowrap text-(--name) italic decoration-(--name) decoration-1 underline-offset-[5px] transition-colors duration-150 hover:bg-paper/95 hover:underline data-chosen:bg-paper/95 data-chosen:underline data-hovered:bg-paper/95 data-hovered:underline data-pointed:bg-paper/95 data-pointed:underline data-pointed:outline-2 data-pointed:outline-offset-2 data-pointed:outline-thematic data-faded:bg-paper/60 data-faded:text-(--faded) data-faded:decoration-(--faded) motion-reduce:transition-none`}
     >
-      {cluster.name}
+      {/* Written in inside the plate, so the clip never cuts the keyboard's outline. */}
+      <span className={writing ? "inline-block animate-write-in" : undefined}>{cluster.name}</span>
     </button>
   );
 }

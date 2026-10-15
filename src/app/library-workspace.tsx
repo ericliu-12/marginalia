@@ -62,7 +62,7 @@ export function LibraryWorkspace({ items, finding, paused }: { items: LibraryIte
           </div>
         </main>
         {(searchOpen || book) && (
-          <div className="border-t border-rule motion-safe:animate-panel-in lg:w-[min(460px,40vw)] lg:shrink-0 lg:border-t-0 lg:border-l">
+          <div className="border-t border-rule lg:motion-safe:animate-panel-in lg:w-[min(460px,40vw)] lg:shrink-0 lg:border-t-0 lg:border-l">
             {book && (
               <BookPanel
                 key={book.bookId}
