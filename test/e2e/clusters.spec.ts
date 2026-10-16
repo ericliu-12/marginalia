@@ -39,6 +39,27 @@ test("an unnamed Cluster shows as 'Cluster of N Books', and is reachable from th
   await expect(panel(page).getByText("Not named yet.")).toBeVisible();
 });
 
+test("a faded Cluster name darkens under the pointer and from the keyboard", async ({ page }) => {
+  await addCluster(["Stoner", "The Remains of the Day", "Never Let Me Go"], QUIET);
+  await addCluster(["Beloved", "The Plague", "Candide"], { name: "Answers to suffering", description: "Each asks what suffering is for." });
+  await page.goto("/graph");
+  // A Book chosen fades every Cluster's name; the view glides to it, so its own Cluster's name stays in sight.
+  await page.getByRole("navigation", { name: "Books in the graph" }).getByRole("button", { name: /^The Plague,/ }).focus();
+  await page.keyboard.press("Enter");
+  const faded = name(page, "Answers to suffering");
+  await expect(faded).toBeVisible();
+  await expect(faded).toHaveAttribute("data-faded");
+  await expect(faded).toHaveCSS("color", "rgb(163, 155, 141)");
+
+  await faded.hover();
+  await expect(faded).toHaveCSS("color", "rgb(110, 103, 93)");
+  await page.mouse.move(0, 0);
+  await expect(faded).toHaveCSS("color", "rgb(163, 155, 141)");
+
+  await page.getByRole("navigation", { name: "Clusters in the graph" }).getByRole("button", { name: /^Answers to suffering/ }).focus();
+  await expect(faded).toHaveCSS("color", "rgb(110, 103, 93)");
+});
+
 test("after a dismissal, the graph picks up the Clusters the graph job leaves, without a reload", async ({ page }) => {
   await page.goto("/graph");
   await page.getByRole("navigation", { name: "Books in the graph" }).getByRole("button", { name: /^Stoner, / }).focus();
