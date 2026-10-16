@@ -47,7 +47,7 @@ export function LibraryWorkspace({ items, finding, paused }: { items: LibraryIte
             }}
             className={`min-h-11 bg-ink px-[18px] text-[16px] text-paper italic transition-colors duration-150 hover:bg-ink-2 ${searchShown ? "invisible" : ""}`}
           >
-            Add a Book
+            Add a book
           </button>
           <AccountLink />
         </div>

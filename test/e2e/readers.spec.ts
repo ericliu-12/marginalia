@@ -23,15 +23,15 @@ test("A's Book and Note stay A's: B's shelf, Book screen, graph and search show 
   // A, on the phone: adds Austerlitz from search as Reading, and writes a Note on it.
   const a = await (await browser.newContext({ storageState: signedIn(), ...phone })).newPage();
   await a.goto("/");
-  await a.getByRole("button", { name: "Add a Book" }).click();
+  await a.getByRole("button", { name: "Add a book" }).click();
   await searchbox(a).fill("Austerlitz");
-  const add = a.getByRole("dialog", { name: "Add a Book" });
+  const add = a.getByRole("dialog", { name: "Add a book" });
   await add.getByRole("group", { name: "Add Austerlitz" }).getByRole("button", { name: "Reading" }).click();
   await expect(add.getByText("Added · Reading")).toBeVisible();
   await add.getByRole("button", { name: "Done" }).click();
   await a.getByRole("button", { name: "Write a note on Austerlitz" }).click();
-  await a.getByRole("dialog", { name: "Note on Austerlitz" }).getByRole("textbox", { name: "New Note" }).fill(NOTE);
-  await a.getByRole("dialog", { name: "Note on Austerlitz" }).getByRole("button", { name: "Save Note" }).click();
+  await a.getByRole("dialog", { name: "Note on Austerlitz" }).getByRole("textbox", { name: "New note" }).fill(NOTE);
+  await a.getByRole("dialog", { name: "Note on Austerlitz" }).getByRole("button", { name: "Save note" }).click();
   await expect(a.getByRole("status").filter({ hasText: "Note saved on Austerlitz" })).toBeVisible();
 
   // A's own Book screen shows them, as stored from the server's Open Library.
@@ -57,11 +57,11 @@ test("A's Book and Note stay A's: B's shelf, Book screen, graph and search show 
   // B, at a desk: search finds the work, but not as in B's library; the graph has none of A's Books.
   const b = await (await asReaderB(browser)).newPage();
   await b.goto("/");
-  await b.getByRole("button", { name: "Add a Book" }).click();
+  await b.getByRole("button", { name: "Add a book" }).click();
   await searchbox(b).fill("Austerlitz");
   await expect(b.getByRole("group", { name: "Add Austerlitz" }).getByRole("button", { name: "Reading" })).toBeVisible();
   await expect(b.getByText(NOTE)).toHaveCount(0);
   await b.goto("/graph");
-  await expect(b.getByText("Finish a Book and its Connections will gather here.")).toBeVisible();
+  await expect(b.getByText("Finish a book and its connections will gather here.")).toBeVisible();
   for (const title of ["Austerlitz", "Stoner", "Beloved"]) await expect(b.getByText(title)).toHaveCount(0);
 });

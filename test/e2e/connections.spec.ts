@@ -26,12 +26,12 @@ test("a dismissed Connection leaves the Book panel and the graph, and stays gone
   await connections(page).getByRole("button", { name: "Yes, dismiss" }).click();
 
   await expect(connections(page).getByRole("button", { name: "The Remains of the Day", exact: true })).toHaveCount(0);
-  await expect(connections(page).getByText("No Connections yet.")).toBeVisible();
+  await expect(connections(page).getByText("No connections yet.")).toBeVisible();
   await expect(connections(page).getByRole("heading", { name: "Connections" })).toBeFocused();
-  await expect(books(page).getByRole("button", { name: "Stoner, 0 Connections" })).toBeAttached();
+  await expect(books(page).getByRole("button", { name: "Stoner, 0 connections" })).toBeAttached();
 
   await page.reload();
-  await expect(books(page).getByRole("button", { name: "Stoner, 0 Connections" })).toBeAttached();
+  await expect(books(page).getByRole("button", { name: "Stoner, 0 connections" })).toBeAttached();
 });
 
 test("Escape keeps a Connection, puts focus back on Dismiss and leaves the panel open", async ({ page }) => {
@@ -46,18 +46,18 @@ test("Escape keeps a Connection, puts focus back on Dismiss and leaves the panel
 
 test("Refresh connections queues a run, and the panel shows it finding Connections", async ({ page }) => {
   await openStoner(page);
-  await connections(page).getByRole("button", { name: "Refresh Connections" }).click();
-  await expect(connections(page).getByText("Finding Connections…")).toBeVisible();
-  await expect(connections(page).getByRole("button", { name: "Refresh Connections" })).toHaveCount(0);
+  await connections(page).getByRole("button", { name: "Refresh connections" }).click();
+  await expect(connections(page).getByText("Finding connections…")).toBeVisible();
+  await expect(connections(page).getByRole("button", { name: "Refresh connections" })).toHaveCount(0);
   await expect(connections(page).getByRole("button", { name: "The Remains of the Day", exact: true })).toBeVisible();
 });
 
 test("a Note that gave up on its vector is named above Refresh, which tries it again", async ({ page }) => {
   await addNoteThatGaveUp("Stoner", "A quiet life of work.");
   await openStoner(page);
-  const leftOut = connections(page).getByText("Connections can’t draw on one of your Notes yet. Refresh to try again.");
+  const leftOut = connections(page).getByText("Connections can’t draw on one of your notes yet. Refresh to try again.");
   await expect(leftOut).toBeVisible();
-  await connections(page).getByRole("button", { name: "Refresh Connections" }).click();
-  await expect(connections(page).getByText("Finding Connections…")).toBeVisible();
+  await connections(page).getByRole("button", { name: "Refresh connections" }).click();
+  await expect(connections(page).getByText("Finding connections…")).toBeVisible();
   await expect(leftOut).toHaveCount(0);
 });

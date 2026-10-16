@@ -42,8 +42,8 @@ test("a finished Book's panel names its Cluster and finish date, and numbers its
   // Oldest first: a Note keeps its number.
   const notes = panel.getByRole("region", { name: "Notes" }).getByRole("listitem");
   for (const body of ["Optimism, tested.", "The garden at the end."]) {
-    await panel.getByRole("textbox", { name: "Write a Note" }).fill(body);
-    await panel.getByRole("button", { name: "Save Note" }).click();
+    await panel.getByRole("textbox", { name: "Write a note" }).fill(body);
+    await panel.getByRole("button", { name: "Save note" }).click();
     await expect(notes.filter({ hasText: body })).toBeVisible();
   }
   await expect(notes).toHaveText([/^1Optimism, tested\./, /^2The garden at the end\./]);
@@ -55,7 +55,7 @@ test("the Book's panel reads About, then Notes, then Connections", async ({ page
   const panel = page.getByRole("complementary", { name: "Notes on Candide" });
   const top = async (name: string) => (await panel.getByRole("heading", { name, exact: true }).boundingBox())!.y;
   await expect(panel.getByRole("heading", { name: "Connections", exact: true })).toBeVisible();
-  const [about, notes, connections] = [await top("About this Book"), await top("Notes"), await top("Connections")];
+  const [about, notes, connections] = [await top("About this book"), await top("Notes"), await top("Connections")];
   expect(about).toBeLessThan(notes);
   expect(notes).toBeLessThan(connections);
 });

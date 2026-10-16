@@ -36,7 +36,7 @@ test("a library row takes a second move while the first is saving", async ({ pag
   await moves.getByRole("button", { name: "Mark finished: Gilead" }).click();
   await move.release();
   await expect(inSection(page, /^Read(?!ing)/)).toBeVisible();
-  await expect(page.getByText("1 Book finding Connections")).toBeVisible();
+  await expect(page.getByText("1 book finding connections")).toBeVisible();
 });
 
 test("the Book's panel takes a second move while the first is saving", async ({ page }) => {

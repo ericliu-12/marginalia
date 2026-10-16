@@ -38,10 +38,10 @@ export default async function AccountPage() {
         <p className="text-ink-2">Everything you’ve written or chosen here, in one file to keep:</p>
         <Ruled
           items={[
-            { name: "Library", text: "Each Book, its Status, when you read it, and any title or author you changed." },
-            { name: "Notes", text: "Every Note, with its quoted passage and page." },
-            { name: "Books added by hand", text: "The Books you made yourself, with what you wrote about them." },
-            { name: "Connections", text: "The Connections between your Books and why they connect, dismissed ones included." },
+            { name: "Library", text: "Each book, its status, when you read it, and any title or author you changed." },
+            { name: "Notes", text: "Every note, with its quoted passage and page." },
+            { name: "Books added by hand", text: "The books you made yourself, with what you wrote about them." },
+            { name: "Connections", text: "The connections between your books and why they connect, dismissed ones included." },
           ]}
         />
         <p className="text-[15px] text-ink-3 italic">Covers, descriptions and summaries come from elsewhere, so they aren’t in it.</p>
@@ -56,7 +56,7 @@ export default async function AccountPage() {
       <div className="mt-16 border-t border-rule">
         <Section id="delete-account" title="Delete your account">
           <p className="text-ink-2">
-            Deleting your account removes your library, Notes, the Books you added by hand, and your Connections and Clusters. It signs you
+            Deleting your account removes your library, notes, the books you added by hand, and your connections and clusters. It signs you
             out on every device. It can’t be undone. If you want to keep any of it,{" "}
             <a href="#your-data" className={proseLink}>
               download your export

@@ -83,7 +83,7 @@ describe("Cluster naming", () => {
     await clique(await books("A B C"));
     const seen: Awaited<ReturnType<typeof readGraph>>[] = [];
     await recompute(fakeNamer(async () => (seen.push(await readGraph(ctx.db, ctx.userId)), {})));
-    expect(seen[0]).toMatchObject({ pending: true, naming: true, clusters: [{ name: "Cluster of 3 Books", named: false }] });
+    expect(seen[0]).toMatchObject({ pending: true, naming: true, clusters: [{ name: "Cluster of 3 books", named: false }] });
     expect(await readGraph(ctx.db, ctx.userId)).toMatchObject({ pending: false, naming: false, clusters: [{ named: true }] });
   });
 
@@ -203,7 +203,7 @@ describe("Cluster naming", () => {
       // Only its own attempts: the graph job itself succeeded, and was not retried.
       expect(namer.inputs).toHaveLength(NAMING_ATTEMPTS);
       const g = await readGraph(ctx.db, ctx.userId);
-      expect(g.clusters).toEqual([expect.objectContaining({ name: "Cluster of 3 Books", description: null })]);
+      expect(g.clusters).toEqual([expect.objectContaining({ name: "Cluster of 3 books", description: null })]);
       expect(g.pending).toBe(false);
     });
 

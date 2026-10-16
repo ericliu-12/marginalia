@@ -20,8 +20,8 @@ test("a Cluster's name opens its panel, and each of its Books opens that Book", 
   await expect(panel(page).getByRole("heading", { level: 2 })).toHaveText(QUIET.name);
   await expect(panel(page).getByRole("heading", { level: 2 })).toBeFocused();
   await expect(panel(page).getByText(QUIET.description)).toBeVisible();
-  await expect(panel(page).getByText("Cluster of 3 Books")).toBeVisible();
-  const members = panel(page).getByRole("list", { name: "Books in this Cluster" }).getByRole("button");
+  await expect(panel(page).getByText("Cluster of 3 books")).toBeVisible();
+  const members = panel(page).getByRole("list", { name: "Books in this cluster" }).getByRole("button");
   await expect(members).toHaveText(["Stoner", "The Remains of the Day", "Never Let Me Go"]);
 
   await members.filter({ hasText: "Never Let Me Go" }).click();
@@ -31,11 +31,11 @@ test("a Cluster's name opens its panel, and each of its Books opens that Book", 
 test("an unnamed Cluster shows as 'Cluster of N Books', and is reachable from the keyboard", async ({ page }) => {
   await addCluster(["Beloved", "The Plague", "Candide"], null);
   await page.goto("/graph");
-  await expect(name(page, "Cluster of 3 Books")).toBeVisible();
+  await expect(name(page, "Cluster of 3 books")).toBeVisible();
 
-  await page.getByRole("navigation", { name: "Clusters in the graph" }).getByRole("button", { name: "Cluster of 3 Books", exact: true }).focus();
+  await page.getByRole("navigation", { name: "Clusters in the graph" }).getByRole("button", { name: "Cluster of 3 books", exact: true }).focus();
   await page.keyboard.press("Enter");
-  await expect(panel(page).getByRole("heading", { level: 2 })).toHaveText("Cluster of 3 Books");
+  await expect(panel(page).getByRole("heading", { level: 2 })).toHaveText("Cluster of 3 books");
   await expect(panel(page).getByText("Not named yet.")).toBeVisible();
 });
 
@@ -67,7 +67,7 @@ test("after a dismissal, the graph picks up the Clusters the graph job leaves, w
   const connections = page.getByRole("region", { name: "Connections" });
   await connections.getByRole("button", { name: "Dismiss" }).click();
   await connections.getByRole("button", { name: "Yes, dismiss" }).click();
-  await expect(connections.getByText("No Connections yet.")).toBeVisible();
+  await expect(connections.getByText("No connections yet.")).toBeVisible();
   // Back to the whole graph, where no panel covers a name.
   await page.keyboard.press("Escape");
 
@@ -76,7 +76,7 @@ test("after a dismissal, the graph picks up the Clusters the graph job leaves, w
   await expect(name(page, QUIET.name)).toBeHidden();
   await settleGraph();
   await expect(name(page, QUIET.name)).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByRole("navigation", { name: "Clusters in the graph" }).getByRole("button", { name: `${QUIET.name}, 3 Books` })).toBeAttached();
+  await expect(page.getByRole("navigation", { name: "Clusters in the graph" }).getByRole("button", { name: `${QUIET.name}, 3 books` })).toBeAttached();
 });
 
 test("after a removal, a new Cluster shows unnamed while naming lags, then by its name", async ({ page }) => {
@@ -89,7 +89,7 @@ test("after a removal, a new Cluster shows unnamed while naming lags, then by it
 
   const id = await addCluster(["Stoner", "The Remains of the Day", "Never Let Me Go"], null);
   await layOutGraph();
-  await expect(name(page, "Cluster of 3 Books")).toBeVisible({ timeout: 10_000 });
+  await expect(name(page, "Cluster of 3 books")).toBeVisible({ timeout: 10_000 });
   await nameCluster(id, QUIET);
   await settleGraph();
   await expect(name(page, QUIET.name)).toBeVisible({ timeout: 10_000 });

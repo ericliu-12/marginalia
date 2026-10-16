@@ -165,7 +165,7 @@ export function MobileAdd({
             </button>
           )}
           <h2 id="mobile-add-heading" className="caps col-start-2 text-[17px] leading-tight font-medium tracking-[1.6px]">
-            Add a Book
+            Add a book
           </h2>
           <button type="button" onClick={onDone} className="-mr-3 min-h-11 justify-self-end px-3 text-[16px] text-accent transition-colors active:text-accent-deep">
             Done
@@ -232,7 +232,7 @@ export function MobileAdd({
                         {a.byline}
                         {!a.workKey && (
                           <span className="text-ink-3 normal-case italic [font-variant-caps:normal]">
-                            {a.byline && " · "}Manual Book
+                            {a.byline && " · "}Manual book
                           </span>
                         )}
                       </p>
@@ -421,7 +421,7 @@ function AddResult({
       )}
       {failed && adding && (
         <p className="mt-1.5 text-[15px]">
-          <span className="text-contrast">Couldn’t add this Book.</span>{" "}
+          <span className="text-contrast">Couldn’t add this book.</span>{" "}
           <button type="button" onMouseDown={keepFocus} onClick={() => add(adding)} className={`${hitArea} whitespace-nowrap text-ink underline underline-offset-2`}>
             Try again
           </button>

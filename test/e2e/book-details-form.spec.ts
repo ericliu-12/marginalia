@@ -39,14 +39,14 @@ test.describe("on a desktop", () => {
     await coversAnswered(page);
   });
 
-  const searchPane = (page: Page) => page.getByRole("complementary", { name: "Add a Book" });
+  const searchPane = (page: Page) => page.getByRole("complementary", { name: "Add a book" });
 
   test("Add by hand: its fields, each missing field in turn, the cover rule, and a www. cover kept as https", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: "Add a Book" }).click();
+    await page.getByRole("button", { name: "Add a book" }).click();
     await page.getByRole("searchbox", { name: "Title or author" }).fill("Kitchen");
     await searchPane(page).getByRole("button", { name: "Add it by hand" }).click();
-    const form = searchPane(page).getByRole("form", { name: "Add a Book by hand" });
+    const form = searchPane(page).getByRole("form", { name: "Add a book by hand" });
 
     await expect(form.getByText("It stays in your library alone, and you can change it later.")).toBeVisible();
     // The title came from the search, so the author is next.
@@ -73,7 +73,7 @@ test.describe("on a desktop", () => {
 
     await form.getByRole("button", { name: "Add a description" }).click();
     await expect(form.getByLabel("Description")).toBeFocused();
-    await expect(form.getByLabel("Description")).toHaveAttribute("placeholder", "What it’s about, from the jacket or in your words. It helps Marginalia know the Book.");
+    await expect(form.getByLabel("Description")).toHaveAttribute("placeholder", "What it’s about, from the jacket or in your words. It helps Marginalia know the book.");
     await form.getByLabel("Cover image address").fill("www.example.com/c.jpg");
     await form.getByRole("button", { name: "Want to read" }).click();
     await expect(searchPane(page).getByText("Added Kitchen Notes to your library.")).toBeVisible();
@@ -85,10 +85,10 @@ test.describe("on a desktop", () => {
 
   test("Escape closes Add by hand with the draft kept; Cancel discards it", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: "Add a Book" }).click();
+    await page.getByRole("button", { name: "Add a book" }).click();
     await page.getByRole("searchbox", { name: "Title or author" }).fill("Kitchen");
     await searchPane(page).getByRole("button", { name: "Add it by hand" }).click();
-    const form = searchPane(page).getByRole("form", { name: "Add a Book by hand" });
+    const form = searchPane(page).getByRole("form", { name: "Add a book by hand" });
     await form.getByLabel("Author", { exact: true }).fill("June Ash");
     await page.keyboard.press("Escape");
     await expect(form).toHaveCount(0);
@@ -101,10 +101,10 @@ test.describe("on a desktop", () => {
 
   test("Add by hand says Adding… on the chosen Status while it adds, and says so when the add fails", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: "Add a Book" }).click();
+    await page.getByRole("button", { name: "Add a book" }).click();
     await page.getByRole("searchbox", { name: "Title or author" }).fill("Kitchen");
     await searchPane(page).getByRole("button", { name: "Add it by hand" }).click();
-    const form = searchPane(page).getByRole("form", { name: "Add a Book by hand" });
+    const form = searchPane(page).getByRole("form", { name: "Add a book by hand" });
     await form.getByLabel("Title").fill(UNSTORABLE);
     await form.getByLabel("Author", { exact: true }).fill("June Ash");
 
@@ -117,7 +117,7 @@ test.describe("on a desktop", () => {
     await expect(form.getByRole("button", { name: "Cancel" })).toBeDisabled();
     await call.release();
 
-    await expect(form.getByRole("alert")).toHaveText("Couldn’t add this Book. Try again.");
+    await expect(form.getByRole("alert")).toHaveText("Couldn’t add this book. Try again.");
     await expect(choices).toHaveText(["Want to read", "Reading", "Read"]);
     await expect(form.getByLabel("Title")).not.toHaveAttribute("aria-invalid");
   });
@@ -129,7 +129,7 @@ test.describe("on a desktop", () => {
     await page.getByRole("button", { name: "Edit details" }).click();
     const form = page.getByRole("form", { name: "Edit Kitchen Notes" });
 
-    await expect(form.getByText("You added this Book by hand, so it’s yours to change.", { exact: false })).toBeVisible();
+    await expect(form.getByText("You added this book by hand, so it’s yours to change.", { exact: false })).toBeVisible();
     await expect(form.getByLabel("Title")).toBeFocused();
     await expect(form.getByLabel("Title")).toHaveValue("Kitchen Notes");
     await expect(form.getByLabel("Author", { exact: true })).toHaveAccessibleDescription("Separate co-authors with ‘and’.");
@@ -209,14 +209,14 @@ test.describe("on a phone", () => {
     await coversAnswered(page);
   });
 
-  const addScreen = (page: Page) => page.getByRole("dialog", { name: "Add a Book" });
+  const addScreen = (page: Page) => page.getByRole("dialog", { name: "Add a book" });
 
   test("Add by hand: Enter's key says next or done, each missing field in turn, and the cover rule", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: "Add a Book" }).click();
+    await page.getByRole("button", { name: "Add a book" }).click();
     await addScreen(page).getByRole("searchbox").fill("Kitchen");
     await addScreen(page).getByRole("button", { name: "Add it by hand" }).click();
-    const form = addScreen(page).getByRole("form", { name: "Add a Book by hand" });
+    const form = addScreen(page).getByRole("form", { name: "Add a book by hand" });
 
     await expect(form.getByLabel("Title")).toHaveAttribute("enterkeyhint", "next");
     await expect(form.getByLabel("Author", { exact: true })).toHaveAttribute("enterkeyhint", "done");

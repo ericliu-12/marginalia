@@ -22,9 +22,9 @@ export default function PrivacyPage() {
           items={[
             "Your email address, to sign you in.",
             "If you continue with Google: the name and profile picture Google shares with me.",
-            "Your library: the Books you add, their Status, when you read them, and any titles or authors you change.",
-            "Your Notes, with any quoted passages and page numbers.",
-            "The Connections and Clusters Marginalia finds among your Books.",
+            "Your library: the books you add, their status, when you read them, and any titles or authors you change.",
+            "Your notes, with any quoted passages and page numbers.",
+            "The connections and clusters Marginalia finds among your books.",
             "For each signed-in device: the IP address and browser it signed in from.",
           ]}
         />
@@ -33,7 +33,7 @@ export default function PrivacyPage() {
 
       <Section id="use" title="How it’s used">
         <p>
-          Only to run Marginalia for you: to show your library, find Connections between your Books, and sign you in. There are no ads,
+          Only to run Marginalia for you: to show your library, find connections between your books, and sign you in. There are no ads,
           no analytics and no tracking. I never sell your data. The only cookies are the ones that keep you signed in.
         </p>
       </Section>
@@ -44,11 +44,11 @@ export default function PrivacyPage() {
           items={[
             {
               name: "Anthropic",
-              text: "Your Notes, when Claude judges how two Books connect. Your Books’ titles, authors and descriptions, when it summarises a Book and names your Clusters.",
+              text: "Your notes, when Claude judges how two books connect. Your books’ titles, authors and descriptions, when it summarises a book and names your clusters.",
             },
             {
               name: "Voyage AI",
-              text: "Your Notes and the quoted passages in them, and summaries of your Books, turned into embeddings that help find Books that might connect.",
+              text: "Your notes and the quoted passages in them, and summaries of your books, turned into embeddings that help find books that might connect.",
             },
             { name: "Resend", text: "Your email address, to send your sign-in codes." },
             {
@@ -59,7 +59,7 @@ export default function PrivacyPage() {
             { name: "Cloudflare R2", text: "Everything, in the nightly backups of the database." },
             {
               name: "Open Library and Google Books",
-              text: "Open Library gets what you search for when you add a Book. Google Books gets the title and author of a Book you add, to find its description. Both are sent from my server, with nothing that identifies you. Book covers load from Open Library straight to your browser, so it sees your IP address when one is shown.",
+              text: "Open Library gets what you search for when you add a book. Google Books gets the title and author of a book you add, to find its description. Both are sent from my server, with nothing that identifies you. Book covers load from Open Library straight to your browser, so it sees your IP address when one is shown.",
             },
           ]}
         />
@@ -71,7 +71,7 @@ export default function PrivacyPage() {
           <Link href="/account#your-data" className={proseLink}>
             your account page
           </Link>
-          : one file with your library, your Notes, the Books you added by hand, and your Connections. To delete your account and everything
+          : one file with your library, your notes, the books you added by hand, and your connections. To delete your account and everything
           in it, choose Delete account on{" "}
           <Link href="/account#delete-account" className={proseLink}>
             the same page

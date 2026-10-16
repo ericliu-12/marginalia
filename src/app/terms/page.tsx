@@ -26,7 +26,7 @@ export default function TermsPage() {
         </p>
       </Section>
 
-      <Section id="your-content" title="Your Notes are yours">
+      <Section id="your-content" title="Your notes are yours">
         <p>
           You own what you write in Marginalia. You let me store it and process it only to run Marginalia for you, including sending it to
           the services listed on the{" "}
@@ -39,7 +39,7 @@ export default function TermsPage() {
 
       <Section id="connections" title="Connections are suggestions">
         <p>
-          Connections and their explanations are written by AI. They can be wrong, or quote your Notes in ways you didn’t intend. Take them
+          Connections and their explanations are written by AI. They can be wrong, or quote your notes in ways you didn’t intend. Take them
           as suggestions, not facts.
         </p>
       </Section>
@@ -49,7 +49,7 @@ export default function TermsPage() {
         <Bullets
           items={[
             "use Marginalia to break the law;",
-            "try to reach another Reader’s library or data;",
+            "try to reach another reader’s library or data;",
             "overload, scrape or attack the service.",
           ]}
         />

@@ -106,9 +106,9 @@ export function SearchPane({
   }
 
   return (
-    <aside id="add-a-book" aria-label="Add a Book" onKeyDown={(e) => e.key === "Escape" && onClose()} className="flex h-full min-h-0 flex-col bg-paper-2">
+    <aside id="add-a-book" aria-label="Add a book" onKeyDown={(e) => e.key === "Escape" && onClose()} className="flex h-full min-h-0 flex-col bg-paper-2">
       <div className="flex items-center justify-between px-6 pt-5 pb-2">
-        <h2 className="caps text-[17px] leading-tight font-medium tracking-[1.6px]">Add a Book</h2>
+        <h2 className="caps text-[17px] leading-tight font-medium tracking-[1.6px]">Add a book</h2>
         <button
           type="button"
           onClick={onClose}
@@ -286,7 +286,7 @@ function Result({
         setAdded(true);
       }
       else if (res.reason === "duplicate") setError("Already in your library.");
-      else setError("Couldn’t add this Book. Try again.");
+      else setError("Couldn’t add this book. Try again.");
     });
   }
 
@@ -414,20 +414,20 @@ export function ManualBookForm({
       reveal
       // Into the first field still empty: the title usually comes from the search.
       focus={draft.title.trim() ? "author" : "title"}
-      descriptionPlaceholder="What it’s about, from the jacket or in your words. It helps Marginalia know the Book."
+      descriptionPlaceholder="What it’s about, from the jacket or in your words. It helps Marginalia know the book."
       enterMovesOn={enterMovesOn}
       onSubmit={async (sent, choice) => {
         const status = statusOf(choice);
         onChoose?.();
         const res = await addManualBookAction(sent, status);
-        if (!res.ok) return "Couldn’t add this Book. Try again.";
+        if (!res.ok) return "Couldn’t add this book. Try again.";
         onAdded(sent.title.trim(), res.bookId, status);
       }}
       onEscape={() => onClose(false)}
       intro={
         <>
           <h3 id="manual-heading" className="caps text-[15px] leading-snug font-medium tracking-[1.6px]">
-            Add a Book by hand
+            Add a book by hand
           </h3>
           <p className="mt-1 max-w-[38ch] text-[15px] text-ink-2">It stays in your library alone, and you can change it later.</p>
         </>
