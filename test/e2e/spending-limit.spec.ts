@@ -18,7 +18,7 @@ test.beforeEach(async () => {
 
 test("the library and the graph say spending is paused, and when it resumes, instead of the Books finding Connections", async ({ page }) => {
   await page.goto("/");
-  await expect(line(page)).toHaveText("1 Book finding Connections");
+  await expect(line(page)).toHaveText("1 book finding connections");
 
   await overBudget();
   await page.reload();
@@ -33,7 +33,7 @@ test("a new Reader at their first-month limit is told it is one, and when it lif
   const firstMonthEnds = new Date(joined.getTime() + 30 * 24 * 60 * 60 * 1000);
   await atFirstMonthLimit(READER_A, joined);
   await page.goto("/");
-  await expect(line(page)).toHaveText(`First-month limit · Connections back ${day(firstMonthEnds < monthTurns ? firstMonthEnds : monthTurns)}`);
+  await expect(line(page)).toHaveText(`First-month limit · connections back ${day(firstMonthEnds < monthTurns ? firstMonthEnds : monthTurns)}`);
 
   const other = await (await browser.newContext({ storageState: signedIn(READER_B) })).newPage();
   await other.goto("/");
@@ -53,8 +53,8 @@ test.describe("on a phone", () => {
     await expect(shelfLine).toHaveText(`Spending limit reached · resumes ${resumesOn}`);
     // Too long to sit beside the wordmark, it drops under it on one line rather than wrapping.
     expect((await shelfLine.boundingBox())!.height).toBeLessThan(30);
-    await page.getByRole("button", { name: "Add a Book" }).click();
-    await expect(page.getByRole("dialog", { name: "Add a Book" }).getByRole("status")).toHaveText(`Spending limit reached · resumes ${resumesOn}`);
+    await page.getByRole("button", { name: "Add a book" }).click();
+    await expect(page.getByRole("dialog", { name: "Add a book" }).getByRole("status")).toHaveText(`Spending limit reached · resumes ${resumesOn}`);
   });
 
   test("finishing a Book says its Connections are paused until the month turns", async ({ page }) => {
@@ -63,6 +63,6 @@ test.describe("on a phone", () => {
     await page.goto("/");
     await page.getByRole("main").getByRole("button", { name: /^Middlemarch/ }).click();
     await page.getByRole("group", { name: /^Status of / }).getByRole("button", { name: "Read", exact: true }).click();
-    await expect(page.getByText(`Finished. Connections paused until ${resumesOn}; then they’ll gather below, and in the graph on a larger screen.`)).toBeVisible();
+    await expect(page.getByText(`Finished. Connections are paused until ${resumesOn}. Then they’ll gather below, and in the graph on a larger screen.`)).toBeVisible();
   });
 });

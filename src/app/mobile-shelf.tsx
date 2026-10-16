@@ -172,7 +172,7 @@ export function MobileShelf({ items, finding, paused }: { items: LibraryItem[]; 
             key={book.bookId}
             variant="screen"
             item={book}
-            backLabel={addKept ? "Back to Add a Book" : "Back to library"}
+            backLabel={addKept ? "Back to Add a book" : "Back to library"}
             onBack={goBack}
             onRemoved={goBack}
             onOpenBook={openBook}
@@ -216,7 +216,7 @@ export function MobileShelf({ items, finding, paused }: { items: LibraryItem[]; 
                         count={status === "read" ? rows.length : undefined}
                       />
                       {status === "reading" && rows.length === 0 ? (
-                        <p className="mt-2.5 max-w-[32ch] text-ink-2 italic">Nothing in progress. Add a Book you’re reading, or start one from Want to read.</p>
+                        <p className="mt-2.5 max-w-[32ch] text-ink-2 italic">Nothing in progress. Add a book you’re reading, or start one from Want to read.</p>
                       ) : (
                         <Rows items={visible} drafts={drafts} onOpen={openBook} onNote={status === "reading" ? openNote : undefined} />
                       )}
@@ -250,7 +250,7 @@ export function MobileShelf({ items, finding, paused }: { items: LibraryItem[]; 
                 onClick={openAdd}
                 className="flex min-h-12 w-full items-center justify-center bg-ink text-[17px] text-paper italic transition-colors active:bg-ink-2"
               >
-                Add a Book
+                Add a book
               </button>
             </div>
           </div>

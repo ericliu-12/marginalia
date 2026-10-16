@@ -300,8 +300,8 @@ function StatusControl({ item }: { item: LibraryItem }) {
           <>
             <span className="font-medium">Finished.</span>{" "}
             {finishLine.paused
-              ? `Connections paused until ${finishLine.paused}; then they’ll gather below, and in the graph on a larger screen.`
-              : "Connections are being found; they’ll gather below, and in the graph on a larger screen."}
+              ? `Connections are paused until ${finishLine.paused}. Then they’ll gather below, and in the graph on a larger screen.`
+              : "Finding its connections. They’ll gather below, and in the graph on a larger screen."}
           </>
         )}
       </p>
@@ -322,7 +322,7 @@ function RemoveEntry({ bookId, title, onRemoved }: { bookId: string; title: stri
       {confirming ? (
         <div onKeyDown={onKeyDown} className="flex flex-wrap items-center gap-x-5 gap-y-1">
           <p id={`remove-${bookId}`} className="w-full text-[0.8rem] text-ink-2">
-            Remove <i className="font-serif text-[0.9rem]">{title}</i> from your library? Its notes, reading history and Connections go with it.
+            Remove <i className="font-serif text-[0.9rem]">{title}</i> from your library? Its notes, reading history and connections go with it.
           </p>
           <button type="button" onClick={confirm} disabled={pending} aria-describedby={`remove-${bookId}`} className={dangerLink}>
             {pending ? "Removing…" : "Yes, remove"}
@@ -642,7 +642,7 @@ function About({ bookId, noteCount }: { bookId: string; noteCount: number | null
   } else if (enrichment.status === "failed") {
     body = (
       <p className="text-ink-2">
-        <span className="italic">Couldn’t read up on this book just now.</span> {again}
+        <span className="italic">Couldn’t read up on this book.</span> {again}
       </p>
     );
   } else if (!enrichment.recognised) {
@@ -653,8 +653,8 @@ function About({ bookId, noteCount }: { bookId: string; noteCount: number | null
           {noteCount === null
             ? ""
             : noteCount > 0
-              ? "Your notes now shape its Connections."
-              : "Add a few notes and they’ll shape its Connections."}
+              ? "Your notes now shape its connections."
+              : "Add a few notes and they’ll shape its connections."}
         </p>
         <div className="mt-1">{again}</div>
       </div>
@@ -870,7 +870,7 @@ export function NoteForm(props: NoteFormProps) {
     >
       {/* The panel's new Note is headed by its label, the accent's "Write a Note"; elsewhere the label is unseen. */}
       <label htmlFor={`${idPrefix}-body`} className={editing || sheet ? "sr-only" : "block pb-1.5 text-[15px] text-accent italic"}>
-        {editing ? "Edit note" : sheet ? "New note" : "Write a Note"}
+        {editing ? "Edit note" : sheet ? "New note" : "Write a note"}
       </label>
       <textarea
         ref={bodyRef}

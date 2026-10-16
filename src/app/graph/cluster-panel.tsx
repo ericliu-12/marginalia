@@ -47,7 +47,7 @@ export function ClusterPanel({
       <div className="min-h-0 flex-1 overflow-y-auto px-6 pt-2 pb-10">
         {!cluster && (
           <p ref={goneRef} tabIndex={-1} className="text-ink-2 italic outline-none">
-            This Cluster is no longer in your graph.
+            This cluster is no longer in your graph.
           </p>
         )}
         {cluster && (
@@ -58,13 +58,13 @@ export function ClusterPanel({
             {/* Until it is named, its name already counts the Books. */}
             {cluster.named ? (
               <>
-                <p className="mt-1.5 text-[0.8rem] font-medium text-ink-2">Cluster of {members.length} Books</p>
+                <p className="mt-1.5 text-[0.8rem] font-medium text-ink-2">Cluster of {members.length} books</p>
                 {cluster.description && <p className="mt-5 max-w-[60ch] text-[1.0625rem] leading-relaxed">{cluster.description}</p>}
               </>
             ) : (
               <p className="mt-5 text-ink-2 italic">Not named yet.</p>
             )}
-            <ul aria-label="Books in this Cluster" className="mt-8 divide-y divide-rule/60 border-t border-rule">
+            <ul aria-label="Books in this cluster" className="mt-8 divide-y divide-rule/60 border-t border-rule">
               {members.map((b) => (
                 <li key={b.bookId} className="py-3.5">
                   <p className="text-[1.05rem] leading-snug font-medium">

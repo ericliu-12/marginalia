@@ -19,7 +19,7 @@ const shelf = (page: Page) => page.getByRole("main");
 const status = (page: Page) => page.getByRole("group", { name: /^Status of / });
 // The Book screen's own heading: the shelf's section headings are level 2 too, until the screen has switched.
 const bookHeading = (page: Page) => page.getByRole("complementary", { name: /^Notes on / }).getByRole("heading", { level: 2 });
-const finishLine = (page: Page) => page.getByText("Connections are being found; they’ll gather below, and in the graph on a larger screen.");
+const finishLine = (page: Page) => page.getByText("Finding its connections. They’ll gather below, and in the graph on a larger screen.");
 const connections = (page: Page) => page.getByRole("region", { name: "Connections" });
 // A shelf, by its name as a screen reader hears it: "Want to read", "Read · 6".
 const shelfNamed = (page: Page, name: string) => shelf(page).getByRole("region", { name, exact: true });
@@ -54,13 +54,13 @@ const answerSearch = async (page: Page) => {
     return route.fulfill({ json: CATALOG.filter((w) => w.title.toLowerCase().startsWith(q)) });
   });
 };
-const addScreen = (page: Page) => page.getByRole("dialog", { name: "Add a Book" });
+const addScreen = (page: Page) => page.getByRole("dialog", { name: "Add a book" });
 const searchbox = (page: Page) => page.getByRole("searchbox", { name: "Title or author" });
 const selectedText = (page: Page) => searchbox(page).evaluate((el: HTMLInputElement) => el.value.slice(el.selectionStart!, el.selectionEnd!));
 
 test("Add adds a Book in one tap, stays open with the search selected for the next, and Undo takes one back out", async ({ page }) => {
   await answerSearch(page);
-  const add = page.getByRole("button", { name: "Add a Book" });
+  const add = page.getByRole("button", { name: "Add a book" });
   await add.click();
   await expect(searchbox(page)).toBeFocused();
 
@@ -74,12 +74,12 @@ test("Add adds a Book in one tap, stays open with the search selected for the ne
   await page.keyboard.type("Austerlitz");
   await addScreen(page).getByRole("group", { name: "Add Austerlitz" }).getByRole("button", { name: "Read", exact: true }).click();
   await expect(addScreen(page).getByText("Added · Read", { exact: true })).toBeVisible();
-  await expect(addScreen(page).getByText("1 Book finding Connections")).toBeVisible();
+  await expect(addScreen(page).getByText("1 book finding connections")).toBeVisible();
   expect(await selectedText(page)).toBe("Austerlitz");
 
   await addScreen(page).getByRole("button", { name: "Undo adding Austerlitz" }).click();
   await expect(addScreen(page).getByRole("group", { name: "Add Austerlitz" })).toBeVisible();
-  await expect(addScreen(page).getByText("1 Book finding Connections")).toHaveCount(0);
+  await expect(addScreen(page).getByText("1 book finding connections")).toHaveCount(0);
   await expect(searchbox(page)).toBeFocused();
 
   // An empty search shows what this visit added, each still undoable.
@@ -104,7 +104,7 @@ test("Add adds a Book in one tap, stays open with the search selected for the ne
 test("Add opens the first result on its choices; tapping another opens that one instead, with the keyboard kept up", async ({ page }) => {
   await catalog(CATALOG);
   await page.route("**/api/search?**", (route) => route.fulfill({ json: CATALOG }));
-  await page.getByRole("button", { name: "Add a Book" }).click();
+  await page.getByRole("button", { name: "Add a book" }).click();
   await expect(addScreen(page).getByRole("button", { name: "Add it by hand" })).toBeVisible();
   await searchbox(page).fill("a");
 
@@ -137,7 +137,7 @@ const holdNextCall = async (page: Page) => {
 
 test("a Book added just before Done is on the shelf once its add lands", async ({ page }) => {
   await answerSearch(page);
-  await page.getByRole("button", { name: "Add a Book" }).click();
+  await page.getByRole("button", { name: "Add a book" }).click();
   await searchbox(page).fill("Piranesi");
   // The hand-add form's lookalike check hangs, so the add waits behind it.
   await addScreen(page).getByRole("button", { name: "Add it by hand" }).click();
@@ -155,13 +155,13 @@ test("a Book added just before Done is on the shelf once its add lands", async (
 });
 
 test("Add's search shows its caret once Add has risen, not while it moves", async ({ page }) => {
-  await page.getByRole("button", { name: "Add a Book" }).click();
+  await page.getByRole("button", { name: "Add a book" }).click();
   await expect(searchbox(page)).toBeFocused();
   await expect.poll(() => searchbox(page).evaluate((el) => getComputedStyle(el).caretColor)).not.toBe("rgba(0, 0, 0, 0)");
 });
 
 test("Add is a URL too: back closes it, to the button that opened it", async ({ page }) => {
-  const add = page.getByRole("button", { name: "Add a Book" });
+  const add = page.getByRole("button", { name: "Add a book" });
   await add.click();
   await expect(page).toHaveURL(/\?add$/);
   await page.goBack();
@@ -172,7 +172,7 @@ test("Add is a URL too: back closes it, to the button that opened it", async ({ 
 
 test("Escape clears a search first, and then closes Add", async ({ page }) => {
   await answerSearch(page);
-  const add = page.getByRole("button", { name: "Add a Book" });
+  const add = page.getByRole("button", { name: "Add a book" });
   await add.click();
   await searchbox(page).fill("Piranesi");
   await page.keyboard.press("Escape");
@@ -185,7 +185,7 @@ test("Escape clears a search first, and then closes Add", async ({ page }) => {
 
 test("a Book search can't find is added by hand, past a lookalike warning, and can be undone", async ({ page }) => {
   await page.route("**/api/search?**", (route) => route.fulfill({ json: [] }));
-  await page.getByRole("button", { name: "Add a Book" }).click();
+  await page.getByRole("button", { name: "Add a book" }).click();
   await searchbox(page).fill("stoner: a novel");
   await addScreen(page).getByRole("button", { name: "Add it by hand" }).click();
   const form = addScreen(page).getByRole("form", { name: "Add a book by hand" });
@@ -194,7 +194,7 @@ test("a Book search can't find is added by hand, past a lookalike warning, and c
 
   await form.getByRole("button", { name: "Want to read" }).click();
   const addedSoFar = addScreen(page).getByRole("region", { name: "Added so far" });
-  await expect(addedSoFar.getByRole("listitem")).toContainText("stoner: a noveljohn williams · Manual BookAdded · Want to read");
+  await expect(addedSoFar.getByRole("listitem")).toContainText("stoner: a noveljohn williams · Manual bookAdded · Want to read");
   await expect(searchbox(page)).toBeFocused();
   await addedSoFar.getByRole("button", { name: "Undo adding stoner: a novel" }).click();
   await expect(addedSoFar).toHaveCount(0);
@@ -204,7 +204,7 @@ test("a Book search can't find is added by hand, past a lookalike warning, and c
 
 test("a lookalike's title opens that Book, and back returns to Add as it was", async ({ page }) => {
   await answerSearch(page);
-  await page.getByRole("button", { name: "Add a Book" }).click();
+  await page.getByRole("button", { name: "Add a book" }).click();
   await searchbox(page).fill("Piranesi");
   await addScreen(page).getByRole("group", { name: "Add Piranesi" }).getByRole("button", { name: "Reading" }).click();
   await expect(addScreen(page).getByText("Added · Reading")).toBeVisible();
@@ -220,7 +220,7 @@ test("a lookalike's title opens that Book, and back returns to Add as it was", a
   await page.goBack();
   await expect(form.getByLabel("Author")).toHaveValue("john williams");
   await form.getByRole("button", { name: "Stoner" }).click();
-  await page.getByRole("button", { name: "Back to Add a Book" }).click();
+  await page.getByRole("button", { name: "Back to Add a book" }).click();
   await expect(form.getByLabel("Author")).toHaveValue("john williams");
   await searchbox(page).fill("");
   await expect(addScreen(page).getByRole("region", { name: "Added so far" }).getByRole("button", { name: "Undo adding Piranesi" })).toBeVisible();
@@ -232,7 +232,7 @@ test("a lookalike's title opens that Book, and back returns to Add as it was", a
 
 test("what is done on a Book's screen shows back in Add: a new Status, and a removed Book drops out of Added so far", async ({ page }) => {
   await answerSearch(page);
-  await page.getByRole("button", { name: "Add a Book" }).click();
+  await page.getByRole("button", { name: "Add a book" }).click();
   await searchbox(page).fill("Piranesi");
   await addScreen(page).getByRole("group", { name: "Add Piranesi" }).getByRole("button", { name: "Reading" }).click();
   await expect(addScreen(page).getByText("Added · Reading")).toBeVisible();
@@ -251,7 +251,7 @@ test("what is done on a Book's screen shows back in Add: a new Status, and a rem
   await toPiranesi();
   await status(page).getByRole("button", { name: "Read", exact: true }).click();
   await expect(status(page).getByRole("button", { name: "Read", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("button", { name: "Back to Add a Book" }).click();
+  await page.getByRole("button", { name: "Back to Add a book" }).click();
   await searchbox(page).fill("");
   await expect(addedSoFar.getByText("Added · Read", { exact: true })).toBeVisible();
 
@@ -261,12 +261,12 @@ test("what is done on a Book's screen shows back in Add: a new Status, and a rem
   await expect(addScreen(page)).toBeVisible();
   await searchbox(page).fill("");
   await expect(addedSoFar).toHaveCount(0);
-  await expect(addScreen(page).getByText("Search by title; add the author to narrow it.", { exact: false })).toBeVisible();
+  await expect(addScreen(page).getByText("Search by title. Add the author to narrow it.", { exact: false })).toBeVisible();
 });
 
 test("Enter in the hand-add form moves to the next field rather than adding the Book", async ({ page }) => {
   await page.route("**/api/search?**", (route) => route.fulfill({ json: [] }));
-  await page.getByRole("button", { name: "Add a Book" }).click();
+  await page.getByRole("button", { name: "Add a book" }).click();
   await searchbox(page).fill("Kitchen Notes");
   await addScreen(page).getByRole("button", { name: "Add it by hand" }).click();
   const form = addScreen(page).getByRole("form", { name: "Add a book by hand" });
@@ -290,7 +290,7 @@ test("Read on the Book screen finishes the Book, and only the first finish shows
   await status(page).getByRole("button", { name: "Read", exact: true }).click();
   await expect(status(page).getByRole("button", { name: "Read", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(finishLine(page)).toBeVisible();
-  await expect(connections(page).getByText("Finding Connections…")).toBeVisible();
+  await expect(connections(page).getByText("Finding connections…")).toBeVisible();
 
   // Read again, then finished again: a second Read-through, so no finish line.
   await status(page).getByRole("button", { name: "Reading" }).click();
@@ -305,7 +305,7 @@ test("Read on the Book screen finishes the Book, and only the first finish shows
   await expect(page.getByRole("heading", { level: 1 })).toHaveAccessibleName("Reading");
   await expect(shelfNamed(page, "Read · 7").getByRole("button", { name: /^Middlemarch/ })).toBeVisible();
   await expect(shelf(page).getByRole("button", { name: /^Middlemarch/ })).toBeFocused();
-  await expect(page.getByText("1 Book finding Connections")).toBeVisible();
+  await expect(page.getByText("1 book finding connections")).toBeVisible();
 });
 
 test("a Status move that lands after leaving the Book shows, also on coming back to it", async ({ page }) => {
@@ -456,7 +456,7 @@ test("a Note's draft survives closing the sheet, back, a refresh and another Boo
 
   // The Book screen writes on the same draft.
   await shelf(page).getByRole("button", { name: /^Piranesi/ }).click();
-  await expect(page.getByRole("textbox", { name: "Write a Note" })).toHaveValue("The House is kind");
+  await expect(page.getByRole("textbox", { name: "Write a note" })).toHaveValue("The House is kind");
 });
 
 test("a Note that fails to save stays in the sheet with a quiet way to try again", async ({ page }) => {
@@ -502,7 +502,7 @@ const raiseKeyboard = (page: Page, height: number, offsetTop = 0) =>
 
 test("Add covers the whole shelf with the keyboard up, and keeps its search in view above it", async ({ page }) => {
   await fakeKeyboard(page);
-  await page.getByRole("button", { name: "Add a Book" }).click();
+  await page.getByRole("button", { name: "Add a book" }).click();
   await expect(addScreen(page)).toBeVisible();
   // Every point on the screen, the strip above the keyboard and the keyboard's own place included, is Add.
   const shelfShows = () =>

@@ -42,7 +42,7 @@ test("a finished Book's panel names its Cluster and finish date, and numbers its
   // Oldest first: a Note keeps its number.
   const notes = panel.getByRole("region", { name: "Notes" }).getByRole("listitem");
   for (const body of ["Optimism, tested.", "The garden at the end."]) {
-    await panel.getByRole("textbox", { name: "Write a Note" }).fill(body);
+    await panel.getByRole("textbox", { name: "Write a note" }).fill(body);
     await panel.getByRole("button", { name: "Save note" }).click();
     await expect(notes.filter({ hasText: body })).toBeVisible();
   }

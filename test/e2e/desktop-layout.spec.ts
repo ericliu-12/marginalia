@@ -50,14 +50,14 @@ for (const size of SIZES) {
     const top = async () => (await firstRow.boundingBox())!.y;
     const before = await top();
 
-    await page.getByRole("button", { name: "Add a Book" }).click();
+    await page.getByRole("button", { name: "Add a book" }).click();
     await expect(page.getByRole("complementary", { name: "Add a book" })).toBeVisible();
     await expect(page.getByRole("searchbox", { name: "Title or author" })).toBeFocused();
     expect(await top()).toBe(before);
 
     await page.getByRole("button", { name: "Close search" }).click();
     await expect(page.getByRole("complementary", { name: "Add a book" })).toBeHidden();
-    await expect(page.getByRole("button", { name: "Add a Book" })).toBeFocused();
+    await expect(page.getByRole("button", { name: "Add a book" })).toBeFocused();
     expect(await top()).toBe(before);
   });
 }

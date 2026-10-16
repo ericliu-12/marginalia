@@ -205,9 +205,9 @@ export function GraphWorkspace({
       {/* No placeholder Books: both ways in lead to the library, which opens with search ready. */}
       {wide && graph.books.length === 0 && (
         <p className="absolute inset-x-12 top-28 max-w-[40ch] text-xl text-ink-2 italic">
-          Finish a Book and its Connections will gather here.{" "}
+          Finish a book and its connections will gather here.{" "}
           <Link href="/?add" className="text-ink underline decoration-rule underline-offset-4">
-            Add a Book
+            Add a book
           </Link>
         </p>
       )}
@@ -220,7 +220,7 @@ export function GraphWorkspace({
               Themes of <i className="font-serif text-[0.95rem] font-normal">{graph.books[0].label}</i>: {loneThemes.join(" · ")}
             </p>
           )}
-          <p className="text-ink-2 italic">{finding > 0 ? "Finding Connections…" : "Connections appear as you finish more Books."}</p>
+          <p className="text-ink-2 italic">{finding > 0 ? "Finding connections…" : "Connections appear as you finish more books."}</p>
         </div>
       )}
 
@@ -239,7 +239,7 @@ export function GraphWorkspace({
               </li>
             ))}
           </ul>
-          <p className="italic">Thicker lines are stronger Connections. Select a Book, or a Cluster’s name or colour.</p>
+          <p className="italic">Thicker lines are stronger connections. Select a book, or a cluster’s name or colour.</p>
         </footer>
       )}
 
@@ -256,7 +256,7 @@ export function GraphWorkspace({
                   onBlur={() => setPointed(null)}
                   onClick={(e) => openFromList(e.currentTarget, { kind: "book", bookId: b.bookId })}
                 >
-                  {b.title}, {b.degree} {b.degree === 1 ? "Connection" : "Connections"}
+                  {b.title}, {b.degree} {b.degree === 1 ? "connection" : "connections"}
                 </button>
               </li>
             ))}
@@ -275,7 +275,7 @@ export function GraphWorkspace({
                   onClick={(e) => openFromList(e.currentTarget, { kind: "cluster", id: c.id })}
                 >
                   {/* An unnamed Cluster's name already counts its Books. */}
-                  {c.named ? `${c.name}, ${c.bookIds.length} Books` : c.name}
+                  {c.named ? `${c.name}, ${c.bookIds.length} books` : c.name}
                 </button>
               </li>
             ))}

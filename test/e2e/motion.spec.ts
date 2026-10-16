@@ -86,9 +86,9 @@ test("the reader's first Connection is said once", async ({ page }) => {
     await expect(page.getByRole("region", { name: "Connections" }).getByRole("button", { name: "Middlemarch", exact: true })).toBeVisible();
   };
   await open();
-  await expect(page.getByText("Your first Connection.")).toBeVisible();
+  await expect(page.getByText("Your first connection.")).toBeVisible();
   // Counted as said once it has been up long enough to read.
   await page.waitForTimeout(1600);
   await open();
-  await expect(page.getByText("Your first Connection.")).toHaveCount(0);
+  await expect(page.getByText("Your first connection.")).toHaveCount(0);
 });

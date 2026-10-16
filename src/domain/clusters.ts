@@ -143,7 +143,7 @@ export async function readClusters(db: Db | Tx, userId: string, books: Set<strin
   return rows
     .map((r) => {
       const bookIds = r.members.filter((b) => books.has(b));
-      return { id: r.id, bookIds, name: r.name ?? `Cluster of ${bookIds.length} Books`, description: r.description, named: r.name !== null, wash: r.wash };
+      return { id: r.id, bookIds, name: r.name ?? `Cluster of ${bookIds.length} books`, description: r.description, named: r.name !== null, wash: r.wash };
     })
     .filter((c) => c.bookIds.length >= MIN_CLUSTER_SIZE);
 }

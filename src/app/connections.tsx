@@ -77,7 +77,7 @@ export function ConnectionsSection({ bookId, onOpenBook, withheld }: { bookId: s
       <section aria-label="Connections" className="mt-7 border-t border-rule-2 pt-3.5">
         <h3 className={panelLabel}>Connections</h3>
         <p role="alert" className="pt-2 text-contrast">
-          Couldn’t load Connections.{" "}
+          Couldn’t load connections.{" "}
           <button type="button" onClick={() => setLoadFailed(false)} className="underline underline-offset-2">
             Try again
           </button>
@@ -93,13 +93,13 @@ export function ConnectionsSection({ bookId, onOpenBook, withheld }: { bookId: s
       <h3 ref={headingRef} tabIndex={-1} className={panelLabel}>
         Connections
       </h3>
-      {status === "running" && <p className="pt-2 text-ink-2 italic">Finding Connections…</p>}
-      {status === "failed" && <p className="pt-2 text-ink-2 italic">Couldn’t find Connections just now.</p>}
-      {status === "idle" && cards.length === 0 && <p className="pt-2 text-ink-2 italic">No Connections yet.</p>}
+      {status === "running" && <p className="pt-2 text-ink-2 italic">Finding connections…</p>}
+      {status === "failed" && <p className="pt-2 text-ink-2 italic">Couldn’t find connections. Refresh to try again.</p>}
+      {status === "idle" && cards.length === 0 && <p className="pt-2 text-ink-2 italic">No connections yet.</p>}
       {/* In ink, not the secondary of the status lines, with its full stop in the accent: a moment, not a status. */}
       {sayFirst && (
         <p role="status" className="pt-2 text-[17px] text-ink italic motion-safe:animate-ink-in">
-          Your first {cards.length === 1 ? "Connection" : "Connections"}
+          Your first {cards.length === 1 ? "connection" : "connections"}
           <span className="text-accent">.</span>
         </p>
       )}
@@ -117,7 +117,7 @@ export function ConnectionsSection({ bookId, onOpenBook, withheld }: { bookId: s
                 </p>
                 <DismissConnection
                   connectionId={c.id}
-                  label={`Dismiss the Connection to ${c.otherTitle}`}
+                  label={`Dismiss the connection to ${c.otherTitle}`}
                   className="ml-auto"
                   onDismissed={() => {
                     setSaid(`Connection to ${c.otherTitle} dismissed`);
@@ -176,7 +176,7 @@ function RefreshConnections({ bookId, onRequested }: { bookId: string; onRequest
       </button>
       {error && (
         <p role="alert" className="mt-1 text-sm text-contrast">
-          Couldn’t refresh Connections. Try again.
+          Couldn’t refresh connections. Try again.
         </p>
       )}
     </div>
@@ -212,7 +212,7 @@ export function DismissConnection({
       {confirming ? (
         <>
           <span id={`dismiss-${connectionId}`} className="w-full text-[0.8rem] text-ink-2">
-            Dismiss this Connection? It won’t come back.
+            Dismiss this connection? It won’t come back.
           </span>
           <button type="button" onClick={confirm} disabled={pending} aria-describedby={`dismiss-${connectionId}`} className={dangerLink}>
             {pending ? "Dismissing…" : "Yes, dismiss"}
@@ -228,7 +228,7 @@ export function DismissConnection({
       )}
       {error && (
         <p role="alert" className="mt-1 w-full text-sm text-contrast">
-          Couldn’t dismiss this Connection. Try again.
+          Couldn’t dismiss this connection. Try again.
         </p>
       )}
     </div>
@@ -268,9 +268,9 @@ export function FindingIndicator({ initial, paused: initialPaused, className }: 
   usePoll(poll, count > 0 ? POLL_MS : PAUSED_POLL_MS, count > 0 || paused !== null);
   const line = paused
     ? paused.firstMonth
-      ? `First-month limit · ${unbroken(`Connections back ${paused.resumesOn}`)}`
+      ? `First-month limit · ${unbroken(`connections back ${paused.resumesOn}`)}`
       : `Spending limit reached · ${unbroken(`resumes ${paused.resumesOn}`)}`
-    : count > 0 ? `${count} ${count === 1 ? "Book" : "Books"} finding Connections` : null;
+    : count > 0 ? `${count} ${count === 1 ? "book" : "books"} finding connections` : null;
   // The live region stays mounted so the line is announced when it appears.
   return (
     <p role="status" className={`font-serif text-sm text-ink-3 italic ${className ?? `mr-auto ${line ? "ml-4" : ""}`}`}>

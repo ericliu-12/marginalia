@@ -12,7 +12,7 @@ const panelHeading = (page: Page) => page.getByRole("complementary", { name: /^N
 async function openManualForm(page: Page, query: string) {
   await searchFindsNothing(page);
   await page.goto("/");
-  await page.getByRole("button", { name: "Add a Book" }).click();
+  await page.getByRole("button", { name: "Add a book" }).click();
   await page.getByRole("searchbox", { name: "Title or author" }).fill(query);
   await searchPane(page).getByRole("button", { name: "Add it by hand" }).click();
   return searchPane(page).getByRole("form", { name: "Add a book by hand" });

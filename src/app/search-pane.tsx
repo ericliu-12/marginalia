@@ -108,7 +108,7 @@ export function SearchPane({
   return (
     <aside id="add-a-book" aria-label="Add a book" onKeyDown={(e) => e.key === "Escape" && onClose()} className="flex h-full min-h-0 flex-col bg-paper-2">
       <div className="flex items-center justify-between px-6 pt-5 pb-2">
-        <h2 className="caps text-[17px] leading-tight font-medium tracking-[1.6px]">Add a Book</h2>
+        <h2 className="caps text-[17px] leading-tight font-medium tracking-[1.6px]">Add a book</h2>
         <button
           type="button"
           onClick={onClose}
@@ -176,7 +176,7 @@ export function SearchPane({
         ) : (
           <>
             {phase === "idle" && (
-              <p className="text-ink-2 italic">Search by title; add the author to narrow it.</p>
+              <p className="text-ink-2 italic">Search by title. Add the author to narrow it.</p>
             )}
             {phase === "loading" && results.length === 0 && <p className="text-ink-2 italic">Searching…</p>}
             {phase === "error" && (
@@ -427,7 +427,7 @@ export function ManualBookForm({
       intro={
         <>
           <h3 id="manual-heading" className="caps text-[15px] leading-snug font-medium tracking-[1.6px]">
-            Add a Book by hand
+            Add a book by hand
           </h3>
           <p className="mt-1 max-w-[38ch] text-[15px] text-ink-2">It stays in your library alone, and you can change it later.</p>
         </>

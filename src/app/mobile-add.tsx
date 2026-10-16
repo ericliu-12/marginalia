@@ -165,7 +165,7 @@ export function MobileAdd({
             </button>
           )}
           <h2 id="mobile-add-heading" className="caps col-start-2 text-[17px] leading-tight font-medium tracking-[1.6px]">
-            Add a Book
+            Add a book
           </h2>
           <button type="button" onClick={onDone} className="-mr-3 min-h-11 justify-self-end px-3 text-[16px] text-accent transition-colors active:text-accent-deep">
             Done
@@ -232,7 +232,7 @@ export function MobileAdd({
                         {a.byline}
                         {!a.workKey && (
                           <span className="text-ink-3 normal-case italic [font-variant-caps:normal]">
-                            {a.byline && " · "}Manual Book
+                            {a.byline && " · "}Manual book
                           </span>
                         )}
                       </p>
@@ -243,7 +243,7 @@ export function MobileAdd({
               </section>
             ) : (
               <p className="max-w-[34ch] pt-3 text-ink-2 italic">
-                Search by title; add the author to narrow it.
+                Search by title. Add the author to narrow it.
               </p>
             )
           ) : (

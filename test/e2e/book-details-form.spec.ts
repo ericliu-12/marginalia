@@ -43,7 +43,7 @@ test.describe("on a desktop", () => {
 
   test("Add by hand: its fields, each missing field in turn, the cover rule, and a www. cover kept as https", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: "Add a Book" }).click();
+    await page.getByRole("button", { name: "Add a book" }).click();
     await page.getByRole("searchbox", { name: "Title or author" }).fill("Kitchen");
     await searchPane(page).getByRole("button", { name: "Add it by hand" }).click();
     const form = searchPane(page).getByRole("form", { name: "Add a book by hand" });
@@ -85,7 +85,7 @@ test.describe("on a desktop", () => {
 
   test("Escape closes Add by hand with the draft kept; Cancel discards it", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: "Add a Book" }).click();
+    await page.getByRole("button", { name: "Add a book" }).click();
     await page.getByRole("searchbox", { name: "Title or author" }).fill("Kitchen");
     await searchPane(page).getByRole("button", { name: "Add it by hand" }).click();
     const form = searchPane(page).getByRole("form", { name: "Add a book by hand" });
@@ -101,7 +101,7 @@ test.describe("on a desktop", () => {
 
   test("Add by hand says Adding… on the chosen Status while it adds, and says so when the add fails", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: "Add a Book" }).click();
+    await page.getByRole("button", { name: "Add a book" }).click();
     await page.getByRole("searchbox", { name: "Title or author" }).fill("Kitchen");
     await searchPane(page).getByRole("button", { name: "Add it by hand" }).click();
     const form = searchPane(page).getByRole("form", { name: "Add a book by hand" });
@@ -209,11 +209,11 @@ test.describe("on a phone", () => {
     await coversAnswered(page);
   });
 
-  const addScreen = (page: Page) => page.getByRole("dialog", { name: "Add a Book" });
+  const addScreen = (page: Page) => page.getByRole("dialog", { name: "Add a book" });
 
   test("Add by hand: Enter's key says next or done, each missing field in turn, and the cover rule", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: "Add a Book" }).click();
+    await page.getByRole("button", { name: "Add a book" }).click();
     await addScreen(page).getByRole("searchbox").fill("Kitchen");
     await addScreen(page).getByRole("button", { name: "Add it by hand" }).click();
     const form = addScreen(page).getByRole("form", { name: "Add a book by hand" });

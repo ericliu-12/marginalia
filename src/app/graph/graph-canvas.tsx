@@ -964,6 +964,11 @@ export function GraphCanvas({
   );
 }
 
+// A faded name, found under the pointer (its own or its wash's) or from the keyboard, darkens to ink
+// tertiary so it can be read before it is chosen; the plate stays faded.
+const FADED_NAME_FOUND =
+  "data-faded:hover:text-ink-3 data-faded:hover:decoration-ink-3 data-faded:data-hovered:text-ink-3 data-faded:data-hovered:decoration-ink-3 data-faded:data-pointed:text-ink-3 data-faded:data-pointed:decoration-ink-3";
+
 function ClusterName({
   cluster,
   chosen,
@@ -996,7 +1001,7 @@ function ClusterName({
           visibility: "hidden",
         } as React.CSSProperties
       }
-      className={`pointer-events-auto absolute top-0 left-0 rounded-[2px] bg-paper/80 px-1.5 py-0.5 font-serif leading-tight font-medium whitespace-nowrap text-(--name) italic decoration-(--name) decoration-1 underline-offset-[5px] transition-colors duration-150 hover:bg-paper/95 hover:underline data-chosen:bg-paper/95 data-chosen:underline data-hovered:bg-paper/95 data-hovered:underline data-pointed:bg-paper/95 data-pointed:underline data-pointed:outline-2 data-pointed:outline-offset-2 data-pointed:outline-thematic data-faded:bg-paper/60 data-faded:text-(--faded) data-faded:decoration-(--faded) motion-reduce:transition-none`}
+      className={`pointer-events-auto absolute top-0 left-0 rounded-[2px] bg-paper/80 px-1.5 py-0.5 font-serif leading-tight font-medium whitespace-nowrap text-(--name) italic decoration-(--name) decoration-1 underline-offset-[5px] transition-colors duration-150 hover:bg-paper/95 hover:underline data-chosen:bg-paper/95 data-chosen:underline data-hovered:bg-paper/95 data-hovered:underline data-pointed:bg-paper/95 data-pointed:underline data-pointed:outline-2 data-pointed:outline-offset-2 data-pointed:outline-thematic data-faded:bg-paper/60 data-faded:text-(--faded) data-faded:decoration-(--faded) ${FADED_NAME_FOUND} motion-reduce:transition-none`}
     >
       {/* Written in inside the plate, so the clip never cuts the keyboard's outline. */}
       <span className={writing ? "inline-block animate-write-in" : undefined}>{cluster.name}</span>

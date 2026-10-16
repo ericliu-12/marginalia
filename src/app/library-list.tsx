@@ -47,7 +47,7 @@ export function LibraryList({ items, openBookId, onOpen }: { items: LibraryItem[
                   ))}
                 </ul>
               ) : (
-                <p className="mt-3 max-w-[40ch] text-ink-2 italic">Nothing in progress. Add a Book you’re reading, or start one from Want to read.</p>
+                <p className="mt-3 max-w-[40ch] text-ink-2 italic">Nothing in progress. Add a book you’re reading, or start one from Want to read.</p>
               )
             ) : (
               <ul className="mt-1 divide-y divide-rule-3">
