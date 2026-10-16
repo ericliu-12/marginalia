@@ -10,13 +10,13 @@ test.beforeEach(async () => {
   await seedLibrary();
 });
 
-test("the wordmark's top is the library's on the graph, account, privacy and terms pages", async ({ page }) => {
+test("the wordmark's top is the library's on the graph, account, privacy, terms and 404 pages", async ({ page }) => {
   const wordmarkTop = async (path: string) => {
     await page.goto(path);
     return (await page.getByText("Marginalia", { exact: true }).first().boundingBox())!.y;
   };
   const library = await wordmarkTop("/");
-  for (const path of ["/graph", "/account", "/privacy", "/terms"]) {
+  for (const path of ["/graph", "/account", "/privacy", "/terms", "/no-such-page"]) {
     expect(await wordmarkTop(path), path).toBe(library);
   }
 });
