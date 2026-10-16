@@ -72,7 +72,7 @@ export function ConnectionPanel({ id, onBack, onOpenBook }: { id: string; onBack
               <BookLink title={c.b.title} onOpen={() => onOpenBook(c.b.bookId)} />
             </h2>
             <p className="mt-5 max-w-[60ch] text-[1.0625rem] leading-relaxed">{c.explanation}</p>
-            {c.grounding === "enrichment" && <p className="mt-3 text-[0.8rem] text-ink-2">Not drawn from your notes</p>}
+            {c.grounding === "enrichment" && <p className="mt-3 text-[0.8rem] text-ink-2">Not drawn from your Notes</p>}
             <DismissConnection connectionId={c.id} className="mt-8 border-t border-rule pt-4" onDismissed={() => setState({ id, connection: null })} />
           </article>
         )}

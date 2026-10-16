@@ -30,8 +30,8 @@ test("A's Book and Note stay A's: B's shelf, Book screen, graph and search show 
   await expect(add.getByText("Added · Reading")).toBeVisible();
   await add.getByRole("button", { name: "Done" }).click();
   await a.getByRole("button", { name: "Write a note on Austerlitz" }).click();
-  await a.getByRole("dialog", { name: "Note on Austerlitz" }).getByRole("textbox", { name: "New note" }).fill(NOTE);
-  await a.getByRole("dialog", { name: "Note on Austerlitz" }).getByRole("button", { name: "Save note" }).click();
+  await a.getByRole("dialog", { name: "Note on Austerlitz" }).getByRole("textbox", { name: "New Note" }).fill(NOTE);
+  await a.getByRole("dialog", { name: "Note on Austerlitz" }).getByRole("button", { name: "Save Note" }).click();
   await expect(a.getByRole("status").filter({ hasText: "Note saved on Austerlitz" })).toBeVisible();
 
   // A's own Book screen shows them, as stored from the server's Open Library.

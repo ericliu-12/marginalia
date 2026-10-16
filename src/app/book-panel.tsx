@@ -162,13 +162,13 @@ export function BookPanel({
           </h3>
           {loadFailed && (
             <p role="alert" className="pt-2 text-contrast">
-              Couldn’t load your notes.{" "}
+              Couldn’t load your Notes.{" "}
               <button type="button" onClick={() => setRetry((n) => n + 1)} className="underline underline-offset-2">
                 Try again
               </button>
             </p>
           )}
-          {notes === null && !loadFailed && <p className="pt-2 text-ink-2 italic">Opening your notes…</p>}
+          {notes === null && !loadFailed && <p className="pt-2 text-ink-2 italic">Opening your Notes…</p>}
           {notes?.length === 0 && (
             <p className="max-w-[34ch] pt-2 text-ink-2 italic">Nothing written yet. Whatever you’re thinking as you read belongs here.</p>
           )}
@@ -236,7 +236,7 @@ function StatusMoves({ item }: { item: LibraryItem }) {
       </div>
       {error && (
         <p role="alert" className="text-sm text-contrast">
-          Couldn’t move this book. Try again.
+          Couldn’t move this Book. Try again.
         </p>
       )}
     </div>
@@ -291,7 +291,7 @@ function StatusControl({ item }: { item: LibraryItem }) {
       </div>
       {error && (
         <p role="alert" className="mt-2 text-sm text-contrast">
-          Couldn’t move this book. Try again.
+          Couldn’t move this Book. Try again.
         </p>
       )}
       {/* Mounted throughout, so the line is announced when it appears. */}
@@ -300,8 +300,8 @@ function StatusControl({ item }: { item: LibraryItem }) {
           <>
             <span className="font-medium">Finished.</span>{" "}
             {finishLine.paused
-              ? `Connections paused until ${finishLine.paused}; then they’ll gather below, and in the graph on a larger screen.`
-              : "Connections are being found; they’ll gather below, and in the graph on a larger screen."}
+              ? `Connections are paused until ${finishLine.paused}. Then they’ll gather below, and in the graph on a larger screen.`
+              : "Finding its Connections. They’ll gather below, and in the graph on a larger screen."}
           </>
         )}
       </p>
@@ -322,7 +322,7 @@ function RemoveEntry({ bookId, title, onRemoved }: { bookId: string; title: stri
       {confirming ? (
         <div onKeyDown={onKeyDown} className="flex flex-wrap items-center gap-x-5 gap-y-1">
           <p id={`remove-${bookId}`} className="w-full text-[0.8rem] text-ink-2">
-            Remove <i className="font-serif text-[0.9rem]">{title}</i> from your library? Its notes, reading history and Connections go with it.
+            Remove <i className="font-serif text-[0.9rem]">{title}</i> from your library? Its Notes, reading history and Connections go with it.
           </p>
           <button type="button" onClick={confirm} disabled={pending} aria-describedby={`remove-${bookId}`} className={dangerLink}>
             {pending ? "Removing…" : "Yes, remove"}
@@ -338,7 +338,7 @@ function RemoveEntry({ bookId, title, onRemoved }: { bookId: string; title: stri
       )}
       {error && (
         <p role="alert" className="mt-1 text-sm text-contrast">
-          Couldn’t remove this book. Try again.
+          Couldn’t remove this Book. Try again.
         </p>
       )}
     </div>
@@ -374,8 +374,8 @@ function EditBookForm({ item, onDone }: { item: LibraryItem; onDone: (saved: boo
       intro={
         <p className="max-w-[40ch] text-sm text-ink-2">
           {item.manual
-            ? "You added this book by hand, so it’s yours to change. A new title, author or description means reading up on it again."
-            : `Changes how this book appears for you alone. Clear a field to go back to the original${item.original ? `, ${item.original.title} by ${item.original.authors.join(", ")}` : ""}.`}
+            ? "You added this Book by hand, so it’s yours to change. A new title, author or description means reading up on it again."
+            : `Changes how this Book appears for you alone. Clear a field to go back to the original${item.original ? `, ${item.original.title} by ${item.original.authors.join(", ")}` : ""}.`}
         </p>
       }
       actions={(pending) => (
@@ -636,25 +636,25 @@ function About({ bookId, noteCount }: { bookId: string; noteCount: number | null
     // With no Enrichment started at all (null) nothing is coming, so offer the way to start it.
     body = (
       <p className="text-ink-2">
-        <span className="italic">Getting to know this book…</span> {enrichment === null && again}
+        <span className="italic">Getting to know this Book…</span> {enrichment === null && again}
       </p>
     );
   } else if (enrichment.status === "failed") {
     body = (
       <p className="text-ink-2">
-        <span className="italic">Couldn’t read up on this book just now.</span> {again}
+        <span className="italic">Couldn’t read up on this Book.</span> {again}
       </p>
     );
   } else if (!enrichment.recognised) {
     body = (
       <div>
-        <p className="text-ink-2 italic">Marginalia doesn’t know this book well.</p>
+        <p className="text-ink-2 italic">Marginalia doesn’t know this Book well.</p>
         <p className="mt-1 max-w-[40ch] text-ink-2">
           {noteCount === null
             ? ""
             : noteCount > 0
-              ? "Your notes now shape its Connections."
-              : "Add a few notes and they’ll shape its Connections."}
+              ? "Your Notes now shape its Connections."
+              : "Add a few Notes and they’ll shape its Connections."}
         </p>
         <div className="mt-1">{again}</div>
       </div>
@@ -688,7 +688,7 @@ function About({ bookId, noteCount }: { bookId: string; noteCount: number | null
   return (
     <section aria-labelledby={`about-${bookId}`} className="mt-7 border-t border-rule-2 pt-3.5">
       <h3 id={`about-${bookId}`} className={`${panelLabel} mb-2`}>
-        About this book
+        About this Book
       </h3>
       {body}
       {retryFailed && (
@@ -811,7 +811,7 @@ export function NoteForm(props: NoteFormProps) {
       if (attempt.current !== mine) return;
       clearTimeout(timer.current);
       setPending(false);
-      setError({ message: "Couldn’t save. Your note is kept here.", retry: true });
+      setError({ message: "Couldn’t save. Your Note is kept here.", retry: true });
     };
     setError(null);
     setPending(true);
@@ -870,7 +870,7 @@ export function NoteForm(props: NoteFormProps) {
     >
       {/* The panel's new Note is headed by its label, the accent's "Write a Note"; elsewhere the label is unseen. */}
       <label htmlFor={`${idPrefix}-body`} className={editing || sheet ? "sr-only" : "block pb-1.5 text-[15px] text-accent italic"}>
-        {editing ? "Edit note" : sheet ? "New note" : "Write a Note"}
+        {editing ? "Edit Note" : sheet ? "New Note" : "Write a Note"}
       </label>
       <textarea
         ref={bodyRef}
@@ -971,7 +971,7 @@ function SaveNote({
       onMouseDown={keepFocus}
       className={`bg-ink text-paper transition-colors hover:bg-ink-2 disabled:bg-ink-3 ${sheet ? "mt-2 min-h-12 w-full text-[17px] italic active:bg-ink-2" : "min-h-11 px-[18px] text-[16px] italic"}`}
     >
-      {pending ? "Saving…" : retry ? "Try again" : editing ? "Save changes" : "Save note"}
+      {pending ? "Saving…" : retry ? "Try again" : editing ? "Save changes" : "Save Note"}
     </button>
   );
 
@@ -1019,7 +1019,7 @@ function NoteItem({
           <div onKeyDown={onKeyDown} className="mt-1 flex flex-wrap items-center gap-x-5 gap-y-1">
             {confirming ? (
               <>
-                <span id={`delete-${note.id}`} className="text-[0.8rem] text-ink-2">Delete this note?</span>
+                <span id={`delete-${note.id}`} className="text-[0.8rem] text-ink-2">Delete this Note?</span>
                 <button type="button" onClick={confirm} disabled={pending} aria-describedby={`delete-${note.id}`} className={dangerLink}>
                   {pending ? "Deleting…" : "Yes, delete"}
                 </button>
@@ -1040,7 +1040,7 @@ function NoteItem({
           </div>
           {error && (
             <p role="alert" className="mt-1 text-sm text-contrast">
-              Couldn’t delete this note. Try again.
+              Couldn’t delete this Note. Try again.
             </p>
           )}
         </div>

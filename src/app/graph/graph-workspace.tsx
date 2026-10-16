@@ -195,7 +195,7 @@ export function GraphWorkspace({
 
       {!wide && (
         <p className="absolute inset-x-8 top-24 max-w-[34ch] text-xl text-ink-2 italic">
-          The graph needs a larger screen. Your books are in the{" "}
+          The graph needs a larger screen. Your Books are in the{" "}
           <Link href="/" className="text-ink underline decoration-rule underline-offset-4">
             library
           </Link>

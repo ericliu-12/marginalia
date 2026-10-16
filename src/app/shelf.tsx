@@ -108,9 +108,9 @@ export function useDrafts(items: LibraryItem[]) {
   return drafts;
 }
 
-// A Reading Book's waiting Note, in the accent: "Draft note, p. 214".
+// A Reading Book's waiting Note, in the accent: "Draft Note, p. 214".
 export function DraftLine({ page, className = "" }: { page: string; className?: string }) {
-  return <span className={`block text-accent ${className}`}>Draft note{page && `, p. ${page}`}</span>;
+  return <span className={`block text-accent ${className}`}>Draft Note{page && `, p. ${page}`}</span>;
 }
 
 // Finish dates as the reader's shelf gives them: "3 Oct" on a row, "3 October" in the Book's panel.

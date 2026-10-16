@@ -19,7 +19,7 @@ const shelf = (page: Page) => page.getByRole("main");
 const status = (page: Page) => page.getByRole("group", { name: /^Status of / });
 // The Book screen's own heading: the shelf's section headings are level 2 too, until the screen has switched.
 const bookHeading = (page: Page) => page.getByRole("complementary", { name: /^Notes on / }).getByRole("heading", { level: 2 });
-const finishLine = (page: Page) => page.getByText("Connections are being found; they’ll gather below, and in the graph on a larger screen.");
+const finishLine = (page: Page) => page.getByText("Finding its Connections. They’ll gather below, and in the graph on a larger screen.");
 const connections = (page: Page) => page.getByRole("region", { name: "Connections" });
 // A shelf, by its name as a screen reader hears it: "Want to read", "Read · 6".
 const shelfNamed = (page: Page, name: string) => shelf(page).getByRole("region", { name, exact: true });
@@ -141,7 +141,7 @@ test("a Book added just before Done is on the shelf once its add lands", async (
   await searchbox(page).fill("Piranesi");
   // The hand-add form's lookalike check hangs, so the add waits behind it.
   await addScreen(page).getByRole("button", { name: "Add it by hand" }).click();
-  const form = addScreen(page).getByRole("form", { name: "Add a book by hand" });
+  const form = addScreen(page).getByRole("form", { name: "Add a Book by hand" });
   const call = await holdNextCall(page);
   await form.getByLabel("Author").fill("A. Author");
   await call.held();
@@ -188,7 +188,7 @@ test("a Book search can't find is added by hand, past a lookalike warning, and c
   await page.getByRole("button", { name: "Add a Book" }).click();
   await searchbox(page).fill("stoner: a novel");
   await addScreen(page).getByRole("button", { name: "Add it by hand" }).click();
-  const form = addScreen(page).getByRole("form", { name: "Add a book by hand" });
+  const form = addScreen(page).getByRole("form", { name: "Add a Book by hand" });
   await form.getByLabel("Author").fill("john williams");
   await expect(form.getByText("already in your library. Reading it again? Start a new read-through from there instead.")).toBeVisible();
 
@@ -211,7 +211,7 @@ test("a lookalike's title opens that Book, and back returns to Add as it was", a
 
   await searchbox(page).fill("stoner: a novel");
   await addScreen(page).getByRole("button", { name: "Add it by hand" }).click();
-  const form = addScreen(page).getByRole("form", { name: "Add a book by hand" });
+  const form = addScreen(page).getByRole("form", { name: "Add a Book by hand" });
   await form.getByLabel("Author").fill("john williams");
   await form.getByRole("button", { name: "Stoner" }).click();
   await expect(bookHeading(page)).toHaveText("Stoner");
@@ -241,7 +241,7 @@ test("what is done on a Book's screen shows back in Add: a new Status, and a rem
   const toPiranesi = async () => {
     await searchbox(page).fill("Piranesi: a novel");
     await addScreen(page).getByRole("button", { name: "Add it by hand" }).click();
-    const form = addScreen(page).getByRole("form", { name: "Add a book by hand" });
+    const form = addScreen(page).getByRole("form", { name: "Add a Book by hand" });
     await form.getByLabel("Author").fill("A. Author");
     await form.getByRole("button", { name: "Piranesi", exact: true }).click();
     await expect(bookHeading(page)).toHaveText("Piranesi");
@@ -261,7 +261,7 @@ test("what is done on a Book's screen shows back in Add: a new Status, and a rem
   await expect(addScreen(page)).toBeVisible();
   await searchbox(page).fill("");
   await expect(addedSoFar).toHaveCount(0);
-  await expect(addScreen(page).getByText("Search by title; add the author to narrow it.", { exact: false })).toBeVisible();
+  await expect(addScreen(page).getByText("Search by title. Add the author to narrow it.", { exact: false })).toBeVisible();
 });
 
 test("Enter in the hand-add form moves to the next field rather than adding the Book", async ({ page }) => {
@@ -269,7 +269,7 @@ test("Enter in the hand-add form moves to the next field rather than adding the 
   await page.getByRole("button", { name: "Add a Book" }).click();
   await searchbox(page).fill("Kitchen Notes");
   await addScreen(page).getByRole("button", { name: "Add it by hand" }).click();
-  const form = addScreen(page).getByRole("form", { name: "Add a book by hand" });
+  const form = addScreen(page).getByRole("form", { name: "Add a Book by hand" });
 
   await form.getByLabel("Title").focus();
   await page.keyboard.press("Enter");
@@ -377,8 +377,8 @@ test("the Book screen lists its Connections as text, and a title opens that Book
 });
 
 const sheet = (page: Page) => page.getByRole("dialog", { name: /^Note on / });
-const noteText = (page: Page) => sheet(page).getByRole("textbox", { name: "New note" });
-const pen = (page: Page, title: string) => page.getByRole("button", { name: `Write a note on ${title}` });
+const noteText = (page: Page) => sheet(page).getByRole("textbox", { name: "New Note" });
+const pen = (page: Page, title: string) => page.getByRole("button", { name: `Write a Note on ${title}` });
 
 test("the pen on a Reading row opens a Note sheet with its text focused inside the tap, and saving stays on the shelf", async ({ page }) => {
   await expect(pen(page, "Middlemarch")).toBeVisible();
@@ -396,7 +396,7 @@ test("the pen on a Reading row opens a Note sheet with its text focused inside t
   await sheet(page).getByRole("button", { name: "Add a quote" }).click();
   await expect(sheet(page).getByLabel("Quoted passage")).toBeFocused();
   await page.keyboard.type("A finely-touched spirit");
-  await sheet(page).getByRole("button", { name: "Save note" }).click();
+  await sheet(page).getByRole("button", { name: "Save Note" }).click();
   await expect(sheet(page).getByRole("alert")).toHaveText("Add a line of your own to go with the passage.");
   await noteText(page).fill("Dorothea wants it to be true.");
 
@@ -406,13 +406,13 @@ test("the pen on a Reading row opens a Note sheet with its text focused inside t
   await sheet(page).getByRole("button", { name: "Remove page" }).click();
   await expect(sheet(page).getByLabel("Page", { exact: true })).toHaveCount(0);
   await expect(noteText(page)).toBeFocused();
-  await sheet(page).getByRole("button", { name: "Save note" }).click();
+  await sheet(page).getByRole("button", { name: "Save Note" }).click();
 
   await expect(sheet(page)).toHaveCount(0);
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole("status").filter({ hasText: "Note saved on Middlemarch" })).toBeVisible();
   await expect(pen(page, "Middlemarch")).toBeFocused();
-  await expect(shelf(page).getByText("Draft note")).toHaveCount(0);
+  await expect(shelf(page).getByText("Draft Note")).toHaveCount(0);
 
   await page.getByRole("button", { name: "Open", exact: true }).click();
   await expect(bookHeading(page)).toHaveText("Middlemarch");
@@ -428,7 +428,7 @@ test("a Note's draft survives closing the sheet, back, a refresh and another Boo
   await sheet(page).getByRole("button", { name: "Close" }).click();
   await expect(sheet(page)).toHaveCount(0);
   await expect(pen(page, "Middlemarch")).toBeFocused();
-  await expect(shelf(page).getByRole("button", { name: /^Middlemarch/ })).toContainText("Draft note");
+  await expect(shelf(page).getByRole("button", { name: /^Middlemarch/ })).toContainText("Draft Note");
 
   // Back closes it too, and a refresh with it open brings it back as it was.
   await pen(page, "Middlemarch").click();
@@ -439,7 +439,7 @@ test("a Note's draft survives closing the sheet, back, a refresh and another Boo
   await page.keyboard.type(", and the rest");
   await page.reload();
   await expect(noteText(page)).toHaveValue("Half a thought, and the rest");
-  await expect(page.locator("[data-book-id]").filter({ hasText: "Middlemarch" })).toContainText("Draft note");
+  await expect(page.locator("[data-book-id]").filter({ hasText: "Middlemarch" })).toContainText("Draft Note");
   await page.keyboard.press("Escape");
   await expect(sheet(page)).toHaveCount(0);
   await expect(page).toHaveURL(/\/$/);
@@ -467,10 +467,10 @@ test("a Note that fails to save stays in the sheet with a quiet way to try again
 
   await pen(page, "Middlemarch").click();
   await page.keyboard.type("Written on the train");
-  await sheet(page).getByRole("button", { name: "Save note" }).click();
-  await expect(sheet(page).getByRole("alert")).toHaveText("Couldn’t save. Your note is kept here.");
+  await sheet(page).getByRole("button", { name: "Save Note" }).click();
+  await expect(sheet(page).getByRole("alert")).toHaveText("Couldn’t save. Your Note is kept here.");
   await expect(noteText(page)).toHaveValue("Written on the train");
-  await expect(sheet(page).getByRole("button", { name: "Save note" })).toHaveCount(0);
+  await expect(sheet(page).getByRole("button", { name: "Save Note" })).toHaveCount(0);
 
   await page.unroute("**/*", offline);
   await sheet(page).getByRole("button", { name: "Try again" }).click();
@@ -553,17 +553,17 @@ test("a save that hangs gives up after a while, and trying again with more writt
 
   await pen(page, "Middlemarch").click();
   await page.keyboard.type("Written in a tunnel");
-  await sheet(page).getByRole("button", { name: "Save note" }).click();
+  await sheet(page).getByRole("button", { name: "Save Note" }).click();
   await expect(sheet(page).getByRole("button", { name: "Saving…" })).toBeVisible();
   await page.clock.fastForward(16_000);
-  await expect(sheet(page).getByRole("alert")).toHaveText("Couldn’t save. Your note is kept here.");
+  await expect(sheet(page).getByRole("alert")).toHaveText("Couldn’t save. Your Note is kept here.");
   await expect(noteText(page)).toHaveValue("Written in a tunnel");
 
   // The reader writes on (which clears the message) and saves again; then the first save gets through after all.
   await noteText(page).press("End");
   await page.keyboard.type(", and out of it");
   await expect(sheet(page).getByRole("alert")).toHaveCount(0);
-  await sheet(page).getByRole("button", { name: "Save note" }).click();
+  await sheet(page).getByRole("button", { name: "Save Note" }).click();
   await held[0].fallback();
   await expect(sheet(page)).toHaveCount(0);
   await expect(page.getByRole("status").filter({ hasText: "Note saved on Middlemarch" })).toBeVisible();
@@ -581,7 +581,7 @@ test("the Note saved line goes with the next move, or after a while", async ({ p
   const writeOne = async (text: string) => {
     await pen(page, "Middlemarch").click();
     await page.keyboard.type(text);
-    await sheet(page).getByRole("button", { name: "Save note" }).click();
+    await sheet(page).getByRole("button", { name: "Save Note" }).click();
     await expect(savedLine).toBeVisible();
   };
 

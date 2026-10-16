@@ -243,7 +243,7 @@ export function MobileAdd({
               </section>
             ) : (
               <p className="max-w-[34ch] pt-3 text-ink-2 italic">
-                Search by title; add the author to narrow it.
+                Search by title. Add the author to narrow it.
               </p>
             )
           ) : (
@@ -421,7 +421,7 @@ function AddResult({
       )}
       {failed && adding && (
         <p className="mt-1.5 text-[15px]">
-          <span className="text-contrast">Couldn’t add this book.</span>{" "}
+          <span className="text-contrast">Couldn’t add this Book.</span>{" "}
           <button type="button" onMouseDown={keepFocus} onClick={() => add(adding)} className={`${hitArea} whitespace-nowrap text-ink underline underline-offset-2`}>
             Try again
           </button>

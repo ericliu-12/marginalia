@@ -61,5 +61,5 @@ test("a Book with no Connections says so in its panel", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 2 })).toHaveText("Never Let Me Go");
   const connections = page.getByRole("region", { name: "Connections" });
   await expect(connections.getByText("No Connections yet.")).toBeVisible();
-  await expect(connections.getByRole("button", { name: "Refresh connections" })).toBeVisible();
+  await expect(connections.getByRole("button", { name: "Refresh Connections" })).toBeVisible();
 });

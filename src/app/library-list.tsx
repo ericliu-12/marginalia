@@ -117,7 +117,7 @@ function Row({ item, open, draftPage, onOpen }: { item: LibraryItem; open: boole
 
   // The row bleeds 10px past the column, its first 2px the edge a selected row shows in the accent.
   const frame = `group relative -mx-2.5 border-l-2 pr-2.5 pl-2 ${open ? "border-l-accent bg-paper-3 [--row:var(--color-paper-3)]" : "border-l-transparent [--row:var(--color-paper)]"}`;
-  const failed = error && <p role="alert" className="relative z-10 col-span-full pb-1.5 text-[14px] text-contrast">Couldn’t move this book. Try again.</p>;
+  const failed = error && <p role="alert" className="relative z-10 col-span-full pb-1.5 text-[14px] text-contrast">Couldn’t move this Book. Try again.</p>;
 
   if (reading) {
     return (

@@ -56,12 +56,12 @@ export default async function AccountPage() {
       <div className="mt-16 border-t border-rule">
         <Section id="delete-account" title="Delete your account">
           <p className="text-ink-2">
-            Deleting your account removes your library, Notes, the Books you added by hand, your Connections and Clusters, and signs you
-            out on every device. It can’t be undone, so{" "}
+            Deleting your account removes your library, Notes, the Books you added by hand, and your Connections and Clusters. It signs you
+            out on every device. It can’t be undone. If you want to keep any of it,{" "}
             <a href="#your-data" className={proseLink}>
               download your export
             </a>{" "}
-            first if you want to keep any of it. If you come back later, you’ll start with an empty library.
+            first. If you come back later, you’ll start with an empty library.
           </p>
           <DeleteAccount fresh={fresh} />
         </Section>

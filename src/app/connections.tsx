@@ -94,7 +94,7 @@ export function ConnectionsSection({ bookId, onOpenBook, withheld }: { bookId: s
         Connections
       </h3>
       {status === "running" && <p className="pt-2 text-ink-2 italic">Finding Connections…</p>}
-      {status === "failed" && <p className="pt-2 text-ink-2 italic">Couldn’t find Connections just now.</p>}
+      {status === "failed" && <p className="pt-2 text-ink-2 italic">Couldn’t find Connections. Refresh to try again.</p>}
       {status === "idle" && cards.length === 0 && <p className="pt-2 text-ink-2 italic">No Connections yet.</p>}
       {/* In ink, not the secondary of the status lines, with its full stop in the accent: a moment, not a status. */}
       {sayFirst && (
@@ -111,7 +111,7 @@ export function ConnectionsSection({ bookId, onOpenBook, withheld }: { bookId: s
               <div className="flex flex-wrap items-baseline gap-x-2">
                 <p className={`caps text-[12px] tracking-[1.2px] ${TYPE[c.type].hue}`}>
                   {TYPE[c.type].label} · {STRENGTH_LABEL[c.strength]}
-                  {c.grounding === "enrichment" && <span className="text-ink-3"> · Not drawn from your notes</span>}
+                  {c.grounding === "enrichment" && <span className="text-ink-3"> · Not drawn from your Notes</span>}
                   {/* While its Book arrives in the graph, each Connection is marked new. */}
                   {withheld && <span className="text-accent"> · New</span>}
                 </p>
@@ -149,8 +149,8 @@ export function ConnectionsSection({ bookId, onOpenBook, withheld }: { bookId: s
 // What Connections couldn't draw on, just above the Refresh that tries it again.
 function LeftOut({ leftOut: { notes, enrichment } }: { leftOut: ConnectionsView["leftOut"] }) {
   if (notes === 0 && !enrichment) return null;
-  const yours = notes === 1 ? "one of your notes" : `${notes} of your notes`;
-  const what = enrichment ? (notes > 0 ? `this book’s summary or ${yours}` : "this book’s summary") : yours;
+  const yours = notes === 1 ? "one of your Notes" : `${notes} of your Notes`;
+  const what = enrichment ? (notes > 0 ? `this Book’s summary or ${yours}` : "this Book’s summary") : yours;
   return <p className="pt-3 text-[0.8rem] text-ink-2">Connections can’t draw on {what} yet. Refresh to try again.</p>;
 }
 
@@ -172,7 +172,7 @@ function RefreshConnections({ bookId, onRequested }: { bookId: string; onRequest
   return (
     <div className="pt-3">
       <button type="button" onClick={refresh} disabled={pending} className={quietLink}>
-        {pending ? "Refreshing…" : "Refresh connections"}
+        {pending ? "Refreshing…" : "Refresh Connections"}
       </button>
       {error && (
         <p role="alert" className="mt-1 text-sm text-contrast">

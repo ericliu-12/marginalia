@@ -304,7 +304,7 @@ function Rows({
               <button
                 type="button"
                 data-note-for={item.bookId}
-                aria-label={`Write a note on ${item.title}`}
+                aria-label={`Write a Note on ${item.title}`}
                 onClick={() => onNote(item.bookId)}
                 className="-mr-3 grid size-12 shrink-0 place-items-center text-ink-2 transition-colors duration-150 active:bg-paper-3"
               >

@@ -5,7 +5,7 @@ import { manualBook, seedLibrary } from "./database";
 // Book's title and author. Search is answered here, so Open Library is never asked.
 
 const searchFindsNothing = (page: Page) => page.route("**/api/search?**", (route) => route.fulfill({ json: [] }));
-const searchPane = (page: Page) => page.getByRole("complementary", { name: "Add a book" });
+const searchPane = (page: Page) => page.getByRole("complementary", { name: "Add a Book" });
 const library = (page: Page) => page.getByRole("main");
 const panelHeading = (page: Page) => page.getByRole("complementary", { name: /^Notes on / }).getByRole("heading", { level: 2 });
 
@@ -15,7 +15,7 @@ async function openManualForm(page: Page, query: string) {
   await page.getByRole("button", { name: "Add a Book" }).click();
   await page.getByRole("searchbox", { name: "Title or author" }).fill(query);
   await searchPane(page).getByRole("button", { name: "Add it by hand" }).click();
-  return searchPane(page).getByRole("form", { name: "Add a book by hand" });
+  return searchPane(page).getByRole("form", { name: "Add a Book by hand" });
 }
 
 test("a Book search can't find is added by hand, and lands in the library", async ({ page }) => {
@@ -115,7 +115,7 @@ test("a Manual Book is edited itself, and a new description reads up on it again
   await manualBook("Kitchen Notes", "June Ash", "Recipes.");
   await page.goto("/");
   await library(page).getByRole("button", { name: "Kitchen Notes", exact: true }).click();
-  await expect(page.getByText("Marginalia doesn’t know this book well.")).toBeVisible();
+  await expect(page.getByText("Marginalia doesn’t know this Book well.")).toBeVisible();
 
   await page.getByRole("button", { name: "Edit details" }).click();
   const form = page.getByRole("form", { name: "Edit Kitchen Notes" });
@@ -123,7 +123,7 @@ test("a Manual Book is edited itself, and a new description reads up on it again
   await form.getByLabel("Description").fill("A year of cooking through grief, one recipe at a time.");
   await form.getByRole("button", { name: "Save changes" }).click();
 
-  await expect(page.getByText("Getting to know this book…")).toBeVisible();
+  await expect(page.getByText("Getting to know this Book…")).toBeVisible();
   await page.getByRole("button", { name: "Edit details" }).click();
   await expect(page.getByLabel("Description")).toHaveValue("A year of cooking through grief, one recipe at a time.");
 });

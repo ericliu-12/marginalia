@@ -64,7 +64,7 @@ export function DeleteAccount({ fresh: freshAtLoad }: { fresh: boolean }) {
     return (
       <>
         <p id="delete-stale" className="text-ink-2">
-          To delete your account, sign in again first: it’s been more than a day since you last did. This signs you out here, then brings
+          To delete your account, sign in again first. It’s been more than a day since you last did. This signs you out here, then brings
           you back to this page.
         </p>
         <div className="mt-5">

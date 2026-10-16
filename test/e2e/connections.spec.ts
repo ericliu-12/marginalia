@@ -46,18 +46,18 @@ test("Escape keeps a Connection, puts focus back on Dismiss and leaves the panel
 
 test("Refresh connections queues a run, and the panel shows it finding Connections", async ({ page }) => {
   await openStoner(page);
-  await connections(page).getByRole("button", { name: "Refresh connections" }).click();
+  await connections(page).getByRole("button", { name: "Refresh Connections" }).click();
   await expect(connections(page).getByText("Finding Connections…")).toBeVisible();
-  await expect(connections(page).getByRole("button", { name: "Refresh connections" })).toHaveCount(0);
+  await expect(connections(page).getByRole("button", { name: "Refresh Connections" })).toHaveCount(0);
   await expect(connections(page).getByRole("button", { name: "The Remains of the Day", exact: true })).toBeVisible();
 });
 
 test("a Note that gave up on its vector is named above Refresh, which tries it again", async ({ page }) => {
   await addNoteThatGaveUp("Stoner", "A quiet life of work.");
   await openStoner(page);
-  const leftOut = connections(page).getByText("Connections can’t draw on one of your notes yet. Refresh to try again.");
+  const leftOut = connections(page).getByText("Connections can’t draw on one of your Notes yet. Refresh to try again.");
   await expect(leftOut).toBeVisible();
-  await connections(page).getByRole("button", { name: "Refresh connections" }).click();
+  await connections(page).getByRole("button", { name: "Refresh Connections" }).click();
   await expect(connections(page).getByText("Finding Connections…")).toBeVisible();
   await expect(leftOut).toHaveCount(0);
 });

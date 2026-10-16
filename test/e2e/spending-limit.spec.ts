@@ -63,6 +63,6 @@ test.describe("on a phone", () => {
     await page.goto("/");
     await page.getByRole("main").getByRole("button", { name: /^Middlemarch/ }).click();
     await page.getByRole("group", { name: /^Status of / }).getByRole("button", { name: "Read", exact: true }).click();
-    await expect(page.getByText(`Finished. Connections paused until ${resumesOn}; then they’ll gather below, and in the graph on a larger screen.`)).toBeVisible();
+    await expect(page.getByText(`Finished. Connections are paused until ${resumesOn}. Then they’ll gather below, and in the graph on a larger screen.`)).toBeVisible();
   });
 });
