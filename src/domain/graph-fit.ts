@@ -63,15 +63,17 @@ const overlaps = (p: Box, q: Box) => p.x0 < q.x1 && q.x0 < p.x1 && p.y0 < q.y1 &
 // Something the fit must show: a box in graph units, and pixels it reaches beyond that box on screen
 // whatever the zoom (a label beside a dot, a name past a wash).
 export type Extent = Box & { left: number; right: number; up: number; down: number };
-export type View = { width: number; height: number };
+// A canvas's size, and the room its first view keeps at its edges: FIT_MARGIN, unless the phone gives
+// its own, measured from its header and legend.
+export type View = { width: number; height: number; margin?: { top: number; bottom: number; side: number } };
 // Which side bounds the fitted zoom: the canvas's width, its height, or MAX_FIT_ZOOM.
 export type FitLimit = "width" | "height" | "max";
 export type Fit = { zoom: number; x: number; y: number; limit: FitLimit };
 
-// The largest zoom, up to `max`, at which every extent fits the view within FIT_MARGIN, and the graph
-// point to centre on so they sit in the middle of the room left.
+// The largest zoom, up to `max`, at which every extent fits the view within its margin, and the graph point to centre on so they sit in the middle of the room left.
 export function fitView(extents: Extent[], view: View, max = MAX_FIT_ZOOM): Fit {
-  const room = { x: view.width - 2 * FIT_MARGIN.side, y: view.height - FIT_MARGIN.top - FIT_MARGIN.bottom };
+  const margin = view.margin ?? FIT_MARGIN;
+  const room = { x: view.width - 2 * margin.side, y: view.height - margin.top - margin.bottom };
   // From the screen's left (or top) edge of the extents to their right (or bottom), at zoom k.
   const span = (k: number, axis: "x" | "y") => {
     const [lo, hi] = axis === "x" ? [Math.min(...extents.map((e) => k * e.x0 - e.left)), Math.max(...extents.map((e) => k * e.x1 + e.right))] : [Math.min(...extents.map((e) => k * e.y0 - e.up)), Math.max(...extents.map((e) => k * e.y1 + e.down))];
@@ -91,7 +93,7 @@ export function fitView(extents: Extent[], view: View, max = MAX_FIT_ZOOM): Fit 
   // Graph point x shows at zoom·(x − centre) + width/2; the spans' middle goes to the middle of the room.
   const centre = (a: "x" | "y") => {
     const s = span(zoom, a);
-    const mid = a === "x" ? view.width / 2 : FIT_MARGIN.top + room.y / 2;
+    const mid = a === "x" ? view.width / 2 : margin.top + room.y / 2;
     const half = a === "x" ? view.width / 2 : view.height / 2;
     return ((s.lo + s.hi) / 2 - mid + half) / zoom;
   };

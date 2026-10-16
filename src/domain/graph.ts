@@ -40,15 +40,17 @@ const SETTLE_ITERATIONS = 100;
 // eases over a few runs, little enough that the graph stays a place the reader knows.
 export const MAX_DRIFT = 0.25;
 
-// A Book's label: its title cut at a subtitle, then to LABEL_MAX_CHARS, at the last whole word that fits
-// (mid-word only when the first word alone is too long).
+// A Book's label: its title cut at a subtitle, then to LABEL_MAX_CHARS (PHONE_LABEL_CHARS on the phone,
+// so labels don't collide on a narrow screen), at the last whole word that fits (mid-word only when the
+// first word alone is too long).
 export const LABEL_MAX_CHARS = 32;
-export function labelOf(title: string) {
+export const PHONE_LABEL_CHARS = 22;
+export function labelOf(title: string, max = LABEL_MAX_CHARS) {
   const main = title.split(/:\s/)[0];
-  if (main.length <= LABEL_MAX_CHARS) return main;
-  const fits = main.slice(0, LABEL_MAX_CHARS);
+  if (main.length <= max) return main;
+  const fits = main.slice(0, max);
   const word = fits.lastIndexOf(" ");
-  return `${(word > 0 ? fits.slice(0, word) : fits.slice(0, LABEL_MAX_CHARS - 1)).trimEnd()}…`;
+  return `${(word > 0 ? fits.slice(0, word) : fits.slice(0, max - 1)).trimEnd()}…`;
 }
 
 // Room a new Book is given, in typical Connection lengths (the median, the unit the graph is drawn at):
