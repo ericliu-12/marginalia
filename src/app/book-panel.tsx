@@ -563,9 +563,11 @@ export function BookDetailsForm({
           {!showCover && (
             <button
               type="button"
+              // Revealed and focused in the same tap, as a Note's quote and page are: a phone raises its keyboard
+              // only for focus given in the tap, and a focus a frame later could land after the reader has moved on.
               onClick={() => {
-                setShowCover(true);
-                requestAnimationFrame(() => refs.coverUrl.current?.focus());
+                flushSync(() => setShowCover(true));
+                refs.coverUrl.current?.focus();
               }}
               className={quietLink}
             >
@@ -576,8 +578,8 @@ export function BookDetailsForm({
             <button
               type="button"
               onClick={() => {
-                setShowDescription(true);
-                requestAnimationFrame(() => refs.description.current?.focus());
+                flushSync(() => setShowDescription(true));
+                refs.description.current?.focus();
               }}
               className={quietLink}
             >

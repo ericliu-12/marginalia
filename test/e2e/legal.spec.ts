@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+// Turnstile faked, so a slow Cloudflare can't fail sign-in (./fixtures).
+import { expect, test } from "./fixtures";
 import { signedOut } from "./session";
 
 // /privacy and /terms (#62): public, for Google's consent screen and anyone deciding whether to sign in.

@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
-import { expect, test } from "@playwright/test";
+// Turnstile faked, so a slow Cloudflare can't fail sign-in (./fixtures).
+import { expect, test } from "./fixtures";
 import { addNoteThatGaveUp, addSession, inviteEmail, isInvited, seedLibrary, signedInHoursAgo } from "./database";
 import { clearOutbox, codeSentTo } from "./mail";
 import { READER_A, READER_B, signedIn, signedOut } from "./session";

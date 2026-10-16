@@ -1,7 +1,9 @@
-import { expect, test, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { seedLibrary } from "./database";
 import { clearOutbox, codeSentTo, outbox, SEND_TIMEOUT } from "./mail";
 import { READER_A, signedOut } from "./session";
+// Turnstile faked, so a slow Cloudflare can't fail sign-in (./fixtures).
+import { expect, test } from "./fixtures";
 import { TURNSTILE_FAILS, TURNSTILE_PASSES, TURNSTILE_TEST_TOKEN } from "./turnstile";
 import { E2E_PORT } from "../worktree";
 
