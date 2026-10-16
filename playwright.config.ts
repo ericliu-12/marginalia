@@ -12,6 +12,7 @@ import { E2E_PORT } from "./test/worktree";
 // placeholders: nothing the tests do calls out, and anything that tried would fail rather than spend.
 // The server also loads test/outbound-guard.mjs, which refuses those APIs' hosts by name and fails the run
 // (test/e2e/outbound.ts); not the build, as next/font downloads the fonts from fonts.googleapis.com.
+// And test/turnstile-fake.mjs, which answers Cloudflare's siteverify, so sign-in never waits on Cloudflare.
 // The Google Books key is blank, which turns off the description lookup when a Book is added from search,
 // and Open Library's works come from a file the tests write (test/e2e/open-library.ts).
 const PORT = E2E_PORT;
@@ -29,7 +30,7 @@ export default defineConfig({
   use: { baseURL: `http://localhost:${PORT}`, trace: "retain-on-failure", storageState: signedIn() },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } }],
   webServer: {
-    command: `pnpm exec tsx test/e2e/create-database.ts && pnpm exec next build && NODE_OPTIONS="$NODE_OPTIONS --import=./test/outbound-guard.mjs" pnpm exec next start --port ${PORT}`,
+    command: `pnpm exec tsx test/e2e/create-database.ts && pnpm exec next build && NODE_OPTIONS="$NODE_OPTIONS --import=./test/outbound-guard.mjs --import=./test/turnstile-fake.mjs" pnpm exec next start --port ${PORT}`,
     url: `http://localhost:${PORT}`,
     reuseExistingServer: false,
     timeout: 180_000,
