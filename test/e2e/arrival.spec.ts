@@ -98,12 +98,12 @@ test("in a burst, new Books simply appear", async ({ page }) => {
   await expect(withheld(page)).toHaveAttribute("data-withheld", "0");
 });
 
-test("a visit on a small screen, with no graph to show it, leaves the arrival for the next one", async ({ page }) => {
+test("a visit to the phone's graph, which has no arrivals, leaves the arrival for the next one on a larger screen", async ({ page }) => {
   await openGraph(page);
   await finishBook("Housekeeping", ["Stoner"]);
   await page.setViewportSize({ width: 800, height: 900 });
   await page.reload();
-  await expect(page.getByText("The graph needs a larger screen.")).toBeVisible();
+  await expect(page.getByText("Tap a book or a cluster’s name. Pinch to zoom.")).toBeVisible();
 
   // Away from the graph first: widening it in place would play the arrival there and then.
   await page.goto("/");

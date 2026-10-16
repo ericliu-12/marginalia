@@ -117,3 +117,14 @@ export const DRAW_MS = 300;
 export const DRAW_UNHURRIED = 3;
 // The view frames an arriving Book with the Books it connects to, keeping this much room at each edge.
 export const ARRIVAL_FRAME = 140;
+
+// The phone's graph (src/app/graph/phone-graph.tsx). A tap reaches the nearest Book within TAP_REACH
+// pixels of it, so a small dot still has a 44px target. Choosing a Book frames it with the Books it
+// connects to above the sheet, PHONE_FRAME pixels in from each edge of that room, zoomed in no further
+// than PHONE_CHOSEN_ZOOM. The first view keeps PHONE_FIT.side from the sides and PHONE_FIT.edge from
+// the header and the legend, and the Cluster names PHONE_NAME_CLEAR from them and the sheet.
+export const TAP_REACH = 22;
+export const PHONE_FRAME = 40;
+export const PHONE_CHOSEN_ZOOM = 2;
+export const PHONE_FIT = { side: 16, edge: 20 };
+export const PHONE_NAME_CLEAR = 8;

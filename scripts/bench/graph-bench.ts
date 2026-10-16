@@ -2,6 +2,7 @@
 // record its table on the ticket, after a change that could slow the graph down.
 //
 //   pnpm build && pnpm bench:graph [300,600,1000] [cpu throttle, e.g. 4]
+//   BENCH_PHONE=1 pnpm bench:graph 300 4     (the phone's graph, at 390 by 844, by touch)
 //
 // For each size it seeds a scratch database with that many synthetic Finished Books (about one Cluster
 // per 20, 3 to 5 Connections each, 80% inside their Cluster with preferential attachment, 40% strong),
@@ -21,6 +22,10 @@ const throttle = Number(process.argv[3] ?? 1);
 // BENCH_PROFILE=<scenario> (pan, zoom, hub, drag or settle) also profiles that scenario and prints where
 // its time went, by function. Build with `next build --no-mangling` so the names read.
 const profile = process.env.BENCH_PROFILE;
+// The phone's graph (#141): an iPhone-sized touch screen, where a finger pans and two pinch, and no
+// Book is dragged.
+const phone = process.env.BENCH_PHONE === "1";
+const VIEWPORT = phone ? { width: 390, height: 844 } : { width: 1440, height: 900 };
 const PORT = 3200;
 const NAME = "marginalia_bench";
 // The bench Reader's session, signed as Better Auth signs its cookie, with the bench server's secret.
@@ -74,7 +79,7 @@ async function timed(page: Page, cdp: CDPSession, drive: () => Promise<void>) {
 // A spot on the canvas with no ink near it (somewhere to pan from), and the centre of a Book's dot
 // near the middle (something to drag), found from the canvas's own pixels.
 async function spots(page: Page) {
-  return page.evaluate(() => {
+  return page.evaluate(({ width: vw, height: vh }) => {
     const canvas = document.querySelector("canvas")!;
     const ctx = canvas.getContext("2d")!;
     const scale = canvas.width / canvas.clientWidth;
@@ -83,23 +88,64 @@ async function spots(page: Page) {
       const i = (Math.round(y) * width + Math.round(x)) * 4;
       return data[i + 3] > 200 && data[i] < 80 && data[i + 1] < 80 && data[i + 2] < 80;
     };
-    let empty = { x: 720, y: 450 };
+    let empty = { x: vw / 2, y: vh / 2 };
     let best = -1;
-    let dot = { x: 720, y: 450 };
+    let dot = { x: vw / 2, y: vh / 2 };
     let nearest = Infinity;
-    for (let y = 140; y < 780; y += 10) {
-      for (let x = 140; x < 1000; x += 10) {
+    const edge = vw < 600 ? 40 : 140;
+    for (let y = 160; y < vh - 160; y += 10) {
+      for (let x = edge; x < Math.min(1000, vw - edge); x += 10) {
         const [px, py] = [x * scale, y * scale];
         let clear = 0;
         while (clear < 40 && ![0, 1, 2, 3, 4, 5, 6, 7].some((k) => dark(px + Math.cos(k) * clear * scale, py + Math.sin(k) * clear * scale))) clear++;
         if (clear > best && document.elementFromPoint(x, y) === canvas) [best, empty] = [clear, { x, y }];
         const solid = [-3, 0, 3].every((dx) => [-3, 0, 3].every((dy) => px + dx > 0 && px + dx < width && py + dy > 0 && py + dy < height && dark(px + dx, py + dy)));
-        const d = Math.hypot(x - 600, y - 450);
+        const d = Math.hypot(x - vw / 2, y - vh / 2);
         if (solid && d < nearest && document.elementFromPoint(x, y) === canvas) [nearest, dot] = [d, { x, y }];
       }
     }
     return { empty, dot };
-  });
+  }, VIEWPORT);
+}
+
+// A finger on the screen, by the DevTools protocol, so the page gets real touch events: one finger
+// panning in a loop for 2.5s, or two pinching out and back in.
+async function touchPan(page: Page, cdp: CDPSession) {
+  const { empty } = await spots(page);
+  const at = (i: number) => [{ x: empty.x + Math.sin(i / 10) * 120, y: empty.y + 40 + Math.cos(i / 10) * 40 }];
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: at(0) });
+  const t0 = Date.now();
+  for (let i = 1; Date.now() - t0 < 2500; i++) {
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: at(i) });
+    await page.waitForTimeout(8);
+  }
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+}
+async function pinch(page: Page, cdp: CDPSession) {
+  const { empty } = await spots(page);
+  for (const [from, to] of [[30, 150], [150, 30]]) {
+    const at = (d: number) => [{ x: empty.x, y: empty.y - d / 2, id: 0 }, { x: empty.x, y: empty.y + d / 2, id: 1 }];
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: at(from) });
+    for (let i = 1; i <= 40; i++) {
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: at(from + ((to - from) * i) / 40) });
+      await page.waitForTimeout(25);
+    }
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  }
+}
+
+// The phone's scenarios: a pan, a pinch out and in, and a pan with the best-connected Book chosen (its
+// sheet up).
+async function runPhone(page: Page, cdp: CDPSession, hub: string, n: number) {
+  const out: Record<string, Awaited<ReturnType<typeof timed>>> = {};
+  out.pan = await profiled(cdp, "pan", () => timed(page, cdp, () => touchPan(page, cdp)));
+  out.zoom = await profiled(cdp, "zoom", () => timed(page, cdp, () => pinch(page, cdp)));
+  await page.getByRole("navigation", { name: "Books in the graph" }).getByRole("button", { name: `${hub}, ` }).first().focus();
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(1500);
+  await page.screenshot({ path: `scripts/bench/out/phone-graph-${n}-hub.png` });
+  out.hub = await profiled(cdp, "hub", () => timed(page, cdp, () => touchPan(page, cdp)));
+  return out;
 }
 
 // Where a scenario's time went, by function: self time, most first.
@@ -217,7 +263,7 @@ try {
     const t0 = Date.now();
     const seededLibrary = await seedSyntheticLibrary(db, n, TOKEN);
     console.log(JSON.stringify({ ...seededLibrary, seedSeconds: (Date.now() - t0) / 1000 }));
-    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const context = await browser.newContext(phone ? { viewport: VIEWPORT, isMobile: true, hasTouch: true, deviceScaleFactor: 3 } : { viewport: VIEWPORT });
     const signed = encodeURIComponent(`${TOKEN}.${createHmac("sha256", SECRET).update(TOKEN).digest("base64")}`);
     await context.addCookies([{ name: "better-auth.session_token", value: signed, domain: "localhost", path: "/", httpOnly: true, sameSite: "Lax" }]);
     // tsx names the functions handed to page.evaluate with a helper the page lacks.
@@ -229,13 +275,32 @@ try {
     if (throttle > 1) await cdp.send("Emulation.setCPUThrottlingRate", { rate: throttle });
     await page.goto(`http://localhost:${PORT}/graph`);
     await page.locator("canvas").waitFor();
-    await page.waitForTimeout(2500);
-    await page.screenshot({ path: `scripts/bench/out/graph-${n}.png` });
-    const rest = await run(page, cdp, seededLibrary.hub, n);
-    const cell = (r: Awaited<ReturnType<typeof timed>>) => `${r.fps} fps, p95 ${r.p95} ms, busy ${r.busy} ms`;
-    rows.push(
-      `| ${n} | ${seededLibrary.connections} | ${seededLibrary.clusters} | ${cell(rest.pan)} | ${cell(rest.zoom)} | ${cell(rest.hub)} | ${cell(rest.drag)} | ${cell(rest.settle)} |`,
+    // The first draw: from the navigation to the frame after the canvas first has ink on it.
+    const firstDraw = await page.evaluate(
+      () =>
+        new Promise<number>((resolve) => {
+          const look = () => {
+            const c = document.querySelector("canvas");
+            const ctx = c?.getContext("2d");
+            const inked = c && ctx && c.width > 0 && ctx.getImageData(0, 0, c.width, c.height).data.some((v, i) => i % 4 === 3 && v > 0);
+            if (inked) resolve(Math.round(performance.now()));
+            else requestAnimationFrame(look);
+          };
+          look();
+        }),
     );
+    await page.waitForTimeout(2500);
+    await page.screenshot({ path: `scripts/bench/out/${phone ? "phone-" : ""}graph-${n}.png` });
+    const cell = (r: Awaited<ReturnType<typeof timed>>) => `${r.fps} fps, p95 ${r.p95} ms, busy ${r.busy} ms`;
+    if (phone) {
+      const rest = await runPhone(page, cdp, seededLibrary.hub, n);
+      rows.push(`| ${n} | ${seededLibrary.connections} | ${seededLibrary.clusters} | ${firstDraw} ms | ${cell(rest.pan)} | ${cell(rest.zoom)} | ${cell(rest.hub)} |`);
+    } else {
+      const rest = await run(page, cdp, seededLibrary.hub, n);
+      rows.push(
+        `| ${n} | ${seededLibrary.connections} | ${seededLibrary.clusters} | ${cell(rest.pan)} | ${cell(rest.zoom)} | ${cell(rest.hub)} | ${cell(rest.drag)} | ${cell(rest.settle)} |`,
+      );
+    }
     console.log(rows.at(-1));
     await context.close();
   }
@@ -247,6 +312,11 @@ try {
   await admin.end();
 }
 console.log(`\nCPU throttle: ${throttle}x\n`);
-console.log("| Books | Connections | Clusters | pan | zoom in and out | pan, hub chosen | drag a Book | settling after the drag |");
-console.log("|---|---|---|---|---|---|---|---|");
+if (phone) {
+  console.log("| Books | Connections | Clusters | first draw | pan | pinch out and in | pan, hub chosen |");
+  console.log("|---|---|---|---|---|---|---|");
+} else {
+  console.log("| Books | Connections | Clusters | pan | zoom in and out | pan, hub chosen | drag a Book | settling after the drag |");
+  console.log("|---|---|---|---|---|---|---|---|");
+}
 for (const r of rows) console.log(r);

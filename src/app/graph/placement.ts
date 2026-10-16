@@ -64,19 +64,22 @@ export type Line = { x0: number; y0: number; x1: number; y1: number };
 // labels that crosses fewest lines; or it is left off (readDrawn in src/domain/graph-fit.ts reads a
 // graph the same way). One that must show takes the right if nothing is free. A label that could not reach the view is left off unless it must show, and dots too
 // far out to meet any label that could are left out of the checks. `obstacles` (Cluster names) are kept
-// clear of as dots are.
+// clear of as dots are. With `inView` (the phone's narrow screen), a side that would run off the view is
+// not taken while another fits.
 export function placeLabels({
   view,
   dots,
   requests,
   obstacles = [],
   lines = [],
+  inView = false,
 }: {
   view: { width: number; height: number };
   dots: Dot[];
   requests: LabelRequest[];
   obstacles?: Box[];
   lines?: Line[];
+  inView?: boolean;
 }): PlacedLabel[] {
   const reach = (r: LabelRequest) => r.gap + r.w;
   const seen = (r: LabelRequest) => r.must || (r.x + reach(r) > 0 && r.x - reach(r) < view.width && r.y + reach(r) > 0 && r.y - reach(r) < view.height);
@@ -88,7 +91,9 @@ export function placeLabels({
   const clear = (b: Box) => !taken.any(b, (o) => overlaps(o, b));
   const placed: PlacedLabel[] = [];
   for (const { id, x, y, gap, plate, w, h, must } of wanted) {
-    const sides = labelSides(x, y, gap, plate, w, h);
+    const all = labelSides(x, y, gap, plate, w, h);
+    const inside = inView ? all.filter((b) => b.x0 >= 0 && b.x1 <= view.width) : all;
+    const sides = inside.length ? inside : all;
     // The label's own dot is no obstacle to it: no side reaches back over it.
     const open = sides.filter((b) => clear(b) && !covered.any(b, (o) => overlaps(o, b)));
     const crossings = (b: Box) => lines.filter((l) => crossesBox(b, { x: l.x0, y: l.y0 }, { x: l.x1, y: l.y1 })).length;

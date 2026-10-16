@@ -33,6 +33,12 @@ describe("Label placement", () => {
     expect(sideOf(at(placeLabels({ view: VIEW, dots: [a, right, left, above], requests: [ask(a)] }), "a"), a)).toBe("below");
   });
 
+  it("on a phone, keeps a label off a side that would run past the view", () => {
+    const a = dot("a", 960, 400);
+    expect(sideOf(at(placeLabels({ view: VIEW, dots: [a], requests: [ask(a)] }), "a"), a)).toBe("right");
+    expect(sideOf(at(placeLabels({ view: VIEW, dots: [a], requests: [ask(a)], inView: true }), "a"), a)).toBe("left");
+  });
+
   it("leaves a label off where no side is free, unless it must show, when it goes right regardless", () => {
     const a = dot("a", 500, 400);
     const crowd = [dot("r", 540, 400), dot("l", 460, 400), dot("u", 500, 380), dot("d", 500, 420)];

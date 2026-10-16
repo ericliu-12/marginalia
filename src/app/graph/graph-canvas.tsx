@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type ForceGraph from "force-graph";
 import { joins, otherBook, touches } from "@/domain/connection-pair";
 import { fitDrawn } from "@/domain/graph-fit";
-import { visibleConnections, type GraphBook, type GraphCluster, type GraphConnection, type GraphView } from "@/domain/graph";
+import { labelOf, PHONE_LABEL_CHARS, visibleConnections, type GraphBook, type GraphCluster, type GraphConnection, type GraphView } from "@/domain/graph";
+import { fitPhone, turnClockwise } from "@/domain/phone-fit";
 import {
   ARRIVAL_FRAME,
   blend,
@@ -46,12 +47,22 @@ import {
   WASH_REACH,
   WASH_SHAPE_MS,
   nodeRadius,
+  PHONE_CHOSEN_ZOOM,
+  PHONE_FIT,
+  PHONE_FRAME,
+  PHONE_NAME_CLEAR,
+  TAP_REACH,
 } from "./graph-style";
 import { clusterTint } from "../cluster-tint";
 import { overlaps, placeLabels, placeNames, type Box, type Dot, type LabelRequest, type NameRequest } from "./placement";
 import { washAt } from "./wash";
 
 export type Selection = { kind: "book"; bookId: string } | { kind: "connection"; id: string } | { kind: "cluster"; id: string } | null;
+
+// The graph on a phone, by touch: whether the stored layout is drawn turned a quarter turn (see
+// src/domain/phone-fit.ts), and the pixels its header covers at the top and its legend or sheet at the
+// bottom, read as they are needed.
+export type Phone = { turn: boolean; room: () => { top: number; bottom: number } };
 
 type Node = { id: string; book: GraphBook; label: string; radius: number; homeX: number; homeY: number; x?: number; y?: number; vx?: number; vy?: number };
 // force-graph's names: a node is a Book, a link is a Connection.
@@ -73,23 +84,26 @@ type Focus = {
   labelOrder: Node[];
 };
 
-// Graph data for force-graph, built once per graph: stored positions scaled by layoutScale, an
-// id-to-node map, and each Cluster's Books (as nodes, and as a set of ids) and the Connections drawn at
-// rest between them (the bands of its wash).
-function prepare(graph: GraphView) {
+// Graph data for force-graph, built once per graph: stored positions scaled by layoutScale (and on a
+// phone turned, if `turn`, with shorter labels), an id-to-node map, and each Cluster's Books (as nodes,
+// and as a set of ids) and the Connections drawn at rest between them (the bands of its wash).
+function prepare(graph: GraphView, phone = false, turn = false) {
   const raw = new Map(graph.books.map((b) => [b.bookId, b]));
   const lengths = graph.connections.map((c) => Math.hypot(raw.get(c.a)!.x - raw.get(c.b)!.x, raw.get(c.a)!.y - raw.get(c.b)!.y));
   const scale = layoutScale(graph.books, graph.connections);
-  const nodes: Node[] = graph.books.map((b) => ({
-    id: b.bookId,
-    book: b,
-    label: b.label,
-    radius: nodeRadius(b.degree),
-    homeX: b.x * scale,
-    homeY: b.y * scale,
-    x: b.x * scale,
-    y: b.y * scale,
-  }));
+  const nodes: Node[] = graph.books.map((b) => {
+    const { x, y } = turn ? turnClockwise(b) : b;
+    return {
+      id: b.bookId,
+      book: b,
+      label: phone ? labelOf(b.title, PHONE_LABEL_CHARS) : b.label,
+      radius: nodeRadius(b.degree),
+      homeX: x * scale,
+      homeY: y * scale,
+      x: x * scale,
+      y: y * scale,
+    };
+  });
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const links: Link[] = graph.connections.map((c, i) => ({ id: c.id, source: c.a, target: c.b, connection: c, rest: lengths[i] * scale }));
   // Label priority at rest: the most recently finished few, then by Connections, then most recent.
@@ -254,6 +268,13 @@ function washMoved(wash: Wash) {
   return wash.nodes.some((n, i) => Math.abs(n.x! - wash.drawnAt[i * 2]) > WASH_STILL || Math.abs(n.y! - wash.drawnAt[i * 2 + 1]) > WASH_STILL);
 }
 
+// The phone's first view keeps between its header and legend.
+function phoneMargin(phone: Phone | undefined) {
+  if (!phone) return undefined;
+  const { top, bottom } = phone.room();
+  return { top: top + PHONE_FIT.edge, bottom: bottom + PHONE_FIT.edge, side: PHONE_FIT.side };
+}
+
 // Camera moves glide, new Clusters fade in, and new Books arrive, unless the reader asked for less motion.
 export const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const glide = () => (reducedMotion() ? 0 : 600);
@@ -277,8 +298,11 @@ export function GraphCanvas({
   pointedClusterId,
   landing,
   withheld,
+  phone,
 }: {
   graph: GraphView;
+  // On a phone: touch, its own frame, and the layout turned to fit the tall screen.
+  phone?: Phone;
   // Books arriving: each lands as it first appears here.
   landing: string[];
   // Connections not drawn in yet: hidden, and each grows out from its arriving Book once it leaves.
@@ -297,7 +321,9 @@ export function GraphCanvas({
   const el = useRef<HTMLDivElement>(null);
   const fgRef = useRef<ForceGraph<Node, Link> | null>(null);
   const [ready, setReady] = useState(false);
-  const prepared = useMemo(() => prepare(graph), [graph]);
+  const onPhone = phone !== undefined;
+  const turn = phone?.turn ?? false;
+  const prepared = useMemo(() => prepare(graph, onPhone, turn), [graph, onPhone, turn]);
   const dataRef = useRef(prepared);
   // Each Cluster's name, placed over the canvas every frame; and its measured size, by name.
   const nameEls = useRef(new Map<string, HTMLButtonElement>());
@@ -333,9 +359,11 @@ export function GraphCanvas({
   const rehover = useRef(() => {});
   const onSelectRef = useRef(onSelect);
   const insetRef = useRef(panelInset);
+  const phoneRef = useRef(phone);
   useEffect(() => {
     onSelectRef.current = onSelect;
     insetRef.current = panelInset;
+    phoneRef.current = phone;
   });
 
   // One force-graph for the life of the view; a fresh graph swaps its data, a selection the focus it reads.
@@ -368,6 +396,8 @@ export function GraphCanvas({
     // A press alone keeps the hover, so a click on a wash doesn't flicker it.
     let held = false;
     const onPointer = (e: PointerEvent) => {
+      // A finger hovers over nothing: a wash deepens only under a mouse or pen.
+      if (e.pointerType === "touch") return;
       const box = host.getBoundingClientRect();
       pointer = e.type === "pointerleave" ? null : { x: e.clientX - box.left, y: e.clientY - box.top };
       if (e.type === "pointermove") held = e.buttons !== 0;
@@ -461,6 +491,25 @@ export function GraphCanvas({
         return was.shown ? was.width + (now.width - was.width) * t : now.width;
       };
 
+      // A click on a wash (with no Book or Connection over it) chooses its Cluster, or lets go of it if
+      // it is already chosen; a click on bare paper lets go of any selection (#48). On a phone a tap near
+      // a Book, within TAP_REACH of its dot, chooses the nearest, so a small dot is still easy to hit.
+      const tapPaper = (e: MouseEvent) => {
+        const box = host.getBoundingClientRect();
+        const [x, y] = [e.clientX - box.left, e.clientY - box.top];
+        if (phoneRef.current) {
+          let near: { id: string; d: number } | null = null;
+          for (const n of data().nodes) {
+            const s = f.graph2ScreenCoords(n.x!, n.y!);
+            const d = Math.hypot(s.x - x, s.y - y);
+            if (d <= TAP_REACH && (!near || d < near.d)) near = { id: n.id, d };
+          }
+          if (near) return onSelectRef.current({ kind: "book", bookId: near.id });
+        }
+        const id = washUnder(x, y);
+        onSelectRef.current(id && id !== focusRef.current.chosenClusterId ? { kind: "cluster", id } : null);
+      };
+
       // Places every label and Cluster name afresh, moving the names into place; the labels, each with
       // its box relative to its dot.
       const place = (ctx: CanvasRenderingContext2D, k: number, view: { width: number; height: number }, dots: Dot[], screen: Map<string, Dot>) => {
@@ -488,7 +537,8 @@ export function GraphCanvas({
           const must = n.id === hovered || n.id === chosenBookId;
           // Faded Books stay unlabelled unless the reader is close enough to read them anyway.
           if (litBooks && !litBooks.has(n.id) && k < 1.6 && !must) continue;
-          const text = must ? n.book.title : n.label;
+          // On a phone the chosen Book keeps its short label: the sheet has its full title.
+          const text = must && !phoneRef.current ? n.book.title : n.label;
           texts.set(n.id, text);
           const s = screen.get(n.id)!;
           const gap = n.radius + LABEL_GAP + (ringed(n.id) ? RING_GAP : 0);
@@ -510,9 +560,11 @@ export function GraphCanvas({
           .map((l) => [screen.get(idOf(l.source)), screen.get(idOf(l.target))])
           .filter((ends): ends is [Dot, Dot] => ends.every((e) => e !== undefined))
           .map(([p, q]) => ({ x0: p.x, y0: p.y, x1: q.x, y1: q.y }));
-        const first = placeLabels({ view, dots: blocking, requests, obstacles: chrome, lines });
+        const inView = phoneRef.current !== undefined;
+        const first = placeLabels({ view, dots: blocking, requests, obstacles: chrome, lines, inView });
 
-        // Names sit just past where a wash's tint is still plainly seen, so each reads as its wash's.
+        // Names sit just past where a wash's tint is still plainly seen, so each reads as its wash's. On a
+        // phone they keep clear of its header and its legend or sheet.
         const r = WASH_REACH * TYPICAL_EDGE_LENGTH * k;
         const fontSize = clusterNameSize(k);
         const names: NameRequest[] = [];
@@ -526,9 +578,10 @@ export function GraphCanvas({
           // A Cluster reached from the keyboard always shows its name, as the chosen one does: it is the focus.
           names.push({ id: cluster.id, members, ...size, chosen: cluster.id === chosenClusterId || cluster.id === pointedClusterRef.current });
         }
+        const room = phoneRef.current?.room();
         const placed = placeNames({
           view,
-          clear: CLUSTER_NAME_CLEAR,
+          clear: room ? { top: room.top + PHONE_NAME_CLEAR, bottom: room.bottom + PHONE_NAME_CLEAR, side: PHONE_NAME_CLEAR } : CLUSTER_NAME_CLEAR,
           uncovered: view.width - insetRef.current,
           washRadius: r,
           gap: CLUSTER_NAME_GAP,
@@ -539,8 +592,11 @@ export function GraphCanvas({
         const now = performance.now();
         for (const [id, box] of placed) {
           const nameEl = nameEls.current.get(id)!;
-          nameEl.style.visibility = box ? "visible" : "hidden";
-          if (!box) continue;
+          // On a phone, behind a selection, only the chosen Cluster's name shows: a faded one would sit on
+          // the lit lines in so small a room.
+          const shown = box && !(phoneRef.current && litBooks && id !== chosenClusterId);
+          nameEl.style.visibility = shown ? "visible" : "hidden";
+          if (!shown) continue;
           nameEl.toggleAttribute("data-faded", litBooks !== null && id !== chosenClusterId);
           nameEl.style.transform = `translate(${box.x0}px, ${box.y0}px)`;
           nameEl.style.opacity = String(faded(id, now));
@@ -551,7 +607,7 @@ export function GraphCanvas({
         const holding = [...placed]
           .filter(([id, box]) => box !== null && (!litBooks || id === chosenClusterId || id === pointedClusterRef.current))
           .map(([, box]) => box!);
-        const labels = holding.length ? placeLabels({ view, dots: blocking, requests, obstacles: [...chrome, ...holding], lines }) : first;
+        const labels = holding.length ? placeLabels({ view, dots: blocking, requests, obstacles: [...chrome, ...holding], lines, inView }) : first;
         for (const [id, box] of placed) {
           if (!box || holding.includes(box) || !labels.some((l) => overlaps(l.box, box))) continue;
           nameEls.current.get(id)!.style.visibility = "hidden";
@@ -727,6 +783,8 @@ export function GraphCanvas({
           redraw();
         })
         .onNodeHover((n) => {
+          // A finger has no hover: a tap only chooses.
+          if (phoneRef.current) return;
           hoverRef.current = n?.id ?? null;
           hoverWash();
         })
@@ -735,14 +793,11 @@ export function GraphCanvas({
           hoverWash();
         })
         .onNodeClick((n) => onSelectRef.current({ kind: "book", bookId: n.id }))
-        .onLinkClick((l) => onSelectRef.current({ kind: "connection", id: l.id }))
-        // A click on a wash (with no Book or Connection over it) chooses its Cluster, or lets go of it if
-        // it is already chosen; a click on bare paper lets go of any selection (#48).
-        .onBackgroundClick((e) => {
-          const box = host.getBoundingClientRect();
-          const id = washUnder(e.clientX - box.left, e.clientY - box.top);
-          onSelectRef.current(id && id !== focusRef.current.chosenClusterId ? { kind: "cluster", id } : null);
-        })
+        // On a phone a Connection is not chosen by itself: a tap on its line is a tap on the paper.
+        .onLinkClick((l, e) => (phoneRef.current ? tapPaper(e) : onSelectRef.current({ kind: "connection", id: l.id })))
+        .onBackgroundClick(tapPaper)
+        // On a phone, nothing to hold: a finger on a Book pans, as anywhere else.
+        .enableNodeDrag(!phoneRef.current)
         // force-graph would show the pointer over all of the bare canvas, since a click there does
         // something; the canvas's own cursor (set on its host) says where it means a Cluster.
         .showPointerCursor((obj) => obj !== undefined)
@@ -789,15 +844,22 @@ export function GraphCanvas({
     fitted.current = true;
     // Positions are already drawn to scale: a typical Connection is TYPICAL_EDGE_LENGTH long.
     const { nodes, clusters, links } = dataRef.current;
-    const fit = fitDrawn(
-      {
-        books: nodes.map((n) => ({ id: n.id, x: n.x!, y: n.y!, label: n.label, degree: n.book.degree })),
-        clusters: clusters.map(({ cluster }) => cluster),
-        connections: links.filter((l) => l.connection.featured).map((l) => ({ a: l.connection.a, b: l.connection.b })),
-        unit: TYPICAL_EDGE_LENGTH,
-      },
-      { width: f.width(), height: f.height() },
-    );
+    const margin = phoneMargin(phoneRef.current);
+    const fit = margin
+      ? fitPhone(
+          nodes.map((n) => ({ id: n.id, x: n.x!, y: n.y!, degree: n.book.degree })),
+          clusters.map(({ cluster }) => cluster),
+          { width: f.width(), height: f.height(), margin },
+        )
+      : fitDrawn(
+          {
+            books: nodes.map((n) => ({ id: n.id, x: n.x!, y: n.y!, label: n.label, degree: n.book.degree })),
+            clusters: clusters.map(({ cluster }) => cluster),
+            connections: links.filter((l) => l.connection.featured).map((l) => ({ a: l.connection.a, b: l.connection.b })),
+            unit: TYPICAL_EDGE_LENGTH,
+          },
+          { width: f.width(), height: f.height() },
+        );
     f.centerAt(fit.x, fit.y);
     f.zoom(fit.zoom);
     return true;
@@ -897,6 +959,22 @@ export function GraphCanvas({
             })()
           : (prepared.clusters.find((c) => c.cluster.id === focus.chosenClusterId)?.nodes ?? []);
       const at = chosen.filter((n) => n !== undefined);
+      const room = phoneRef.current?.room();
+      if (room && at.length) {
+        // On a phone, a chosen Book is framed with the Books it connects to, and a Cluster with its Books,
+        // in the room above the sheet: zoomed in to them, but no further than PHONE_CHOSEN_ZOOM.
+        const id = focus.chosenBookId;
+        const others = id ? [...(focus.litBooks ?? [])].map((b) => prepared.byId.get(b)).filter((n) => n !== undefined) : [];
+        const all = [...at, ...others];
+        const [xs, ys] = [all.map((n) => n.x!), all.map((n) => n.y!)];
+        const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+        const tall = f.height() - room.top - room.bottom - 2 * PHONE_FRAME;
+        const zoom = Math.min(PHONE_CHOSEN_ZOOM, (f.width() - 2 * PHONE_FRAME) / (x1 - x0 || 1), Math.max(tall, PHONE_FRAME) / (y1 - y0 || 1));
+        before.current ??= { ...f.centerAt(), zoom: f.zoom() };
+        f.centerAt((x0 + x1) / 2, (y0 + y1) / 2 + (room.bottom - room.top) / 2 / zoom, glide());
+        f.zoom(zoom, glide());
+        return;
+      }
       const arrived = focus.chosenBookId !== null && landed.current.has(focus.chosenBookId) && !framed.current.has(focus.chosenBookId);
       if (arrived) {
         // A Book arriving is framed with the Books it connects to, zooming out if they need the room,
@@ -940,7 +1018,7 @@ export function GraphCanvas({
   return (
     <>
       {/* How many Connections are still to draw in, for the browser tests. */}
-      <div ref={el} className="absolute inset-0" aria-hidden data-withheld={withheld.size} />
+      <div ref={el} className={`absolute inset-0 ${phone ? "touch-none" : ""}`} aria-hidden data-withheld={withheld.size} />
       {/* Cluster names, placed by the canvas each frame. The keyboard reaches Clusters through the
           workspace's list instead. Hidden until first placed. */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
@@ -952,6 +1030,7 @@ export function GraphCanvas({
             writing={writing.has(c.id)}
             chosen={c.id === focus.chosenClusterId}
             pointed={c.id === pointedClusterId}
+            touch={phone !== undefined}
             onSelect={() => onSelect({ kind: "cluster", id: c.id })}
             nameRef={(node) => {
               if (node) nameEls.current.set(c.id, node);
@@ -974,11 +1053,14 @@ function ClusterName({
   chosen,
   pointed,
   writing,
+  touch,
   onSelect,
   nameRef,
 }: {
   cluster: GraphCluster;
   writing: boolean;
+  // On a phone the name's target reaches 44px tall, beyond its plate.
+  touch: boolean;
   chosen: boolean;
   pointed: boolean;
   onSelect: () => void;
@@ -1001,7 +1083,7 @@ function ClusterName({
           visibility: "hidden",
         } as React.CSSProperties
       }
-      className={`pointer-events-auto absolute top-0 left-0 rounded-[2px] bg-paper/80 px-1.5 py-0.5 font-serif leading-tight font-medium whitespace-nowrap text-(--name) italic decoration-(--name) decoration-1 underline-offset-[5px] transition-colors duration-150 hover:bg-paper/95 hover:underline data-chosen:bg-paper/95 data-chosen:underline data-hovered:bg-paper/95 data-hovered:underline data-pointed:bg-paper/95 data-pointed:underline data-pointed:outline-2 data-pointed:outline-offset-2 data-pointed:outline-thematic data-faded:bg-paper/60 data-faded:text-(--faded) data-faded:decoration-(--faded) ${FADED_NAME_FOUND} motion-reduce:transition-none`}
+      className={`pointer-events-auto absolute top-0 left-0 rounded-[2px] bg-paper/80 px-1.5 py-0.5 font-serif leading-tight font-medium whitespace-nowrap text-(--name) italic decoration-(--name) decoration-1 underline-offset-[5px] transition-colors duration-150 hover:bg-paper/95 hover:underline data-chosen:bg-paper/95 data-chosen:underline data-hovered:bg-paper/95 data-hovered:underline data-pointed:bg-paper/95 data-pointed:underline data-pointed:outline-2 data-pointed:outline-offset-2 data-pointed:outline-thematic data-faded:bg-paper/60 data-faded:text-(--faded) data-faded:decoration-(--faded) ${FADED_NAME_FOUND} motion-reduce:transition-none ${touch ? "before:absolute before:inset-x-0 before:-inset-y-2.5 before:content-['']" : ""}`}
     >
       {/* Written in inside the plate, so the clip never cuts the keyboard's outline. */}
       <span className={writing ? "inline-block animate-write-in" : undefined}>{cluster.name}</span>

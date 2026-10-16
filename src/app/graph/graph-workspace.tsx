@@ -15,6 +15,7 @@ import { useArrivedBySwitch, ViewSwitch } from "../view-switch";
 import { arriving, drawOrder, justFinished } from "./arrival";
 import { ClusterPanel } from "./cluster-panel";
 import { ConnectionPanel } from "./connection-panel";
+import { GraphLists } from "./graph-lists";
 import { GraphCanvas, reducedMotion, type Selection } from "./graph-canvas";
 import { DRAW_FIRST_MS, DRAW_STEP_MS, DRAW_UNHURRIED, TYPE_COLOR, TYPE_LABEL } from "./graph-style";
 import { CLOSED, panelState } from "./panel-state";
@@ -125,7 +126,7 @@ export function GraphWorkspace({
 
   // Each graph fetched: any Book the graph has not shown before arrives. It lands, the view glides to it
   // and opens its panel, and its Connections draw in one by one. In a burst, or while the reader has a
-  // panel open, new Books simply appear. Below lg there is no graph to arrive in, so nothing is seen yet.
+  // panel open, new Books simply appear. The phone's graph has no arrivals, so there nothing is seen yet.
   useEffect(() => {
     if (!window.matchMedia(WIDE).matches) return;
     const books = arriving(readShown(userId), graph.books);
@@ -164,7 +165,6 @@ export function GraphWorkspace({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [selection]);
-  const byTitle = [...graph.books].sort((a, b) => a.title.localeCompare(b.title));
 
   return (
     <div className={`relative h-screen overflow-hidden ${switched ? "animate-view-in" : ""}`}>
@@ -194,15 +194,6 @@ export function GraphWorkspace({
         </div>
       </header>
 
-      {!wide && (
-        <p className="absolute inset-x-8 top-24 max-w-[34ch] text-xl text-ink-2 italic">
-          The graph needs a larger screen. Your books are in the{" "}
-          <Link href="/" className="text-ink underline decoration-rule underline-offset-4">
-            library
-          </Link>
-          .
-        </p>
-      )}
       {/* No placeholder Books: both ways in lead to the library, which opens with search ready. */}
       {wide && graph.books.length === 0 && (
         <p className="absolute inset-x-12 top-28 max-w-[40ch] text-xl text-ink-2 italic">
@@ -244,45 +235,7 @@ export function GraphWorkspace({
         </footer>
       )}
 
-      {/* The canvas is not readable by assistive tech; the same Books, as a list, open the same panel.
-          The Book a list item stands for is ringed and labelled on the canvas while it has focus. */}
-      {wide && (
-        <nav aria-label="Books in the graph" className="sr-only">
-          <ul>
-            {byTitle.map((b) => (
-              <li key={b.bookId}>
-                <button
-                  type="button"
-                  onFocus={() => setPointed(b.bookId)}
-                  onBlur={() => setPointed(null)}
-                  onClick={(e) => openFromList(e.currentTarget, { kind: "book", bookId: b.bookId })}
-                >
-                  {b.title}, {b.degree} {b.degree === 1 ? "connection" : "connections"}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </nav>
-      )}
-      {wide && graph.clusters.length > 0 && (
-        <nav aria-label="Clusters in the graph" className="sr-only">
-          <ul>
-            {graph.clusters.map((c) => (
-              <li key={c.id}>
-                <button
-                  type="button"
-                  onFocus={() => setPointedCluster(c.id)}
-                  onBlur={() => setPointedCluster(null)}
-                  onClick={(e) => openFromList(e.currentTarget, { kind: "cluster", id: c.id })}
-                >
-                  {/* An unnamed Cluster's name already counts its Books. */}
-                  {c.named ? `${c.name}, ${c.bookIds.length} books` : c.name}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </nav>
-      )}
+      {wide && <GraphLists graph={graph} onPoint={setPointed} onPointCluster={setPointedCluster} onOpen={openFromList} />}
 
       <p role="status" className="sr-only">
         {said}

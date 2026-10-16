@@ -19,15 +19,16 @@ const shelf = (page: Page) => page.getByRole("main");
 const status = (page: Page) => page.getByRole("group", { name: /^Status of / });
 // The Book screen's own heading: the shelf's section headings are level 2 too, until the screen has switched.
 const bookHeading = (page: Page) => page.getByRole("complementary", { name: /^Notes on / }).getByRole("heading", { level: 2 });
-const finishLine = (page: Page) => page.getByText("Finding its connections. They’ll gather below, and in the graph on a larger screen.");
+const finishLine = (page: Page) => page.getByText("Finding its connections. They’ll gather below, and in the graph.");
 const connections = (page: Page) => page.getByRole("region", { name: "Connections" });
 // A shelf, by its name as a screen reader hears it: "Want to read", "Read · 6".
 const shelfNamed = (page: Page, name: string) => shelf(page).getByRole("region", { name, exact: true });
 
-test("opens on the three shelves, Reading first, and no graph", async ({ page }) => {
+test("opens on the three shelves, Reading first, under the Shelf / Graph switch", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).toHaveAccessibleName("Reading");
   await expect(shelf(page).getByRole("button", { name: /^Middlemarch/ })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Graph" })).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "Views" }).getByText("Shelf")).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("navigation", { name: "Views" }).getByRole("link", { name: "Graph" })).toHaveAttribute("href", "/graph");
   await expect(shelfNamed(page, "Want to read").getByRole("button", { name: /^Gilead/ })).toBeVisible();
   await expect(shelfNamed(page, "Read · 6").getByRole("button")).toHaveCount(6);
 });
