@@ -129,6 +129,24 @@ test("back lets go of the chosen Book rather than leaving the graph", async ({ p
   await expect(page.locator("canvas")).toBeVisible();
 });
 
+test("choosing one Book after another is one step in history: one back lets go, the next leaves the graph", async ({ page }) => {
+  await page.goto("/");
+  await views(page).getByRole("link", { name: "Graph" }).tap();
+  await expect(page).toHaveURL(/\/graph$/);
+  await expect(page.locator("canvas")).toBeVisible();
+  for (const title of ["Beloved", "Stoner", "Candide"]) {
+    await page.getByRole("navigation", { name: "Books in the graph" }).getByRole("button", { name: new RegExp(`^${title}, `) }).focus();
+    await page.keyboard.press("Enter");
+    await expect(sheet(page).getByRole("heading", { level: 2 })).toHaveText(title);
+  }
+  await page.goBack();
+  await expect(sheet(page)).toHaveCount(0);
+  await expect(page).toHaveURL(/\/graph$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("heading", { name: "Reading" })).toBeVisible();
+});
+
 test("Open book shows the Book screen, whose back returns to the graph", async ({ page }) => {
   await openGraph(page);
   await page.getByRole("navigation", { name: "Books in the graph" }).getByRole("button", { name: /^Beloved, / }).focus();
