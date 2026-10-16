@@ -1,6 +1,6 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import type { LibraryItem } from "@/domain/library";
@@ -12,6 +12,7 @@ import { MobileAdd } from "./mobile-add";
 import { focusNote, NoteSheet } from "./note-sheet";
 import { quietLink } from "./quiet-link";
 import { AccountLink } from "./account-link";
+import { openedFromGraph, PhoneSwitch, useArrivedBySwitch } from "./view-switch";
 import { DraftLine, EmptyShelves, MoreBooks, SHELVES, ShelfLabel, shortDate, useDrafts, useExpandedShelves } from "./shelf";
 import type { Pause } from "@/domain/spend";
 
@@ -25,13 +26,17 @@ const pen = (
 const SAVED_MS = 8000;
 
 // The library on a phone: the three numbered shelves, Reading first. A row opens its Book screen;
-// "Add a Book" stays pinned at the bottom. There is no graph here.
+// "Add a Book" stays pinned at the bottom; the Shelf / Graph switch sits under the wordmark.
 // The pen on a Reading row opens the Note sheet for that Book over the shelf.
 // The Book screen is a URL (/?book=<id>), and so are Add (/?add) and the Note sheet (/?note=<id>), so the
 // phone's back gesture returns to the screen before.
 export function MobileShelf({ items, finding, paused }: { items: LibraryItem[]; finding: number; paused: Pause | null }) {
   const params = useSearchParams();
+  const router = useRouter();
+  const switched = useArrivedBySwitch();
   const bookId = params.get("book");
+  // A Book opened from the graph's sheet goes back to the graph.
+  const fromGraph = params.get("from") === "graph";
   const adding = !bookId && params.has("add");
   // The sheet opens inside the pen's tap, before the URL says so (`opening`), to focus its text there.
   const [opening, setOpening] = useState<string | null>(null);
@@ -80,7 +85,7 @@ export function MobileShelf({ items, finding, paused }: { items: LibraryItem[]; 
     setSaved(null);
     if (!book && !adding) back.current = { scrollY: window.scrollY, bookId: id };
     if (book) {
-      window.history.replaceState(null, "", `?book=${id}`);
+      window.history.replaceState(null, "", `?book=${id}${fromGraph ? "&from=graph" : ""}`);
     } else {
       depth.current++;
       window.history.pushState(null, "", `?book=${id}`);
@@ -104,7 +109,11 @@ export function MobileShelf({ items, finding, paused }: { items: LibraryItem[]; 
   }
 
   function goBack() {
-    if (depth.current > 0) {
+    if (fromGraph) {
+      if (openedFromGraph.current) window.history.back();
+      else router.replace("/graph");
+      openedFromGraph.current = false;
+    } else if (depth.current > 0) {
       depth.current--;
       window.history.back();
     } else {
@@ -172,7 +181,7 @@ export function MobileShelf({ items, finding, paused }: { items: LibraryItem[]; 
             key={book.bookId}
             variant="screen"
             item={book}
-            backLabel={addKept ? "Back to Add a book" : "Back to library"}
+            backLabel={fromGraph ? "Back to the graph" : addKept ? "Back to Add a book" : "Back to library"}
             onBack={goBack}
             onRemoved={goBack}
             onOpenBook={openBook}
@@ -180,7 +189,7 @@ export function MobileShelf({ items, finding, paused }: { items: LibraryItem[]; 
         </main>
       ) : (
         <>
-          <main inert={adding || !!noteBook} className="mx-auto max-w-[40rem] px-5 pt-[max(1.125rem,env(safe-area-inset-top))] pb-40">
+          <main inert={adding || !!noteBook} className={`mx-auto max-w-[40rem] px-5 pt-[max(1.125rem,env(safe-area-inset-top))] pb-40 ${switched ? "animate-view-in" : ""}`}>
             {/* A line too long to sit beside the wordmark drops under it whole, rather than wrapping, running
                 under Account; it wraps only past the page's width (a 320px phone). Account stays at the end of the
                 wordmark's row. */}
@@ -190,6 +199,9 @@ export function MobileShelf({ items, finding, paused }: { items: LibraryItem[]; 
                 <FindingIndicator initial={finding} paused={paused} className="max-w-[calc(100vw-2.5rem)] shrink-0" />
               </div>
               <AccountLink />
+            </div>
+            <div className="mt-2.5">
+              <PhoneSwitch current="library" />
             </div>
             {items.length === 0 ? (
               <>

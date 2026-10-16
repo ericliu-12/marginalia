@@ -300,8 +300,8 @@ function StatusControl({ item }: { item: LibraryItem }) {
           <>
             <span className="font-medium">Finished.</span>{" "}
             {finishLine.paused
-              ? `Connections are paused until ${finishLine.paused}. Then they’ll gather below, and in the graph on a larger screen.`
-              : "Finding its connections. They’ll gather below, and in the graph on a larger screen."}
+              ? `Connections are paused until ${finishLine.paused}. Then they’ll gather below, and in the graph.`
+              : "Finding its connections. They’ll gather below, and in the graph."}
           </>
         )}
       </p>
