@@ -7,18 +7,13 @@ import type { LibraryItem } from "@/domain/library";
 import type { Status } from "@/domain/search";
 import { BookPanel } from "./book-panel";
 import { FindingIndicator } from "./connections";
-import { Cover } from "./cover";
+import { ClusterDot } from "./cluster-tint";
 import { MobileAdd } from "./mobile-add";
-import { hasDraft } from "./note-draft";
 import { focusNote, NoteSheet } from "./note-sheet";
 import { quietLink } from "./quiet-link";
 import { AccountLink } from "./account-link";
+import { DraftLine, EmptyShelves, MoreBooks, SHELVES, ShelfLabel, shortDate, useDrafts, useExpandedShelves } from "./shelf";
 import type { Pause } from "@/domain/spend";
-
-const SECTIONS = [
-  { status: "want", label: "Want to read" },
-  { status: "read", label: "Read" },
-] as const;
 
 const pen = (
   <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden>
@@ -29,14 +24,8 @@ const pen = (
 // How long the "Note saved" line stays.
 const SAVED_MS = 8000;
 
-const chevron = (
-  <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden className="shrink-0">
-    <path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-// The library on a phone: the Reading shelf is home, with Want to read and Read folded away below.
-// A row opens its Book screen; "Add a Book" stays pinned at the bottom. There is no graph here.
+// The library on a phone: the three numbered shelves, Reading first. A row opens its Book screen;
+// "Add a Book" stays pinned at the bottom. There is no graph here.
 // The pen on a Reading row opens the Note sheet for that Book over the shelf.
 // The Book screen is a URL (/?book=<id>), and so are Add (/?add) and the Note sheet (/?note=<id>), so the
 // phone's back gesture returns to the screen before.
@@ -63,12 +52,8 @@ export function MobileShelf({ items, finding, paused }: { items: LibraryItem[]; 
     }, SAVED_MS);
     return () => clearInterval(timer);
   }, [saved]);
-  // Which Books have an unsent draft, read again whenever a sheet or a Book screen opens or closes.
-  const [drafts, setDrafts] = useState<Set<string>>(new Set());
-  useEffect(() => {
-    setDrafts(new Set(items.filter((i) => hasDraft(i.bookId)).map((i) => i.bookId)));
-  }, [items, noteBook, bookId]);
-  const [open, setOpen] = useState<Record<string, boolean>>({});
+  const drafts = useDrafts(items);
+  const { shown, expand, reveal } = useExpandedShelves();
   // Where the shelf was when a Book opened, to come back to: its scroll and the row that opened it.
   const back = useRef<{ scrollY: number; bookId: string } | null>(null);
   // Where the shelf was when Add opened, and the Statuses of what it added, for when it closes.
@@ -139,31 +124,32 @@ export function MobileShelf({ items, finding, paused }: { items: LibraryItem[]; 
   useLayoutEffect(() => {
     if (book || !back.current) return;
     const { scrollY, bookId: from } = back.current;
-    // A Book moved off Reading comes back to its section open, so its row is there to return to.
+    // A Book that has moved past where its shelf stops showing comes back with the shelf shown whole,
+    // so its row is there to return to.
     const status = items.find((i) => i.bookId === from)?.status;
-    if (status && status !== "reading" && !open[status]) {
-      setOpen((o) => ({ ...o, [status]: true }));
+    if (status && !shown(status, items.filter((i) => i.status === status)).some((i) => i.bookId === from)) {
+      reveal([status]);
       return;
     }
     back.current = null;
     window.scrollTo(0, scrollY);
     // A removed Book has no row to return to; the shelf's heading is the nearest stable place.
     (document.querySelector<HTMLElement>(`[data-book-id="${from}"]`) ?? headingRef.current)?.focus();
-  }, [book, items, open]);
+  }, [book, items, shown, reveal]);
 
-  // Leaving Add, by Done or back, returns to the button that opened it, with the sections that were
-  // added to open.
+  // Leaving Add, by Done or back, returns to the button that opened it, with the shelves that were
+  // added to shown whole.
   const wasAdding = useRef(adding);
   useEffect(() => {
     if (wasAdding.current && !adding && !book) {
       const filed = addedTo.current.filter((s) => s !== "reading");
       addedTo.current = [];
-      if (filed.length) setOpen((o) => ({ ...o, ...Object.fromEntries(filed.map((s) => [s, true])) }));
+      if (filed.length) reveal(filed);
       window.scrollTo(0, addScroll.current);
       addRef.current?.focus();
     }
     wasAdding.current = adding;
-  }, [adding, book]);
+  }, [adding, book, reveal]);
 
   // Closing the sheet, however it closes, returns to the pen that opened it.
   const noteFor = useRef<string | null>(null);
@@ -177,7 +163,7 @@ export function MobileShelf({ items, finding, paused }: { items: LibraryItem[]; 
     }
   }, [noteBook]);
 
-  const reading = items.filter((i) => i.status === "reading");
+  const shelves = SHELVES.map((sh) => ({ ...sh, rows: items.filter((i) => i.status === sh.status) })).filter((sh) => sh.status === "reading" || sh.rows.length > 0);
   return (
     <>
       {book ? (
@@ -186,7 +172,7 @@ export function MobileShelf({ items, finding, paused }: { items: LibraryItem[]; 
             key={book.bookId}
             variant="screen"
             item={book}
-            backLabel={addKept ? "Back to Add a Book" : "Back to library"}
+            backLabel={addKept ? "Back to Add a book" : "Back to library"}
             onBack={goBack}
             onRemoved={goBack}
             onOpenBook={openBook}
@@ -194,53 +180,58 @@ export function MobileShelf({ items, finding, paused }: { items: LibraryItem[]; 
         </main>
       ) : (
         <>
-          <main inert={adding || !!noteBook} className="mx-auto max-w-[40rem] px-6 pt-[max(1.25rem,env(safe-area-inset-top))] pb-36">
+          <main inert={adding || !!noteBook} className="mx-auto max-w-[40rem] px-5 pt-[max(1.125rem,env(safe-area-inset-top))] pb-40">
             {/* A line too long to sit beside the wordmark drops under it whole, rather than wrapping, running
                 under Account; it wraps only past the page's width (a 320px phone). Account stays at the end of the
                 wordmark's row. */}
             <div className="flex items-baseline gap-x-4">
               <div className="flex min-h-11 flex-1 flex-wrap items-baseline gap-x-4 gap-y-1">
-                <p className="text-[1.75rem] leading-none font-medium tracking-[-0.01em] italic">Marginalia</p>
-                <FindingIndicator initial={finding} paused={paused} className="max-w-[calc(100vw-3rem)] shrink-0" />
+                <p className="text-[24px] leading-none italic">Marginalia</p>
+                <FindingIndicator initial={finding} paused={paused} className="max-w-[calc(100vw-2.5rem)] shrink-0" />
               </div>
               <AccountLink />
             </div>
-            <h1 ref={headingRef} tabIndex={-1} className="mt-6 text-[2rem] leading-tight font-medium outline-none">Reading</h1>
-            {reading.length > 0 ? (
-              <Rows items={reading} drafts={drafts} onOpen={openBook} onNote={openNote} />
+            {items.length === 0 ? (
+              <>
+                <h1 ref={headingRef} tabIndex={-1} className="sr-only">
+                  Reading
+                </h1>
+                <div className="mt-8">
+                  <EmptyShelves />
+                </div>
+              </>
             ) : (
-              <p className="mt-3 max-w-[32ch] text-lg text-ink-2 italic">
-                {items.length === 0
-                  ? "Your library is empty. Add a Book to begin."
-                  : "Nothing in progress. Add a Book you’re reading, or start one from Want to read."}
-              </p>
+              <div className="mt-5 flex flex-col gap-[22px]">
+                {shelves.map(({ status, label, rows }, index) => {
+                  const visible = shown(status, rows);
+                  return (
+                    <section key={status} aria-labelledby={`shelf-${status}`}>
+                      <ShelfLabel
+                        as={status === "reading" ? "h1" : "h2"}
+                        ref={status === "reading" ? headingRef : undefined}
+                        tabIndex={status === "reading" ? -1 : undefined}
+                        id={`shelf-${status}`}
+                        index={index}
+                        label={label}
+                        count={status === "read" ? rows.length : undefined}
+                      />
+                      {status === "reading" && rows.length === 0 ? (
+                        <p className="mt-2.5 max-w-[32ch] text-ink-2 italic">Nothing in progress. Add a book you’re reading, or start one from Want to read.</p>
+                      ) : (
+                        <Rows items={visible} drafts={drafts} onOpen={openBook} onNote={status === "reading" ? openNote : undefined} />
+                      )}
+                      {visible.length < rows.length && (
+                        <MoreBooks count={rows.length - visible.length} firstHidden={rows[visible.length].bookId} onExpand={() => expand(status)} />
+                      )}
+                    </section>
+                  );
+                })}
+              </div>
             )}
-            {SECTIONS.map(({ status, label }) => {
-              const rows = items.filter((i) => i.status === status);
-              if (rows.length === 0) return null;
-              const expanded = !!open[status];
-              return (
-                <section key={status} aria-labelledby={`shelf-${status}`} className="mt-10">
-                  <h2 id={`shelf-${status}`} className="border-b border-rule text-[1.35rem] leading-tight font-medium">
-                    <button
-                      type="button"
-                      aria-expanded={expanded}
-                      onClick={() => setOpen((o) => ({ ...o, [status]: !expanded }))}
-                      className="flex min-h-12 w-full items-center gap-2.5 text-left"
-                    >
-                      <span className={`text-ink-3 transition-transform duration-200 ease-out-expo ${expanded ? "rotate-90" : ""}`}>{chevron}</span>
-                      {label}
-                      <span className="text-sm font-normal text-ink-3">{rows.length}</span>
-                    </button>
-                  </h2>
-                  {expanded && <Rows items={rows} drafts={drafts} onOpen={openBook} />}
-                </section>
-              );
-            })}
           </main>
-          <div inert={adding || !!noteBook} className="fixed inset-x-0 bottom-0 bg-linear-to-t from-paper from-60% to-paper/0 pt-8">
-            <div className="mx-auto max-w-[40rem] px-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
-              <p ref={savedRef} role="status" className="mb-1 flex min-h-11 items-center gap-x-4 text-sm text-ink-2 empty:hidden">
+          <div inert={adding || !!noteBook} className="fixed inset-x-0 bottom-0 border-t border-rule-2 bg-paper pt-3">
+            <div className="mx-auto max-w-[40rem] px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+              <p ref={savedRef} role="status" className="-mt-1 mb-1 flex min-h-11 items-center gap-x-4 text-sm text-ink-2 empty:hidden">
                 {saved && (
                   <>
                     <span className="min-w-0 truncate">
@@ -257,12 +248,9 @@ export function MobileShelf({ items, finding, paused }: { items: LibraryItem[]; 
                 type="button"
                 aria-expanded={adding}
                 onClick={openAdd}
-                className="flex min-h-12 w-full items-center justify-center gap-2 bg-ink text-[0.95rem] font-medium text-paper transition-colors active:bg-ink-2"
+                className="flex min-h-12 w-full items-center justify-center bg-ink text-[17px] text-paper italic transition-colors active:bg-ink-2"
               >
-                <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden>
-                  <path d="M7 1.5v11M1.5 7h11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                </svg>
-                Add a Book
+                Add a book
               </button>
             </div>
           </div>
@@ -284,6 +272,9 @@ export function MobileShelf({ items, finding, paused }: { items: LibraryItem[]; 
   );
 }
 
+// A shelf's rows, each opening its Book screen. Reading rows stack title, author and any draft Note,
+// with the pen beside them; Want to read sets the author across from the title; Read leads with the
+// Cluster's dot and ends with the finish date.
 function Rows({
   items,
   drafts,
@@ -291,40 +282,25 @@ function Rows({
   onNote,
 }: {
   items: LibraryItem[];
-  drafts: Set<string>;
+  drafts: Map<string, string>;
   onOpen: (bookId: string) => void;
   onNote?: (bookId: string) => void;
 }) {
   return (
-    <ul className="mt-2 divide-y divide-rule/60">
+    <ul className={onNote ? "mt-1.5" : "mt-1 divide-y divide-rule-3"}>
       {items.map((item) => {
-        const draft = drafts.has(item.bookId);
-        return (
-          <li key={item.bookId} className="flex items-center gap-1">
-            <button
-              type="button"
-              data-book-id={item.bookId}
-              onClick={() => onOpen(item.bookId)}
-              className="flex min-w-0 flex-1 items-center gap-4 py-3 text-left transition-colors duration-150 active:bg-paper-3/60"
-            >
-              <Cover title={item.title} url={item.coverUrl} />
-              <span className="min-w-0 flex-1">
-                <span className="block text-[1.05rem] leading-snug font-medium text-balance">{item.title}</span>
-                {(item.authors.length > 0 || item.reReading || draft) && (
-                  <span className="block text-sm text-ink-2">
-                    {item.authors.join(", ")}
-                    {[item.reReading && "Re-reading", draft && "Draft note"].filter(Boolean).map((tag, i) => (
-                      <span key={i} className="font-serif text-ink-3 italic">
-                        {(item.authors.length > 0 || i > 0) && " · "}
-                        {tag}
-                      </span>
-                    ))}
-                  </span>
-                )}
-              </span>
-              {!onNote && <span className="text-ink-3">{chevron}</span>}
-            </button>
-            {onNote && (
+        const draft = drafts.get(item.bookId);
+        const author = item.authors.join(", ");
+        const press = "min-w-0 flex-1 text-left transition-colors duration-150 active:bg-paper-3/60";
+        if (onNote) {
+          return (
+            <li key={item.bookId} className="flex items-start gap-1">
+              <button type="button" data-book-id={item.bookId} onClick={() => onOpen(item.bookId)} className={`${press} min-h-11 py-1.5`}>
+                <span className="block text-[20px] leading-[1.2] text-balance italic">{item.title}</span>
+                {author && <span className="caps block text-[13px] tracking-[1px] text-ink-2">{author}</span>}
+                {item.reReading && <span className="block text-[14px] text-ink-3 italic">Re-reading</span>}
+                {draft !== undefined && <DraftLine page={draft} className="mt-0.5 text-[14px]" />}
+              </button>
               <button
                 type="button"
                 data-note-for={item.bookId}
@@ -334,7 +310,29 @@ function Rows({
               >
                 {pen}
               </button>
-            )}
+            </li>
+          );
+        }
+        const read = item.status === "read";
+        return (
+          <li key={item.bookId}>
+            <button
+              type="button"
+              data-book-id={item.bookId}
+              onClick={() => onOpen(item.bookId)}
+              className={`${press} grid min-h-11 w-full items-baseline gap-x-2.5 py-2 ${read ? "grid-cols-[8px_minmax(0,1fr)_auto]" : "grid-cols-[minmax(0,1fr)_auto]"}`}
+            >
+              {read && <span className="text-[17px]">{item.cluster && <ClusterDot wash={item.cluster.wash} />}</span>}
+              <span className="text-[17px] leading-[1.25] italic">
+                {item.title}
+                {item.cluster?.name && <span className="sr-only">, in {item.cluster.name}</span>}
+              </span>
+              {read ? (
+                <span className="text-[13px] text-ink-2 tabular-nums">{item.finishedAt !== null && shortDate(item.finishedAt)}</span>
+              ) : (
+                <span className="caps max-w-[11rem] text-right text-[13px] leading-snug tracking-[1px] text-ink-2">{author}</span>
+              )}
+            </button>
           </li>
         );
       })}

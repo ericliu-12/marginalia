@@ -12,11 +12,14 @@ export function loadDraft(bookId: string): Draft {
     return EMPTY;
   }
 }
+// Said on the window whenever a draft is saved or cleared, so the shelf's "Draft note" lines follow it.
+export const DRAFTS_CHANGED = "marginalia:drafts-changed";
 export function saveDraft(bookId: string, draft: Draft) {
   try {
     if (draft.body || draft.quote || draft.page) localStorage.setItem(draftKey(bookId), JSON.stringify(draft));
     else localStorage.removeItem(draftKey(bookId));
   } catch {}
+  window.dispatchEvent(new Event(DRAFTS_CHANGED));
 }
 export function hasDraft(bookId: string) {
   const d = loadDraft(bookId);

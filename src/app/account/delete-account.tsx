@@ -6,9 +6,9 @@ import { field } from "../book-panel";
 
 // The quiet button in rust: a hairline that fills with rust on hover, 44px tall on touch.
 const dangerButton =
-  "inline-flex min-h-11 items-center border border-contrast px-3 text-[0.8rem] font-medium text-contrast transition-colors duration-150 hover:bg-contrast hover:text-paper active:bg-contrast active:text-paper disabled:border-contrast/40 disabled:text-ink-3 disabled:hover:bg-transparent lg:min-h-9";
+  "inline-flex min-h-11 items-center border border-contrast px-[18px] text-[16px] text-contrast italic transition-colors duration-150 hover:bg-contrast hover:text-paper active:bg-contrast active:text-paper disabled:border-contrast/40 disabled:text-ink-3 disabled:hover:bg-transparent";
 const quietButton =
-  "inline-flex min-h-11 items-center border border-ink/70 px-3 text-[0.8rem] font-medium text-ink transition-colors duration-150 hover:bg-ink hover:text-paper active:bg-ink-2 active:text-paper disabled:border-rule disabled:text-ink-3 disabled:hover:bg-transparent lg:min-h-9";
+  "inline-flex min-h-11 items-center border border-ink px-[18px] text-[16px] text-ink italic transition-colors duration-150 hover:bg-ink hover:text-paper active:bg-ink-2 active:text-paper disabled:border-rule disabled:text-ink-3 disabled:hover:bg-transparent";
 
 // Delete your account (#68): once the Reader types `delete`, and only from a session signed in within the
 // day. An older one signs in again first, coming back here.
@@ -54,7 +54,7 @@ export function DeleteAccount({ fresh: freshAtLoad }: { fresh: boolean }) {
 
   const failed = fresh ? "Couldn’t delete your account. Check your connection and try again." : "Couldn’t sign you out. Check your connection and try again.";
   const message = (
-    <p id="delete-message" role="status" className="mt-2 min-h-5 text-[0.8rem] text-pretty text-contrast">
+    <p id="delete-message" role="status" className="mt-2 min-h-6 text-[15px] text-pretty text-contrast">
       {state === "failed" && failed}
       {state === "pending" && fresh && <span className="sr-only">Deleting your account…</span>}
     </p>
@@ -64,7 +64,7 @@ export function DeleteAccount({ fresh: freshAtLoad }: { fresh: boolean }) {
     return (
       <>
         <p id="delete-stale" className="text-ink-2">
-          To delete your account, sign in again first: it’s been more than a day since you last did. This signs you out here, then brings
+          To delete your account, sign in again first. It’s been more than a day since you last did. This signs you out here, then brings
           you back to this page.
         </p>
         <div className="mt-5">
@@ -85,10 +85,10 @@ export function DeleteAccount({ fresh: freshAtLoad }: { fresh: boolean }) {
 
   return (
     <form onSubmit={onDelete} noValidate className="mt-5">
-      <label htmlFor="confirm-delete" className="block text-[0.8rem] font-medium text-ink-2">
-        Type <span className="text-ink">delete</span> to confirm
+      <label htmlFor="confirm-delete" className="caps block text-[14px] font-medium tracking-[1.5px] text-ink-2">
+        Type <span className="text-[16px] tracking-normal text-ink italic [font-variant-caps:normal]">delete</span> to confirm
       </label>
-      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-2">
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-2">
         <input
           id="confirm-delete"
           value={typed}
@@ -99,7 +99,7 @@ export function DeleteAccount({ fresh: freshAtLoad }: { fresh: boolean }) {
           spellCheck={false}
           enterKeyHint="done"
           aria-describedby="delete-message"
-          className={`${field} max-w-[12rem] text-[0.95rem] lg:h-9 lg:py-0`}
+          className={`${field} min-h-11 max-w-[9rem] py-1.5 text-[17px]`}
         />
         {/* Not disabled while pending, so focus stays on it; a second press does nothing. */}
         <button type="submit" disabled={!confirmed} aria-describedby="delete-message" className={dangerButton}>

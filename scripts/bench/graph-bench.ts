@@ -9,6 +9,7 @@
 // build on it and drives installed Chrome, headed, at 1440 by 900 (see `run`). Each scenario is timed by
 // its requestAnimationFrame intervals. A CPU throttle stands in for lower-end hardware. Local DATABASE_URL only; no outside calls.
 import { spawn } from "node:child_process";
+import { createHmac } from "node:crypto";
 import { chromium, type CDPSession, type Page } from "@playwright/test";
 import { Pool } from "pg";
 import { createDb } from "@/db/client";
@@ -22,6 +23,9 @@ const throttle = Number(process.argv[3] ?? 1);
 const profile = process.env.BENCH_PROFILE;
 const PORT = 3200;
 const NAME = "marginalia_bench";
+// The bench Reader's session, signed as Better Auth signs its cookie, with the bench server's secret.
+const SECRET = "bench-auth-secret-at-least-32-characters";
+const TOKEN = "bench-reader-session";
 
 const adminUrl = process.env.DATABASE_URL;
 if (!adminUrl || !["localhost", "127.0.0.1"].includes(new URL(adminUrl).hostname)) {
@@ -182,7 +186,15 @@ const { db, pool } = createDb(onDatabase(NAME));
 await runMigrations(db);
 
 const server = spawn("pnpm", ["exec", "next", "start", "--port", String(PORT)], {
-  env: { ...process.env, DATABASE_URL: onDatabase(NAME), ANTHROPIC_API_KEY: "bench-no-calls", VOYAGE_API_KEY: "bench-no-calls", GOOGLE_BOOKS_API_KEY: "bench-no-calls" },
+  env: {
+    ...process.env,
+    DATABASE_URL: onDatabase(NAME),
+    BETTER_AUTH_URL: `http://localhost:${PORT}`,
+    BETTER_AUTH_SECRET: SECRET,
+    ANTHROPIC_API_KEY: "bench-no-calls",
+    VOYAGE_API_KEY: "bench-no-calls",
+    GOOGLE_BOOKS_API_KEY: "bench-no-calls",
+  },
   stdio: "ignore",
 });
 const browser = await chromium.launch({
@@ -203,9 +215,11 @@ try {
   }
   for (const n of sizes) {
     const t0 = Date.now();
-    const seededLibrary = await seedSyntheticLibrary(db, n);
+    const seededLibrary = await seedSyntheticLibrary(db, n, TOKEN);
     console.log(JSON.stringify({ ...seededLibrary, seedSeconds: (Date.now() - t0) / 1000 }));
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const signed = encodeURIComponent(`${TOKEN}.${createHmac("sha256", SECRET).update(TOKEN).digest("base64")}`);
+    await context.addCookies([{ name: "better-auth.session_token", value: signed, domain: "localhost", path: "/", httpOnly: true, sameSite: "Lax" }]);
     // tsx names the functions handed to page.evaluate with a helper the page lacks.
     await context.addInitScript({ content: "window.__name = (f) => f;" });
     const page = await context.newPage();

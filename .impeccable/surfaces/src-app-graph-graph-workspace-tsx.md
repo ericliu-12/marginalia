@@ -16,8 +16,8 @@ related_targets: ["src/app/graph/graph-canvas.tsx","src/app/graph/cluster-panel.
 - Each Cluster is one continuous soft wash: a thick, round-capped stroke along its internal Connections plus a disc per Book, blurred, in its tint. The Cluster name is italic in its darker tint.
 - Books are ink dots with roman 18px labels; Books with no Connections are hollow dots with muted italic labels.
 - Lines in the Connection Type hues; thickness is strength.
-- Legend footer under a hairline: hue bars with small-caps names; "Thicker lines are stronger Connections. Select a Book, or a Cluster’s name." in italic.
-- A click inside a wash selects its Cluster (#48); a click on bare canvas clears.
+- Legend footer under a hairline: hue bars with small-caps names; "Thicker lines are stronger Connections. Select a Book, or a Cluster’s name or colour." in italic.
+- A click inside a wash selects its Cluster (#48), and again lets it go; a Book or Connection over the wash comes first, and where washes overlap the smallest wins. A wash under the pointer, or reached from the keyboard's Cluster list, deepens slightly. A click on bare canvas clears.
 - Empty graph: "Finish a Book and its Connections will gather here."
 
 ## Memorable moment

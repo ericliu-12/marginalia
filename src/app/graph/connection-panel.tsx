@@ -48,16 +48,16 @@ export function ConnectionPanel({ id, onBack, onOpenBook }: { id: string; onBack
       <div className="min-h-0 flex-1 overflow-y-auto px-6 pt-2 pb-10">
         {state === "failed" && (
           <p role="alert" className="text-contrast">
-            Couldn’t open this Connection.{" "}
+            Couldn’t open this connection.{" "}
             <button type="button" onClick={() => setRetry((n) => n + 1)} className="underline underline-offset-2">
               Try again
             </button>
           </p>
         )}
-        {state !== "failed" && c === undefined && <p className="text-ink-2 italic">Opening this Connection…</p>}
+        {state !== "failed" && c === undefined && <p className="text-ink-2 italic">Opening this connection…</p>}
         {c === null && (
           <p ref={goneRef} tabIndex={-1} className="text-ink-2 italic outline-none">
-            This Connection is no longer in your graph.
+            This connection is no longer in your graph.
           </p>
         )}
         {c && (

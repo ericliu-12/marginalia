@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { quietLink } from "../quiet-link";
 
 export function SignOut() {
   const [state, setState] = useState<"idle" | "pending" | "failed">("idle");
@@ -13,11 +12,11 @@ export function SignOut() {
     setState("failed");
   }
   return (
-    <div className="mt-3 flex flex-wrap items-baseline gap-x-4">
-      <button type="button" onClick={signOut} disabled={state === "pending"} className={`${quietLink} inline-flex items-center`}>
+    <div className="mt-2 flex flex-wrap items-center gap-x-4">
+      <button type="button" onClick={signOut} disabled={state === "pending"} className="inline-flex min-h-11 items-center text-[16px] text-ink-2 italic underline decoration-rule underline-offset-4 transition-colors duration-150 hover:text-ink hover:decoration-ink disabled:text-ink-3">
         {state === "pending" ? "Signing out…" : state === "failed" ? "Try again" : "Sign out"}
       </button>
-      <p role="status" className="text-[0.8rem] text-contrast">
+      <p role="status" className="text-[15px] text-pretty text-contrast">
         {state === "failed" ? "Couldn’t sign out. Check your connection and try again." : ""}
       </p>
     </div>

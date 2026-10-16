@@ -41,20 +41,23 @@ for (const size of SIZES) {
 }
 
 for (const size of SIZES) {
-  test(`at ${size.width}×${size.height} the library stays put as Add closes and opens`, async ({ page }) => {
+  test(`at ${size.width}×${size.height} the library stays put as Add opens and closes`, async ({ page }) => {
     await page.setViewportSize(size);
-    // Add is open when the library loads.
+    // Add is closed when the library loads; the header's "Add a Book" opens it.
     await page.goto("/");
+    await expect(page.getByRole("complementary", { name: "Add a book" })).toBeHidden();
     const firstRow = library(page).getByRole("listitem").first();
     const top = async () => (await firstRow.boundingBox())!.y;
     const before = await top();
 
-    await page.getByRole("button", { name: "Close search" }).click();
-    await expect(page.getByRole("complementary", { name: "Add a book" })).toBeHidden();
-    expect(await top()).toBe(before);
-
     await page.getByRole("button", { name: "Add a book" }).click();
     await expect(page.getByRole("complementary", { name: "Add a book" })).toBeVisible();
+    await expect(page.getByRole("searchbox", { name: "Title or author" })).toBeFocused();
+    expect(await top()).toBe(before);
+
+    await page.getByRole("button", { name: "Close search" }).click();
+    await expect(page.getByRole("complementary", { name: "Add a book" })).toBeHidden();
+    await expect(page.getByRole("button", { name: "Add a book" })).toBeFocused();
     expect(await top()).toBe(before);
   });
 }

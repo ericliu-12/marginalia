@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 import type { LibraryItem } from "@/domain/library";
 import type { Note } from "@/domain/notes";
 import { NoteForm } from "./book-panel";
-import { quietLink } from "./quiet-link";
 import { useScrollLock, useVisibleViewport } from "./use-visible-viewport";
 
 // Focus the sheet's text with the caret after any kept draft. Inside a tap, this raises a phone's keyboard.
@@ -73,10 +72,12 @@ export function NoteSheet({
         className={`relative mx-auto flex max-h-[calc(100%-1.5rem)] w-full max-w-[40rem] flex-col overflow-y-auto overscroll-contain border-t border-rule bg-paper-2 px-5 pt-1.5 shadow-[0_-12px_32px_-8px_rgb(26_26_26/0.18),0_-2px_6px_rgb(26_26_26/0.06)] ${leaving ? "animate-sheet-down" : "motion-safe:animate-sheet-up"} ${view?.keyboard ? "pb-3" : "pb-[max(0.75rem,env(safe-area-inset-bottom))]"}`}
       >
         <header className="flex min-h-11 items-center justify-between gap-3">
-          <p className="min-w-0 truncate text-sm text-ink-2">
-            Note on <i className="font-serif text-base text-ink">{item.title}</i>
+          <p className="min-w-0 truncate">
+            <span className="caps text-[14px] font-medium tracking-[1.5px] text-ink-2">Note on</span>{" "}
+            <i className="text-[17px] text-ink">{item.title}</i>
           </p>
-          <button type="button" onClick={() => leave(onClose)} className={`${quietLink} shrink-0`}>
+          {/* As Add's Cancel: a quiet word in ink secondary. */}
+          <button type="button" onClick={() => leave(onClose)} className="-mr-3 min-h-11 shrink-0 px-3 text-[16px] text-ink-2 transition-colors duration-150 hover:text-ink active:text-ink">
             Close
           </button>
         </header>

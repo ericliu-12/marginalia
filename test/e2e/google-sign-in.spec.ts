@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+// Turnstile faked, so a slow Cloudflare can't fail sign-in (./fixtures).
+import { expect, test } from "./fixtures";
 import { seedLibrary } from "./database";
 import { signedOut } from "./session";
 import { E2E_PORT } from "../worktree";

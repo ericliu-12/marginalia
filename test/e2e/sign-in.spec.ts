@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+// Turnstile faked, so a slow Cloudflare can't fail sign-in (./fixtures).
+import { expect, test } from "./fixtures";
 import { expireSession, seedLibrary } from "./database";
 import { READER_A, signedIn, signedOut } from "./session";
 
@@ -68,7 +69,8 @@ test.describe("signed in until the session runs out", () => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
     await expireSession(READER_A);
-    await page.getByRole("searchbox", { name: "Search by title and author" }).fill("stoner");
+    await page.getByRole("button", { name: "Add a book" }).click();
+    await page.getByRole("searchbox", { name: "Title or author" }).fill("stoner");
     await expect(page).toHaveURL(/\/sign-in$/);
     await expect(page.getByLabel("Email")).toBeVisible();
   });

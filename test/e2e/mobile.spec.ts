@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { readingBook, seedLibrary, wantBook } from "./database";
 import { catalog } from "./open-library";
 
-// The library at phone width: the Reading shelf, its folded sections, and the Book screen with its
+// The library at phone width: the three numbered shelves, and the Book screen with its
 // three-way Status control. The seeded chain is all Read; Middlemarch is being read for the first time.
 // No worker runs, so a first finish leaves its Connections being found.
 
@@ -19,20 +19,17 @@ const shelf = (page: Page) => page.getByRole("main");
 const status = (page: Page) => page.getByRole("group", { name: /^Status of / });
 // The Book screen's own heading: the shelf's section headings are level 2 too, until the screen has switched.
 const bookHeading = (page: Page) => page.getByRole("complementary", { name: /^Notes on / }).getByRole("heading", { level: 2 });
-const finishLine = (page: Page) => page.getByText("Connections are being found; they’ll gather below, and in the graph on a larger screen.");
+const finishLine = (page: Page) => page.getByText("Finding its connections. They’ll gather below, and in the graph on a larger screen.");
 const connections = (page: Page) => page.getByRole("region", { name: "Connections" });
+// A shelf, by its name as a screen reader hears it: "Want to read", "Read · 6".
+const shelfNamed = (page: Page, name: string) => shelf(page).getByRole("region", { name, exact: true });
 
-test("opens on the Reading shelf, with Want to read and Read folded away and no graph", async ({ page }) => {
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Reading");
+test("opens on the three shelves, Reading first, and no graph", async ({ page }) => {
+  await expect(page.getByRole("heading", { level: 1 })).toHaveAccessibleName("Reading");
   await expect(shelf(page).getByRole("button", { name: /^Middlemarch/ })).toBeVisible();
   await expect(page.getByRole("link", { name: "Graph" })).toHaveCount(0);
-
-  const want = shelf(page).getByRole("button", { name: "Want to read 1" });
-  await expect(want).toHaveAttribute("aria-expanded", "false");
-  await expect(shelf(page).getByRole("button", { name: /^Gilead/ })).toHaveCount(0);
-  await want.click();
-  await expect(shelf(page).getByRole("button", { name: /^Gilead/ })).toBeVisible();
-  await expect(shelf(page).getByRole("button", { name: "Read 6" })).toHaveAttribute("aria-expanded", "false");
+  await expect(shelfNamed(page, "Want to read").getByRole("button", { name: /^Gilead/ })).toBeVisible();
+  await expect(shelfNamed(page, "Read · 6").getByRole("button")).toHaveCount(6);
 });
 
 // Open Library played here: works whose title starts with what is typed, none of them in the library.
@@ -57,13 +54,13 @@ const answerSearch = async (page: Page) => {
     return route.fulfill({ json: CATALOG.filter((w) => w.title.toLowerCase().startsWith(q)) });
   });
 };
-const addScreen = (page: Page) => page.getByRole("dialog", { name: "Add a Book" });
-const searchbox = (page: Page) => page.getByRole("searchbox", { name: "Search by title and author" });
+const addScreen = (page: Page) => page.getByRole("dialog", { name: "Add a book" });
+const searchbox = (page: Page) => page.getByRole("searchbox", { name: "Title or author" });
 const selectedText = (page: Page) => searchbox(page).evaluate((el: HTMLInputElement) => el.value.slice(el.selectionStart!, el.selectionEnd!));
 
 test("Add adds a Book in one tap, stays open with the search selected for the next, and Undo takes one back out", async ({ page }) => {
   await answerSearch(page);
-  const add = page.getByRole("button", { name: "Add a Book" });
+  const add = page.getByRole("button", { name: "Add a book" });
   await add.click();
   await expect(searchbox(page)).toBeFocused();
 
@@ -75,14 +72,14 @@ test("Add adds a Book in one tap, stays open with the search selected for the ne
 
   // Typing goes over the selected search, and the next Book is one tap too.
   await page.keyboard.type("Austerlitz");
-  await addScreen(page).getByRole("group", { name: "Add Austerlitz" }).getByRole("button", { name: "Already read" }).click();
-  await expect(addScreen(page).getByText("Added · Already read")).toBeVisible();
-  await expect(addScreen(page).getByText("1 Book finding Connections")).toBeVisible();
+  await addScreen(page).getByRole("group", { name: "Add Austerlitz" }).getByRole("button", { name: "Read", exact: true }).click();
+  await expect(addScreen(page).getByText("Added · Read", { exact: true })).toBeVisible();
+  await expect(addScreen(page).getByText("1 book finding connections")).toBeVisible();
   expect(await selectedText(page)).toBe("Austerlitz");
 
   await addScreen(page).getByRole("button", { name: "Undo adding Austerlitz" }).click();
   await expect(addScreen(page).getByRole("group", { name: "Add Austerlitz" })).toBeVisible();
-  await expect(addScreen(page).getByText("1 Book finding Connections")).toHaveCount(0);
+  await expect(addScreen(page).getByText("1 book finding connections")).toHaveCount(0);
   await expect(searchbox(page)).toBeFocused();
 
   // An empty search shows what this visit added, each still undoable.
@@ -96,14 +93,33 @@ test("Add adds a Book in one tap, stays open with the search selected for the ne
   await addScreen(page).getByRole("group", { name: "Add The Peregrine" }).getByRole("button", { name: "Want to read" }).click();
   await expect(addScreen(page).getByText("Added · Want to read")).toBeVisible();
 
-  // Done opens the sections that were added to, so every new Book is on show.
+  // Done shows the shelves that were added to whole, so every new Book is on show.
   await addScreen(page).getByRole("button", { name: "Done" }).click();
   await expect(addScreen(page)).toHaveCount(0);
   await expect(add).toBeFocused();
   await expect(shelf(page).getByRole("button", { name: /^Piranesi/ })).toBeVisible();
-  await expect(shelf(page).getByRole("button", { name: "Want to read 2" })).toHaveAttribute("aria-expanded", "true");
-  await expect(shelf(page).getByRole("button", { name: /^The Peregrine/ })).toBeVisible();
-  await expect(shelf(page).getByRole("button", { name: "Read 6" })).toHaveAttribute("aria-expanded", "false");
+  await expect(shelfNamed(page, "Want to read").getByRole("button", { name: /^The Peregrine/ })).toBeVisible();
+});
+
+test("Add opens the first result on its choices; tapping another opens that one instead, with the keyboard kept up", async ({ page }) => {
+  await catalog(CATALOG);
+  await page.route("**/api/search?**", (route) => route.fulfill({ json: CATALOG }));
+  await page.getByRole("button", { name: "Add a book" }).click();
+  await expect(addScreen(page).getByRole("button", { name: "Add it by hand" })).toBeVisible();
+  await searchbox(page).fill("a");
+
+  const row = (title: string) => addScreen(page).getByRole("button", { name: new RegExp(`^${title}`) });
+  await expect(row("Piranesi")).toHaveAttribute("aria-expanded", "true");
+  await expect(addScreen(page).getByRole("group", { name: /^Add / })).toHaveCount(1);
+
+  await row("Austerlitz").click();
+  await expect(row("Austerlitz")).toHaveAttribute("aria-expanded", "true");
+  await expect(row("Piranesi")).toHaveAttribute("aria-expanded", "false");
+  await expect(searchbox(page)).toBeFocused();
+  await addScreen(page).getByRole("group", { name: "Add Austerlitz" }).getByRole("button", { name: "Read", exact: true }).click();
+  await expect(addScreen(page).getByText("Added · Read", { exact: true })).toBeVisible();
+  // Once something is added, closing keeps it: Cancel gives way to Done alone.
+  await expect(addScreen(page).getByRole("button", { name: "Cancel" })).toHaveCount(0);
 });
 
 // Holds the next Server Function call, as on a slow connection, until it is let go. Next sends them one
@@ -121,7 +137,7 @@ const holdNextCall = async (page: Page) => {
 
 test("a Book added just before Done is on the shelf once its add lands", async ({ page }) => {
   await answerSearch(page);
-  await page.getByRole("button", { name: "Add a Book" }).click();
+  await page.getByRole("button", { name: "Add a book" }).click();
   await searchbox(page).fill("Piranesi");
   // The hand-add form's lookalike check hangs, so the add waits behind it.
   await addScreen(page).getByRole("button", { name: "Add it by hand" }).click();
@@ -139,13 +155,13 @@ test("a Book added just before Done is on the shelf once its add lands", async (
 });
 
 test("Add's search shows its caret once Add has risen, not while it moves", async ({ page }) => {
-  await page.getByRole("button", { name: "Add a Book" }).click();
+  await page.getByRole("button", { name: "Add a book" }).click();
   await expect(searchbox(page)).toBeFocused();
   await expect.poll(() => searchbox(page).evaluate((el) => getComputedStyle(el).caretColor)).not.toBe("rgba(0, 0, 0, 0)");
 });
 
 test("Add is a URL too: back closes it, to the button that opened it", async ({ page }) => {
-  const add = page.getByRole("button", { name: "Add a Book" });
+  const add = page.getByRole("button", { name: "Add a book" });
   await add.click();
   await expect(page).toHaveURL(/\?add$/);
   await page.goBack();
@@ -156,7 +172,7 @@ test("Add is a URL too: back closes it, to the button that opened it", async ({ 
 
 test("Escape clears a search first, and then closes Add", async ({ page }) => {
   await answerSearch(page);
-  const add = page.getByRole("button", { name: "Add a Book" });
+  const add = page.getByRole("button", { name: "Add a book" });
   await add.click();
   await searchbox(page).fill("Piranesi");
   await page.keyboard.press("Escape");
@@ -169,7 +185,7 @@ test("Escape clears a search first, and then closes Add", async ({ page }) => {
 
 test("a Book search can't find is added by hand, past a lookalike warning, and can be undone", async ({ page }) => {
   await page.route("**/api/search?**", (route) => route.fulfill({ json: [] }));
-  await page.getByRole("button", { name: "Add a Book" }).click();
+  await page.getByRole("button", { name: "Add a book" }).click();
   await searchbox(page).fill("stoner: a novel");
   await addScreen(page).getByRole("button", { name: "Add it by hand" }).click();
   const form = addScreen(page).getByRole("form", { name: "Add a book by hand" });
@@ -178,17 +194,17 @@ test("a Book search can't find is added by hand, past a lookalike warning, and c
 
   await form.getByRole("button", { name: "Want to read" }).click();
   const addedSoFar = addScreen(page).getByRole("region", { name: "Added so far" });
-  await expect(addedSoFar.getByRole("listitem")).toContainText("stoner: a noveljohn williams · Manual BookAdded · Want to read");
+  await expect(addedSoFar.getByRole("listitem")).toContainText("stoner: a noveljohn williams · Manual bookAdded · Want to read");
   await expect(searchbox(page)).toBeFocused();
   await addedSoFar.getByRole("button", { name: "Undo adding stoner: a novel" }).click();
   await expect(addedSoFar).toHaveCount(0);
   await addScreen(page).getByRole("button", { name: "Done" }).click();
-  await expect(shelf(page).getByRole("button", { name: "Want to read 1" })).toBeVisible();
+  await expect(shelfNamed(page, "Want to read").getByRole("button")).toHaveCount(1);
 });
 
 test("a lookalike's title opens that Book, and back returns to Add as it was", async ({ page }) => {
   await answerSearch(page);
-  await page.getByRole("button", { name: "Add a Book" }).click();
+  await page.getByRole("button", { name: "Add a book" }).click();
   await searchbox(page).fill("Piranesi");
   await addScreen(page).getByRole("group", { name: "Add Piranesi" }).getByRole("button", { name: "Reading" }).click();
   await expect(addScreen(page).getByText("Added · Reading")).toBeVisible();
@@ -204,19 +220,19 @@ test("a lookalike's title opens that Book, and back returns to Add as it was", a
   await page.goBack();
   await expect(form.getByLabel("Author")).toHaveValue("john williams");
   await form.getByRole("button", { name: "Stoner" }).click();
-  await page.getByRole("button", { name: "Back to Add a Book" }).click();
+  await page.getByRole("button", { name: "Back to Add a book" }).click();
   await expect(form.getByLabel("Author")).toHaveValue("john williams");
   await searchbox(page).fill("");
   await expect(addScreen(page).getByRole("region", { name: "Added so far" }).getByRole("button", { name: "Undo adding Piranesi" })).toBeVisible();
 
   await addScreen(page).getByRole("button", { name: "Done" }).click();
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Reading");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveAccessibleName("Reading");
   await expect(page).toHaveURL(/\/$/);
 });
 
 test("what is done on a Book's screen shows back in Add: a new Status, and a removed Book drops out of Added so far", async ({ page }) => {
   await answerSearch(page);
-  await page.getByRole("button", { name: "Add a Book" }).click();
+  await page.getByRole("button", { name: "Add a book" }).click();
   await searchbox(page).fill("Piranesi");
   await addScreen(page).getByRole("group", { name: "Add Piranesi" }).getByRole("button", { name: "Reading" }).click();
   await expect(addScreen(page).getByText("Added · Reading")).toBeVisible();
@@ -235,9 +251,9 @@ test("what is done on a Book's screen shows back in Add: a new Status, and a rem
   await toPiranesi();
   await status(page).getByRole("button", { name: "Read", exact: true }).click();
   await expect(status(page).getByRole("button", { name: "Read", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("button", { name: "Back to Add a Book" }).click();
+  await page.getByRole("button", { name: "Back to Add a book" }).click();
   await searchbox(page).fill("");
-  await expect(addedSoFar.getByText("Added · Already read")).toBeVisible();
+  await expect(addedSoFar.getByText("Added · Read", { exact: true })).toBeVisible();
 
   await toPiranesi();
   await page.getByRole("button", { name: "Remove from library" }).click();
@@ -245,12 +261,12 @@ test("what is done on a Book's screen shows back in Add: a new Status, and a rem
   await expect(addScreen(page)).toBeVisible();
   await searchbox(page).fill("");
   await expect(addedSoFar).toHaveCount(0);
-  await expect(addScreen(page).getByText("Search by title; add the author to narrow it.", { exact: false })).toBeVisible();
+  await expect(addScreen(page).getByText("Search by title. Add the author to narrow it.", { exact: false })).toBeVisible();
 });
 
 test("Enter in the hand-add form moves to the next field rather than adding the Book", async ({ page }) => {
   await page.route("**/api/search?**", (route) => route.fulfill({ json: [] }));
-  await page.getByRole("button", { name: "Add a Book" }).click();
+  await page.getByRole("button", { name: "Add a book" }).click();
   await searchbox(page).fill("Kitchen Notes");
   await addScreen(page).getByRole("button", { name: "Add it by hand" }).click();
   const form = addScreen(page).getByRole("form", { name: "Add a book by hand" });
@@ -274,7 +290,7 @@ test("Read on the Book screen finishes the Book, and only the first finish shows
   await status(page).getByRole("button", { name: "Read", exact: true }).click();
   await expect(status(page).getByRole("button", { name: "Read", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(finishLine(page)).toBeVisible();
-  await expect(connections(page).getByText("Finding Connections…")).toBeVisible();
+  await expect(connections(page).getByText("Finding connections…")).toBeVisible();
 
   // Read again, then finished again: a second Read-through, so no finish line.
   await status(page).getByRole("button", { name: "Reading" }).click();
@@ -286,10 +302,10 @@ test("Read on the Book screen finishes the Book, and only the first finish shows
   await expect(page.getByRole("status").filter({ hasText: "Finished." })).toHaveCount(0);
 
   await page.getByRole("button", { name: "Back to library" }).click();
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Reading");
-  await expect(shelf(page).getByRole("button", { name: "Read 7" })).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveAccessibleName("Reading");
+  await expect(shelfNamed(page, "Read · 7").getByRole("button", { name: /^Middlemarch/ })).toBeVisible();
   await expect(shelf(page).getByRole("button", { name: /^Middlemarch/ })).toBeFocused();
-  await expect(page.getByText("1 Book finding Connections")).toBeVisible();
+  await expect(page.getByText("1 book finding connections")).toBeVisible();
 });
 
 test("a Status move that lands after leaving the Book shows, also on coming back to it", async ({ page }) => {
@@ -300,14 +316,13 @@ test("a Status move that lands after leaving the Book shows, also on coming back
   await call.held();
   await status(page).getByRole("button", { name: "Read", exact: true }).click();
   await page.getByRole("button", { name: "Back to library" }).click();
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Reading");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveAccessibleName("Reading");
   await call.release();
-  await expect(shelf(page).getByRole("button", { name: "Read 7" })).toBeVisible();
+  await expect(shelfNamed(page, "Read · 7")).toBeVisible();
 
   // Back to the same Book before the move lands.
   await page.unrouteAll();
   call = await holdNextCall(page);
-  await shelf(page).getByRole("button", { name: "Read 7" }).click();
   await middlemarch.click();
   await call.held();
   await status(page).getByRole("button", { name: "Reading" }).click();
@@ -318,11 +333,12 @@ test("a Status move that lands after leaving the Book shows, also on coming back
   await expect(status(page).getByRole("button", { name: "Reading" })).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: "Back to library" }).click();
   await expect(shelf(page).getByRole("button", { name: /^Middlemarch/ })).toBeVisible();
-  await expect(shelf(page).getByRole("button", { name: "Read 6" })).toBeVisible();
+  await expect(shelfNamed(page, "Read · 6")).toBeVisible();
 });
 
 test("the Book screen is a URL, and browser back returns to the shelf where it was", async ({ page }) => {
-  await shelf(page).getByRole("button", { name: "Read 6" }).click();
+  // Short enough that the shelves scroll.
+  await page.setViewportSize({ width: 412, height: 600 });
   const stoner = shelf(page).getByRole("button", { name: /^Stoner/ });
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
   const scrollY = await page.evaluate(() => window.scrollY);
@@ -332,7 +348,7 @@ test("the Book screen is a URL, and browser back returns to the shelf where it w
   await expect(page).toHaveURL(/\?book=/);
 
   await page.goBack();
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Reading");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveAccessibleName("Reading");
   await expect(page).toHaveURL(/\/$/);
   await expect(shelf(page).getByRole("button", { name: /^Stoner/ })).toBeFocused();
   expect(await page.evaluate(() => window.scrollY)).toBe(scrollY);
@@ -343,11 +359,10 @@ test("the Book screen is a URL, and browser back returns to the shelf where it w
   await page.reload();
   await expect(bookHeading(page)).toHaveText("Stoner");
   await page.getByRole("button", { name: "Back to library" }).click();
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Reading");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveAccessibleName("Reading");
 });
 
 test("the Book screen lists its Connections as text, and a title opens that Book", async ({ page }) => {
-  await shelf(page).getByRole("button", { name: "Read 6" }).click();
   await shelf(page).getByRole("button", { name: /^Stoner/ }).click();
   await expect(bookHeading(page)).toHaveText("Stoner");
   await expect(status(page).getByRole("button", { name: "Read", exact: true })).toHaveAttribute("aria-pressed", "true");
@@ -358,7 +373,7 @@ test("the Book screen lists its Connections as text, and a title opens that Book
 
   // Following a Connection takes the Book's place, so back still leads to the shelf.
   await page.goBack();
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Reading");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveAccessibleName("Reading");
 });
 
 const sheet = (page: Page) => page.getByRole("dialog", { name: /^Note on / });
@@ -441,7 +456,7 @@ test("a Note's draft survives closing the sheet, back, a refresh and another Boo
 
   // The Book screen writes on the same draft.
   await shelf(page).getByRole("button", { name: /^Piranesi/ }).click();
-  await expect(page.getByRole("textbox", { name: "New note" })).toHaveValue("The House is kind");
+  await expect(page.getByRole("textbox", { name: "Write a note" })).toHaveValue("The House is kind");
 });
 
 test("a Note that fails to save stays in the sheet with a quiet way to try again", async ({ page }) => {
@@ -487,7 +502,7 @@ const raiseKeyboard = (page: Page, height: number, offsetTop = 0) =>
 
 test("Add covers the whole shelf with the keyboard up, and keeps its search in view above it", async ({ page }) => {
   await fakeKeyboard(page);
-  await page.getByRole("button", { name: "Add a Book" }).click();
+  await page.getByRole("button", { name: "Add a book" }).click();
   await expect(addScreen(page)).toBeVisible();
   // Every point on the screen, the strip above the keyboard and the keyboard's own place included, is Add.
   const shelfShows = () =>
@@ -573,7 +588,7 @@ test("the Note saved line goes with the next move, or after a while", async ({ p
   await writeOne("First thought");
   await shelf(page).getByRole("button", { name: /^Middlemarch/ }).click();
   await page.getByRole("button", { name: "Back to library" }).click();
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Reading");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveAccessibleName("Reading");
   await expect(savedLine).toHaveCount(0);
 
   await writeOne("Second thought");

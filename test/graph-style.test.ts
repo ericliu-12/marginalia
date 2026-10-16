@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { CLUSTER_NAME_COLOR, layoutScale, TYPICAL_EDGE_LENGTH, WASH, WASH_ALPHA } from "../src/app/graph/graph-style";
-import { WASH_COUNT } from "../src/domain/clusters";
+import { CLUSTER_TINTS } from "../src/app/cluster-tint";
+import { CLUSTER_NAME_PLATE, layoutScale, TYPICAL_EDGE_LENGTH, WASH_ALPHA, WASH_RADIUS, WASH_REACH } from "../src/app/graph/graph-style";
 
 const PAPER = "#fbf8f1";
 const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
@@ -15,15 +15,18 @@ const contrast = (p: number[], q: number[]) => {
 const over = (base: number[], tint: number[], alpha: number) => base.map((v, i) => v * (1 - alpha) + tint[i] * alpha);
 
 describe("Graph style", () => {
-  it("has a wash for each of the Clusters' wash indices", () => {
-    expect(WASH).toHaveLength(WASH_COUNT);
+  it("keeps every Cluster name at 4.5:1 or more on its plate, even over two washes at their deepest", () => {
+    for (const { name } of CLUSTER_TINTS)
+      for (const { tint: a } of CLUSTER_TINTS)
+        for (const { tint: b } of CLUSTER_TINTS) {
+          const deepest = Math.max(...Object.values(WASH_ALPHA));
+          const washes = over(over(rgb(PAPER), rgb(a), deepest), rgb(b), deepest);
+          expect(contrast(rgb(name), over(washes, rgb(PAPER), CLUSTER_NAME_PLATE)), `${name} over ${a} and ${b}`).toBeGreaterThanOrEqual(4.5);
+        }
   });
 
-  it("keeps Cluster names at 4.5:1 or more where two washes overlap at rest", () => {
-    for (const tint of WASH) {
-      const twice = over(over(rgb(PAPER), rgb(tint), WASH_ALPHA.rest), rgb(tint), WASH_ALPHA.rest);
-      expect(contrast(rgb(CLUSTER_NAME_COLOR), twice), tint).toBeGreaterThanOrEqual(4.5);
-    }
+  it("takes a click on a wash only within the reach the names and the fit keep clear of", () => {
+    expect(WASH_REACH).toBeLessThan(WASH_RADIUS);
   });
 
   it("scales the layout so the median Connection is a typical length", () => {

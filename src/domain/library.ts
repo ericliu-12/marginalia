@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { book, libraryEntry } from "@/db/schema";
+import { readClusters } from "./clusters";
 import { isReReading, readFinished } from "./library-entry";
 import type { Status } from "./search";
 
@@ -14,6 +15,10 @@ export type LibraryItem = {
   finished: boolean;
   // Finished and currently being read again.
   reReading: boolean;
+  // When its latest Read-through ended, if that is known.
+  finishedAt: number | null;
+  // The Cluster a Finished Book sits in on the graph, for its tint, and its name once it has one.
+  cluster: { name: string | null; wash: number } | null;
   // A Manual Book, which the reader edits directly; only a Manual Book's description is carried here.
   manual: boolean;
   description: string | null;
@@ -44,6 +49,9 @@ export async function readLibrary(db: Db, userId: string): Promise<LibraryItem[]
     .where(eq(libraryEntry.userId, userId));
 
   const finished = await readFinished(db, userId);
+  // The graph's Clusters, over the same Books it shows: the Finished ones.
+  const clusters = await readClusters(db, userId, new Set(rows.filter((r) => finished.has(r.entry.id)).map((r) => r.book.id)));
+  const clusterOf = new Map(clusters.flatMap((c) => c.bookIds.map((id) => [id, { name: c.named ? c.name : null, wash: c.wash }] as const)));
   // Finish dates may be unknown; those Books sort after dated ones, newest completion first.
   const recency = (e: typeof libraryEntry.$inferSelect) =>
     e.status === "read" ? (finished.get(e.id)?.lastFinishedAt ?? 0) : e.createdAt.getTime();
@@ -64,6 +72,8 @@ export async function readLibrary(db: Db, userId: string): Promise<LibraryItem[]
         status: entry.status,
         finished: summary !== undefined,
         reReading: isReReading(entry.status, summary),
+        finishedAt: summary?.lastFinishedAt ?? null,
+        cluster: clusterOf.get(b.id) ?? null,
         manual: b.createdByUserId !== null,
         description: b.createdByUserId !== null ? b.description : null,
         original: entry.titleOverride || entry.authorOverride ? { title: b.title, authors: b.authors } : null,

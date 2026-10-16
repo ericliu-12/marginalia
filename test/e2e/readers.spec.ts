@@ -17,15 +17,15 @@ test.beforeEach(async () => {
 });
 
 const asReaderB = (browser: Browser, options = {}) => browser.newContext({ storageState: signedIn(READER_B), ...options });
-const searchbox = (page: Page) => page.getByRole("searchbox", { name: "Search by title and author" });
+const searchbox = (page: Page) => page.getByRole("searchbox", { name: "Title or author" });
 
 test("A's Book and Note stay A's: B's shelf, Book screen, graph and search show none of them", async ({ browser }) => {
   // A, on the phone: adds Austerlitz from search as Reading, and writes a Note on it.
   const a = await (await browser.newContext({ storageState: signedIn(), ...phone })).newPage();
   await a.goto("/");
-  await a.getByRole("button", { name: "Add a Book" }).click();
+  await a.getByRole("button", { name: "Add a book" }).click();
   await searchbox(a).fill("Austerlitz");
-  const add = a.getByRole("dialog", { name: "Add a Book" });
+  const add = a.getByRole("dialog", { name: "Add a book" });
   await add.getByRole("group", { name: "Add Austerlitz" }).getByRole("button", { name: "Reading" }).click();
   await expect(add.getByText("Added · Reading")).toBeVisible();
   await add.getByRole("button", { name: "Done" }).click();
@@ -44,11 +44,11 @@ test("A's Book and Note stay A's: B's shelf, Book screen, graph and search show 
   // B, on the phone: an empty shelf, and A's Book screen is a Book B doesn't have, as a made-up id is.
   const bPhone = await (await asReaderB(browser, phone)).newPage();
   await bPhone.goto("/");
-  await expect(bPhone.getByRole("heading", { level: 1 })).toHaveText("Reading");
+  await expect(bPhone.getByRole("heading", { level: 1 })).toHaveAccessibleName("Reading");
   for (const title of ["Austerlitz", "Stoner", "Beloved"]) await expect(bPhone.getByText(title)).toHaveCount(0);
   for (const bookId of [id, randomUUID()]) {
     await bPhone.goto(`/?book=${bookId}`);
-    await expect(bPhone.getByRole("heading", { level: 1 })).toHaveText("Reading");
+    await expect(bPhone.getByRole("heading", { level: 1 })).toHaveAccessibleName("Reading");
     await expect(bPhone.getByRole("heading", { level: 2 })).toHaveCount(0);
     await expect(bPhone.getByText("Austerlitz")).toHaveCount(0);
     await expect(bPhone.getByText(NOTE)).toHaveCount(0);
@@ -57,10 +57,11 @@ test("A's Book and Note stay A's: B's shelf, Book screen, graph and search show 
   // B, at a desk: search finds the work, but not as in B's library; the graph has none of A's Books.
   const b = await (await asReaderB(browser)).newPage();
   await b.goto("/");
+  await b.getByRole("button", { name: "Add a book" }).click();
   await searchbox(b).fill("Austerlitz");
   await expect(b.getByRole("group", { name: "Add Austerlitz" }).getByRole("button", { name: "Reading" })).toBeVisible();
   await expect(b.getByText(NOTE)).toHaveCount(0);
   await b.goto("/graph");
-  await expect(b.getByText("Your graph begins with a finished Book.", { exact: false })).toBeVisible();
+  await expect(b.getByText("Finish a book and its connections will gather here.")).toBeVisible();
   for (const title of ["Austerlitz", "Stoner", "Beloved"]) await expect(b.getByText(title)).toHaveCount(0);
 });

@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+// Turnstile faked, so a slow Cloudflare can't fail sign-in (./fixtures).
+import { expect, test } from "./fixtures";
 import { signedOut } from "./session";
 
 // /privacy and /terms (#62): public, for Google's consent screen and anyone deciding whether to sign in.
@@ -20,7 +21,7 @@ test.describe("signed out", () => {
   });
 
   test("pages describe Marginalia to search, link previews and the home screen", async ({ page, request }) => {
-    const description = "A quiet place for the Books you’ve read, your Notes, and the Connections between them.";
+    const description = "A quiet place for the books you’ve read, your notes, and the connections between them.";
     await page.goto("/privacy");
     await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", description);
     await expect(page.locator('meta[property="og:title"]')).toHaveAttribute("content", "Marginalia");

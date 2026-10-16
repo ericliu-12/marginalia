@@ -18,7 +18,7 @@ import {
   updateNoteAction,
 } from "./client-actions";
 import { CO_AUTHOR_HINT, draftError, invalidProps, withScheme, type BookDraft, type DraftError } from "./book-draft";
-import { ConnectionsSection } from "./connections";
+import { ConnectionsSection, panelLabel } from "./connections";
 import { MOVES } from "./library-list";
 import { EMPTY, loadDraft, newNoteId, sameDraft, saveDraft, type Draft } from "./note-draft";
 import { useInlineConfirm } from "./use-inline-confirm";
@@ -26,6 +26,8 @@ import { useStatusMove } from "./use-status-move";
 import { POLL_MS, usePoll } from "./use-poll";
 import { Cover } from "./cover";
 import { dangerLink, quietLink } from "./quiet-link";
+import { clusterTint } from "./cluster-tint";
+import { longDate } from "./shelf";
 
 // The Book panel for one Library Entry. It does not assume where it lives: the library view docks it
 // in the right pane, the graph view floats it over the canvas, and on a phone it is the whole Book
@@ -49,7 +51,7 @@ export function BookPanel({
   crumbs?: ReactNode;
   // Connections the graph has yet to draw in, kept out of the list until it does.
   withheldConnections?: Set<string>;
-  variant?: "panel" | "screen";
+  variant?: "panel" | "docked" | "screen";
 }) {
   const [notes, setNotes] = useState<Note[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -59,6 +61,8 @@ export function BookPanel({
   // Saved edits: About starts over after one, as a Manual Book's Enrichment may be running again.
   const [edits, setEdits] = useState(0);
   const [saved, setSaved] = useState(false);
+  // The Note just written here, which inks in.
+  const [written, setWritten] = useState<string | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const notesHeadingRef = useRef<HTMLHeadingElement>(null);
 
@@ -92,9 +96,17 @@ export function BookPanel({
     </button>
   );
 
+  const screen = variant === "screen";
+  // Docked beside the library the panel sits on the ground, its right edge the page's; over the graph
+  // it floats, raised; on a phone it is the screen, at the phone's gutter.
+  const pad = variant === "docked" ? "pr-14 pl-8" : screen ? "px-5" : "px-6";
+  const meta = [item.authors.join(", "), item.finished && item.finishedAt !== null && `Finished ${longDate(item.finishedAt)}`].filter(Boolean).join(" · ");
+  // Oldest first, so a Note keeps its number and a new one is added at the end, beside the form.
+  const inOrder = notes && [...notes].reverse();
+
   return (
-    <aside aria-label={`Notes on ${item.title}`} onKeyDown={(e) => e.key === "Escape" && onBack()} className={`flex h-full min-h-0 flex-col ${variant === "screen" ? "bg-paper" : "bg-paper-2"}`}>
-      <div className="px-6 pt-5 pb-3">
+    <aside aria-label={`Notes on ${item.title}`} onKeyDown={(e) => e.key === "Escape" && onBack()} className={`flex h-full min-h-0 flex-col ${variant === "panel" ? "bg-paper-2" : "bg-paper"}`}>
+      <div className={`${pad} pt-4`}>
         <button type="button" onClick={onBack} className={`${quietLink} -ml-0.5 flex items-center gap-1.5 no-underline`}>
           <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
             <path d="M8 2L4 6l4 4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -103,28 +115,31 @@ export function BookPanel({
         </button>
       </div>
       {crumbs}
-      <header className="border-b border-rule px-6 pb-5">
-        <div className="flex items-start gap-4">
-          <Cover title={item.title} url={item.coverUrl} />
-          <div className="min-w-0">
-            <h2 ref={headingRef} tabIndex={-1} className="text-[1.35rem] leading-tight font-medium outline-none">
-              {item.title}
-            </h2>
-            {item.authors.length > 0 && <p className="text-sm text-ink-2">{item.authors.join(", ")}</p>}
-            {variant === "panel" && <StatusMoves key={item.status} item={item} />}
-            {variant === "panel" && editLink}
-            <p role="status" className="text-sm text-ink-2 empty:hidden">
-              {saved ? "Changes saved." : ""}
-            </p>
-          </div>
-        </div>
-        {variant === "screen" && <StatusControl item={item} />}
-        {variant === "screen" && <div className="mt-2">{editLink}</div>}
-      </header>
 
       {/* Positioned, so what is placed absolutely inside (the Note field's hidden label) scrolls with it rather than
           against the page, where it would make the page taller than the screen. */}
-      <div className="relative min-h-0 flex-1 overflow-y-auto px-6 pt-5 pb-10">
+      <div className={`relative min-h-0 flex-1 overflow-y-auto ${pad} pt-4 pb-10`}>
+        <header>
+          <Cover title={item.title} url={item.coverUrl} size="large" />
+          <h2 ref={headingRef} tabIndex={-1} className="mt-5 text-[30px] leading-[1.1] font-medium text-balance italic outline-none">
+            {item.title}
+          </h2>
+          {meta && <p className="caps mt-1.5 text-[15px] leading-snug tracking-[1.2px] text-ink-2">{meta}</p>}
+          {item.cluster?.name && (
+            <p className="mt-1 text-[15px] text-ink-2">
+              in{" "}
+              <i style={{ color: clusterTint(item.cluster.wash).name }}>{item.cluster.name}</i>
+            </p>
+          )}
+          {!screen && <StatusMoves key={item.status} item={item} />}
+          {!screen && editLink}
+          <p role="status" className="text-[14px] text-ink-2 empty:hidden">
+            {saved ? "Changes saved." : ""}
+          </p>
+          {screen && <StatusControl item={item} />}
+          {screen && <div className="mt-2">{editLink}</div>}
+        </header>
+
         {editingBook && (
           <EditBookForm
             item={item}
@@ -138,53 +153,63 @@ export function BookPanel({
             }}
           />
         )}
+
+        {/* What the Book is about, then the reader's Notes, then where it connects. */}
         <About key={`about-${item.bookId}-${edits}`} bookId={item.bookId} noteCount={notes?.length ?? null} />
+        <section aria-labelledby={`notes-${item.bookId}`} className="mt-7 border-t border-rule-2 pt-3.5">
+          <h3 id={`notes-${item.bookId}`} ref={notesHeadingRef} tabIndex={-1} className={panelLabel}>
+            Notes
+          </h3>
+          {loadFailed && (
+            <p role="alert" className="pt-2 text-contrast">
+              Couldn’t load your notes.{" "}
+              <button type="button" onClick={() => setRetry((n) => n + 1)} className="underline underline-offset-2">
+                Try again
+              </button>
+            </p>
+          )}
+          {notes === null && !loadFailed && <p className="pt-2 text-ink-2 italic">Opening your notes…</p>}
+          {notes?.length === 0 && (
+            <p className="max-w-[34ch] pt-2 text-ink-2 italic">Nothing written yet. Whatever you’re thinking as you read belongs here.</p>
+          )}
+          {inOrder && inOrder.length > 0 && (
+            <ol className="mt-2 flex flex-col gap-4">
+              {inOrder.map((n, i) => (
+                <NoteItem
+                  key={n.id}
+                  number={i + 1}
+                  note={n}
+                  fresh={n.id === written}
+                  editing={editing === n.id}
+                  onEdit={() => setEditing(n.id)}
+                  onCancel={() => setEditing(null)}
+                  onChanged={(next) => {
+                    setNotes((ns) => ns!.map((x) => (x.id === next.id ? next : x)));
+                    setEditing(null);
+                  }}
+                  onDeleted={() => {
+                    setNotes((ns) => ns!.filter((x) => x.id !== n.id));
+                    // The deleted Note took focus with it; the Notes heading is the nearest stable place.
+                    notesHeadingRef.current?.focus();
+                  }}
+                />
+              ))}
+            </ol>
+          )}
+          <div className="mt-3">
+            <NoteForm
+              key={item.bookId}
+              bookId={item.bookId}
+              onSaved={(note) => {
+                setWritten(note.id);
+                setNotes((ns) => [note, ...(ns ?? [])]);
+              }}
+            />
+          </div>
+        </section>
+
         {/* Starts over when the Book becomes Finished, to show its Connections being found. */}
         <ConnectionsSection key={`connections-${item.bookId}-${item.finished}`} bookId={item.bookId} onOpenBook={onOpenBook} withheld={withheldConnections} />
-
-        <NoteForm
-          key={item.bookId}
-          bookId={item.bookId}
-          onSaved={(note) => setNotes((ns) => [note, ...(ns ?? [])])}
-        />
-
-        <h3 ref={notesHeadingRef} tabIndex={-1} className="mt-9 border-b border-rule pb-2 text-[1.35rem] leading-tight font-medium outline-none">
-          Notes
-        </h3>
-        {loadFailed && (
-          <p role="alert" className="pt-4 text-contrast">
-            Couldn’t load your notes.{" "}
-            <button type="button" onClick={() => setRetry((n) => n + 1)} className="underline underline-offset-2">
-              Try again
-            </button>
-          </p>
-        )}
-        {notes === null && !loadFailed && <p className="pt-4 text-ink-2 italic">Opening your notes…</p>}
-        {notes?.length === 0 && (
-          <p className="max-w-[34ch] pt-4 text-ink-2 italic">Nothing written yet. Whatever you’re thinking as you read belongs here.</p>
-        )}
-        {notes && notes.length > 0 && (
-          <ul className="divide-y divide-rule/60">
-            {notes.map((n) => (
-              <NoteItem
-                key={n.id}
-                note={n}
-                editing={editing === n.id}
-                onEdit={() => setEditing(n.id)}
-                onCancel={() => setEditing(null)}
-                onChanged={(next) => {
-                  setNotes((ns) => ns!.map((x) => (x.id === next.id ? next : x)));
-                  setEditing(null);
-                }}
-                onDeleted={() => {
-                  setNotes((ns) => ns!.filter((x) => x.id !== n.id));
-                  // The deleted Note took focus with it; the Notes heading is the nearest stable place.
-                  notesHeadingRef.current?.focus();
-                }}
-              />
-            ))}
-          </ul>
-        )}
 
         <RemoveEntry key={`remove-${item.bookId}`} bookId={item.bookId} title={item.title} onRemoved={onRemoved} />
       </div>
@@ -200,9 +225,9 @@ function StatusMoves({ item }: { item: LibraryItem }) {
   const { pending, moving, error, move } = useStatusMove(item.bookId);
 
   return (
-    <div aria-busy={pending} className="mt-1.5">
+    <div aria-busy={pending} className="mt-3">
       <div role="group" aria-label={`Status of ${item.title}`} className="flex flex-wrap items-baseline gap-x-4">
-        <span className="text-sm text-ink-2">{item.reReading ? "Re-reading" : STATUS_LABEL[item.status]}</span>
+        <span className="text-[15px] text-ink-2 italic">{item.reReading ? "Re-reading" : STATUS_LABEL[item.status]}</span>
         {MOVES[item.status].map(({ label, to }) => (
           <button key={to} type="button" onClick={() => move(to)} className={quietLink}>
             {pending && moving === to ? "Moving…" : label}
@@ -275,8 +300,8 @@ function StatusControl({ item }: { item: LibraryItem }) {
           <>
             <span className="font-medium">Finished.</span>{" "}
             {finishLine.paused
-              ? `Connections paused until ${finishLine.paused}; then they’ll gather below, and in the graph on a larger screen.`
-              : "Connections are being found; they’ll gather below, and in the graph on a larger screen."}
+              ? `Connections are paused until ${finishLine.paused}. Then they’ll gather below, and in the graph on a larger screen.`
+              : "Finding its connections. They’ll gather below, and in the graph on a larger screen."}
           </>
         )}
       </p>
@@ -297,7 +322,7 @@ function RemoveEntry({ bookId, title, onRemoved }: { bookId: string; title: stri
       {confirming ? (
         <div onKeyDown={onKeyDown} className="flex flex-wrap items-center gap-x-5 gap-y-1">
           <p id={`remove-${bookId}`} className="w-full text-[0.8rem] text-ink-2">
-            Remove <i className="font-serif text-[0.9rem]">{title}</i> from your library? Its notes, reading history and Connections go with it.
+            Remove <i className="font-serif text-[0.9rem]">{title}</i> from your library? Its notes, reading history and connections go with it.
           </p>
           <button type="button" onClick={confirm} disabled={pending} aria-describedby={`remove-${bookId}`} className={dangerLink}>
             {pending ? "Removing…" : "Yes, remove"}
@@ -336,7 +361,7 @@ function EditBookForm({ item, onDone }: { item: LibraryItem; onDone: (saved: boo
       id="edit"
       errorId={`edit-${item.bookId}-error`}
       aria-label={`Edit ${item.title}`}
-      className="mb-8 border-b border-rule pb-6"
+      className="mt-6 border-t border-rule-2 pt-4"
       draft={draft}
       onChange={setDraft}
       manual={item.manual}
@@ -538,9 +563,11 @@ export function BookDetailsForm({
           {!showCover && (
             <button
               type="button"
+              // Revealed and focused in the same tap, as a Note's quote and page are: a phone raises its keyboard
+              // only for focus given in the tap, and a focus a frame later could land after the reader has moved on.
               onClick={() => {
-                setShowCover(true);
-                requestAnimationFrame(() => refs.coverUrl.current?.focus());
+                flushSync(() => setShowCover(true));
+                refs.coverUrl.current?.focus();
               }}
               className={quietLink}
             >
@@ -551,8 +578,8 @@ export function BookDetailsForm({
             <button
               type="button"
               onClick={() => {
-                setShowDescription(true);
-                requestAnimationFrame(() => refs.description.current?.focus());
+                flushSync(() => setShowDescription(true));
+                refs.description.current?.focus();
               }}
               className={quietLink}
             >
@@ -617,7 +644,7 @@ function About({ bookId, noteCount }: { bookId: string; noteCount: number | null
   } else if (enrichment.status === "failed") {
     body = (
       <p className="text-ink-2">
-        <span className="italic">Couldn’t read up on this book just now.</span> {again}
+        <span className="italic">Couldn’t read up on this book.</span> {again}
       </p>
     );
   } else if (!enrichment.recognised) {
@@ -628,8 +655,8 @@ function About({ bookId, noteCount }: { bookId: string; noteCount: number | null
           {noteCount === null
             ? ""
             : noteCount > 0
-              ? "Your notes now shape its Connections."
-              : "Add a few notes and they’ll shape its Connections."}
+              ? "Your notes now shape its connections."
+              : "Add a few notes and they’ll shape its connections."}
         </p>
         <div className="mt-1">{again}</div>
       </div>
@@ -639,7 +666,7 @@ function About({ bookId, noteCount }: { bookId: string; noteCount: number | null
       <>
         <p>{enrichment.summary}</p>
         {enrichment.themes && enrichment.themes.length > 0 && (
-          <p className="mt-2 text-[0.8rem] leading-relaxed text-ink-2">{enrichment.themes.join(" · ")}</p>
+          <p className="caps mt-2 text-[14px] leading-relaxed tracking-[1px] text-ink-2">{enrichment.themes.join(" · ")}</p>
         )}
         {/* Google's terms ask for a link to the Book's page wherever its description is used (#42). */}
         {enrichment.googleBooksVolumeId && (
@@ -661,7 +688,10 @@ function About({ bookId, noteCount }: { bookId: string; noteCount: number | null
   }
 
   return (
-    <section aria-label="About this book" className="mb-8 border-b border-rule pb-6">
+    <section aria-labelledby={`about-${bookId}`} className="mt-7 border-t border-rule-2 pt-3.5">
+      <h3 id={`about-${bookId}`} className={`${panelLabel} mb-2`}>
+        About this book
+      </h3>
       {body}
       {retryFailed && (
         <p role="alert" className="mt-1 text-sm text-contrast">
@@ -818,7 +848,7 @@ export function NoteForm(props: NoteFormProps) {
 
   // Writing on the sheet's paper has no box; a keyboard's focus shows as a thematic hairline beneath.
   const sheetField = "w-full bg-transparent text-ink placeholder:text-ink-3 focus-visible:shadow-[0_1px_0_var(--color-thematic)] focus-visible:outline-none";
-  const label = "text-[0.8rem] font-medium text-ink-2";
+  const label = sheet ? "caps text-[14px] font-medium tracking-[1.5px] text-ink-2" : "text-[0.8rem] font-medium text-ink-2";
   const removeLink = (what: string, onClick: () => void) => (
     <button type="button" aria-label={`Remove ${what}`} onMouseDown={keepFocus} onClick={onClick} className={`${quietLink} shrink-0`}>
       Remove
@@ -839,10 +869,10 @@ export function NoteForm(props: NoteFormProps) {
           onCancel?.();
         }
       }}
-      className={editing ? "py-4" : ""}
     >
-      <label htmlFor={`${idPrefix}-body`} className="sr-only">
-        {editing ? "Edit note" : "New note"}
+      {/* The panel's new Note is headed by its label, the accent's "Write a Note"; elsewhere the label is unseen. */}
+      <label htmlFor={`${idPrefix}-body`} className={editing || sheet ? "sr-only" : "block pb-1.5 text-[15px] text-accent italic"}>
+        {editing ? "Edit note" : sheet ? "New note" : "Write a note"}
       </label>
       <textarea
         ref={bodyRef}
@@ -895,7 +925,7 @@ export function NoteForm(props: NoteFormProps) {
         </div>
       )}
       {error && (
-        <p role="alert" className={`text-sm text-contrast ${sheet ? "border-t border-rule py-2.5" : "mt-2"}`}>
+        <p role="alert" className={`text-contrast ${sheet ? "border-t border-rule py-2.5 text-[15px]" : "mt-2 text-sm"}`}>
           {error.message}
         </p>
       )}
@@ -941,7 +971,7 @@ function SaveNote({
       type="submit"
       disabled={pending}
       onMouseDown={keepFocus}
-      className={`bg-ink font-medium text-paper transition-colors hover:bg-ink-2 disabled:bg-ink-3 ${sheet ? "mt-2 min-h-12 w-full text-[0.95rem] active:bg-ink-2" : "min-h-11 px-4 py-2 text-sm lg:min-h-0"}`}
+      className={`bg-ink text-paper transition-colors hover:bg-ink-2 disabled:bg-ink-3 ${sheet ? "mt-2 min-h-12 w-full text-[17px] italic active:bg-ink-2" : "min-h-11 px-[18px] text-[16px] italic"}`}
     >
       {pending ? "Saving…" : retry ? "Try again" : editing ? "Save changes" : "Save note"}
     </button>
@@ -950,14 +980,18 @@ function SaveNote({
 }
 
 function NoteItem({
+  number,
   note,
+  fresh,
   editing,
   onEdit,
   onCancel,
   onChanged,
   onDeleted,
 }: {
+  number: number;
   note: Note;
+  fresh: boolean;
   editing: boolean;
   onEdit: () => void;
   onCancel: () => void;
@@ -970,50 +1004,48 @@ function NoteItem({
     onDeleted,
   );
 
-  if (editing) {
-    return (
-      <li>
-        <NoteForm note={note} onSaved={onChanged} onCancel={onCancel} />
-      </li>
-    );
-  }
-
+  // A sidenote: its numeral in a narrow column, in the accent, beside the Note; under it the passage it
+  // quotes, and the page.
   return (
-    <li aria-busy={pending} className="py-4">
-      {note.quote && (
-        <blockquote className="mb-2 text-ink-2 italic">
-          “{note.quote}”
-          {note.page != null && <span className="ml-2 text-xs text-ink-3 not-italic">p. {note.page}</span>}
-        </blockquote>
-      )}
-      <p className="whitespace-pre-wrap">{note.body}</p>
-      {!note.quote && note.page != null && <p className="mt-1 text-xs text-ink-3">p. {note.page}</p>}
-      <div onKeyDown={onKeyDown} className="mt-1 flex flex-wrap items-center gap-x-5 gap-y-1">
-        {confirming ? (
-          <>
-            <span id={`delete-${note.id}`} className="text-[0.8rem] text-ink-2">Delete this note?</span>
-            <button type="button" onClick={confirm} disabled={pending} aria-describedby={`delete-${note.id}`} className={dangerLink}>
-              {pending ? "Deleting…" : "Yes, delete"}
-            </button>
-            <button ref={keepRef} type="button" onClick={keep} disabled={pending} className={quietLink}>
-              Keep
-            </button>
-          </>
-        ) : (
-          <>
-            <button type="button" onClick={onEdit} className={quietLink}>
-              Edit
-            </button>
-            <button ref={triggerRef} type="button" onClick={ask} className={quietLink}>
-              Delete
-            </button>
-          </>
-        )}
-      </div>
-      {error && (
-        <p role="alert" className="mt-1 text-sm text-contrast">
-          Couldn’t delete this note. Try again.
-        </p>
+    <li aria-busy={pending} className={`grid grid-cols-[18px_minmax(0,1fr)] gap-x-2 ${fresh ? "motion-safe:animate-ink-in" : ""}`}>
+      <span aria-hidden className="pt-[3px] text-[13px] text-accent tabular-nums">
+        {number}
+      </span>
+      {editing ? (
+        <NoteForm note={note} onSaved={onChanged} onCancel={onCancel} />
+      ) : (
+        <div>
+          <p className="text-[17px] leading-normal whitespace-pre-wrap">{note.body}</p>
+          {note.quote && <blockquote className="mt-1.5 text-ink-2 italic">“{note.quote}”</blockquote>}
+          {note.page != null && <p className="caps mt-0.5 text-[14px] tracking-[1px] text-ink-2">p. {note.page}</p>}
+          <div onKeyDown={onKeyDown} className="mt-1 flex flex-wrap items-center gap-x-5 gap-y-1">
+            {confirming ? (
+              <>
+                <span id={`delete-${note.id}`} className="text-[0.8rem] text-ink-2">Delete this note?</span>
+                <button type="button" onClick={confirm} disabled={pending} aria-describedby={`delete-${note.id}`} className={dangerLink}>
+                  {pending ? "Deleting…" : "Yes, delete"}
+                </button>
+                <button ref={keepRef} type="button" onClick={keep} disabled={pending} className={quietLink}>
+                  Keep
+                </button>
+              </>
+            ) : (
+              <>
+                <button type="button" onClick={onEdit} className={quietLink}>
+                  Edit
+                </button>
+                <button ref={triggerRef} type="button" onClick={ask} className={quietLink}>
+                  Delete
+                </button>
+              </>
+            )}
+          </div>
+          {error && (
+            <p role="alert" className="mt-1 text-sm text-contrast">
+              Couldn’t delete this note. Try again.
+            </p>
+          )}
+        </div>
       )}
     </li>
   );

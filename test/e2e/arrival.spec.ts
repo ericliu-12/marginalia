@@ -55,7 +55,7 @@ test("a Book marked finished straight from Want to read was just finished", asyn
   await row.hover();
   await row.getByRole("button", { name: "Mark finished" }).click();
   // The row moves at once; the finish has landed once its Connections are being found.
-  await expect(page.getByText("1 Book finding Connections")).toBeVisible();
+  await expect(page.getByText("1 book finding connections")).toBeVisible();
 
   await page.goto("/graph");
   await expect(heading(page)).toHaveText("Housekeeping");
@@ -85,7 +85,7 @@ test("a Book with no Connections arrives calmly", async ({ page }) => {
 
   await expect(heading(page)).toHaveText("Housekeeping");
   await expect(page.getByText("You just finished this.", { exact: true })).toBeVisible();
-  await expect(page.getByText("No Connections yet.")).toBeVisible();
+  await expect(page.getByText("No connections yet.")).toBeVisible();
 });
 
 test("in a burst, new Books simply appear", async ({ page }) => {

@@ -9,16 +9,47 @@ import { EMPTY_BOOK, type BookDraft } from "./book-draft";
 import { Cover } from "./cover";
 import { quietLink } from "./quiet-link";
 
-export const LABELS: Record<Status, string> = { want: "Want to read", reading: "Reading", read: "Already read" };
+export const LABELS: Record<Status, string> = { want: "Want to read", reading: "Reading", read: "Read" };
 const DEBOUNCE_MS = 300;
 
 type Phase = "idle" | "loading" | "done" | "error";
 
-// On a phone the three choices share the row equally, at a full touch target.
-export const addButton =
-  "min-h-11 border border-ink/70 px-1 py-2 max-lg:leading-tight lg:min-h-0 lg:px-2.5 lg:py-1 text-[0.8rem] font-medium text-ink transition-colors duration-150 hover:bg-ink hover:text-paper max-lg:active:bg-paper-3 disabled:border-rule disabled:text-ink-3 disabled:hover:bg-transparent disabled:hover:text-ink-3";
-// Columns weighted by their labels, so each reads on one line down to a 320px screen.
-export const addChoices = "grid grid-cols-[1.12fr_0.8fr_1.08fr] gap-1.5 lg:flex lg:flex-wrap";
+// The Want to read / Reading / Read choices: on paper behind an edge, filling with ink when
+// pointed at or `chosen` (the one being added). On a phone they share the row equally, large; on a
+// desktop, where every result shows its choices, they rest quieter so the titles lead.
+export const addButton = (chosen = false) =>
+  `min-h-12 border px-1 text-[15px] leading-tight max-[359px]:px-0 max-[359px]:text-[14px] transition-colors duration-150 lg:min-h-9 lg:px-3 lg:text-[14px] ${
+    chosen
+      ? "border-ink bg-ink text-paper"
+      : "border-edge bg-paper text-ink lg:border-rule lg:text-ink-2 hover:border-ink hover:bg-ink hover:text-paper active:border-ink active:bg-ink active:text-paper disabled:border-rule disabled:bg-paper disabled:text-ink-3"
+  }`;
+export const addChoices = "grid grid-cols-3 gap-1.5 max-[359px]:gap-1 lg:flex lg:flex-wrap";
+
+// The search field: no box, a small-caps label above, the query in large serif on an ink underline,
+// which turns thematic and thickens while focused.
+export const searchLabel = "caps block text-[13px] tracking-[1.4px] text-ink-2";
+export const searchInput =
+  "w-full border-0 border-b-[1.5px] border-ink bg-transparent px-0.5 py-2.5 text-[19px] leading-tight text-ink placeholder:text-ink-3 focus-visible:border-thematic focus-visible:shadow-[0_1px_0_var(--color-thematic)] focus-visible:outline-none";
+// A Book's title and its small-caps author and year, in a result.
+export const resultTitle = "text-[17px] leading-[1.25] italic lg:text-[18px]";
+export const resultMeta = "caps mt-0.5 text-[13px] tracking-[1px] text-ink-2 lg:text-[14px]";
+export const resultMetaOf = (r: SearchResult) => [r.authors.join(", "), r.firstPublishedYear].filter(Boolean).join(" · ");
+
+// "Can’t find it? Add it by hand": the way past search, under everything search shows.
+export function AddByHand({ onOpen, className = "" }: { onOpen: () => void; className?: string }) {
+  return (
+    <p className={`text-[15px] text-ink-2 ${className}`}>
+      Can’t find it?{" "}
+      <button
+        type="button"
+        onClick={onOpen}
+        className="min-h-11 italic text-ink underline decoration-rule underline-offset-4 transition-colors duration-150 hover:decoration-ink lg:min-h-0"
+      >
+        Add it by hand
+      </button>
+    </p>
+  );
+}
 
 // `removed` is set anew each time a Book is removed elsewhere: search says so until the reader types,
 // fetches the results again, and takes focus back. `onOpenBook` opens a Book in the library, which
@@ -76,13 +107,13 @@ export function SearchPane({
 
   return (
     <aside id="add-a-book" aria-label="Add a book" onKeyDown={(e) => e.key === "Escape" && onClose()} className="flex h-full min-h-0 flex-col bg-paper-2">
-      <div className="flex items-center justify-between px-6 pt-6 pb-3">
-        <h2 className="text-[1.35rem] leading-tight font-medium">Search</h2>
+      <div className="flex items-center justify-between px-6 pt-5 pb-2">
+        <h2 className="caps text-[17px] leading-tight font-medium tracking-[1.6px]">Add a book</h2>
         <button
           type="button"
           onClick={onClose}
           aria-label="Close search"
-          className="-mr-3 rounded p-[14px] text-ink-2 lg:-mr-2 lg:p-2 transition-colors hover:bg-paper-3 hover:text-ink"
+          className="-mr-2 p-2 text-ink-2 transition-colors hover:bg-paper-3 hover:text-ink"
         >
           <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden>
             <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -90,8 +121,8 @@ export function SearchPane({
         </button>
       </div>
       <div className="px-6 pb-4">
-        <label htmlFor="book-search" className="sr-only">
-          Search by title and author
+        <label htmlFor="book-search" className={searchLabel}>
+          Title or author
         </label>
         <input
           ref={inputRef}
@@ -103,13 +134,12 @@ export function SearchPane({
             setNotice(null);
             setManualOpen(false);
           }}
-          placeholder="Title and author"
           autoComplete="off"
-          className="w-full border border-edge bg-paper px-3 py-2.5 text-[0.95rem] text-ink placeholder:text-ink-3 focus-visible:border-thematic focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-thematic/30"
+          className={`mt-1 ${searchInput}`}
         />
       </div>
 
-      <p role="status" className="px-6 text-sm text-ink-2 empty:hidden">
+      <p role="status" className="px-6 text-[15px] text-ink-2 empty:hidden">
         {notice && (
           <span className="mb-3 block">
             {notice.addedBookId ? (
@@ -122,7 +152,7 @@ export function SearchPane({
               </>
             ) : (
               <>
-                Removed <i className="font-serif text-[0.95rem]">{notice.title}</i> from your library.
+                Removed <i>{notice.title}</i> from your library.
               </>
             )}
           </span>
@@ -146,7 +176,7 @@ export function SearchPane({
         ) : (
           <>
             {phase === "idle" && (
-              <p className="text-ink-2 italic">Search by title; add the author to narrow it.</p>
+              <p className="text-ink-2 italic">Search by title. Add the author to narrow it.</p>
             )}
             {phase === "loading" && results.length === 0 && <p className="text-ink-2 italic">Searching…</p>}
             {phase === "error" && (
@@ -158,19 +188,10 @@ export function SearchPane({
               </p>
             )}
             {phase === "done" && results.length === 0 && (
-              <>
-                <p className="text-ink-2 italic">No match for “{query.trim()}”. Check the spelling, or try the title alone.</p>
-                <p className="mt-3 text-sm text-ink-2">
-                  Not on Open Library?{" "}
-                  <button type="button" onClick={openManual} className={quietLink}>
-                    Add it by hand
-                  </button>
-                </p>
-              </>
+              <p className="text-ink-2 italic">No match for “{query.trim()}”. Check the spelling, or try the title alone.</p>
             )}
             {results.length > 0 && phase !== "idle" && phase !== "error" && (
-              <>
-                <ul aria-busy={phase === "loading"} className={`divide-y divide-rule/60 transition-opacity ${phase === "loading" ? "opacity-60" : ""}`}>
+              <ul aria-busy={phase === "loading"} className={`divide-y divide-rule-3 transition-opacity ${phase === "loading" ? "opacity-60" : ""}`}>
                   {results.map((r, i) => (
                     <Result
                       key={r.workKey}
@@ -181,25 +202,21 @@ export function SearchPane({
                       onOpenBook={openBook}
                     />
                   ))}
-                </ul>
-                <p className="border-t border-rule/60 pt-4 text-sm text-ink-2">
-                  Not the book you mean?{" "}
-                  <button type="button" onClick={openManual} className={quietLink}>
-                    Add it by hand
-                  </button>
-                </p>
-              </>
+              </ul>
             )}
           </>
         )}
       </div>
       {!manualOpen && (
-        <p className="border-t border-rule px-6 py-3 text-xs text-ink-3">
-          Results from{" "}
-          <a href="https://openlibrary.org" target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-ink">
-            Open Library
-          </a>
-        </p>
+        <div className="flex items-baseline justify-between gap-4 border-t border-rule-2 px-6 py-3">
+          <AddByHand onOpen={openManual} />
+          <p className="text-[13px] text-ink-3">
+            Results from{" "}
+            <a href="https://openlibrary.org" target="_blank" rel="noreferrer" className="underline decoration-rule underline-offset-2 hover:text-ink hover:decoration-ink">
+              Open Library
+            </a>
+          </p>
+        </div>
       )}
     </aside>
   );
@@ -273,18 +290,18 @@ function Result({
     });
   }
 
-  const meta = [r.authors.join(", "), r.firstPublishedYear].filter(Boolean).join(" · ");
+  const meta = resultMetaOf(r);
 
   return (
     <li className="flex gap-4 py-4">
       <Cover title={r.title} url={r.coverUrl} />
       <div className="min-w-0 flex-1">
-        <p className="text-[1.05rem] leading-snug font-medium">{r.title}</p>
-        {meta && <p className="text-sm text-ink-2">{meta}</p>}
+        <p className={resultTitle}>{r.title}</p>
+        {meta && <p className={resultMeta}>{meta}</p>}
         {r.lookalike && !r.libraryStatus && <LookalikeNote lookalike={r.lookalike} again={lookalikeAgain} onOpenBook={onOpenBook} />}
         <div className="mt-2.5 min-h-8">
           {r.libraryStatus ? (
-            <p ref={statusRef} tabIndex={-1} className="text-sm text-ink-2 outline-none">
+            <p ref={statusRef} tabIndex={-1} className="text-[15px] text-ink-2 outline-none">
               <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden className="mr-1.5 inline text-context"><path d="M2 6.5l2.5 2.5L10 3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
               In your library · {LABELS[r.libraryStatus]}
             </p>
@@ -296,14 +313,14 @@ function Result({
                   type="button"
                   disabled={pending}
                   onClick={() => add(s)}
-                  className={addButton}
+                  className={addButton(pending && adding === s)}
                 >
                   {pending && adding === s ? "Adding…" : LABELS[s]}
                 </button>
               ))}
             </div>
           )}
-          {error && <p className="mt-1.5 text-sm text-contrast">{error}</p>}
+          {error && <p className="mt-1.5 text-[15px] text-contrast">{error}</p>}
         </div>
       </div>
     </li>
@@ -409,10 +426,10 @@ export function ManualBookForm({
       onEscape={() => onClose(false)}
       intro={
         <>
-          <h3 id="manual-heading" className="text-[1.05rem] leading-snug font-medium">
+          <h3 id="manual-heading" className="caps text-[15px] leading-snug font-medium tracking-[1.6px]">
             Add a book by hand
           </h3>
-          <p className="mt-0.5 max-w-[38ch] text-sm text-ink-2">It stays in your library alone, and you can change it later.</p>
+          <p className="mt-1 max-w-[38ch] text-[15px] text-ink-2">It stays in your library alone, and you can change it later.</p>
         </>
       }
       note={<div aria-live="polite">{lookalike && <LookalikeNote lookalike={lookalike} onOpenBook={onOpenBook} className="mt-4" />}</div>}
@@ -420,7 +437,7 @@ export function ManualBookForm({
         <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
           <div className={`${addChoices} max-lg:w-full`} role="group" aria-label="Add to your library as">
             {(Object.keys(LABELS) as Status[]).map((s) => (
-              <button key={s} type="submit" value={s} disabled={pending} className={addButton}>
+              <button key={s} type="submit" value={s} disabled={pending} className={addButton(pending && statusOf(choice) === s)}>
                 {pending && statusOf(choice) === s ? "Adding…" : LABELS[s]}
               </button>
             ))}

@@ -11,7 +11,7 @@ import { BookPanel } from "../book-panel";
 import { FindingIndicator } from "../connections";
 import { POLL_MS, usePoll } from "../use-poll";
 import { AccountLink } from "../account-link";
-import { ViewSwitch } from "../view-switch";
+import { useArrivedBySwitch, ViewSwitch } from "../view-switch";
 import { arriving, drawOrder, justFinished } from "./arrival";
 import { ClusterPanel } from "./cluster-panel";
 import { ConnectionPanel } from "./connection-panel";
@@ -59,6 +59,7 @@ export function GraphWorkspace({
   loneThemes: string[];
 }) {
   const router = useRouter();
+  const switched = useArrivedBySwitch();
   const wide = useWide(true);
   // While background work is about to change the graph (after a dismissal, a removal, a Refresh or a
   // Connections run), check back until it settles, then fetch the page again for the fresh graph. The
@@ -85,6 +86,7 @@ export function GraphWorkspace({
   const [said, setSaid] = useState("");
   const panelRef = useRef<HTMLDivElement>(null);
   const [pointed, setPointed] = useState<string | null>(null);
+  const [pointedCluster, setPointedCluster] = useState<string | null>(null);
   // The keyboard list item that opened the panel, so closing it puts focus back there.
   const returnTo = useRef<HTMLElement | null>(null);
   // The arrival under way: the Books that landed, the newest first, and which of their Connections have
@@ -165,7 +167,7 @@ export function GraphWorkspace({
   const byTitle = [...graph.books].sort((a, b) => a.title.localeCompare(b.title));
 
   return (
-    <div className="relative h-screen overflow-hidden">
+    <div className={`relative h-screen overflow-hidden ${switched ? "animate-view-in" : ""}`}>
       {wide && graph.books.length > 0 && (
         <GraphCanvas
           graph={graph}
@@ -174,6 +176,7 @@ export function GraphWorkspace({
           onSelect={select}
           panelInset={selection ? PANEL_INSET : 0}
           pointedBookId={pointed}
+          pointedClusterId={pointedCluster}
           landing={landing}
           withheld={withheld}
         />
@@ -202,11 +205,10 @@ export function GraphWorkspace({
       {/* No placeholder Books: both ways in lead to the library, which opens with search ready. */}
       {wide && graph.books.length === 0 && (
         <p className="absolute inset-x-12 top-28 max-w-[40ch] text-xl text-ink-2 italic">
-          Your graph begins with a finished Book. Mark one finished, or add the ones you’ve already read, in{" "}
-          <Link href="/" className="text-ink underline decoration-rule underline-offset-4">
-            your library
+          Finish a book and its connections will gather here.{" "}
+          <Link href="/?add" className="text-ink underline decoration-rule underline-offset-4">
+            Add a book
           </Link>
-          .
         </p>
       )}
       {/* Until the first Connection, in the place the legend will take: a lone Book's themes (never drawn
@@ -218,24 +220,27 @@ export function GraphWorkspace({
               Themes of <i className="font-serif text-[0.95rem] font-normal">{graph.books[0].label}</i>: {loneThemes.join(" · ")}
             </p>
           )}
-          <p className="text-ink-2 italic">{finding > 0 ? "Finding Connections…" : "Connections appear as you finish more Books."}</p>
+          <p className="text-ink-2 italic">{finding > 0 ? "Finding connections…" : "Connections appear as you finish more books."}</p>
         </div>
       )}
 
+      {/* The legend: a footer under a hairline, clear of the panel while one is open. */}
       {wide && graph.connections.length > 0 && (
-        <div data-graph-chrome className="pointer-events-none absolute bottom-7 left-12 flex flex-col gap-1.5 text-[0.8rem] text-ink-2">
-          <ul className="flex gap-5" aria-label="Connection types">
+        <footer
+          data-graph-chrome
+          style={{ right: selection ? PANEL_INSET + 24 : undefined }}
+          className="absolute right-12 bottom-0 left-12 flex flex-wrap items-center justify-between gap-x-8 gap-y-1.5 border-t border-rule bg-paper pt-3 pb-6 text-[0.9375rem] text-ink-2"
+        >
+          <ul className="flex gap-6 caps tracking-[1.2px]" aria-label="Connection types">
             {(["thematic", "contrast", "context"] as const).map((t) => (
-              <li key={t} className="flex items-center gap-2 font-medium text-ink-2">
-                <span aria-hidden className="inline-block h-[3px] w-6 rounded-[2px]" style={{ background: TYPE_COLOR[t] }} />
-                {TYPE_LABEL[t]}
+              <li key={t} className="flex items-center gap-2">
+                <span aria-hidden className="inline-block h-[3px] w-7" style={{ background: TYPE_COLOR[t] }} />
+                {TYPE_LABEL[t].toLowerCase()}
               </li>
             ))}
           </ul>
-          <p className="text-ink-3">
-            Thicker lines are stronger Connections. Select a Book to see all of its own, or a Cluster’s name to see what its Books share.
-          </p>
-        </div>
+          <p className="italic">Thicker lines are stronger connections. Select a book, or a cluster’s name or colour.</p>
+        </footer>
       )}
 
       {/* The canvas is not readable by assistive tech; the same Books, as a list, open the same panel.
@@ -251,7 +256,7 @@ export function GraphWorkspace({
                   onBlur={() => setPointed(null)}
                   onClick={(e) => openFromList(e.currentTarget, { kind: "book", bookId: b.bookId })}
                 >
-                  {b.title}, {b.degree} {b.degree === 1 ? "Connection" : "Connections"}
+                  {b.title}, {b.degree} {b.degree === 1 ? "connection" : "connections"}
                 </button>
               </li>
             ))}
@@ -263,9 +268,14 @@ export function GraphWorkspace({
           <ul>
             {graph.clusters.map((c) => (
               <li key={c.id}>
-                <button type="button" onClick={(e) => openFromList(e.currentTarget, { kind: "cluster", id: c.id })}>
+                <button
+                  type="button"
+                  onFocus={() => setPointedCluster(c.id)}
+                  onBlur={() => setPointedCluster(null)}
+                  onClick={(e) => openFromList(e.currentTarget, { kind: "cluster", id: c.id })}
+                >
                   {/* An unnamed Cluster's name already counts its Books. */}
-                  {c.named ? `${c.name}, ${c.bookIds.length} Books` : c.name}
+                  {c.named ? `${c.name}, ${c.bookIds.length} books` : c.name}
                 </button>
               </li>
             ))}
@@ -278,7 +288,7 @@ export function GraphWorkspace({
       </p>
 
       {wide && selection && (
-        <div ref={panelRef} className="absolute top-6 right-6 bottom-6 w-[27rem] overflow-hidden border border-rule shadow-[0_12px_32px_-8px_rgb(26_26_26/0.18),0_2px_6px_rgb(26_26_26/0.06)]">
+        <div ref={panelRef} className="absolute top-6 right-6 bottom-6 w-[27rem] overflow-hidden border motion-safe:animate-panel-in border-rule shadow-[0_12px_32px_-8px_rgb(26_26_26/0.18),0_2px_6px_rgb(26_26_26/0.06)]">
           {selection.kind === "cluster" ? (
             <ClusterPanel
               key={selection.id}

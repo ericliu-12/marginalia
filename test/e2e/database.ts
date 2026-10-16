@@ -155,12 +155,13 @@ export async function addNoteThatGaveUp(title: Title, body: string) {
   await pool.end();
 }
 
-// A Cluster of these Books, as the graph job would leave it: named, or not yet (`name` null).
-export async function addCluster(titles: Title[], name: { name: string; description: string } | null) {
+// A Cluster of these Books, as the graph job would leave it: named, or not yet (`name` null), drawn in
+// the `wash`th tint.
+export async function addCluster(titles: Title[], name: { name: string; description: string } | null, wash = 0) {
   const { db, pool } = createDb(e2eDatabaseUrl());
   const rows = await db.select({ id: book.id, title: book.title, userId: libraryEntry.userId }).from(book).innerJoin(libraryEntry, eq(libraryEntry.bookId, book.id));
   const ids = titles.map((t) => rows.find((r) => r.title === t)!.id);
-  const [row] = await db.insert(clusterLabel).values({ userId: rows[0].userId, memberBookIds: ids, name: name?.name, description: name?.description }).returning();
+  const [row] = await db.insert(clusterLabel).values({ userId: rows[0].userId, memberBookIds: ids, name: name?.name, description: name?.description, wash }).returning();
   await pool.end();
   return row.id;
 }

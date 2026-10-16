@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNotNull, isNull, notExists, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, notExists, or, sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { book, connection, connectionRun, enrichment, libraryEntry, note } from "@/db/schema";
 import { embedEnrichment, nearestBooks, type Embedder } from "./embeddings";
@@ -326,6 +326,8 @@ export type ConnectionsView = {
   // What Connections can't draw on, its vector having given up, until a Refresh embeds it again: how
   // many of the reader's Notes on the Book, and whether its Enrichment.
   leftOut: { notes: number; enrichment: boolean };
+  // Whether these are the reader's first Connections: they have some, and every one is this Book's.
+  first: boolean;
 };
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
@@ -372,6 +374,13 @@ export async function readConnections(db: Db, userId: string, bookId: string): P
         .leftJoin(libraryEntry, and(eq(libraryEntry.bookId, book.id), eq(libraryEntry.userId, userId)))
         .where(inArray(book.id, rows.map(otherId)))
     : [];
+  const elsewhere = rows.length
+    ? await db
+        .select({ id: connection.id })
+        .from(connection)
+        .where(and(eq(connection.userId, userId), isNull(connection.dismissedAt), ne(connection.bookAId, bookId), ne(connection.bookBId, bookId)))
+        .limit(1)
+    : [];
   return {
     cards: rows.map((r) => {
       const other = others.find((o) => o.book.id === otherId(r))!;
@@ -389,6 +398,7 @@ export async function readConnections(db: Db, userId: string, bookId: string): P
     generated: !!entry?.connectionsGeneratedAt,
     finished: !!entry && (await isFinished(db, userId, bookId)),
     leftOut: await readLeftOut(db, entry?.id, bookId),
+    first: rows.length > 0 && elsewhere.length === 0,
   };
 }
 
