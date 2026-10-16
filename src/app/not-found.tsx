@@ -9,7 +9,9 @@ const wayBack =
 
 export default function NotFound() {
   return (
-    <div className="flex min-h-dvh justify-center px-5 pt-[max(18vh,calc(env(safe-area-inset-top)+3rem))] pb-12 sm:px-6">
+    // Below lg the wordmark's top is the phone library's (mobile-shelf.tsx): its padding, plus the 8.125px its
+    // wordmark drops to sit on Account's baseline, which this page has no row for.
+    <div className="flex min-h-dvh justify-center px-5 pt-[calc(max(1.125rem,env(safe-area-inset-top))_+_8.125px)] pb-12 sm:px-6 lg:pt-[max(18vh,calc(env(safe-area-inset-top)+3rem))]">
       <main className="w-full max-w-[28rem]">
         <p className="text-[24px] leading-none italic lg:text-[30px]">Marginalia</p>
         <h1 className="mt-12 text-[32px] leading-[1.1] font-medium tracking-[-0.01em] text-balance lg:text-[38px]">This page isn’t here.</h1>
