@@ -40,12 +40,13 @@ export function LegalPage({
 }
 
 // The column /privacy, /terms and /account share: the wordmark with Back to Marginalia, a serif title over
-// a line of small print, and a hairline footer of links and the email.
+// a line of small print, and a hairline footer of links and the email. Below lg the wordmark sits where the phone
+// library's does (mobile-shelf.tsx), so Account doesn't make the top of the page jump.
 export function PaperColumn({ title, subtitle, links, children }: { title: string; subtitle: React.ReactNode; links: { href: string; label: string }[]; children: React.ReactNode }) {
   return (
-    <div className="flex min-h-dvh justify-center px-5 pt-[max(10vh,calc(env(safe-area-inset-top)+2rem))] pb-[max(4rem,env(safe-area-inset-bottom))] sm:px-6">
+    <div className="flex min-h-dvh justify-center px-5 pt-[max(1.125rem,env(safe-area-inset-top))] pb-[max(4rem,env(safe-area-inset-bottom))] sm:px-6 lg:pt-[max(10vh,calc(env(safe-area-inset-top)+2rem))]">
       <div className="w-full max-w-[36rem] text-[17px] leading-[1.6] text-pretty">
-        <header className="flex items-center justify-between gap-4">
+        <header className="flex items-baseline justify-between gap-4 leading-normal lg:items-center">
           <p className="text-[24px] leading-none italic lg:text-[30px]">Marginalia</p>
           <Link href="/" className={`${smallCapsLink} shrink-0 text-[15px] tracking-[1.2px] whitespace-nowrap lg:text-[16px] lg:tracking-[1.4px]`}>
             Back to Marginalia

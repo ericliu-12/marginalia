@@ -182,7 +182,9 @@ export function GraphWorkspace({
         />
       )}
 
-      <header className="pointer-events-none absolute inset-x-0 top-0 flex items-baseline gap-8 px-8 pt-7 lg:px-12">
+      {/* Below lg the wordmark's top is the phone library's (mobile-shelf.tsx): its padding, plus 3px for this
+          larger wordmark sitting on the same baseline as Account. */}
+      <header className="pointer-events-none absolute inset-x-0 top-0 flex items-baseline gap-8 px-8 pt-[calc(max(1.125rem,env(safe-area-inset-top))_+_3px)] lg:px-12 lg:pt-7">
         <h1 data-graph-chrome className="pointer-events-auto text-[1.75rem] leading-none font-medium tracking-[-0.01em] italic">Marginalia</h1>
         <div data-graph-chrome className="pointer-events-auto">
           <ViewSwitch current="graph" />
