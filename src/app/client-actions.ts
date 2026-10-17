@@ -66,3 +66,5 @@ export const graphStatusAction = client("graphStatusAction");
 export const backgroundStatusAction = client("backgroundStatusAction");
 export const dismissConnectionAction = client("dismissConnectionAction");
 export const refreshConnectionsAction = client("refreshConnectionsAction");
+export const getConnectCandidatesAction = client("getConnectCandidatesAction");
+export const connectBooksAction = client("connectBooksAction");

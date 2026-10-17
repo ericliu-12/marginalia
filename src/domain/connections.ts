@@ -320,6 +320,7 @@ export type ConnectionCard = {
   explanation: string;
   // Null for a Manual Connection.
   grounding: "notes" | "enrichment" | null;
+  madeBy: MadeBy;
 };
 
 export type ConnectionsView = {
@@ -334,6 +335,8 @@ export type ConnectionsView = {
   leftOut: { notes: number; enrichment: boolean };
   // Whether these are the reader's first Connections: they have some, and every one is this Book's.
   first: boolean;
+  // Whether the reader can connect this Book by hand: it is Finished, and so is another of theirs.
+  canConnect: boolean;
 };
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
@@ -390,6 +393,7 @@ export async function readConnections(db: Db, userId: string, bookId: string): P
         .where(and(eq(connection.userId, userId), isNull(connection.dismissedAt), ne(connection.bookAId, bookId), ne(connection.bookBId, bookId)))
         .limit(1)
     : [];
+  const finishedIds = new Set((await completedPasses(db, userId)).map((p) => p.bookId));
   return {
     cards: rows.map((r) => {
       const other = others.find((o) => o.book.id === otherId(r))!;
@@ -401,13 +405,15 @@ export async function readConnections(db: Db, userId: string, bookId: string): P
         strength: r.strength,
         explanation: r.explanation,
         grounding: r.grounding,
+        madeBy: r.madeBy,
       };
     }),
     status: entry?.connectionsStatus ?? "idle",
     generated: !!entry?.connectionsGeneratedAt,
-    finished: !!entry && (await isFinished(db, userId, bookId)),
+    finished: !!entry && finishedIds.has(bookId),
     leftOut: await readLeftOut(db, entry?.id, bookId),
     first: rows.length > 0 && elsewhere.length === 0,
+    canConnect: !!entry && finishedIds.has(bookId) && finishedIds.size > 1,
   };
 }
 
@@ -541,4 +547,51 @@ export async function createManualConnection(db: Db, pipeline: Pipeline, userId:
   });
   await pipeline.connectionsChanged(userId);
   return created;
+}
+
+export type ConnectCandidate = {
+  bookId: string;
+  title: string;
+  authors: string[];
+  // The judge's live Connection of the pair, which connecting it by hand replaces.
+  replaces: { type: ConnectionType; strength: Strength; explanation: string } | null;
+};
+
+// Domain seam: the Books the reader may connect this one with by hand: their other Finished Books, less
+// those they have connected it with already, titled as they title them, most recently finished first
+// (as "iii. read" orders them).
+export async function readConnectCandidates(db: Db, userId: string, bookId: string): Promise<ConnectCandidate[]> {
+  const passes = await readFinished(db, userId);
+  const finished = new Set((await completedPasses(db, userId)).map((p) => p.bookId));
+  if (!finished.has(bookId)) return [];
+  finished.delete(bookId);
+  const pairs = await db
+    .select()
+    .from(connection)
+    .where(and(eq(connection.userId, userId), isNull(connection.dismissedAt), or(eq(connection.bookAId, bookId), eq(connection.bookBId, bookId))));
+  const theirs = new Map(pairs.map((c) => [otherBook({ a: c.bookAId, b: c.bookBId }, bookId), c]));
+  if (finished.size === 0) return [];
+  const books = await db
+    .select({ book, entry: libraryEntry })
+    .from(book)
+    .innerJoin(libraryEntry, and(eq(libraryEntry.bookId, book.id), eq(libraryEntry.userId, userId)))
+    .where(inArray(book.id, [...finished]));
+  const recency = (entryId: string) => {
+    const f = passes.get(entryId);
+    return [f?.lastFinishedAt ?? 0, f?.lastCompletedAt ?? 0];
+  };
+  return books
+    .filter(({ book: b }) => theirs.get(b.id)?.madeBy !== "reader")
+    .sort((x, y) => {
+      const [rx, ry] = [recency(x.entry.id), recency(y.entry.id)];
+      return ry[0] - rx[0] || ry[1] - rx[1];
+    })
+    .map(({ book: b, entry }) => {
+      const judged = theirs.get(b.id);
+      return {
+        bookId: b.id,
+        ...displayed(b, entry),
+        replaces: judged?.type ? { type: judged.type, strength: judged.strength, explanation: judged.explanation } : null,
+      };
+    });
 }

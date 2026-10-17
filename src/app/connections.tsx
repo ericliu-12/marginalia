@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { flushSync } from "react-dom";
 import type { ConnectionCard, ConnectionsView } from "@/domain/connections";
 import type { Pause } from "@/domain/spend";
+import { ConnectBookForm } from "./connect-book";
 import { backgroundStatusAction, dismissConnectionAction, getConnectionsAction, refreshConnectionsAction } from "./client-actions";
 import { dangerLink, quietLink } from "./quiet-link";
 import { useInlineConfirm } from "./use-inline-confirm";
@@ -56,6 +58,10 @@ export function ConnectionsSection({ bookId, onOpenBook, withheld }: { bookId: s
   const [loadFailed, setLoadFailed] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [said, setSaid] = useState("");
+  const [connecting, setConnecting] = useState(false);
+  // The Connection the reader just made, drawn in as it appears.
+  const [made, setMade] = useState<string | null>(null);
+  const connectRef = useRef<HTMLButtonElement>(null);
 
   const load = useCallback(
     () =>
@@ -69,7 +75,8 @@ export function ConnectionsSection({ bookId, onOpenBook, withheld }: { bookId: s
   usePoll(load, POLL_MS, !(loadFailed && !view) && (view === undefined || view.status === "running"));
   // Not while the graph still holds them back: said as the first one appears.
   const shown = view?.cards.filter((c) => !withheld?.has(c.id)) ?? [];
-  const sayFirst = useFirstSaid(!!view?.first && shown.length > 0);
+  // Never over the reader's own: those they made themselves.
+  const sayFirst = useFirstSaid(!!view?.first && shown.some((c) => c.madeBy === "judge"));
 
   if (!view) {
     if (!loadFailed) return null;
@@ -85,7 +92,7 @@ export function ConnectionsSection({ bookId, onOpenBook, withheld }: { bookId: s
       </section>
     );
   }
-  const { cards, status, finished, leftOut } = view;
+  const { cards, status, finished, leftOut, canConnect } = view;
   if (!finished && cards.length === 0) return null;
 
   return (
@@ -106,26 +113,28 @@ export function ConnectionsSection({ bookId, onOpenBook, withheld }: { bookId: s
       {cards.length > 0 && (
         <ul className="mt-1.5 flex flex-col gap-3">
           {shown.map((c) => (
-            <li key={c.id} className={withheld ? "motion-safe:animate-draw-in" : undefined}>
+            <li key={c.id} className={withheld || c.id === made ? "motion-safe:animate-draw-in" : undefined}>
               {/* The type in its hue, then the other Book in italic and why. */}
               <div className="flex flex-wrap items-baseline gap-x-2">
                 <p className={`caps text-[12px] tracking-[1.2px] ${c.type ? TYPE[c.type].hue : "text-ink-2"}`}>
-                  {c.type ? `${TYPE[c.type].label} · ${STRENGTH_LABEL[c.strength]}` : "yours"}
+                  {c.type ? `${TYPE[c.type].label} · ${c.madeBy === "reader" ? "yours" : STRENGTH_LABEL[c.strength]}` : "yours"}
                   {c.grounding === "enrichment" && <span className="text-ink-3"> · Not drawn from your notes</span>}
                   {/* While its Book arrives in the graph, each Connection is marked new. */}
                   {withheld && <span className="text-accent"> · New</span>}
                 </p>
-                <DismissConnection
-                  connectionId={c.id}
-                  label={`Dismiss the connection to ${c.otherTitle}`}
-                  className="ml-auto"
-                  onDismissed={() => {
-                    setSaid(`Connection to ${c.otherTitle} dismissed`);
-                    setView((v) => v && { ...v, cards: v.cards.filter((x) => x.id !== c.id) });
-                    // The dismissed card took focus with it; the heading is the nearest stable place.
-                    headingRef.current?.focus();
-                  }}
-                />
+                {c.madeBy === "judge" && (
+                  <DismissConnection
+                    connectionId={c.id}
+                    label={`Dismiss the connection to ${c.otherTitle}`}
+                    className="ml-auto"
+                    onDismissed={() => {
+                      setSaid(`Connection to ${c.otherTitle} dismissed`);
+                      setView((v) => v && { ...v, cards: v.cards.filter((x) => x.id !== c.id) });
+                      // The dismissed card took focus with it; the heading is the nearest stable place.
+                      headingRef.current?.focus();
+                    }}
+                  />
+                )}
               </div>
               <p className="max-w-[60ch] text-[16px] leading-normal">
                 <button type="button" onClick={() => onOpenBook(c.otherBookId)} className={`${titleLink} -my-2.5 py-2.5 italic lg:my-0 lg:py-0`}>
@@ -141,7 +150,34 @@ export function ConnectionsSection({ bookId, onOpenBook, withheld }: { bookId: s
         {said}
       </p>
       {finished && status !== "running" && <LeftOut leftOut={leftOut} />}
-      {finished && status !== "running" && <RefreshConnections bookId={bookId} onRequested={load} />}
+      {finished && status !== "running" && connecting && (
+        <ConnectBookForm
+          bookId={bookId}
+          onCancel={() => {
+            flushSync(() => setConnecting(false));
+            connectRef.current?.focus();
+          }}
+          onConnected={async (id, otherTitle) => {
+            await load();
+            setMade(id);
+            setConnecting(false);
+            setSaid(`Connected to ${otherTitle}`);
+            // The form took focus with it; the heading sits just over the new card.
+            headingRef.current?.focus({ preventScroll: true });
+            headingRef.current?.scrollIntoView({ block: "nearest" });
+          }}
+        />
+      )}
+      {finished && status !== "running" && !connecting && (
+        <div className="flex flex-wrap items-center gap-x-5 pt-3">
+          <RefreshConnections bookId={bookId} onRequested={load} />
+          {canConnect && (
+            <button ref={connectRef} type="button" onClick={() => setConnecting(true)} className={quietLink}>
+              Connect a book
+            </button>
+          )}
+        </div>
+      )}
     </section>
   );
 }
@@ -169,17 +205,18 @@ function RefreshConnections({ bookId, onRequested }: { bookId: string; onRequest
     });
   }
 
+  // In the row beside "Connect a book"; its error takes a line of its own, after it.
   return (
-    <div className="pt-3">
+    <>
       <button type="button" onClick={refresh} disabled={pending} className={quietLink}>
         {pending ? "Refreshing…" : "Refresh connections"}
       </button>
       {error && (
-        <p role="alert" className="mt-1 text-sm text-contrast">
+        <p role="alert" className="order-last mt-1 w-full text-sm text-contrast">
           Couldn’t refresh connections. Try again.
         </p>
       )}
-    </div>
+    </>
   );
 }
 

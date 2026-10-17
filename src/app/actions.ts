@@ -7,7 +7,18 @@ import { editBook } from "@/domain/edit-book";
 import { findLookalike, type Lookalike } from "@/domain/lookalike";
 import { bookSearchGateway, descriptionGateway } from "@/lib/book-search";
 import { readEntryEnrichment, tryAgain, type EnrichmentView } from "@/domain/enrichment";
-import { countFindingConnections, dismissConnection, readConnection, readConnections, type ConnectionDetail, type ConnectionsView } from "@/domain/connections";
+import {
+  countFindingConnections,
+  createManualConnection,
+  dismissConnection,
+  readConnectCandidates,
+  readConnection,
+  readConnections,
+  type ConnectCandidate,
+  type ConnectionDetail,
+  type ConnectionsView,
+  type ManualConnectionInput,
+} from "@/domain/connections";
 import { readGraphStatus, type GraphStatus } from "@/domain/graph-job";
 import { changeStatus, removeFromLibrary } from "@/domain/library-entry";
 import { readPause, type Pause } from "@/domain/spend";
@@ -256,6 +267,32 @@ export async function refreshConnectionsAction(bookId: string): Promise<{ ok: bo
     await directPipeline(db).refreshRequested(userId, bookId);
     revalidate("refreshConnectionsAction");
     return { ok: true };
+  } catch (err) {
+    console.error(err);
+    return { ok: false };
+  }
+}
+
+// The Books this one may be connected with by hand; null when they could not be read.
+export async function getConnectCandidatesAction(bookId: string): Promise<ConnectCandidate[] | null> {
+  try {
+    const userId = await requireReader();
+    const db = appDb();
+    return await readConnectCandidates(db, userId, bookId);
+  } catch (err) {
+    console.error(err);
+    return null;
+  }
+}
+
+// The reader connects two of their Books. The graph lays itself out again once the worker settles.
+export async function connectBooksAction(input: ManualConnectionInput): Promise<{ ok: true; id: string } | { ok: false }> {
+  try {
+    const userId = await requireReader();
+    const db = appDb();
+    const { id } = await createManualConnection(db, directPipeline(db), userId, input);
+    revalidate("connectBooksAction");
+    return { ok: true, id };
   } catch (err) {
     console.error(err);
     return { ok: false };

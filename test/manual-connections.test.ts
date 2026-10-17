@@ -9,6 +9,7 @@ import {
   generateConnections,
   InvalidConnectionError,
   notesOnlyBreaches,
+  readConnectCandidates,
   readConnections,
   REASON_MAX,
   type ConnectionDeps,
@@ -174,6 +175,46 @@ describe("Manual Connections", () => {
       await ctx.db.update(connection).set({ dismissedAt: new Date(), explanation: "", type: null });
       await connect(a, b, { reason: "Again." });
       expect(await stored()).toEqual([expect.objectContaining({ madeBy: "reader", dismissedAt: null, explanation: "Again." })]);
+    });
+  });
+
+  describe("choosing the other Book", () => {
+    const candidates = (bookId: string) => readConnectCandidates(ctx.db, ctx.userId, bookId);
+
+    it("offers the reader's other Finished Books, most recently finished first, less this one and those already connected by hand", async () => {
+      const a = await finished("Stoner");
+      const b = await finished("Lonely");
+      const c = await finished("Warlike");
+      await addBook(ctx.db, ctx.pipeline, ctx.userId, work({ workKey: "/works/r", title: "Reading", authors: ["A"] }), "reading");
+      await finished("Theirs", { userId: (await addReader(ctx.db, "other@example.com")).id });
+      await connect(a, c);
+      expect(await candidates(a)).toEqual([{ bookId: b, title: "Lonely", authors: ["A"], replaces: null }]);
+      expect((await candidates(b)).map((x) => x.title)).toEqual(["Warlike", "Stoner"]);
+    });
+
+    it("says which judge Connection of the pair it would replace; a dismissed one is not mentioned", async () => {
+      const a = await finished("Stoner");
+      const b = await finished("Lonely");
+      const c = await finished("Warlike");
+      await judgeRun(fakeJudge(linkAll), a);
+      await ctx.db.update(connection).set({ dismissedAt: new Date() }).where(eq(connection.id, (await pairRow(a, c)).id));
+      expect(await candidates(a)).toEqual([
+        { bookId: c, title: "Warlike", authors: ["A"], replaces: null },
+        { bookId: b, title: "Lonely", authors: ["A"], replaces: { type: "thematic", strength: "moderate", explanation: "The judge's reason." } },
+      ]);
+    });
+
+    it("offers nothing, and the panel no way to connect, until there are two Finished Books", async () => {
+      const a = await finished("Stoner");
+      const reading = (await addBook(ctx.db, ctx.pipeline, ctx.userId, work({ workKey: "/works/r", title: "Reading", authors: ["A"] }), "reading")).bookId;
+      expect(await candidates(a)).toEqual([]);
+      expect((await readConnections(ctx.db, ctx.userId, a)).canConnect).toBe(false);
+      const b = await finished("Lonely");
+      expect((await readConnections(ctx.db, ctx.userId, a)).canConnect).toBe(true);
+      expect((await readConnections(ctx.db, ctx.userId, reading)).canConnect).toBe(false);
+      expect(await candidates(reading)).toEqual([]);
+      await connect(a, b);
+      expect((await readConnections(ctx.db, ctx.userId, a)).cards).toEqual([expect.objectContaining({ otherBookId: b, madeBy: "reader" })]);
     });
   });
 
