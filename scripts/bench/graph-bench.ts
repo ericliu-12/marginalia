@@ -4,18 +4,14 @@
 //   pnpm build && pnpm bench:graph [300,600,1000] [cpu throttle, e.g. 4]
 //   BENCH_PHONE=1 pnpm bench:graph 300 4     (the phone's graph, at 390 by 844, by touch)
 //
-// For each size it seeds a scratch database with that many synthetic Finished Books (about one Cluster
-// per 20, 3 to 5 Connections each, 80% inside their Cluster with preferential attachment, 40% strong),
-// lays them out and clusters them as the worker would, names every Cluster, then serves the production
-// build on it and drives installed Chrome, headed, at 1440 by 900 (see `run`). Each scenario is timed by
-// its requestAnimationFrame intervals. A CPU throttle stands in for lower-end hardware. Local DATABASE_URL only; no outside calls.
-import { spawn } from "node:child_process";
-import { createHmac } from "node:crypto";
+// For each size it takes the kept synthetic library of that many Finished Books (./kept-library.ts: about
+// one Cluster per 20, 3 to 5 Connections each, 80% inside their Cluster with preferential attachment,
+// 40% strong, laid out and clustered as the worker would, every Cluster named; seeded once, the same
+// graph every run), serves the production build on it and drives installed Chrome, headed, at 1440 by
+// 900 (see `run`). Each scenario is timed by its requestAnimationFrame intervals. A CPU throttle stands
+// in for lower-end hardware. Local DATABASE_URL only; no outside calls.
 import { chromium, type CDPSession, type Page } from "@playwright/test";
-import { Pool } from "pg";
-import { createDb } from "@/db/client";
-import { runMigrations } from "@/db/migrate";
-import { seedSyntheticLibrary } from "./synthetic-library";
+import { keptLibrary, readerCookie, serveLibrary } from "./kept-library";
 
 const sizes = (process.argv[2] ?? "300,600,1000").split(",").map(Number);
 const throttle = Number(process.argv[3] ?? 1);
@@ -27,16 +23,6 @@ const profile = process.env.BENCH_PROFILE;
 const phone = process.env.BENCH_PHONE === "1";
 const VIEWPORT = phone ? { width: 390, height: 844 } : { width: 1440, height: 900 };
 const PORT = 3200;
-const NAME = "marginalia_bench";
-// The bench Reader's session, signed as Better Auth signs its cookie, with the bench server's secret.
-const SECRET = "bench-auth-secret-at-least-32-characters";
-const TOKEN = "bench-reader-session";
-
-const adminUrl = process.env.DATABASE_URL;
-if (!adminUrl || !["localhost", "127.0.0.1"].includes(new URL(adminUrl).hostname)) {
-  throw new Error("pnpm bench:graph only runs against a local DATABASE_URL (it creates and drops a scratch database).");
-}
-const onDatabase = (name: string) => Object.assign(new URL(adminUrl), { pathname: `/${name}` }).toString();
 
 // Frame intervals while `drive` runs, as frames per second, the median and 95th percentile in ms, and the
 // worst; and the main thread's busy time (scripts, style, layout and paint) per frame, in ms, which
@@ -225,24 +211,6 @@ async function run(page: Page, cdp: CDPSession, hub: string, n: number) {
   return out;
 }
 
-const admin = new Pool({ connectionString: onDatabase("postgres") });
-await admin.query(`DROP DATABASE IF EXISTS ${NAME} WITH (FORCE)`);
-await admin.query(`CREATE DATABASE ${NAME}`);
-const { db, pool } = createDb(onDatabase(NAME));
-await runMigrations(db);
-
-const server = spawn("pnpm", ["exec", "next", "start", "--port", String(PORT)], {
-  env: {
-    ...process.env,
-    DATABASE_URL: onDatabase(NAME),
-    BETTER_AUTH_URL: `http://localhost:${PORT}`,
-    BETTER_AUTH_SECRET: SECRET,
-    ANTHROPIC_API_KEY: "bench-no-calls",
-    VOYAGE_API_KEY: "bench-no-calls",
-    GOOGLE_BOOKS_API_KEY: "bench-no-calls",
-  },
-  stdio: "ignore",
-});
 const browser = await chromium.launch({
   channel: "chrome",
   headless: false,
@@ -250,22 +218,12 @@ const browser = await chromium.launch({
 });
 const rows: string[] = [];
 try {
-  for (let tries = 0; ; tries++) {
-    try {
-      await fetch(`http://localhost:${PORT}/graph`);
-      break;
-    } catch (e) {
-      if (tries > 60) throw e;
-      await new Promise((r) => setTimeout(r, 500));
-    }
-  }
   for (const n of sizes) {
-    const t0 = Date.now();
-    const seededLibrary = await seedSyntheticLibrary(db, n, TOKEN);
-    console.log(JSON.stringify({ ...seededLibrary, seedSeconds: (Date.now() - t0) / 1000 }));
+    const seededLibrary = await keptLibrary(n);
+    console.log(JSON.stringify({ ...seededLibrary, url: undefined }));
+    const server = await serveLibrary(seededLibrary.url, PORT);
     const context = await browser.newContext(phone ? { viewport: VIEWPORT, isMobile: true, hasTouch: true, deviceScaleFactor: 3 } : { viewport: VIEWPORT });
-    const signed = encodeURIComponent(`${TOKEN}.${createHmac("sha256", SECRET).update(TOKEN).digest("base64")}`);
-    await context.addCookies([{ name: "better-auth.session_token", value: signed, domain: "localhost", path: "/", httpOnly: true, sameSite: "Lax" }]);
+    await context.addCookies([readerCookie()]);
     // tsx names the functions handed to page.evaluate with a helper the page lacks.
     await context.addInitScript({ content: "window.__name = (f) => f;" });
     const page = await context.newPage();
@@ -303,13 +261,10 @@ try {
     }
     console.log(rows.at(-1));
     await context.close();
+    server.stop();
   }
 } finally {
   await browser.close();
-  server.kill();
-  await pool.end();
-  await admin.query(`DROP DATABASE IF EXISTS ${NAME} WITH (FORCE)`);
-  await admin.end();
 }
 console.log(`\nCPU throttle: ${throttle}x\n`);
 if (phone) {

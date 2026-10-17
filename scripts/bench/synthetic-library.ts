@@ -58,11 +58,11 @@ function library(n: number) {
 
 // Replaces everything in `db` with a synthetic library of `n` Finished Books, laid out and clustered as
 // the worker would, every Cluster named. Its Reader is signed in with the session `token`.
-export async function seedSyntheticLibrary(db: Db, n: number, token: string) {
+export async function seedSyntheticLibrary(db: Db, n: number, token: string, options: { fixedIds?: boolean } = {}) {
   await db.execute(sql`TRUNCATE "user" CASCADE`);
   const [{ id: userId }] = await db.insert(user).values({ email: "bench@marginalia.local", emailVerified: true }).returning();
   await db.insert(session).values({ userId, token, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) });
-  return seedSyntheticBooks(db, userId, n);
+  return seedSyntheticBooks(db, userId, n, options);
 }
 
 // Gives the Reader `userId` a synthetic library of `n` Finished Books, laid out and clustered, every
