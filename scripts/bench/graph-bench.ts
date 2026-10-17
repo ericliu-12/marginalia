@@ -62,8 +62,8 @@ async function timed(page: Page, cdp: CDPSession, drive: () => Promise<void>) {
   };
 }
 
-// A spot on the canvas with no ink near it (somewhere to pan from), and the centre of a Book's dot
-// near the middle (something to drag), found from the canvas's own pixels.
+// A spot on the canvas with no ink near it (somewhere to pan from), and the centres of Books' dots
+// nearest the middle (something to drag), nearest first, found from the canvas's own pixels.
 async function spots(page: Page) {
   return page.evaluate(({ width: vw, height: vh }) => {
     const canvas = document.querySelector("canvas")!;
@@ -76,8 +76,7 @@ async function spots(page: Page) {
     };
     let empty = { x: vw / 2, y: vh / 2 };
     let best = -1;
-    let dot = { x: vw / 2, y: vh / 2 };
-    let nearest = Infinity;
+    const dots: { x: number; y: number; d: number }[] = [];
     const edge = vw < 600 ? 40 : 140;
     for (let y = 160; y < vh - 160; y += 10) {
       for (let x = edge; x < Math.min(1000, vw - edge); x += 10) {
@@ -87,10 +86,10 @@ async function spots(page: Page) {
         if (clear > best && document.elementFromPoint(x, y) === canvas) [best, empty] = [clear, { x, y }];
         const solid = [-3, 0, 3].every((dx) => [-3, 0, 3].every((dy) => px + dx > 0 && px + dx < width && py + dy > 0 && py + dy < height && dark(px + dx, py + dy)));
         const d = Math.hypot(x - vw / 2, y - vh / 2);
-        if (solid && d < nearest && document.elementFromPoint(x, y) === canvas) [nearest, dot] = [d, { x, y }];
+        if (solid && document.elementFromPoint(x, y) === canvas && !dots.some((o) => Math.hypot(o.x - x, o.y - y) < 12)) dots.push({ x, y, d });
       }
     }
-    return { empty, dot };
+    return { empty, dots: dots.sort((p, q) => p.d - q.d).slice(0, 10) };
   }, VIEWPORT);
 }
 
@@ -183,6 +182,11 @@ async function run(page: Page, cdp: CDPSession, hub: string, n: number) {
       }
     }),
   );
+  // Its 40 steps in stop at the deepest zoom and its 40 out don't, so it leaves the graph a speck: the
+  // rest start from the first view again.
+  await page.reload();
+  await page.locator("canvas").waitFor();
+  await page.waitForTimeout(2500);
   await page.getByRole("navigation", { name: "Books in the graph" }).getByRole("button", { name: `${hub}, ` }).first().focus();
   await page.keyboard.press("Enter");
   await page.waitForTimeout(1500);
@@ -191,7 +195,19 @@ async function run(page: Page, cdp: CDPSession, hub: string, n: number) {
   // Back to the whole graph; the camera glides home, slowly under a throttle.
   await page.keyboard.press("Escape");
   await page.waitForTimeout(3000);
-  const { dot } = await spots(page);
+  // The first of those dots force-graph finds a Book under (a spot it reads as a dot may be ink it
+  // doesn't hit: under a name's edge, say).
+  const { dots } = await spots(page);
+  let dot = dots[0] ?? { x: VIEWPORT.width / 2, y: VIEWPORT.height / 2 };
+  for (const at of dots) {
+    await page.mouse.move(at.x - 20, at.y - 20);
+    await page.mouse.move(at.x, at.y, { steps: 10 });
+    await page.waitForTimeout(900);
+    if (await page.locator("canvas.clickable").count()) {
+      dot = at;
+      break;
+    }
+  }
   out.drag = await profiled(cdp, "drag", () =>
     timed(page, cdp, async () => {
       await page.mouse.move(dot.x, dot.y);
