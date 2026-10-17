@@ -6,11 +6,13 @@ import { isRecognised } from "./enrichment";
 import { displayed } from "./library";
 import { byStrength, otherBook, pairOf } from "./connection-pair";
 import { acceptJudged, judgeRound } from "./judge-round";
-import { completedPasses, findEntry, isFinished, readFinished } from "./library-entry";
+import { completedPasses, findEntry, isFinished, NotInLibraryError, readFinished } from "./library-entry";
 import type { Pipeline } from "./pipeline";
 
 export type ConnectionType = "thematic" | "contrast" | "context";
 export type Strength = "strong" | "moderate" | "weak";
+// Who made a Connection: the judge, or the reader by hand (a Manual Connection).
+export type MadeBy = "judge" | "reader";
 // What each Strength counts for when Connections are grouped into Clusters.
 export const CLUSTER_WEIGHT: Record<Strength, number> = { strong: 2, moderate: 1, weak: 0.5 };
 // Strongest first; ties are broken by similarity.
@@ -122,14 +124,15 @@ export async function refreshAfterEnrichment(db: Db, bookId: string): Promise<Co
   return due;
 }
 
-// The Book's Connections, dismissed ones too, that quote none of their reader's Notes on it.
+// The judge's Connections of the Book, dismissed ones too, that quote none of their reader's Notes on
+// it. A Manual Connection is the reader's own word, so it never counts.
 function quotingNoNotes(db: Db, bookId: string) {
   const ownNotes = db
     .select({ id: note.id })
     .from(note)
     .innerJoin(libraryEntry, eq(libraryEntry.id, note.libraryEntryId))
     .where(and(eq(libraryEntry.userId, connection.userId), eq(libraryEntry.bookId, bookId), sql`${note.id} = any(${connection.quotedNoteIds})`));
-  return and(or(eq(connection.bookAId, bookId), eq(connection.bookBId, bookId)), notExists(ownNotes));
+  return and(eq(connection.madeBy, "judge"), or(eq(connection.bookAId, bookId), eq(connection.bookBId, bookId)), notExists(ownNotes));
 }
 
 // The Book's Enrichment came back unrecognised, so it connects through its Notes only: the Readers
@@ -191,8 +194,8 @@ async function run(db: Db, deps: ConnectionDeps, userId: string, entryId: string
   const [ownEnrichment] = await db.select({ status: enrichment.status }).from(enrichment).where(eq(enrichment.bookId, bookId));
   const withoutEnrichment = ownEnrichment?.status !== "ready";
 
-  // Dismissed pairs are never judged again; nor, outside a Refresh, are pairs that already have a
-  // Connection (from the other Book's run).
+  // Dismissed pairs and the reader's own (Manual Connections) are never judged; nor, outside a Refresh,
+  // are pairs that already have a Connection (from the other Book's run).
   const existing = await db
     .select({ a: connection.bookAId, b: connection.bookBId })
     .from(connection)
@@ -200,7 +203,7 @@ async function run(db: Db, deps: ConnectionDeps, userId: string, entryId: string
       and(
         eq(connection.userId, userId),
         or(eq(connection.bookAId, bookId), eq(connection.bookBId, bookId)),
-        refresh ? isNotNull(connection.dismissedAt) : undefined,
+        refresh ? or(isNotNull(connection.dismissedAt), eq(connection.madeBy, "reader")) : undefined,
       ),
     );
   const connected = new Set(existing.map((c) => otherBook(c, bookId)));
@@ -227,7 +230,8 @@ async function run(db: Db, deps: ConnectionDeps, userId: string, entryId: string
       const store = () => {
         const insert = tx.insert(connection).values(rows);
         return refresh
-          ? insert.onConflictDoUpdate({ target, set: REFRESHED, setWhere: isNull(connection.dismissedAt) })
+          ? // A Manual Connection made while the job ran is left as the reader made it.
+            insert.onConflictDoUpdate({ target, set: REFRESHED, setWhere: and(isNull(connection.dismissedAt), eq(connection.madeBy, "judge")) })
           : insert.onConflictDoNothing({ target });
       };
       const inserted = rows.length ? await store().returning({ id: connection.id }) : [];
@@ -310,10 +314,12 @@ export type ConnectionCard = {
   id: string;
   otherBookId: string;
   otherTitle: string;
-  type: ConnectionType;
+  // Null for a Manual Connection the reader left untyped.
+  type: ConnectionType | null;
   strength: Strength;
   explanation: string;
-  grounding: "notes" | "enrichment";
+  // Null for a Manual Connection.
+  grounding: "notes" | "enrichment" | null;
 };
 
 export type ConnectionsView = {
@@ -345,6 +351,8 @@ export async function readLiveConnections(db: Db | Tx, userId: string) {
       strength: connection.strength,
       similarity: connection.similarity,
       explanation: connection.explanation,
+      madeBy: connection.madeBy,
+      createdAt: connection.createdAt,
     })
     .from(connection)
     .where(and(eq(connection.userId, userId), isNull(connection.dismissedAt)))
@@ -352,7 +360,8 @@ export async function readLiveConnections(db: Db | Tx, userId: string) {
   return rows.filter((c) => finished.has(c.a) && finished.has(c.b));
 }
 
-// Domain seam: what the Book panel shows. Strongest first, then most similar. Dismissed ones are hidden.
+// Domain seam: what the Book panel shows. Manual Connections first, newest first; then strongest first,
+// then most similar. Dismissed ones are hidden.
 export async function readConnections(db: Db, userId: string, bookId: string): Promise<ConnectionsView> {
   const entry = await findEntry(db, userId, bookId);
   const rows = await db
@@ -425,10 +434,10 @@ export type ConnectionDetail = {
   id: string;
   a: { bookId: string; title: string };
   b: { bookId: string; title: string };
-  type: ConnectionType;
+  type: ConnectionType | null;
   strength: Strength;
   explanation: string;
-  grounding: "notes" | "enrichment";
+  grounding: "notes" | "enrichment" | null;
 };
 
 // Domain seam: one Connection, as the graph shows it when the reader chooses it; its Books titled as the
@@ -461,4 +470,75 @@ export async function dismissConnection(db: Db, pipeline: Pipeline, userId: stri
     .where(and(eq(connection.id, connectionId), eq(connection.userId, userId), isNull(connection.dismissedAt)))
     .returning({ id: connection.id });
   if (dismissed.length) await pipeline.connectionsChanged(userId);
+}
+
+// A Manual Connection's reason is one line of at most this many characters.
+export const REASON_MAX = 200;
+
+export class InvalidConnectionError extends Error {}
+
+export class AlreadyConnectedError extends Error {
+  constructor() {
+    super("The reader has already connected these Books");
+  }
+}
+
+export type ManualConnectionInput = { bookId: string; otherBookId: string; type?: ConnectionType | null; reason: string };
+
+// The reason as stored: on one line, trimmed.
+function cleanReason(reason: string) {
+  const line = reason.replace(/\s*[\r\n]+\s*/g, " ").trim();
+  if (!line) throw new InvalidConnectionError("A Manual Connection needs a reason");
+  if ([...line].length > REASON_MAX) throw new InvalidConnectionError(`A reason is at most ${REASON_MAX} characters`);
+  return line;
+}
+
+// Domain seam: the reader connects two of their own Finished Books by hand, with a reason and an
+// optional Connection Type. It is strong, and the judge never judges, changes or deletes it. It
+// replaces the judge's Connection of the pair, live or dismissed, and a Manual Connection the reader
+// deleted; a pair that has a live one already is refused. The reader's Clusters are recomputed; no
+// paid call is made.
+export async function createManualConnection(db: Db, pipeline: Pipeline, userId: string, input: ManualConnectionInput): Promise<{ id: string }> {
+  const explanation = cleanReason(input.reason);
+  const { bookId, otherBookId } = input;
+  if (bookId === otherBookId) throw new InvalidConnectionError("A Book can't be connected to itself");
+  const { a, b } = pairOf(bookId, otherBookId);
+  const created = await db.transaction(async (tx) => {
+    // Held against removal until this commits, as a judge run holds them.
+    const entries = await tx
+      .select({ bookId: libraryEntry.bookId })
+      .from(libraryEntry)
+      .where(and(eq(libraryEntry.userId, userId), inArray(libraryEntry.bookId, [a, b])))
+      .for("key share");
+    for (const id of [a, b]) if (!entries.some((e) => e.bookId === id)) throw new NotInLibraryError(id);
+    for (const id of [a, b]) if (!(await isFinished(tx, userId, id))) throw new InvalidConnectionError("Only Finished Books can be connected");
+    const made = {
+      madeBy: "reader" as const,
+      type: input.type ?? null,
+      strength: "strong" as const,
+      explanation,
+      similarity: null,
+      similarityModel: null,
+      grounding: null,
+      quotedNoteIds: [],
+      model: null,
+      promptVersion: null,
+      dismissedAt: null,
+      // Replacing a row makes it new, so it is ordered as just made.
+      createdAt: new Date(),
+    };
+    const [row] = await tx
+      .insert(connection)
+      .values({ userId, bookAId: a, bookBId: b, ...made })
+      .onConflictDoUpdate({
+        target: [connection.userId, connection.bookAId, connection.bookBId],
+        set: made,
+        setWhere: or(eq(connection.madeBy, "judge"), isNotNull(connection.dismissedAt)),
+      })
+      .returning({ id: connection.id });
+    if (!row) throw new AlreadyConnectedError();
+    return row;
+  });
+  await pipeline.connectionsChanged(userId);
+  return created;
 }

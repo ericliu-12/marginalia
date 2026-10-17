@@ -59,6 +59,11 @@ export const LONE_RING = 1.5;
 export const TYPE_COLOR: Record<ConnectionType, string> = { thematic: "#3e5a80", contrast: "#9a3b2e", context: "#6b7a3a" };
 export const TYPE_LABEL: Record<ConnectionType, string> = { thematic: "Thematic", contrast: "Contrast", context: "Context" };
 export const STRENGTH_LABEL: Record<Strength, string> = { strong: "Strong", moderate: "Moderate", weak: "Weak" };
+// A Manual Connection the reader left untyped is drawn in the neutral edge (3:1 on every ground) and
+// labelled only as the reader's.
+export const UNTYPED_COLOR = "#8a8275";
+export const typeColor = (type: ConnectionType | null) => (type ? TYPE_COLOR[type] : UNTYPED_COLOR);
+export const typeLabel = (type: ConnectionType | null, strength: Strength) => (type ? `${TYPE_LABEL[type]} · ${STRENGTH_LABEL[strength]}` : "Yours");
 
 // Cluster washes: one soft shape per Cluster behind its Books, under the Connections, in the Cluster's
 // tint (src/app/cluster-tint.tsx, as its dot in the library). The shape is a disc at each Book and a

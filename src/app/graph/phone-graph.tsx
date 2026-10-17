@@ -13,7 +13,7 @@ import { FindingIndicator } from "../connections";
 import { openedFromGraph, PhoneSwitch, useArrivedBySwitch } from "../view-switch";
 import { GraphCanvas, type Phone, type Selection } from "./graph-canvas";
 import { GraphLists } from "./graph-lists";
-import { STRENGTH_LABEL, TYPE_COLOR, TYPE_LABEL } from "./graph-style";
+import { TYPE_COLOR, TYPE_LABEL, typeLabel } from "./graph-style";
 import { CLOSED, panelState } from "./panel-state";
 
 // How many of a Book's Connections the sheet shows before "Show N more".
@@ -277,8 +277,8 @@ function BookSheet({ book, onSelect }: { book: GraphBook; onSelect: (bookId: str
         <ul aria-label="Connections" className="mt-4 flex flex-col gap-3 border-t border-rule-2 pt-3">
           {shown.map((c) => (
             <li key={c.id} className="flex flex-col gap-0.5">
-              <p className={`caps text-[12px] tracking-[1.2px] ${HUE[c.type]}`}>
-                {TYPE_LABEL[c.type]} · {STRENGTH_LABEL[c.strength]}
+              <p className={`caps text-[12px] tracking-[1.2px] ${c.type ? HUE[c.type] : "text-ink-2"}`}>
+                {typeLabel(c.type, c.strength)}
               </p>
               <p className="text-[16px] leading-normal">
                 <button

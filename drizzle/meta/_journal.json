@@ -162,6 +162,13 @@
       "when": 1792007524601,
       "tag": "0022_book_position_lone",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1792222386993,
+      "tag": "0023_manual_connection",
+      "breakpoints": true
     }
   ]
 }

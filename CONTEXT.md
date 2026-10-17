@@ -29,8 +29,12 @@ A piece of the reader's own writing attached to a Library Entry. It may optional
 _Avoid_: Annotation, highlight, comment, quote
 
 **Connection**:
-A typed, explained link between two Finished Books, created when a Book is first marked read. A reader has at most one per pair of Books, with a single Connection Type (the strongest, if several apply) and a Strength. Its explanation may quote the reader's Notes.
+An explained link between two Finished Books. The judge makes them when a Book is first marked read, and the reader may make a Manual Connection by hand. A reader has at most one per pair of Books, with a single Connection Type (the strongest, if several apply; a Manual Connection may have none) and a Strength. A judge's explanation may quote the reader's Notes.
 _Avoid_: Link, edge, relation
+
+**Manual Connection**:
+A Connection the reader made by hand between two of their Finished Books, with their own one-line reason and an optional Connection Type. It is always strong, and replaces the judge's Connection of that pair. The judge never judges, changes or deletes it, not even for an unrecognised Book. Deleting it keeps only the pair, marked dismissed, so the judge never connects it again. In the app it reads as "yours".
+_Avoid_: Custom connection, user connection, reader link
 
 **Finished Book**:
 A Book with at least one completed Read-through in the reader's Library Entry, regardless of its current Status. Only Finished Books take part in Connections and appear in the graph; a Book being re-read, or moved back to want, stays Finished.
