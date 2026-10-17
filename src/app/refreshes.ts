@@ -8,6 +8,7 @@ export const REFRESHES = {
   changeStatusAction: ["/", "/graph"],
   removeFromLibraryAction: ["/"],
   dismissConnectionAction: ["/graph"],
+  connectBooksAction: ["/graph"],
   // The graph sees the run, and checks back until it settles.
   refreshConnectionsAction: ["/graph"],
 } as const;
