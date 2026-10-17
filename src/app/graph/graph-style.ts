@@ -100,23 +100,22 @@ export function blend(from: string, to: string, t: number, alpha = 1) {
 }
 
 // A colour (#rrggbb, or blend's rgba) at `a` of its strength, in sixteenths: force-graph strokes all the
-// Connections of one colour together, so a few steps keep its batches few.
-const thinnedTo = new Map<string, string>();
+// Connections of one colour together, so a few steps keep its batches few. A #rrggbb colour's sixteen
+// steps are worked out once; blend's, which change every frame mid-fade, each time.
+const steps = new Map<string, string[]>();
 export function thinned(color: string, a: number) {
-  const q = Math.round(a * 16) / 16;
-  if (q >= 1) return color;
-  // Mid-fade, blend's colours change every frame: those are worked out each time, not kept.
+  const q = Math.round(a * 16);
+  if (q >= 16) return color;
   if (!color.startsWith("#")) {
     const [r, g, b, alpha] = color.slice(5, -1).split(",").map(Number);
-    return `rgba(${r},${g},${b},${alpha * q})`;
+    return `rgba(${r},${g},${b},${(alpha * q) / 16})`;
   }
-  const key = `${color}@${q}`;
-  let out = thinnedTo.get(key);
-  if (out === undefined) {
+  let out = steps.get(color);
+  if (!out) {
     const [r, g, b] = [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16));
-    thinnedTo.set(key, (out = `rgba(${r},${g},${b},${q})`));
+    steps.set(color, (out = Array.from({ length: 16 }, (_, i) => `rgba(${r},${g},${b},${i / 16})`)));
   }
-  return out;
+  return out[q];
 }
 
 // A Cluster's name is in its tint's name colour on a paper plate (as Book labels are), so no Connection

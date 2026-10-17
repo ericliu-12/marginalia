@@ -66,6 +66,9 @@ export const dotScale = (spacing: number) => Math.max(DOT_SHRUNK, Math.min(1, sp
 // The spacing the detail shows, easing toward the zoom's over about DETAIL_FADE_MS, so a step of the
 // wheel or the end of a glide fades rather than jumps. Eased on a log scale: a zoom is a ratio.
 export const DETAIL_FADE_MS = 200;
+// A change of zoom from one frame to the next under this (as a log ratio: about 12%; a pinch or a
+// trackpad moves a few percent a frame, a step of the wheel 18%) is gradual, and needs no easing.
+export const GRADUAL_ZOOM = 0.115;
 export function easeSpacing(shown: number, target: number, ms: number) {
   const left = Math.pow(shown / target, Math.exp((-ms * 5) / DETAIL_FADE_MS));
   // Near enough to stop drawing for.
@@ -89,7 +92,8 @@ export const fogAmount = (overflow: number) => ramp(overflow, 1, FOG_FULL);
 // How much of a thing at (x, y) the fog takes, 0 to FOG_MOST.
 export function mist(x: number, y: number, lens: Lens) {
   if (lens.amount === 0) return 0;
-  return lens.amount * FOG_MOST * ramp(Math.hypot((x - lens.cx) / lens.rx, (y - lens.cy) / lens.ry), FOG_CLEAR, FOG_EDGE);
+  const [dx, dy] = [(x - lens.cx) / lens.rx, (y - lens.cy) / lens.ry];
+  return lens.amount * FOG_MOST * ramp(Math.sqrt(dx * dx + dy * dy), FOG_CLEAR, FOG_EDGE);
 }
 
 // Less of a dot or line than this isn't drawn, nor found under the pointer or a finger, so a click on

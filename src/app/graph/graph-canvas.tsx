@@ -72,6 +72,7 @@ import {
   mist,
   dotScale,
   FAINT_SIZE,
+  GRADUAL_ZOOM,
   placeHints,
   ramp,
   type HintRequest,
@@ -437,10 +438,16 @@ export function GraphCanvas({
     let pointer: { x: number; y: number } | null = null;
     // What a large graph shows this frame (./detail.ts), worked out before anything is drawn: the
     // spacing its detail shows, the fog's lens, and how much of each dot, label and line is left.
-    const look: { on: boolean; spacing: number; lens: Lens } = { on: false, spacing: 0, lens: { cx: 0, cy: 0, rx: 1, ry: 1, amount: 0 } };
+    const look: { on: boolean; spacing: number; target: number; lens: Lens } = { on: false, spacing: 0, target: 0, lens: { cx: 0, cy: 0, rx: 1, ry: 1, amount: 0 } };
     let dotShown = new Float32Array(0);
     let labelShown = new Float32Array(0);
     let lineShown = new Float32Array(0);
+    // Which labels may be placed, and which dots keep labels off, by the zoom itself rather than the
+    // detail easing toward it: so a frame where only the easing moves keeps the placement it had.
+    // The wordmark's, the legend's and the sheet's boxes, as last read, and when.
+    let chromeRead: { at: number; boxes: Box[] } | null = null;
+    let labelPlaced = new Uint8Array(0);
+    let dotBlocks = new Uint8Array(0);
     let lastFrame = 0;
     // Asks force-graph for a frame: it draws again when one of its settings is set.
     const redraw = () => fg?.linkVisibility(fg.linkVisibility());
@@ -555,7 +562,12 @@ export function GraphCanvas({
         if (!on) return;
         const now = performance.now();
         const target = extent.spacing * k;
-        look.spacing = !look.spacing || reducedMotion() ? target : easeSpacing(look.spacing, target, Math.min(34, now - lastFrame));
+        // A jump in zoom (a step of the wheel, the end of a glide) fades in over the easing; a gradual one
+        // (a pinch, a trackpad), caught up with, is followed at once: it fades things in itself.
+        const caughtUp = look.spacing === look.target;
+        const gradual = Math.abs(Math.log(target / (look.target || target))) < GRADUAL_ZOOM;
+        look.target = target;
+        look.spacing = !look.spacing || reducedMotion() || (caughtUp && gradual) ? target : easeSpacing(look.spacing, target, Math.min(34, now - lastFrame));
         lastFrame = now;
         // Still easing toward the zoom: draw again until it has caught up.
         if (look.spacing !== target) animateFor.current(50);
@@ -564,26 +576,34 @@ export function GraphCanvas({
         const tall = Math.max(1, bottom - top);
         const lens = (look.lens = { cx: right / 2, cy: top + tall / 2, rx: right / 2, ry: tall / 2, amount: fogAmount(Math.max((extent.w * k) / right, (extent.h * k) / tall)) });
         const o = f.graph2ScreenCoords(0, 0);
-        if (dotShown.length !== nodes.length) [dotShown, labelShown] = [new Float32Array(nodes.length), new Float32Array(nodes.length)];
+        if (dotShown.length !== nodes.length) {
+          [dotShown, labelShown] = [new Float32Array(nodes.length), new Float32Array(nodes.length)];
+          [labelPlaced, dotBlocks] = [new Uint8Array(nodes.length), new Uint8Array(nodes.length)];
+        }
         if (lineShown.length !== links.length) lineShown = new Float32Array(links.length);
-        // How kept a Book or Connection is, part way while a selection fades in or out.
+        // How kept a Book or Connection is: whole while lit by the selection, part way while a selection
+        // fades in or out. With nothing chosen and no fade, nothing is kept but what is pointed at.
         const t = shift();
         const [focus, was] = [focusRef.current, wasFocusRef.current];
-        const kept = (lit: (focus: Focus) => Set<string> | null, id: string) => {
-          const now = lit(focus)?.has(id) ? 1 : 0;
-          return t >= 1 ? now : (lit(was!)?.has(id) ? 1 : 0) * (1 - t) + now * t;
+        const choosing = focus.litBooks !== null || (t < 1 && was!.litBooks !== null);
+        const keptBy = (now: Set<string> | null, then: Set<string> | null, id: string) => {
+          const lit = now?.has(id) ? 1 : 0;
+          return t >= 1 ? lit : (then?.has(id) ? 1 : 0) * (1 - t) + lit * t;
         };
         const hovered = pointed();
         for (const n of nodes) {
-          const keep = n.id === hovered ? 1 : kept((x) => x.litBooks, n.id);
+          const keep = n.id === hovered ? 1 : choosing ? keptBy(focus.litBooks, was?.litBooks ?? null, n.id) : 0;
           const clear = 1 - mist(o.x + n.x! * k, o.y + n.y! * k, lens);
           dotShown[n.index] = keep + (1 - keep) * dotDetail(n.rank, look.spacing) * clear;
           labelShown[n.index] = keep + (1 - keep) * labelDetail(n.rank, look.spacing) * clear;
+          const held = n.id === hovered || (focus.litBooks?.has(n.id) ?? false);
+          labelPlaced[n.index] = Number(held || labelDetail(n.rank, target) * clear >= LABEL_SEEN);
+          dotBlocks[n.index] = Number(held || dotDetail(n.rank, target) * clear >= 0.5);
         }
         for (const l of links) {
-          const [p, q] = [byId.get(endId(l.source)), byId.get(endId(l.target))];
+          const [p, q] = [typeof l.source === "object" ? l.source : byId.get(l.source), typeof l.target === "object" ? l.target : byId.get(l.target)];
           if (!p || !q) continue;
-          const keep = l.id === hoverLinkRef.current ? 1 : kept((x) => x.litLinks, l.id);
+          const keep = l.id === hoverLinkRef.current ? 1 : choosing ? keptBy(focus.litLinks, was?.litLinks ?? null, l.id) : 0;
           const clear = 1 - mist(o.x + ((p.x! + q.x!) / 2) * k, o.y + ((p.y! + q.y!) / 2) * k, lens);
           lineShown[l.index] = keep + (1 - keep) * lineDetail(l.connection.strength, look.spacing) * clear;
         }
@@ -681,7 +701,7 @@ export function GraphCanvas({
           // Faded Books stay unlabelled unless the reader is close enough to read them anyway; on a large
           // graph, so do Books the zoom hasn't reached yet, or the mist has all but taken.
           if (litBooks && !litBooks.has(n.id) && k < 1.6 && !must) continue;
-          if (look.on && labelShown[n.index] < LABEL_SEEN && !must) continue;
+          if (look.on && !labelPlaced[n.index] && !must) continue;
           // On a phone the chosen Book keeps its short label: the sheet has its full title.
           const text = must && !phoneRef.current ? n.book.title : n.label;
           texts.set(n.id, text);
@@ -689,15 +709,21 @@ export function GraphCanvas({
           const gap = n.radius + LABEL_GAP + (ringed(n.id) ? RING_GAP : 0);
           requests.push({ id: n.id, x: s.x, y: s.y, gap, plate: LABEL_PLATE, w: width(text, n.book.degree === 0) + 2 * LABEL_PLATE, h: H, must });
         }
-        // Behind a selection, faded Books give way to the lit ones' labels; and no label goes under the
-        // wordmark, the legend or the panel.
-        // Faint dots are no obstacle: a label may sit over one.
-        const blocking = litBooks ? dots.filter((d) => litBooks.has(d.id)) : look.on ? dots.filter((d) => dotShown[byId.get(d.id)!.index] >= 0.5) : dots;
-        const origin = host.getBoundingClientRect();
-        const chrome: Box[] = [...document.querySelectorAll("[data-graph-chrome]")].map((el) => {
-          const r = el.getBoundingClientRect();
-          return { x0: r.left - origin.left, y0: r.top - origin.top, x1: r.right - origin.left, y1: r.bottom - origin.top };
-        });
+        // Behind a selection, faded Books give way to the lit ones' labels (and on a large graph, a label
+        // may sit over a faint dot); and no label goes under the wordmark, the legend or the panel.
+        const blocking = litBooks ? dots.filter((d) => litBooks.has(d.id)) : look.on ? dots.filter((d) => dotBlocks[byId.get(d.id)!.index]) : dots;
+        // On a large graph, read again at most every CHROME_FRESH_MS: reading them straight after the
+        // names have moved makes the browser lay the page out again, every frame of a pinch.
+        const at = performance.now();
+        if (!look.on || !chromeRead || at - chromeRead.at > CHROME_FRESH_MS) {
+          const origin = host.getBoundingClientRect();
+          const boxes = [...document.querySelectorAll("[data-graph-chrome]")].map((el) => {
+            const r = el.getBoundingClientRect();
+            return { x0: r.left - origin.left, y0: r.top - origin.top, x1: r.right - origin.left, y1: r.bottom - origin.top };
+          });
+          chromeRead = { at, boxes };
+        }
+        const chrome: Box[] = [...chromeRead.boxes];
         if (insetRef.current) chrome.push({ x0: view.width - insetRef.current, y0: 0, x1: view.width, y1: view.height });
         // The Connections drawn now, which labels keep off where they can.
         const idOf = (end: string | Node) => (typeof end === "string" ? end : end.id);
@@ -870,9 +896,9 @@ export function GraphCanvas({
         // in at this zoom, is left off.
         .linkVisibility(
           (l) =>
+            lineLeft(l) >= SEEN &&
             !withheldRef.current.has(l.id) &&
-            (focusRef.current.visible.has(l.id) || (shift() < 1 && wasFocusRef.current!.visible.has(l.id))) &&
-            lineLeft(l) >= SEEN,
+            (focusRef.current.visible.has(l.id) || (shift() < 1 && wasFocusRef.current!.visible.has(l.id))),
         )
         .linkColor(lineColor)
         // Screen pixels: force-graph keeps link widths constant across zoom.
@@ -967,8 +993,14 @@ export function GraphCanvas({
           const screen = new Map(dots.map((d) => [d.id, d]));
           const origin = f.graph2ScreenCoords(0, 0);
           const view = { width: f.width(), height: f.height() };
-          const scene = { focus: focusRef.current, data: data(), key: [k, origin.x, origin.y, view.width, view.height, insetRef.current, pointed()].join() };
-          const still = simulating && kept && kept.scene.focus === scene.focus && kept.scene.data === scene.data && kept.scene.key === scene.key;
+          // On a large graph, a frame where the camera and everything placed is as it was (only the detail
+          // easing, or a fade, moves) keeps the last placement too; unless a Cluster is fading in.
+          const placedBy = look.on ? [pointedClusterRef.current, withheldRef.current.size, nameSizes.current.size, hintSizes.current.size].join() : "";
+          const scene = { focus: focusRef.current, data: data(), key: [k, origin.x, origin.y, view.width, view.height, insetRef.current, pointed(), placedBy].join() };
+          const now = performance.now();
+          const forming = [...appeared.current.values()].some((since) => now - since < WASH_FADE_MS);
+          const still =
+            (simulating || (look.on && !forming)) && kept && kept.scene.focus === scene.focus && kept.scene.data === scene.data && kept.scene.key === scene.key;
           if (!still) kept = { scene, labels: place(ctx, k, view, dots, screen) };
           ctx.textBaseline = "middle";
           // How many labels are drawn more than half there, for the browser tests.
@@ -1330,6 +1362,9 @@ function ClusterName({
     </button>
   );
 }
+
+// How long the graph's chrome, as read for placing labels, is trusted on a large graph.
+const CHROME_FRESH_MS = 250;
 
 // How far a hint's target reaches above and below its plate on a phone, so it is 44px tall; and so how
 // far its plate keeps from the header and the legend or sheet.
