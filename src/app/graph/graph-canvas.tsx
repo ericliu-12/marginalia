@@ -33,7 +33,7 @@ import {
   LONE_RING,
   layoutScale,
   RECENT_LABELS,
-  TYPE_COLOR,
+  typeColor,
   RING_GAP,
   SELECT_FADE_MS,
   TRAIL_CASING,
@@ -528,10 +528,10 @@ export function GraphCanvas({
       // A Connection as one focus draws it: whether shown, its colour and its width.
       const linkLook = (focus: Focus, l: Link) => {
         const shown = focus.visible.has(l.id);
-        if (l.id === focus.chosenLinkId) return { shown, color: TYPE_COLOR[l.connection.type], width: EDGE_WIDTH[l.connection.strength] + EDGE_WIDTH_CHOSEN_EXTRA };
+        if (l.id === focus.chosenLinkId) return { shown, color: typeColor(l.connection.type), width: EDGE_WIDTH[l.connection.strength] + EDGE_WIDTH_CHOSEN_EXTRA };
         if (focus.litLinks && !focus.litLinks.has(l.id)) return { shown, color: FADED_EDGE, width: EDGE_WIDTH_FADED };
         const extra = l.id === hoverLinkRef.current ? EDGE_WIDTH_HOVER_EXTRA : 0;
-        return { shown, color: TYPE_COLOR[l.connection.type], width: EDGE_WIDTH[l.connection.strength] + extra };
+        return { shown, color: typeColor(l.connection.type), width: EDGE_WIDTH[l.connection.strength] + extra };
       };
       // Mid-fade, a Connection eases from the last focus's look to this one's, fading in or out where
       // only one of them shows it.

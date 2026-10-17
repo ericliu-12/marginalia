@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ConnectionDetail } from "@/domain/connections";
 import { getConnectionAction } from "../client-actions";
 import { DismissConnection, titleLink } from "../connections";
-import { EDGE_WIDTH, STRENGTH_LABEL, TYPE_COLOR, TYPE_LABEL } from "./graph-style";
+import { EDGE_WIDTH, typeColor, typeLabel } from "./graph-style";
 
 // One Connection, chosen on the graph: its two Books, its Connection Type and Strength, and why. Either title opens
 // that Book. Lives in the same floating panel as the Book panel, with the same way out.
@@ -63,8 +63,8 @@ export function ConnectionPanel({ id, onBack, onOpenBook }: { id: string; onBack
         {c && (
           <article>
             <p className="flex items-center gap-2.5 text-[0.8rem] font-medium text-ink-2">
-              <span aria-hidden className="inline-block w-6 rounded-[2px]" style={{ height: Math.max(2, EDGE_WIDTH[c.strength]), background: TYPE_COLOR[c.type] }} />
-              {TYPE_LABEL[c.type]} · {STRENGTH_LABEL[c.strength]}
+              <span aria-hidden className="inline-block w-6 rounded-[2px]" style={{ height: Math.max(2, EDGE_WIDTH[c.strength]), background: typeColor(c.type) }} />
+              {typeLabel(c.type, c.strength)}
             </p>
             <h2 ref={headingRef} tabIndex={-1} className="mt-4 text-[1.35rem] leading-tight font-medium text-balance outline-none">
               <BookLink title={c.a.title} onOpen={() => onOpenBook(c.a.bookId)} />

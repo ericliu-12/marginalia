@@ -31,6 +31,16 @@ describe("Connection pair", () => {
     expect(rows.sort(byStrength).map((r) => r.id)).toEqual(["2", "1", "3", "4"]);
   });
 
+  it("orders Manual Connections first, newest first, then the judge's by strength and similarity", () => {
+    const rows = [
+      { id: "j", strength: "strong" as const, similarity: 0.99, madeBy: "judge" as const, createdAt: new Date(3) },
+      { id: "old", strength: "strong" as const, similarity: null, madeBy: "reader" as const, createdAt: new Date(1) },
+      { id: "new", strength: "strong" as const, similarity: null, madeBy: "reader" as const, createdAt: new Date(2) },
+      { id: "w", strength: "weak" as const, similarity: 0.5, madeBy: "judge" as const, createdAt: new Date(4) },
+    ];
+    expect(rows.sort(byStrength).map((r) => r.id)).toEqual(["new", "old", "j", "w"]);
+  });
+
   it("orders by id where the similarity is not at hand", () => {
     const rows = [{ id: "b", strength: "moderate" as const }, { id: "a", strength: "moderate" as const }, { id: "c", strength: "strong" as const }];
     expect(rows.sort(byStrength).map((r) => r.id)).toEqual(["c", "a", "b"]);

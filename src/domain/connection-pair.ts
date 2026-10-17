@@ -1,4 +1,4 @@
-import { STRENGTH_RANK, type Strength } from "./connections";
+import { STRENGTH_RANK, type MadeBy, type Strength } from "./connections";
 
 // A Connection joins two Books, stored once per pair with the lower id as `a`.
 export type Pair = { a: string; b: string };
@@ -15,7 +15,17 @@ export const joins = (c: Pair, x: string, y: string) => (c.a === x && c.b === y)
 // Two Books as a stored pair.
 export const pairOf = (x: string, y: string): Pair => (x < y ? { a: x, b: y } : { a: y, b: x });
 
-// Strongest first, then most similar (where the similarity is at hand), then by id so ties hold still.
-export function byStrength(p: { id: string; strength: Strength; similarity?: number }, q: { id: string; strength: Strength; similarity?: number }) {
-  return STRENGTH_RANK[p.strength] - STRENGTH_RANK[q.strength] || (q.similarity ?? 0) - (p.similarity ?? 0) || (p.id < q.id ? -1 : 1);
+type Ranked = { id: string; strength: Strength; similarity?: number | null; madeBy?: MadeBy; createdAt?: Date };
+
+// Manual Connections first, newest first (where the date is at hand); then strongest first, then most
+// similar (where the similarity is at hand); then by id so ties hold still.
+export function byStrength(p: Ranked, q: Ranked) {
+  const manual = (c: Ranked) => (c.madeBy === "reader" ? 0 : 1);
+  return (
+    manual(p) - manual(q) ||
+    (p.madeBy === "reader" && q.madeBy === "reader" ? (q.createdAt?.getTime() ?? 0) - (p.createdAt?.getTime() ?? 0) : 0) ||
+    STRENGTH_RANK[p.strength] - STRENGTH_RANK[q.strength] ||
+    (q.similarity ?? 0) - (p.similarity ?? 0) ||
+    (p.id < q.id ? -1 : 1)
+  );
 }

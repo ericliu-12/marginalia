@@ -26,6 +26,7 @@ export const connectionsStatusEnum = pgEnum("connections_status", ["idle", "runn
 export const connectionTypeEnum = pgEnum("connection_type", ["thematic", "contrast", "context"]);
 export const strengthEnum = pgEnum("strength", ["strong", "moderate", "weak"]);
 export const groundingEnum = pgEnum("grounding", ["notes", "enrichment"]);
+export const madeByEnum = pgEnum("made_by", ["judge", "reader"]);
 export const enrichmentStatusEnum = pgEnum("enrichment_status", ["pending", "ready", "failed"]);
 
 // --- Identity: Readers, signed in by Better Auth (ADR 0002) ---
@@ -251,15 +252,18 @@ export const connection = pgTable(
     userId: uuid("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
     bookAId: uuid("book_a_id").notNull().references(() => book.id),
     bookBId: uuid("book_b_id").notNull().references(() => book.id),
-    type: connectionTypeEnum("type").notNull(),
+    // The judge's, or a Manual Connection the reader made. A Manual Connection is strong, its type is
+    // optional, and the judge-only columns (similarity, grounding, model, prompt) are null.
+    madeBy: madeByEnum("made_by").notNull().default("judge"),
+    type: connectionTypeEnum("type"),
     strength: strengthEnum("strength").notNull(),
-    similarity: doublePrecision("similarity").notNull(),
-    similarityModel: text("similarity_model").notNull(),
+    similarity: doublePrecision("similarity"),
+    similarityModel: text("similarity_model"),
     explanation: text("explanation").notNull(),
-    grounding: groundingEnum("grounding").notNull(),
+    grounding: groundingEnum("grounding"),
     quotedNoteIds: uuid("quoted_note_ids").array().notNull().default(sql`'{}'::uuid[]`),
-    model: text("model").notNull(),
-    promptVersion: text("prompt_version").notNull(),
+    model: text("model"),
+    promptVersion: text("prompt_version"),
     dismissedAt: timestamp("dismissed_at", { withTimezone: true }),
     createdAt: createdAt(),
   },

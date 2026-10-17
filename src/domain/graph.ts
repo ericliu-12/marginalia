@@ -124,7 +124,8 @@ export type GraphConnection = {
   id: string;
   a: string;
   b: string;
-  type: ConnectionType;
+  // Null for a Manual Connection the reader left untyped.
+  type: ConnectionType | null;
   strength: Strength;
   // Shown at rest: strong enough, and one of the strongest DISPLAY_CAP of either Book.
   featured: boolean;
@@ -235,7 +236,7 @@ export async function readGraph(db: Db, userId: string): Promise<GraphView> {
 
 // The Connections shown at rest, by id: each Book's strongest DISPLAY_CAP of AT_REST_STRENGTHS, strongest
 // first, then most similar, then by id so ties hold still.
-function featuredOf<C extends { id: string; a: string; b: string; strength: Strength; similarity?: number }>(connections: C[]): Set<string> {
+function featuredOf<C extends { id: string; a: string; b: string; strength: Strength; similarity: number | null }>(connections: C[]): Set<string> {
   const byBook = new Map<string, C[]>();
   for (const c of connections) for (const id of [c.a, c.b]) byBook.set(id, [...(byBook.get(id) ?? []), c]);
   const featured = new Set<string>();
