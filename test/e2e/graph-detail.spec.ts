@@ -111,6 +111,22 @@ test.describe("a large graph", () => {
     expect((await camera(page)).k).toBeLessThanOrEqual(before.k + 1e-9);
   });
 
+  test("the wheel over a hint, or a name, still zooms the graph", async ({ page }) => {
+    await openGraph(page);
+    await zoom(page, -10);
+    const hint = shownHints(page).first();
+    await expect(hint).toBeVisible();
+    const before = await camera(page);
+    await hint.hover();
+    await page.mouse.wheel(0, 120);
+    await expect.poll(async () => (await camera(page)).k).toBeLessThan(before.k);
+    const name = page.locator("[data-cluster-name]").filter({ visible: true }).first();
+    const at = await camera(page);
+    await name.hover();
+    await page.mouse.wheel(0, -120);
+    await expect.poll(async () => (await camera(page)).k).toBeGreaterThan(at.k);
+  });
+
   test("the keyboard reaching a Cluster or Book out of view brings it into view", async ({ page }) => {
     await openGraph(page);
     await zoom(page, -10);

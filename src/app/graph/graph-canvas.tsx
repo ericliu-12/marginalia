@@ -358,6 +358,7 @@ export function GraphCanvas({
   panelInset: number;
 }) {
   const el = useRef<HTMLDivElement>(null);
+  const overlay = useRef<HTMLDivElement>(null);
   const fgRef = useRef<ForceGraph<Node, Link> | null>(null);
   const [ready, setReady] = useState(false);
   const onPhone = phone !== undefined;
@@ -1258,6 +1259,21 @@ export function GraphCanvas({
     return () => cancelAnimationFrame(frame);
   }, [focus, prepared, ready]);
 
+  // The wheel over a Cluster's name or hint zooms the graph, as it does anywhere else: the names sit
+  // over the canvas, so their wheel is handed on to it.
+  useEffect(() => {
+    const names = overlay.current;
+    if (!names) return;
+    const pass = (e: WheelEvent) => {
+      const canvas = el.current?.querySelector("canvas");
+      if (!canvas) return;
+      e.preventDefault();
+      canvas.dispatchEvent(new WheelEvent("wheel", e));
+    };
+    names.addEventListener("wheel", pass, { passive: false });
+    return () => names.removeEventListener("wheel", pass);
+  }, []);
+
   // A Book or Cluster reached from the keyboard is marked on the canvas, and brought into view if it is out
   // of it.
   useEffect(() => {
@@ -1280,7 +1296,7 @@ export function GraphCanvas({
       <div ref={el} className={`absolute inset-0 ${phone ? "touch-none" : ""}`} aria-hidden data-withheld={withheld.size} />
       {/* Cluster names, placed by the canvas each frame. The keyboard reaches Clusters through the
           workspace's list instead. Hidden until first placed. */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+      <div ref={overlay} className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
         {graph.clusters.map((c) => (
           <ClusterName
             // Keyed by name too, so each new name writes in afresh.

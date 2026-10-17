@@ -99,21 +99,21 @@ export function blend(from: string, to: string, t: number, alpha = 1) {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
-// A colour (#rrggbb, or blend's rgba) at `a` of its strength, in sixteenths: force-graph strokes all the
-// Connections of one colour together, so a few steps keep its batches few. A #rrggbb colour's sixteen
+// A colour (#rrggbb, or blend's rgba) at `a` of its strength, in eighths: force-graph strokes all the
+// Connections of one colour together, so a few steps keep its batches few. A #rrggbb colour's eight
 // steps are worked out once; blend's, which change every frame mid-fade, each time.
 const steps = new Map<string, string[]>();
 export function thinned(color: string, a: number) {
-  const q = Math.round(a * 16);
-  if (q >= 16) return color;
+  const q = Math.round(a * 8);
+  if (q >= 8) return color;
   if (!color.startsWith("#")) {
     const [r, g, b, alpha] = color.slice(5, -1).split(",").map(Number);
-    return `rgba(${r},${g},${b},${(alpha * q) / 16})`;
+    return `rgba(${r},${g},${b},${(alpha * q) / 8})`;
   }
   let out = steps.get(color);
   if (!out) {
     const [r, g, b] = [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16));
-    steps.set(color, (out = Array.from({ length: 16 }, (_, i) => `rgba(${r},${g},${b},${i / 16})`)));
+    steps.set(color, (out = Array.from({ length: 8 }, (_, i) => `rgba(${r},${g},${b},${i / 8})`)));
   }
   return out[q];
 }
