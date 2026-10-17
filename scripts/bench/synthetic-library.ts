@@ -1,6 +1,6 @@
 // A synthetic library for the graph benchmark: about one Cluster per 20 Books, 3 to 5 Connections each,
 // 80% inside their Cluster with preferential attachment, 40% strong. The same for every run of a size.
-import { sql } from "drizzle-orm";
+import { inArray, sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { book, bookPosition, clusterLabel, connection, enrichment, libraryEntry, readThrough, session, user } from "@/db/schema";
 import { recomputeClusters } from "@/domain/clusters";
@@ -58,12 +58,25 @@ function library(n: number) {
 
 // Replaces everything in `db` with a synthetic library of `n` Finished Books, laid out and clustered as
 // the worker would, every Cluster named. Its Reader is signed in with the session `token`.
-export async function seedSyntheticLibrary(db: Db, n: number, token: string) {
+export async function seedSyntheticLibrary(db: Db, n: number, token: string, options: { fixedIds?: boolean } = {}) {
   await db.execute(sql`TRUNCATE "user" CASCADE`);
   const [{ id: userId }] = await db.insert(user).values({ email: "bench@marginalia.local", emailVerified: true }).returning();
   await db.insert(session).values({ userId, token, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) });
+  return seedSyntheticBooks(db, userId, n, options);
+}
+
+// Gives the Reader `userId` a synthetic library of `n` Finished Books, laid out and clustered, every
+// Cluster named (the browser tests' large graph uses this too). With `fixedIds`, its Books' ids are the
+// same every run, and so is its layout, which orders Books by id; any Books left with those ids from a
+// last run, and no longer in a library, are replaced.
+export async function seedSyntheticBooks(db: Db, userId: string, n: number, { fixedIds = false } = {}) {
   const { titles, pairs, degree } = library(n);
-  const books = await db.insert(book).values(titles.map((title) => ({ title, authors: ["A. Writer"] }))).returning({ id: book.id });
+  const ids = titles.map((_, i) => `00000000-0000-4000-9000-${String(i + 1).padStart(12, "0")}`);
+  if (fixedIds) await db.delete(book).where(inArray(book.id, ids));
+  const books = await db
+    .insert(book)
+    .values(titles.map((title, i) => ({ ...(fixedIds ? { id: ids[i] } : {}), title, authors: ["A. Writer"] })))
+    .returning({ id: book.id });
   const entries = await db
     .insert(libraryEntry)
     .values(books.map((b) => ({ userId, bookId: b.id, status: "read" as const, connectionsGeneratedAt: new Date() })))
@@ -98,13 +111,13 @@ export async function seedSyntheticLibrary(db: Db, n: number, token: string) {
   await layoutGraph(db, userId);
   // Names as long as real ones run: two to five words.
   const rand = seeded(n + 1);
-  const clusters = await db.select({ id: clusterLabel.id }).from(clusterLabel);
+  const clusters = await db.select({ id: clusterLabel.id }).from(clusterLabel).where(sql`user_id = ${userId}`);
   for (const c of clusters) {
     const words = Array.from({ length: 2 + Math.floor(rand() * 4) }, () => WORDS[Math.floor(rand() * WORDS.length)]);
     const name = words.join(" ").replace(/^\w/, (ch) => ch.toUpperCase());
     await db.update(clusterLabel).set({ name, description: "Synthetic.", namedMemberBookIds: sql`member_book_ids` }).where(sql`id = ${c.id}`);
   }
   const hub = degree.indexOf(Math.max(...degree));
-  const placed = await db.select({ n: sql<number>`count(*)::int` }).from(bookPosition);
+  const placed = await db.select({ n: sql<number>`count(*)::int` }).from(bookPosition).where(sql`user_id = ${userId}`);
   return { books: n, connections: pairs.length, clusters: clusters.length, hub: titles[hub], placed: placed[0].n };
 }

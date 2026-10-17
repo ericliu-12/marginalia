@@ -4,18 +4,14 @@
 //   pnpm build && pnpm bench:graph [300,600,1000] [cpu throttle, e.g. 4]
 //   BENCH_PHONE=1 pnpm bench:graph 300 4     (the phone's graph, at 390 by 844, by touch)
 //
-// For each size it seeds a scratch database with that many synthetic Finished Books (about one Cluster
-// per 20, 3 to 5 Connections each, 80% inside their Cluster with preferential attachment, 40% strong),
-// lays them out and clusters them as the worker would, names every Cluster, then serves the production
-// build on it and drives installed Chrome, headed, at 1440 by 900 (see `run`). Each scenario is timed by
-// its requestAnimationFrame intervals. A CPU throttle stands in for lower-end hardware. Local DATABASE_URL only; no outside calls.
-import { spawn } from "node:child_process";
-import { createHmac } from "node:crypto";
+// For each size it takes the kept synthetic library of that many Finished Books (./kept-library.ts: about
+// one Cluster per 20, 3 to 5 Connections each, 80% inside their Cluster with preferential attachment,
+// 40% strong, laid out and clustered as the worker would, every Cluster named; seeded once, the same
+// graph every run), serves the production build on it and drives installed Chrome, headed, at 1440 by
+// 900 (see `run`). Each scenario is timed by its requestAnimationFrame intervals. A CPU throttle stands
+// in for lower-end hardware. Local DATABASE_URL only; no outside calls.
 import { chromium, type CDPSession, type Page } from "@playwright/test";
-import { Pool } from "pg";
-import { createDb } from "@/db/client";
-import { runMigrations } from "@/db/migrate";
-import { seedSyntheticLibrary } from "./synthetic-library";
+import { keptLibrary, readerCookie, serveLibrary } from "./kept-library";
 
 const sizes = (process.argv[2] ?? "300,600,1000").split(",").map(Number);
 const throttle = Number(process.argv[3] ?? 1);
@@ -27,16 +23,6 @@ const profile = process.env.BENCH_PROFILE;
 const phone = process.env.BENCH_PHONE === "1";
 const VIEWPORT = phone ? { width: 390, height: 844 } : { width: 1440, height: 900 };
 const PORT = 3200;
-const NAME = "marginalia_bench";
-// The bench Reader's session, signed as Better Auth signs its cookie, with the bench server's secret.
-const SECRET = "bench-auth-secret-at-least-32-characters";
-const TOKEN = "bench-reader-session";
-
-const adminUrl = process.env.DATABASE_URL;
-if (!adminUrl || !["localhost", "127.0.0.1"].includes(new URL(adminUrl).hostname)) {
-  throw new Error("pnpm bench:graph only runs against a local DATABASE_URL (it creates and drops a scratch database).");
-}
-const onDatabase = (name: string) => Object.assign(new URL(adminUrl), { pathname: `/${name}` }).toString();
 
 // Frame intervals while `drive` runs, as frames per second, the median and 95th percentile in ms, and the
 // worst; and the main thread's busy time (scripts, style, layout and paint) per frame, in ms, which
@@ -76,8 +62,8 @@ async function timed(page: Page, cdp: CDPSession, drive: () => Promise<void>) {
   };
 }
 
-// A spot on the canvas with no ink near it (somewhere to pan from), and the centre of a Book's dot
-// near the middle (something to drag), found from the canvas's own pixels.
+// A spot on the canvas with no ink near it (somewhere to pan from), and the centres of Books' dots
+// nearest the middle (something to drag), nearest first, found from the canvas's own pixels.
 async function spots(page: Page) {
   return page.evaluate(({ width: vw, height: vh }) => {
     const canvas = document.querySelector("canvas")!;
@@ -90,8 +76,7 @@ async function spots(page: Page) {
     };
     let empty = { x: vw / 2, y: vh / 2 };
     let best = -1;
-    let dot = { x: vw / 2, y: vh / 2 };
-    let nearest = Infinity;
+    const dots: { x: number; y: number; d: number }[] = [];
     const edge = vw < 600 ? 40 : 140;
     for (let y = 160; y < vh - 160; y += 10) {
       for (let x = edge; x < Math.min(1000, vw - edge); x += 10) {
@@ -101,10 +86,10 @@ async function spots(page: Page) {
         if (clear > best && document.elementFromPoint(x, y) === canvas) [best, empty] = [clear, { x, y }];
         const solid = [-3, 0, 3].every((dx) => [-3, 0, 3].every((dy) => px + dx > 0 && px + dx < width && py + dy > 0 && py + dy < height && dark(px + dx, py + dy)));
         const d = Math.hypot(x - vw / 2, y - vh / 2);
-        if (solid && d < nearest && document.elementFromPoint(x, y) === canvas) [nearest, dot] = [d, { x, y }];
+        if (solid && document.elementFromPoint(x, y) === canvas && !dots.some((o) => Math.hypot(o.x - x, o.y - y) < 12)) dots.push({ x, y, d });
       }
     }
-    return { empty, dot };
+    return { empty, dots: dots.sort((p, q) => p.d - q.d).slice(0, 10) };
   }, VIEWPORT);
 }
 
@@ -197,6 +182,11 @@ async function run(page: Page, cdp: CDPSession, hub: string, n: number) {
       }
     }),
   );
+  // Its 40 steps in stop at the deepest zoom and its 40 out don't, so it leaves the graph a speck: the
+  // rest start from the first view again.
+  await page.reload();
+  await page.locator("canvas").waitFor();
+  await page.waitForTimeout(2500);
   await page.getByRole("navigation", { name: "Books in the graph" }).getByRole("button", { name: `${hub}, ` }).first().focus();
   await page.keyboard.press("Enter");
   await page.waitForTimeout(1500);
@@ -205,7 +195,19 @@ async function run(page: Page, cdp: CDPSession, hub: string, n: number) {
   // Back to the whole graph; the camera glides home, slowly under a throttle.
   await page.keyboard.press("Escape");
   await page.waitForTimeout(3000);
-  const { dot } = await spots(page);
+  // The first of those dots force-graph finds a Book under (a spot it reads as a dot may be ink it
+  // doesn't hit: under a name's edge, say).
+  const { dots } = await spots(page);
+  let dot = dots[0] ?? { x: VIEWPORT.width / 2, y: VIEWPORT.height / 2 };
+  for (const at of dots) {
+    await page.mouse.move(at.x - 20, at.y - 20);
+    await page.mouse.move(at.x, at.y, { steps: 10 });
+    await page.waitForTimeout(900);
+    if (await page.locator("canvas.clickable").count()) {
+      dot = at;
+      break;
+    }
+  }
   out.drag = await profiled(cdp, "drag", () =>
     timed(page, cdp, async () => {
       await page.mouse.move(dot.x, dot.y);
@@ -225,24 +227,6 @@ async function run(page: Page, cdp: CDPSession, hub: string, n: number) {
   return out;
 }
 
-const admin = new Pool({ connectionString: onDatabase("postgres") });
-await admin.query(`DROP DATABASE IF EXISTS ${NAME} WITH (FORCE)`);
-await admin.query(`CREATE DATABASE ${NAME}`);
-const { db, pool } = createDb(onDatabase(NAME));
-await runMigrations(db);
-
-const server = spawn("pnpm", ["exec", "next", "start", "--port", String(PORT)], {
-  env: {
-    ...process.env,
-    DATABASE_URL: onDatabase(NAME),
-    BETTER_AUTH_URL: `http://localhost:${PORT}`,
-    BETTER_AUTH_SECRET: SECRET,
-    ANTHROPIC_API_KEY: "bench-no-calls",
-    VOYAGE_API_KEY: "bench-no-calls",
-    GOOGLE_BOOKS_API_KEY: "bench-no-calls",
-  },
-  stdio: "ignore",
-});
 const browser = await chromium.launch({
   channel: "chrome",
   headless: false,
@@ -250,22 +234,12 @@ const browser = await chromium.launch({
 });
 const rows: string[] = [];
 try {
-  for (let tries = 0; ; tries++) {
-    try {
-      await fetch(`http://localhost:${PORT}/graph`);
-      break;
-    } catch (e) {
-      if (tries > 60) throw e;
-      await new Promise((r) => setTimeout(r, 500));
-    }
-  }
   for (const n of sizes) {
-    const t0 = Date.now();
-    const seededLibrary = await seedSyntheticLibrary(db, n, TOKEN);
-    console.log(JSON.stringify({ ...seededLibrary, seedSeconds: (Date.now() - t0) / 1000 }));
+    const seededLibrary = await keptLibrary(n);
+    console.log(JSON.stringify({ ...seededLibrary, url: undefined }));
+    const server = await serveLibrary(seededLibrary.url, PORT);
     const context = await browser.newContext(phone ? { viewport: VIEWPORT, isMobile: true, hasTouch: true, deviceScaleFactor: 3 } : { viewport: VIEWPORT });
-    const signed = encodeURIComponent(`${TOKEN}.${createHmac("sha256", SECRET).update(TOKEN).digest("base64")}`);
-    await context.addCookies([{ name: "better-auth.session_token", value: signed, domain: "localhost", path: "/", httpOnly: true, sameSite: "Lax" }]);
+    await context.addCookies([readerCookie()]);
     // tsx names the functions handed to page.evaluate with a helper the page lacks.
     await context.addInitScript({ content: "window.__name = (f) => f;" });
     const page = await context.newPage();
@@ -303,13 +277,10 @@ try {
     }
     console.log(rows.at(-1));
     await context.close();
+    server.stop();
   }
 } finally {
   await browser.close();
-  server.kill();
-  await pool.end();
-  await admin.query(`DROP DATABASE IF EXISTS ${NAME} WITH (FORCE)`);
-  await admin.end();
 }
 console.log(`\nCPU throttle: ${throttle}x\n`);
 if (phone) {
