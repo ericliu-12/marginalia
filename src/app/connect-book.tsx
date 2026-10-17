@@ -25,10 +25,11 @@ const STRENGTH_LABEL = { strong: "Strong", moderate: "Moderate", weak: "Weak" } 
 // Lowercase and without accents, so "garcia" finds "García".
 const folded = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 
-// Every word typed is in the title or an author.
+// Every word typed is in the title or an author. Before anything is typed, every Book matches, most
+// recently finished first.
 function matches(candidates: ConnectCandidate[], query: string) {
   const words = folded(query).split(/\s+/).filter(Boolean);
-  if (!words.length) return [];
+  if (!words.length) return candidates;
   return candidates.filter((c) => {
     const text = folded(`${c.title} ${c.authors.join(" ")}`);
     return words.every((w) => text.includes(w));
@@ -173,12 +174,13 @@ export function ConnectBookForm({
             </button>
           </div>
           {chosen.replaces && (
-            <p className="mt-2 max-w-[60ch] text-[15px] leading-snug text-ink-2">
-              <span className="text-ink-3">Replaces:</span>{" "}
+            // The judge's reason is on its card just above, so only which one is named here.
+            <p className="mt-2 text-[15px] leading-snug text-ink-2">
+              Replaces the{" "}
               <span className={`caps text-[12px] tracking-[1.2px] ${TYPES.find((t) => t.type === chosen.replaces!.type)!.hue}`}>
                 {TYPES.find((t) => t.type === chosen.replaces!.type)!.label} · {STRENGTH_LABEL[chosen.replaces.strength]}
               </span>{" "}
-              — {chosen.replaces.explanation}
+              connection.
             </p>
           )}
 

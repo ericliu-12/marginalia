@@ -558,8 +558,10 @@ export type ConnectCandidate = {
 };
 
 // Domain seam: the Books the reader may connect this one with by hand: their other Finished Books, less
-// those they have connected it with already, titled as they title them, in title order.
+// those they have connected it with already, titled as they title them, most recently finished first
+// (as "iii. read" orders them).
 export async function readConnectCandidates(db: Db, userId: string, bookId: string): Promise<ConnectCandidate[]> {
+  const passes = await readFinished(db, userId);
   const finished = new Set((await completedPasses(db, userId)).map((p) => p.bookId));
   if (!finished.has(bookId)) return [];
   finished.delete(bookId);
@@ -574,8 +576,16 @@ export async function readConnectCandidates(db: Db, userId: string, bookId: stri
     .from(book)
     .innerJoin(libraryEntry, and(eq(libraryEntry.bookId, book.id), eq(libraryEntry.userId, userId)))
     .where(inArray(book.id, [...finished]));
+  const recency = (entryId: string) => {
+    const f = passes.get(entryId);
+    return [f?.lastFinishedAt ?? 0, f?.lastCompletedAt ?? 0];
+  };
   return books
     .filter(({ book: b }) => theirs.get(b.id)?.madeBy !== "reader")
+    .sort((x, y) => {
+      const [rx, ry] = [recency(x.entry.id), recency(y.entry.id)];
+      return ry[0] - rx[0] || ry[1] - rx[1];
+    })
     .map(({ book: b, entry }) => {
       const judged = theirs.get(b.id);
       return {
@@ -583,6 +593,5 @@ export async function readConnectCandidates(db: Db, userId: string, bookId: stri
         ...displayed(b, entry),
         replaces: judged?.type ? { type: judged.type, strength: judged.strength, explanation: judged.explanation } : null,
       };
-    })
-    .sort((x, y) => x.title.localeCompare(y.title));
+    });
 }

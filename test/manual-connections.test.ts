@@ -181,7 +181,7 @@ describe("Manual Connections", () => {
   describe("choosing the other Book", () => {
     const candidates = (bookId: string) => readConnectCandidates(ctx.db, ctx.userId, bookId);
 
-    it("offers the reader's other Finished Books, titled as they title them, less this one and those already connected by hand", async () => {
+    it("offers the reader's other Finished Books, most recently finished first, less this one and those already connected by hand", async () => {
       const a = await finished("Stoner");
       const b = await finished("Lonely");
       const c = await finished("Warlike");
@@ -189,7 +189,7 @@ describe("Manual Connections", () => {
       await finished("Theirs", { userId: (await addReader(ctx.db, "other@example.com")).id });
       await connect(a, c);
       expect(await candidates(a)).toEqual([{ bookId: b, title: "Lonely", authors: ["A"], replaces: null }]);
-      expect((await candidates(b)).map((x) => x.title)).toEqual(["Stoner", "Warlike"]);
+      expect((await candidates(b)).map((x) => x.title)).toEqual(["Warlike", "Stoner"]);
     });
 
     it("says which judge Connection of the pair it would replace; a dismissed one is not mentioned", async () => {
@@ -199,8 +199,8 @@ describe("Manual Connections", () => {
       await judgeRun(fakeJudge(linkAll), a);
       await ctx.db.update(connection).set({ dismissedAt: new Date() }).where(eq(connection.id, (await pairRow(a, c)).id));
       expect(await candidates(a)).toEqual([
-        { bookId: b, title: "Lonely", authors: ["A"], replaces: { type: "thematic", strength: "moderate", explanation: "The judge's reason." } },
         { bookId: c, title: "Warlike", authors: ["A"], replaces: null },
+        { bookId: b, title: "Lonely", authors: ["A"], replaces: { type: "thematic", strength: "moderate", explanation: "The judge's reason." } },
       ]);
     });
 

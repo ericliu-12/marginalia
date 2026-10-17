@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { UNTYPED_COLOR } from "../../src/app/graph/graph-style";
-import { seedLibrary, settleGraph } from "./database";
+import { finishBook, seedLibrary, settleGraph } from "./database";
 
 // "Connect a book" in the Book panel (#178), on the seeded chain where Stoner's one Connection is the
 // judge's, to The Remains of the Day. The graph job is played by hand, so the graph re-settles when told.
@@ -52,7 +52,7 @@ test("connecting two Books puts yours first, says so, and draws its line on the 
   const before = await edgePixels(page);
 
   await choose(page, "volt", "Candide");
-  await expect(form(page).getByText(/^Replaces:/)).toHaveCount(0);
+  await expect(form(page).getByText(/^Replaces/)).toHaveCount(0);
   await expect(form(page).getByRole("textbox", { name: "why they belong together" })).toBeFocused();
   await page.keyboard.type("Both read the winter my father was ill.");
   await form(page).getByRole("button", { name: "Connect" }).click();
@@ -77,7 +77,8 @@ test("connecting two Books puts yours first, says so, and draws its line on the 
 test("connecting a pair the judge connected replaces its connection, its type chosen first", async ({ page }) => {
   await openStonerInGraph(page);
   await choose(page, "remains", "The Remains of the Day");
-  await expect(form(page).getByText("Replaces: Thematic · Strong — Why Stoner meets The Remains of the Day.")).toBeVisible();
+  await expect(form(page).getByText("Replaces the Thematic · Strong connection.")).toBeVisible();
+  await expect(form(page).getByText("Why Stoner meets The Remains of the Day.")).toHaveCount(0);
   const thematic = form(page).getByRole("button", { name: "Thematic" });
   await expect(thematic).toHaveAttribute("aria-pressed", "true");
   // Choosing it again clears it; choosing it once more picks it back.
@@ -101,6 +102,13 @@ test("the search leaves out this Book and the ones already connected by hand", a
   await expect(cards(page)).toHaveCount(1);
 
   await connections(page).getByRole("button", { name: "Connect a book" }).click();
+  // Before anything is typed, the rest, most recently finished first.
+  await expect(form(page).getByRole("list", { name: "Matching books" }).getByRole("button")).toHaveText([
+    "CandideVoltaire",
+    "The PlagueAlbert Camus",
+    "BelovedToni Morrison",
+    "Never Let Me GoKazuo Ishiguro",
+  ]);
   const search = form(page).getByRole("searchbox", { name: "connect with" });
   await search.fill("stoner");
   await expect(form(page).getByText("No finished book matches.")).toBeVisible();
@@ -119,6 +127,19 @@ test("the search leaves out this Book and the ones already connected by hand", a
   await expect(form(page)).toHaveCount(0);
   await expect(connections(page).getByRole("button", { name: "Connect a book" })).toBeFocused();
   await expect(page.getByRole("heading", { level: 2 })).toHaveText("Stoner");
+});
+
+test("before anything is typed, the latest 8 show, and how many more", async ({ page }) => {
+  for (const title of ["Austerlitz", "Piranesi", "Gilead", "Middlemarch"]) await finishBook(title);
+  await openStonerInGraph(page);
+  await connections(page).getByRole("button", { name: "Connect a book" }).click();
+  const results = form(page).getByRole("list", { name: "Matching books" }).getByRole("button");
+  await expect(results).toHaveCount(8);
+  await expect(results.first()).toHaveText("MiddlemarchA. Writer");
+  await expect(form(page).getByText("And 1 more. Keep typing to narrow them.")).toBeVisible();
+  // Down from the search reaches the first.
+  await page.keyboard.press("ArrowDown");
+  await expect(results.first()).toBeFocused();
 });
 
 test("a reason is required, and holds to 200 characters, counting down the last 20", async ({ page }) => {
