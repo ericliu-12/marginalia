@@ -52,10 +52,33 @@ import {
   PHONE_FRAME,
   PHONE_NAME_CLEAR,
   TAP_REACH,
+  thinned,
 } from "./graph-style";
 import { clusterTint } from "../cluster-tint";
 import { overlaps, placeLabels, placeNames, type Box, type Dot, type LabelRequest, type NameRequest } from "./placement";
 import { washAt } from "./wash";
+import {
+  dotDetail,
+  easeSpacing,
+  FOG_CLEAR,
+  FOG_EDGE,
+  FOG_MOST,
+  fogAmount,
+  HINTS_MAX,
+  LABEL_SEEN,
+  labelDetail,
+  LARGE_GRAPH,
+  lineDetail,
+  mist,
+  dotScale,
+  FAINT_SIZE,
+  placeHints,
+  ramp,
+  type HintRequest,
+  type PlacedHint,
+  SEEN,
+  type Lens,
+} from "./detail";
 
 export type Selection = { kind: "book"; bookId: string } | { kind: "connection"; id: string } | { kind: "cluster"; id: string } | null;
 
@@ -64,9 +87,11 @@ export type Selection = { kind: "book"; bookId: string } | { kind: "connection";
 // bottom, read as they are needed.
 export type Phone = { turn: boolean; room: () => { top: number; bottom: number } };
 
-type Node = { id: string; book: GraphBook; label: string; radius: number; homeX: number; homeY: number; x?: number; y?: number; vx?: number; vy?: number };
+// `index` is its place in the graph's list; `rank` its place by Connections, 0 for the best connected to 1
+// for the least, which decides how soon a large graph shows it as the reader zooms in (./detail.ts).
+type Node = { id: string; index: number; rank: number; book: GraphBook; label: string; radius: number; homeX: number; homeY: number; x?: number; y?: number; vx?: number; vy?: number };
 // force-graph's names: a node is a Book, a link is a Connection.
-type Link = { id: string; source: string | Node; target: string | Node; connection: GraphConnection; rest: number };
+type Link = { id: string; index: number; source: string | Node; target: string | Node; connection: GraphConnection; rest: number };
 
 // What a selection lights up. Worked out once per selection, so the render callbacks only look things up.
 type Focus = {
@@ -91,10 +116,12 @@ function prepare(graph: GraphView, phone = false, turn = false) {
   const raw = new Map(graph.books.map((b) => [b.bookId, b]));
   const lengths = graph.connections.map((c) => Math.hypot(raw.get(c.a)!.x - raw.get(c.b)!.x, raw.get(c.a)!.y - raw.get(c.b)!.y));
   const scale = layoutScale(graph.books, graph.connections);
-  const nodes: Node[] = graph.books.map((b) => {
+  const nodes: Node[] = graph.books.map((b, index) => {
     const { x, y } = turn ? turnClockwise(b) : b;
     return {
       id: b.bookId,
+      index,
+      rank: 0,
       book: b,
       label: phone ? labelOf(b.title, PHONE_LABEL_CHARS) : b.label,
       radius: nodeRadius(b.degree),
@@ -105,7 +132,18 @@ function prepare(graph: GraphView, phone = false, turn = false) {
     };
   });
   const byId = new Map(nodes.map((n) => [n.id, n]));
-  const links: Link[] = graph.connections.map((c, i) => ({ id: c.id, source: c.a, target: c.b, connection: c, rest: lengths[i] * scale }));
+  const links: Link[] = graph.connections.map((c, i) => ({ id: c.id, index: i, source: c.a, target: c.b, connection: c, rest: lengths[i] * scale }));
+  [...nodes]
+    .sort((p, q) => q.book.degree - p.book.degree || q.book.finishedAt - p.book.finishedAt || (p.id < q.id ? -1 : 1))
+    .forEach((n, i) => (n.rank = nodes.length > 1 ? i / (nodes.length - 1) : 0));
+  // The Books' extent at home, in graph units: how far it overflows the view sets the fog, and how far
+  // apart the Books stand in it, at a zoom, the detail shown (./detail.ts).
+  const extent = { w: 0, h: 0, spacing: TYPICAL_EDGE_LENGTH };
+  if (nodes.length > 1) {
+    const [xs, ys] = [nodes.map((n) => n.homeX), nodes.map((n) => n.homeY)];
+    const [w, h] = [Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)];
+    Object.assign(extent, { w, h, spacing: Math.sqrt((w * h) / nodes.length) || TYPICAL_EDGE_LENGTH });
+  }
   // Label priority at rest: the most recently finished few, then by Connections, then most recent.
   const recent = new Set(
     [...nodes]
@@ -126,7 +164,7 @@ function prepare(graph: GraphView, phone = false, turn = false) {
     const bands = graph.connections.filter((c) => c.featured && members.has(c.a) && members.has(c.b)).map((c): [Node, Node] => [byId.get(c.a)!, byId.get(c.b)!]);
     return { cluster, nodes, members, bands, shape: { id: cluster.id, books: nodes, bands } };
   });
-  return { nodes, links, byId, byPriority, clusters };
+  return { nodes, links, byId, byPriority, clusters, extent };
 }
 
 function focusFor(graph: GraphView, prepared: ReturnType<typeof prepare>, selection: Selection, trail: string[]): Focus {
@@ -328,6 +366,13 @@ export function GraphCanvas({
   // Each Cluster's name, placed over the canvas every frame; and its measured size, by name.
   const nameEls = useRef(new Map<string, HTMLButtonElement>());
   const nameSizes = useRef(new Map<string, { w: number; h: number }>());
+  // Each Cluster's off-screen hint, placed the same way, with its measured size; and the glide to a
+  // Cluster that a hint makes.
+  const hintEls = useRef(new Map<string, HTMLButtonElement>());
+  const hintSizes = useRef(new Map<string, { w: number; h: number }>());
+  const glideTo = useRef<(clusterId: string) => void>(() => {});
+  // Frames Books the keyboard has reached, if none of them can be seen.
+  const reveal = useRef<(bookIds: string[]) => void>(() => {});
   // When each Cluster that formed while the graph was open appeared, for its fade-in.
   const appeared = useRef(new Map<string, number>());
   // How far into its fade-in a Cluster is, 0 to 1; 1 for one that was there from the start.
@@ -381,6 +426,7 @@ export function GraphCanvas({
     // Names and labels measured in a fallback face are measured again once Newsreader has loaded.
     const remeasure = () => {
       nameSizes.current.clear();
+      hintSizes.current.clear();
       widths.clear();
     };
     document.fonts.addEventListener("loadingdone", remeasure);
@@ -389,6 +435,13 @@ export function GraphCanvas({
     let simulating = false;
     // The pointer's place over the canvas, while it is there.
     let pointer: { x: number; y: number } | null = null;
+    // What a large graph shows this frame (./detail.ts), worked out before anything is drawn: the
+    // spacing its detail shows, the fog's lens, and how much of each dot, label and line is left.
+    const look: { on: boolean; spacing: number; lens: Lens } = { on: false, spacing: 0, lens: { cx: 0, cy: 0, rx: 1, ry: 1, amount: 0 } };
+    let dotShown = new Float32Array(0);
+    let labelShown = new Float32Array(0);
+    let lineShown = new Float32Array(0);
+    let lastFrame = 0;
     // Asks force-graph for a frame: it draws again when one of its settings is set.
     const redraw = () => fg?.linkVisibility(fg.linkVisibility());
 
@@ -491,6 +544,94 @@ export function GraphCanvas({
         return was.shown ? was.width + (now.width - was.width) * t : now.width;
       };
 
+      // A large graph's detail and fog for this frame. What the reader is looking at is kept whole: the
+      // selection and all it lights (the trail too), and the Book or Connection under the pointer or
+      // reached from the keyboard. A small graph is drawn whole, as it always was.
+      const see = (k: number) => {
+        const { nodes, links, byId, extent } = data();
+        const on = nodes.length >= LARGE_GRAPH;
+        if (host.dataset.detail !== (on ? "on" : "off")) host.dataset.detail = on ? "on" : "off";
+        look.on = on;
+        if (!on) return;
+        const now = performance.now();
+        const target = extent.spacing * k;
+        look.spacing = !look.spacing || reducedMotion() ? target : easeSpacing(look.spacing, target, Math.min(34, now - lastFrame));
+        lastFrame = now;
+        // Still easing toward the zoom: draw again until it has caught up.
+        if (look.spacing !== target) animateFor.current(50);
+        const room = phoneRef.current?.room();
+        const [top, bottom, right] = [room?.top ?? 0, f.height() - (room?.bottom ?? 0), f.width() - insetRef.current];
+        const tall = Math.max(1, bottom - top);
+        const lens = (look.lens = { cx: right / 2, cy: top + tall / 2, rx: right / 2, ry: tall / 2, amount: fogAmount(Math.max((extent.w * k) / right, (extent.h * k) / tall)) });
+        const o = f.graph2ScreenCoords(0, 0);
+        if (dotShown.length !== nodes.length) [dotShown, labelShown] = [new Float32Array(nodes.length), new Float32Array(nodes.length)];
+        if (lineShown.length !== links.length) lineShown = new Float32Array(links.length);
+        // How kept a Book or Connection is, part way while a selection fades in or out.
+        const t = shift();
+        const [focus, was] = [focusRef.current, wasFocusRef.current];
+        const kept = (lit: (focus: Focus) => Set<string> | null, id: string) => {
+          const now = lit(focus)?.has(id) ? 1 : 0;
+          return t >= 1 ? now : (lit(was!)?.has(id) ? 1 : 0) * (1 - t) + now * t;
+        };
+        const hovered = pointed();
+        for (const n of nodes) {
+          const keep = n.id === hovered ? 1 : kept((x) => x.litBooks, n.id);
+          const clear = 1 - mist(o.x + n.x! * k, o.y + n.y! * k, lens);
+          dotShown[n.index] = keep + (1 - keep) * dotDetail(n.rank, look.spacing) * clear;
+          labelShown[n.index] = keep + (1 - keep) * labelDetail(n.rank, look.spacing) * clear;
+        }
+        for (const l of links) {
+          const [p, q] = [byId.get(endId(l.source)), byId.get(endId(l.target))];
+          if (!p || !q) continue;
+          const keep = l.id === hoverLinkRef.current ? 1 : kept((x) => x.litLinks, l.id);
+          const clear = 1 - mist(o.x + ((p.x! + q.x!) / 2) * k, o.y + ((p.y! + q.y!) / 2) * k, lens);
+          lineShown[l.index] = keep + (1 - keep) * lineDetail(l.connection.strength, look.spacing) * clear;
+        }
+      };
+      const dotLeft = (n: Node) => (look.on ? (dotShown[n.index] ?? 1) : 1);
+      const lineLeft = (l: Link) => (look.on ? (lineShown[l.index] ?? 1) : 1);
+      // A Connection's colour as this frame draws it.
+      const lineColor = (l: Link) => (look.on ? thinned(colorOf(l), lineLeft(l)) : colorOf(l));
+
+      // The room the view has: clear of the panel, and of the header and the legend (on a phone, its
+      // legend or sheet), in screen pixels.
+      const roomOf = () => {
+        const room = phoneRef.current?.room();
+        return {
+          top: room ? room.top : CLUSTER_NAME_CLEAR.top,
+          bottom: room ? room.bottom : CLUSTER_NAME_CLEAR.bottom,
+          right: f.width() - insetRef.current,
+          frame: room ? PHONE_FRAME : ARRIVAL_FRAME,
+        };
+      };
+      // Glides to Books (at once for less motion), centred in the view's room, zooming out if they need
+      // it to fit, never further in.
+      const frame = (books: Node[]) => {
+        if (!books.length) return;
+        const { top, bottom, right, frame: edge } = roomOf();
+        const [xs, ys] = [books.map((n) => n.x!), books.map((n) => n.y!)];
+        const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+        const wide = Math.max(right - 2 * edge, edge);
+        const tall = Math.max(f.height() - top - bottom - 2 * edge, edge);
+        const zoom = Math.min(f.zoom(), wide / (x1 - x0 || 1), tall / (y1 - y0 || 1));
+        f.centerAt((x0 + x1) / 2 + (f.width() - right) / 2 / zoom, (y0 + y1) / 2 + (bottom - top) / 2 / zoom, glide());
+        if (zoom < f.zoom()) f.zoom(zoom, glide());
+      };
+      // A hint frames its Cluster's Books.
+      glideTo.current = (id) => frame(data().clusters.find((c) => c.cluster.id === id)?.nodes ?? []);
+      // So does the keyboard reaching a Book or Cluster none of whose Books can be seen: all out of the
+      // view's room, or (on a large graph) more than half taken by the mist.
+      reveal.current = (ids) => {
+        const books = ids.map((id) => data().byId.get(id)).filter((n) => n !== undefined);
+        const { top, bottom, right } = roomOf();
+        const seen = books.some((n) => {
+          const p = f.graph2ScreenCoords(n.x!, n.y!);
+          const inside = p.x >= 0 && p.x <= right && p.y >= top && p.y <= f.height() - bottom;
+          return inside && (!look.on || mist(p.x, p.y, look.lens) < FOG_MOST / 2);
+        });
+        if (!seen) frame(books);
+      };
+
       // A click on a wash (with no Book or Connection over it) chooses its Cluster, or lets go of it if
       // it is already chosen; a click on bare paper lets go of any selection (#48). On a phone a tap near
       // a Book, within TAP_REACH of its dot, chooses the nearest, so a small dot is still easy to hit.
@@ -500,6 +641,8 @@ export function GraphCanvas({
         if (phoneRef.current) {
           let near: { id: string; d: number } | null = null;
           for (const n of data().nodes) {
+            // A dot lost in the mist is no target: the tap is on the paper, or its wash.
+            if (dotLeft(n) < SEEN) continue;
             const s = f.graph2ScreenCoords(n.x!, n.y!);
             const d = Math.hypot(s.x - x, s.y - y);
             if (d <= TAP_REACH && (!near || d < near.d)) near = { id: n.id, d };
@@ -535,8 +678,10 @@ export function GraphCanvas({
         for (const n of hovered ? [byId.get(hovered), ...labelOrder] : labelOrder) {
           if (!n || texts.has(n.id)) continue;
           const must = n.id === hovered || n.id === chosenBookId;
-          // Faded Books stay unlabelled unless the reader is close enough to read them anyway.
+          // Faded Books stay unlabelled unless the reader is close enough to read them anyway; on a large
+          // graph, so do Books the zoom hasn't reached yet, or the mist has all but taken.
           if (litBooks && !litBooks.has(n.id) && k < 1.6 && !must) continue;
+          if (look.on && labelShown[n.index] < LABEL_SEEN && !must) continue;
           // On a phone the chosen Book keeps its short label: the sheet has its full title.
           const text = must && !phoneRef.current ? n.book.title : n.label;
           texts.set(n.id, text);
@@ -546,7 +691,8 @@ export function GraphCanvas({
         }
         // Behind a selection, faded Books give way to the lit ones' labels; and no label goes under the
         // wordmark, the legend or the panel.
-        const blocking = litBooks ? dots.filter((d) => litBooks.has(d.id)) : dots;
+        // Faint dots are no obstacle: a label may sit over one.
+        const blocking = litBooks ? dots.filter((d) => litBooks.has(d.id)) : look.on ? dots.filter((d) => dotShown[byId.get(d.id)!.index] >= 0.5) : dots;
         const origin = host.getBoundingClientRect();
         const chrome: Box[] = [...document.querySelectorAll("[data-graph-chrome]")].map((el) => {
           const r = el.getBoundingClientRect();
@@ -556,7 +702,7 @@ export function GraphCanvas({
         // The Connections drawn now, which labels keep off where they can.
         const idOf = (end: string | Node) => (typeof end === "string" ? end : end.id);
         const lines = data()
-          .links.filter((l) => focusRef.current.visible.has(l.id) && !withheldRef.current.has(l.id))
+          .links.filter((l) => focusRef.current.visible.has(l.id) && !withheldRef.current.has(l.id) && lineLeft(l) >= SEEN)
           .map((l) => [screen.get(idOf(l.source)), screen.get(idOf(l.target))])
           .filter((ends): ends is [Dot, Dot] => ends.every((e) => e !== undefined))
           .map(([p, q]) => ({ x0: p.x, y0: p.y, x1: q.x, y1: q.y }));
@@ -602,11 +748,44 @@ export function GraphCanvas({
           nameEl.style.opacity = String(faded(id, now));
         }
 
-        // Placed again, now clear of the names, so none is drawn under one; behind a selection, only the
-        // chosen Cluster's name holds its place, and any other a label then lands on is left off.
+        // Off-screen hints: on a large graph with nothing chosen, the nearest Clusters wholly out of view
+        // name themselves at the edge they lie past, clear of the header and the legend (or the phone's
+        // switch, legend and sheet, its finger's reach too) and of the names on screen.
+        const hinted = new Map<string, PlacedHint>();
+        if (look.on && !litBooks) {
+          const area = room
+            ? { x0: PHONE_NAME_CLEAR, y0: room.top + PHONE_NAME_CLEAR + HINT_REACH, x1: view.width - PHONE_NAME_CLEAR, y1: view.height - room.bottom - PHONE_NAME_CLEAR - HINT_REACH }
+            : { x0: CLUSTER_NAME_CLEAR.side, y0: CLUSTER_NAME_CLEAR.top, x1: view.width - insetRef.current - CLUSTER_NAME_CLEAR.side, y1: view.height - CLUSTER_NAME_CLEAR.bottom };
+          const hints: HintRequest[] = [];
+          for (const { cluster, nodes: books } of clusters) {
+            const hintEl = hintEls.current.get(cluster.id);
+            if (!hintEl || books.length === 0) continue;
+            const at = books.map((b) => screen.get(b.id)!);
+            if (at.some((d) => d.x >= 0 && d.x <= view.width && d.y >= 0 && d.y <= view.height)) continue;
+            const key = `${cluster.id}:${cluster.name}`;
+            let size = hintSizes.current.get(key);
+            if (!size) hintSizes.current.set(key, (size = { w: hintEl.offsetWidth, h: hintEl.offsetHeight }));
+            hints.push({ id: cluster.id, x: at.reduce((sum, d) => sum + d.x, 0) / at.length, y: at.reduce((sum, d) => sum + d.y, 0) / at.length, ...size });
+          }
+          const shownNames = [...placed.values()].filter((b) => b !== null);
+          for (const [id, hint] of placeHints({ area, from: { x: look.lens.cx, y: look.lens.cy }, hints, max: room ? HINTS_MAX.phone : HINTS_MAX.desktop })) {
+            if (!shownNames.some((b) => overlaps(b, hint.box))) hinted.set(id, hint);
+          }
+        }
+        for (const [id, hintEl] of hintEls.current) {
+          const hint = hinted.get(id);
+          if (hintEl.hasAttribute("data-shown") !== (hint !== undefined)) hintEl.toggleAttribute("data-shown", hint !== undefined);
+          if (!hint) continue;
+          hintEl.style.transform = `translate(${hint.box.x0}px, ${hint.box.y0}px)`;
+          hintEl.style.setProperty("--turn", `${hint.angle}rad`);
+        }
+
+        // Placed again, now clear of the names and hints, so none is drawn under one; behind a selection,
+        // only the chosen Cluster's name holds its place, and any other a label then lands on is left off.
         const holding = [...placed]
           .filter(([id, box]) => box !== null && (!litBooks || id === chosenClusterId || id === pointedClusterRef.current))
-          .map(([, box]) => box!);
+          .map(([, box]) => box!)
+          .concat([...hinted.values()].map((h) => h.box));
         const labels = holding.length ? placeLabels({ view, dots: blocking, requests, obstacles: [...chrome, ...holding], lines, inView }) : first;
         for (const [id, box] of placed) {
           if (!box || holding.includes(box) || !labels.some((l) => overlaps(l.box, box))) continue;
@@ -627,7 +806,10 @@ export function GraphCanvas({
         // Cluster is chosen, lighter behind any other selection. Drawn in graph units and kept while the
         // camera moves; drawn again for a fresh graph, or once its Books have moved: while a drag's
         // simulation runs, at most every WASH_FOLLOW_MS, so it follows the Book being dragged.
-        .onRenderFramePre((ctx) => {
+        // On a large graph zoomed in, the mist then thins every wash towards the edges, except the chosen
+        // Cluster's and the one under the pointer, drawn after it.
+        .onRenderFramePre((ctx, k) => {
+          see(k);
           const now = performance.now();
           const t = shift();
           const { clusters } = data();
@@ -636,13 +818,12 @@ export function GraphCanvas({
           const eased = progress(deep.at, reducedMotion() ? 0 : WASH_HOVER_MS);
           // Washes of Clusters gone from a fresh graph are let go.
           if (washes.size > clusters.length) for (const id of washes.keys()) if (!clusters.some((c) => c.cluster.id === id)) washes.delete(id);
-          ctx.save();
-          for (const { cluster, nodes, bands } of clusters) {
+          const paint = ({ cluster, nodes, bands }: (typeof clusters)[number]) => {
             const depth = cluster.id === deep.id ? eased : cluster.id === deep.was ? 1 - eased : 0;
             const toBase = washBase(focusRef.current, cluster.id);
             const base = t >= 1 ? toBase : washBase(wasFocusRef.current!, cluster.id) * (1 - t) + toBase * t;
             const alpha = (base + Math.max(0, WASH_ALPHA.hover - base) * depth) * faded(cluster.id, now);
-            if (alpha <= 0 || nodes.length === 0) continue;
+            if (alpha <= 0 || nodes.length === 0) return;
             let wash = washes.get(cluster.id);
             if (wash && wash.nodes !== nodes && !reducedMotion() && reshaped(wash, nodes, bands)) {
               // A fresh graph: drawn anew on a canvas of its own, easing out of the shape it had.
@@ -659,14 +840,41 @@ export function GraphCanvas({
             } else wash.was = undefined;
             ctx.globalAlpha = alpha * reshaping;
             ctx.drawImage(wash.canvas, wash.x, wash.y, wash.w, wash.h);
+          };
+          const misted = look.on && look.lens.amount > 0;
+          const kept = (id: string) => id === focusRef.current.chosenClusterId || id === deep.id;
+          ctx.save();
+          for (const c of clusters) if (!misted || !kept(c.cluster.id)) paint(c);
+          if (misted) {
+            // The mist, in screen pixels: it takes away what is drawn, so the paper shows through.
+            const { cx, cy, rx, ry, amount } = look.lens;
+            const px = ctx.canvas.width / f.width();
+            ctx.save();
+            ctx.setTransform(px * rx, 0, 0, px * ry, px * cx, px * cy);
+            const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, FOG_EDGE);
+            gradient.addColorStop(0, "rgba(0,0,0,0)");
+            for (let i = 0; i <= 8; i++) {
+              const r = FOG_CLEAR + ((FOG_EDGE - FOG_CLEAR) * i) / 8;
+              gradient.addColorStop(r / FOG_EDGE, `rgba(0,0,0,${amount * FOG_MOST * ramp(r, FOG_CLEAR, FOG_EDGE)})`);
+            }
+            ctx.globalCompositeOperation = "destination-out";
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = gradient;
+            ctx.fillRect(-8, -8, 16, 16);
+            ctx.restore();
+            for (const c of clusters) if (kept(c.cluster.id)) paint(c);
           }
           ctx.restore();
         })
-        // Mid-fade, a Connection the last focus showed stays, fading out.
+        // Mid-fade, a Connection the last focus showed stays, fading out. One lost in the mist, or not yet
+        // in at this zoom, is left off.
         .linkVisibility(
-          (l) => !withheldRef.current.has(l.id) && (focusRef.current.visible.has(l.id) || (shift() < 1 && wasFocusRef.current!.visible.has(l.id))),
+          (l) =>
+            !withheldRef.current.has(l.id) &&
+            (focusRef.current.visible.has(l.id) || (shift() < 1 && wasFocusRef.current!.visible.has(l.id))) &&
+            lineLeft(l) >= SEEN,
         )
-        .linkColor(colorOf)
+        .linkColor(lineColor)
         // Screen pixels: force-graph keeps link widths constant across zoom.
         .linkWidth(widthOf)
         .linkHoverPrecision(6)
@@ -686,7 +894,7 @@ export function GraphCanvas({
             ctx.moveTo(from.x!, from.y!);
             ctx.lineTo(from.x! + (to.x! - from.x!) * p, from.y! + (to.y! - from.y!) * p);
             ctx.lineWidth = widthOf(l) / k;
-            ctx.strokeStyle = colorOf(l);
+            ctx.strokeStyle = lineColor(l);
             ctx.stroke();
             return;
           }
@@ -711,8 +919,12 @@ export function GraphCanvas({
             ctx.stroke();
             ctx.globalAlpha = 1;
           }
-          const r = (n.radius * land) / k;
+          // On a large graph, as much of the dot (and its ring) as the zoom and the mist leave; a faint
+          // dot is smaller too, and grows as it comes in.
+          const left = dotLeft(n);
+          const r = (n.radius * land * (left < 1 ? FAINT_SIZE + (1 - FAINT_SIZE) * left : 1) * (look.on ? dotScale(look.spacing) : 1)) / k;
           const lit = bookLit(n.id);
+          if (left < 1) ctx.globalAlpha = left;
           if (ringed(n.id)) {
             // A Book on the trail behind the chosen one gets a lighter ring.
             const behind = n.id !== focusRef.current.chosenBookId && n.id !== pointed();
@@ -730,12 +942,15 @@ export function GraphCanvas({
             // Behind a selection, in the faded label's colour: FADED_NODE as a hairline would all but vanish.
             ctx.strokeStyle = byLit(lit, FADED_LABEL, LONE_INK);
             ctx.stroke();
-            return;
+          } else {
+            ctx.arc(n.x!, n.y!, r, 0, Math.PI * 2);
+            ctx.fillStyle = byLit(lit, FADED_NODE, INK);
+            ctx.fill();
           }
-          ctx.arc(n.x!, n.y!, r, 0, Math.PI * 2);
-          ctx.fillStyle = byLit(lit, FADED_NODE, INK);
-          ctx.fill();
+          ctx.globalAlpha = 1;
         })
+        // A dot lost in the mist is neither drawn nor found under the pointer.
+        .nodeVisibility((n) => dotLeft(n) >= SEEN)
         .nodePointerAreaPaint((n, color, ctx, k) => {
           ctx.fillStyle = color;
           ctx.beginPath();
@@ -756,6 +971,8 @@ export function GraphCanvas({
           const still = simulating && kept && kept.scene.focus === scene.focus && kept.scene.data === scene.data && kept.scene.key === scene.key;
           if (!still) kept = { scene, labels: place(ctx, k, view, dots, screen) };
           ctx.textBaseline = "middle";
+          // How many labels are drawn more than half there, for the browser tests.
+          let labelled = 0;
           for (const { id, text, box } of kept!.labels) {
             const n = byId.get(id)!;
             const lone = n.book.degree === 0;
@@ -767,8 +984,13 @@ export function GraphCanvas({
             ctx.textAlign = align;
             const at = p(sx, (box.y0 + box.y1) / 2);
             ctx.fillStyle = byLit(bookLit(id), FADED_LABEL, lone ? LONE_INK : INK);
+            const left = look.on ? labelShown[n.index] : 1;
+            if (left >= 0.5) labelled++;
+            ctx.globalAlpha = left;
             ctx.fillText(text, at.x, at.y);
           }
+          ctx.globalAlpha = 1;
+          if (host.dataset.labelled !== String(labelled)) host.dataset.labelled = String(labelled);
         })
         // Only a drag runs the simulation, and the settling after it; a fresh graph never starts it.
         .onNodeDrag(() => {
@@ -1004,15 +1226,20 @@ export function GraphCanvas({
     return () => cancelAnimationFrame(frame);
   }, [focus, prepared, ready]);
 
+  // A Book or Cluster reached from the keyboard is marked on the canvas, and brought into view if it is out
+  // of it.
   useEffect(() => {
     pointedClusterRef.current = pointedClusterId;
     rehover.current();
-  }, [pointedClusterId]);
+    const cluster = graph.clusters.find((c) => c.id === pointedClusterId);
+    if (cluster) reveal.current(cluster.bookIds);
+  }, [pointedClusterId, graph]);
 
   useEffect(() => {
     pointedRef.current = pointedBookId;
     const f = fgRef.current;
     if (f) f.linkVisibility(f.linkVisibility());
+    if (pointedBookId) reveal.current([pointedBookId]);
   }, [pointedBookId]);
 
   return (
@@ -1035,6 +1262,19 @@ export function GraphCanvas({
             nameRef={(node) => {
               if (node) nameEls.current.set(c.id, node);
               else nameEls.current.delete(c.id);
+            }}
+          />
+        ))}
+        {/* Hints for Clusters out of view, at the edge they lie past; shown by the canvas. */}
+        {graph.clusters.map((c) => (
+          <ClusterHint
+            key={`${c.id}:${c.name}`}
+            cluster={c}
+            touch={phone !== undefined}
+            onGlide={() => glideTo.current(c.id)}
+            hintRef={(node) => {
+              if (node) hintEls.current.set(c.id, node);
+              else hintEls.current.delete(c.id);
             }}
           />
         ))}
@@ -1087,6 +1327,43 @@ function ClusterName({
     >
       {/* Written in inside the plate, so the clip never cuts the keyboard's outline. */}
       <span className={writing ? "inline-block animate-write-in" : undefined}>{cluster.name}</span>
+    </button>
+  );
+}
+
+// How far a hint's target reaches above and below its plate on a phone, so it is 44px tall; and so how
+// far its plate keeps from the header and the legend or sheet.
+const HINT_REACH = 12;
+
+// A Cluster out of view: its name, quieter than a name on screen (the smallest size, in regular
+// weight), pinned to the edge it lies past, with a small arrow pointing along the way to it. In its name
+// colour, which holds 4.5:1 on paper; pointing at it underlines it; choosing it glides there. Hidden,
+// and out of the pointer's way, until the canvas shows it.
+function ClusterHint({
+  cluster,
+  touch,
+  onGlide,
+  hintRef,
+}: {
+  cluster: GraphCluster;
+  touch: boolean;
+  onGlide: () => void;
+  hintRef: (node: HTMLButtonElement | null) => void;
+}) {
+  return (
+    <button
+      ref={hintRef}
+      type="button"
+      tabIndex={-1}
+      data-cluster-hint={cluster.id}
+      onClick={onGlide}
+      style={{ "--name": clusterTint(cluster.wash).name, fontSize: CLUSTER_NAME_SIZE.min } as React.CSSProperties}
+      className={`pointer-events-none absolute top-0 left-0 flex items-center gap-1 rounded-[2px] bg-paper/85 px-1.5 py-0.5 font-serif leading-tight font-normal whitespace-nowrap text-(--name) italic decoration-(--name) decoration-1 underline-offset-[4px] opacity-0 transition-[opacity,background-color] duration-150 hover:bg-paper/95 hover:underline data-shown:pointer-events-auto data-shown:opacity-100 motion-reduce:transition-none ${touch ? `before:absolute before:inset-x-0 before:-inset-y-3 before:content-['']` : ""}`}
+    >
+      <svg aria-hidden width="12" height="12" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 rotate-(--turn)">
+        <path d="M1.5 5.5h7.5M6.5 3l2.5 2.5L6.5 8" />
+      </svg>
+      {cluster.name}
     </button>
   );
 }

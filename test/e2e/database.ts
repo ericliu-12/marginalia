@@ -7,6 +7,7 @@ import { runGraphJob } from "../../src/domain/graph-job";
 import { invite, normaliseEmail } from "../../src/domain/allowlist";
 import { allowedEmail, book, bookPosition, clusterLabel, connection, enrichment, libraryEntry, note, paidCall, readThrough, session, user } from "../../src/db/schema";
 import { perWorktree } from "../worktree";
+import { seedSyntheticBooks } from "../../scripts/bench/synthetic-library";
 import { READER_A, READER_B, type Reader } from "./session";
 
 // The browser tests' own database on the docker-compose Postgres, apart from the app's and the unit tests'.
@@ -256,6 +257,16 @@ export async function wantBook(title: string) {
 
 // A small finished library from scratch, in place of LIBRARY: these Books with these themes, a strong
 // Thematic Connection for each pair in `linked` (indexes into `titles`), laid out as the worker would.
+// A large library for the Reader alone, `n` synthetic Finished Books in named Clusters (as the graph
+// benchmark seeds), laid out as the worker would: the same graph every run.
+export async function seedLargeLibrary(n: number) {
+  const { db, pool } = createDb(e2eDatabaseUrl());
+  await seedReaders(db);
+  await db.delete(paidCall);
+  await seedSyntheticBooks(db, READER_A.id, n, { fixedIds: true });
+  await pool.end();
+}
+
 export async function seedSmallLibrary(titles: string[], linked: [number, number][] = [], themes = ["memory", "duty"]) {
   const { db, pool } = createDb(e2eDatabaseUrl());
   await seedReaders(db);

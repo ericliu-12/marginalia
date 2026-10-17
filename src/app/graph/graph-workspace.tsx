@@ -19,6 +19,7 @@ import { GraphLists } from "./graph-lists";
 import { GraphCanvas, reducedMotion, type Selection } from "./graph-canvas";
 import { DRAW_FIRST_MS, DRAW_STEP_MS, DRAW_UNHURRIED, TYPE_COLOR, TYPE_LABEL } from "./graph-style";
 import { CLOSED, panelState } from "./panel-state";
+import { LARGE_GRAPH } from "./detail";
 import { TrailCrumbs } from "./trail-crumbs";
 import { WIDE, useWide } from "../use-wide";
 import type { Pause } from "@/domain/spend";
@@ -231,7 +232,11 @@ export function GraphWorkspace({
               </li>
             ))}
           </ul>
-          <p className="italic">Thicker lines are stronger connections. Select a book, or a cluster’s name or colour.</p>
+          <p className="italic">
+            Thicker lines are stronger connections. Select a book, or a cluster’s name or colour.
+            {/* A large graph shows more as the reader zooms in (./detail.ts); a small one is shown whole. */}
+            {graph.books.length >= LARGE_GRAPH && " Zoom in for more."}
+          </p>
         </footer>
       )}
 

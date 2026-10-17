@@ -24,6 +24,7 @@
     "readers": "tsx --env-file-if-exists=.env src/readers.ts",
     "eval": "tsx --env-file-if-exists=.env scripts/eval/judge-eval.ts",
     "bench:graph": "tsx --env-file-if-exists=.env scripts/bench/graph-bench.ts",
+    "graph:large": "tsx --env-file-if-exists=.env scripts/bench/large-graph.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file-if-exists=.env src/db/migrate.ts",
     "db:deploy": "pnpm db:migrate",
