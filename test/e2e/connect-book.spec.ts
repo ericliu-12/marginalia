@@ -111,7 +111,10 @@ test("the search leaves out this Book and the ones already connected by hand", a
   await expect(form(page).getByRole("button", { name: /^Never Let Me Go/ })).toBeVisible();
   await expect(form(page).getByRole("button", { name: /^The Remains/ })).toHaveCount(0);
 
-  // Escape closes it, and focus goes back to where it opened.
+  // Escape clears the search first, then closes, and focus goes back to where it opened.
+  await page.keyboard.press("Escape");
+  await expect(search).toHaveValue("");
+  await expect(form(page)).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(form(page)).toHaveCount(0);
   await expect(connections(page).getByRole("button", { name: "Connect a book" })).toBeFocused();

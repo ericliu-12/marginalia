@@ -163,7 +163,8 @@ export function ConnectionsSection({ bookId, onOpenBook, withheld }: { bookId: s
             setConnecting(false);
             setSaid(`Connected to ${otherTitle}`);
             // The form took focus with it; the heading sits just over the new card.
-            headingRef.current?.focus();
+            headingRef.current?.focus({ preventScroll: true });
+            headingRef.current?.scrollIntoView({ block: "nearest" });
           }}
         />
       )}

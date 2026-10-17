@@ -56,12 +56,14 @@ export function ConnectBookForm({
   const [error, setError] = useState<"reason" | "failed" | null>(null);
   const [pending, setPending] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
-  const reasonRef = useRef<HTMLInputElement>(null);
+  const reasonRef = useRef<HTMLTextAreaElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const resultsRef = useRef<HTMLUListElement>(null);
   const id = `connect-${bookId}`;
 
+
   useEffect(() => {
-    searchRef.current?.focus();
+    searchRef.current?.focus({ preventScroll: true });
   }, []);
 
   useEffect(() => {
@@ -81,6 +83,17 @@ export function ConnectBookForm({
 
   const found = candidates ? matches(candidates, query) : [];
 
+  // Opened at the panel's foot, it glides into view as it opens and as a Book is chosen, and keeps its
+  // matches in view as they come, at once: one glide per keystroke would cut the last one short.
+  useEffect(() => {
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    formRef.current?.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
+  }, [chosen]);
+  const shownCount = Math.min(found.length, SHOWN);
+  useEffect(() => {
+    if (shownCount) formRef.current?.scrollIntoView({ block: "nearest" });
+  }, [shownCount]);
+
   // Chosen and on to the reason in the same tap, so a phone keeps its keyboard up.
   function choose(c: ConnectCandidate) {
     flushSync(() => {
@@ -88,7 +101,7 @@ export function ConnectBookForm({
       setType(c.replaces?.type ?? null);
       setError(null);
     });
-    reasonRef.current?.focus();
+    reasonRef.current?.focus({ preventScroll: true });
   }
 
   function change() {
@@ -134,6 +147,7 @@ export function ConnectBookForm({
 
   return (
     <form
+      ref={formRef}
       aria-label="Connect a book"
       className="mt-3 border-t border-rule-3 pt-3"
       onSubmit={(e) => {
@@ -141,10 +155,11 @@ export function ConnectBookForm({
         submit();
       }}
       onKeyDown={(e) => {
-        if (e.key === "Escape") {
-          e.stopPropagation();
-          onCancel();
-        }
+        if (e.key !== "Escape") return;
+        e.stopPropagation();
+        // As in Add, Escape clears a search before it closes.
+        if (!chosen && query) setQuery("");
+        else onCancel();
       }}
     >
       {chosen ? (
@@ -152,13 +167,14 @@ export function ConnectBookForm({
           <p className={label}>connect with</p>
           <div className="flex flex-wrap items-baseline gap-x-4">
             <p className="text-[18px] leading-tight italic">{chosen.title}</p>
+            {chosen.authors.length > 0 && <p className={`order-last w-full ${resultMeta}`}>{chosen.authors.join(", ")}</p>}
             <button type="button" onClick={change} disabled={pending} aria-label="Change the book" className={quietLink}>
               Change
             </button>
           </div>
           {chosen.replaces && (
-            <p className="mt-1.5 max-w-[60ch] text-[15px] leading-snug text-ink-2">
-              Replaces:{" "}
+            <p className="mt-2 max-w-[60ch] text-[15px] leading-snug text-ink-2">
+              <span className="text-ink-3">Replaces:</span>{" "}
               <span className={`caps text-[12px] tracking-[1.2px] ${TYPES.find((t) => t.type === chosen.replaces!.type)!.hue}`}>
                 {TYPES.find((t) => t.type === chosen.replaces!.type)!.label} · {STRENGTH_LABEL[chosen.replaces.strength]}
               </span>{" "}
@@ -195,21 +211,27 @@ export function ConnectBookForm({
                 </span>
               )}
             </div>
-            <input
+            {/* One line as stored: Enter connects rather than breaking it, and the field grows to show it all. */}
+            <textarea
               ref={reasonRef}
               id={`${id}-reason`}
-              type="text"
+              rows={1}
               value={reason}
               maxLength={REASON_MAX}
               autoComplete="off"
               enterKeyHint="done"
               onChange={(e) => {
-                setReason(e.target.value);
+                setReason(e.target.value.replace(/[\r\n]+/g, " "));
                 setError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter") return;
+                e.preventDefault();
+                submit();
               }}
               aria-invalid={error === "reason" || undefined}
               aria-describedby={[left <= REASON_WARN && `${id}-left`, error && `${id}-error`].filter(Boolean).join(" ") || undefined}
-              className={`${field} mt-1 text-[17px] aria-invalid:border-contrast`}
+              className={`${field} mt-1 block resize-none text-[17px] leading-normal field-sizing-content aria-invalid:border-contrast`}
             />
           </div>
         </div>
@@ -227,20 +249,20 @@ export function ConnectBookForm({
             placeholder="Title or author"
             autoComplete="off"
             enterKeyHint="go"
-            aria-controls={`${id}-results`}
+            aria-controls={found.length ? `${id}-results` : undefined}
             className={`mt-1 ${searchInput}`}
           />
           {loadFailed ? (
             <p role="alert" className="pt-2 text-sm text-contrast">
               Couldn’t load your books.{" "}
-              <button type="button" onClick={() => setLoadFailed(false)} className="underline underline-offset-2">
+              <button type="button" onClick={() => setLoadFailed(false)} className="min-h-11 underline underline-offset-2 lg:min-h-0">
                 Try again
               </button>
             </p>
           ) : (
             <>
               <p role="status" className="pt-2 text-ink-2 italic empty:hidden">
-                {candidates && query.trim() && found.length === 0 ? "No finished book matches." : ""}
+                {!query.trim() ? "" : !candidates ? "Looking…" : found.length === 0 ? "No finished book matches." : ""}
               </p>
               {found.length > 0 && (
                 <ul id={`${id}-results`} aria-label="Matching books" ref={resultsRef} className="divide-y divide-rule-3">
@@ -258,6 +280,7 @@ export function ConnectBookForm({
                   ))}
                 </ul>
               )}
+              {found.length > SHOWN && <p className="pt-2 text-[15px] text-ink-2 italic">And {found.length - SHOWN} more. Keep typing to narrow them.</p>}
             </>
           )}
         </div>
