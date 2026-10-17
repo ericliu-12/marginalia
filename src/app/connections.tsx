@@ -110,7 +110,7 @@ export function ConnectionsSection({ bookId, onOpenBook, withheld }: { bookId: s
               {/* The type in its hue, then the other Book in italic and why. */}
               <div className="flex flex-wrap items-baseline gap-x-2">
                 <p className={`caps text-[12px] tracking-[1.2px] ${c.type ? TYPE[c.type].hue : "text-ink-2"}`}>
-                  {c.type ? `${TYPE[c.type].label} · ${STRENGTH_LABEL[c.strength]}` : "Yours"}
+                  {c.type ? `${TYPE[c.type].label} · ${STRENGTH_LABEL[c.strength]}` : "yours"}
                   {c.grounding === "enrichment" && <span className="text-ink-3"> · Not drawn from your notes</span>}
                   {/* While its Book arrives in the graph, each Connection is marked new. */}
                   {withheld && <span className="text-accent"> · New</span>}
