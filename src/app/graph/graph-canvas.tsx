@@ -952,6 +952,7 @@ export function GraphCanvas({
           const r = (n.radius * land * (left < 1 ? FAINT_SIZE + (1 - FAINT_SIZE) * left : 1) * (look.on ? dotScale(look.spacing) : 1)) / k;
           const lit = bookLit(n.id);
           if (left < 1) ctx.globalAlpha = left;
+          const thinnedDot = left < 1;
           if (ringed(n.id)) {
             // A Book on the trail behind the chosen one gets a lighter ring.
             const behind = n.id !== focusRef.current.chosenBookId && n.id !== pointed();
@@ -974,7 +975,7 @@ export function GraphCanvas({
             ctx.fillStyle = byLit(lit, FADED_NODE, INK);
             ctx.fill();
           }
-          ctx.globalAlpha = 1;
+          if (thinnedDot) ctx.globalAlpha = 1;
         })
         // A dot lost in the mist is neither drawn nor found under the pointer.
         .nodeVisibility((n) => dotLeft(n) >= SEEN)
@@ -999,7 +1000,7 @@ export function GraphCanvas({
           const placedBy = look.on ? [pointedClusterRef.current, withheldRef.current.size, nameSizes.current.size, hintSizes.current.size].join() : "";
           const scene = { focus: focusRef.current, data: data(), key: [k, origin.x, origin.y, view.width, view.height, insetRef.current, pointed(), placedBy].join() };
           const now = performance.now();
-          const forming = [...appeared.current.values()].some((since) => now - since < WASH_FADE_MS);
+          const forming = look.on && [...appeared.current.values()].some((since) => now - since < WASH_FADE_MS);
           const still =
             (simulating || (look.on && !forming)) && kept && kept.scene.focus === scene.focus && kept.scene.data === scene.data && kept.scene.key === scene.key;
           if (!still) kept = { scene, labels: place(ctx, k, view, dots, screen) };
@@ -1019,10 +1020,10 @@ export function GraphCanvas({
             ctx.fillStyle = byLit(bookLit(id), FADED_LABEL, lone ? LONE_INK : INK);
             const left = look.on ? labelShown[n.index] : 1;
             if (left >= 0.5) labelled++;
-            ctx.globalAlpha = left;
+            if (left !== ctx.globalAlpha) ctx.globalAlpha = left;
             ctx.fillText(text, at.x, at.y);
           }
-          ctx.globalAlpha = 1;
+          if (ctx.globalAlpha !== 1) ctx.globalAlpha = 1;
           if (host.dataset.labelled !== String(labelled)) host.dataset.labelled = String(labelled);
         })
         // Only a drag runs the simulation, and the settling after it; a fresh graph never starts it.
