@@ -596,3 +596,69 @@ test("the Note saved line goes with the next move, or after a while", async ({ p
   await page.clock.fastForward(9_000);
   await expect(savedLine).toHaveCount(0);
 });
+
+// A save that refreshes the page leaves the Book screen where the reader was (#181). While the save is
+// held, the screen is scrolled down until the Connections heading sits low on it: past the top, and
+// within what the screen still reaches once the save lands.
+const scrollToConnections = (page: Page) =>
+  connections(page)
+    .getByRole("heading", { name: "Connections" })
+    .evaluate((h) => {
+      window.scrollTo(0, Math.round(h.getBoundingClientRect().top + window.scrollY - window.innerHeight * 0.75));
+      return window.scrollY;
+    });
+
+test("connecting a book keeps the Book screen's scroll", async ({ page }) => {
+  await shelf(page).getByRole("button", { name: /^Stoner/ }).click();
+  await connections(page).getByRole("button", { name: "Connect a book" }).click();
+  const form = page.getByRole("form", { name: "Connect a book" });
+  await page.keyboard.type("beloved");
+  await form.getByRole("button", { name: /^Beloved/ }).click();
+  await form.getByRole("textbox", { name: "why they belong together" }).fill("Ghosts, both.");
+  const call = await holdNextCall(page);
+  await form.getByRole("button", { name: "Connect" }).click();
+  await call.held();
+  const scrolled = await scrollToConnections(page);
+  expect(scrolled).toBeGreaterThan(0);
+  await call.release();
+
+  await expect(connections(page).getByRole("status").filter({ hasText: "Connected to Beloved" })).toBeAttached();
+  await expect(connections(page).getByRole("heading", { name: "Connections" })).toBeFocused();
+  await page.waitForLoadState("networkidle");
+  expect(await page.evaluate(() => window.scrollY)).toBe(scrolled);
+});
+
+test("dismissing a connection keeps the Book screen's scroll", async ({ page }) => {
+  await shelf(page).getByRole("button", { name: /^Beloved/ }).click();
+  await connections(page).getByRole("button", { name: "Dismiss the connection to The Plague" }).click();
+  const call = await holdNextCall(page);
+  await connections(page).getByRole("button", { name: "Yes, dismiss" }).click();
+  await call.held();
+  const scrolled = await scrollToConnections(page);
+  expect(scrolled).toBeGreaterThan(0);
+  await call.release();
+
+  await expect(connections(page).getByRole("button", { name: "The Plague", exact: true })).toHaveCount(0);
+  await expect(connections(page).getByRole("heading", { name: "Connections" })).toBeFocused();
+  await page.waitForLoadState("networkidle");
+  expect(await page.evaluate(() => window.scrollY)).toBe(scrolled);
+});
+
+test("saving a note from the sheet keeps the shelf's scroll", async ({ page }) => {
+  // Short enough that the shelves scroll, with Middlemarch's pen still on screen once scrolled.
+  await page.setViewportSize({ width: 412, height: 600 });
+  const scrolled = await pen(page, "Middlemarch").evaluate((p) => {
+    window.scrollTo(0, Math.round(p.getBoundingClientRect().top + window.scrollY - 40));
+    return window.scrollY;
+  });
+  expect(scrolled).toBeGreaterThan(0);
+  await pen(page, "Middlemarch").click();
+  await page.keyboard.type("Dorothea, again");
+  await sheet(page).getByRole("button", { name: "Save note" }).click();
+
+  await expect(sheet(page)).toHaveCount(0);
+  await expect(page.getByRole("status").filter({ hasText: "Note saved on Middlemarch" })).toBeVisible();
+  await expect(pen(page, "Middlemarch")).toBeFocused();
+  await page.waitForLoadState("networkidle");
+  expect(await page.evaluate(() => window.scrollY)).toBe(scrolled);
+});

@@ -21,8 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={serif.variable}>
       <body>
-        <RefreshAfterSaves />
-        {children}
+        <RefreshAfterSaves>{children}</RefreshAfterSaves>
       </body>
     </html>
   );
