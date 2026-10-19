@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 // Turnstile faked, so a slow Cloudflare can't fail sign-in (./fixtures).
 import { expect, test } from "./fixtures";
-import { addNoteThatGaveUp, addSession, inviteEmail, isInvited, seedLibrary, signedInHoursAgo } from "./database";
+import { addNoteThatGaveUp, addSession, bookIdOf, connectByHand, connectionCount, deleteByHand, inviteEmail, isInvited, seedLibrary, signedInHoursAgo } from "./database";
 import { clearOutbox, codeSentTo } from "./mail";
 import { READER_A, READER_B, signedIn, signedOut } from "./session";
 
@@ -16,8 +16,12 @@ test.beforeEach(async ({ page }) => {
   await clearOutbox();
 });
 
-test("Account opens the account page, whose export downloads the Reader's Notes as JSON", async ({ page }) => {
+test("Account opens the account page, whose export downloads the Reader's Notes and Connections as JSON", async ({ page }) => {
   await addNoteThatGaveUp("Stoner", "Quiet failure, kept quietly.");
+  // One connection by hand, and one made by hand then deleted.
+  await connectByHand(await bookIdOf("Stoner"), await bookIdOf("Candide"), "Read the same winter.", "contrast");
+  await connectByHand(await bookIdOf("Stoner"), await bookIdOf("Beloved"), "Given by my sister.");
+  await deleteByHand("Stoner", "Beloved");
   await page.goto("/");
   await page.getByRole("link", { name: "Account" }).click();
   await expect(page).toHaveURL(/\/account$/);
@@ -35,6 +39,12 @@ test("Account opens the account page, whose export downloads the Reader's Notes 
   const data = JSON.parse(await readFile((await download.path())!, "utf8"));
   const stoner = data.libraryEntries.find((e: { book: { title: string } }) => e.book.title === "Stoner");
   expect(stoner.notes.map((n: { text: string }) => n.text)).toEqual(["Quiet failure, kept quietly."]);
+  type Exported = { bookA: { title: string }; bookB: { title: string }; madeBy: string; type: string | null; strength: string; explanation: string; dismissedAt: string | null };
+  const between = (x: string, y: string) =>
+    data.connections.find((c: Exported) => [c.bookA.title, c.bookB.title].sort().join() === [x, y].sort().join());
+  expect(between("Stoner", "The Remains of the Day")).toMatchObject({ madeBy: "judge", type: "thematic", strength: "strong", dismissedAt: null });
+  expect(between("Stoner", "Candide")).toMatchObject({ madeBy: "reader", type: "contrast", strength: "strong", explanation: "Read the same winter.", dismissedAt: null });
+  expect(between("Stoner", "Beloved")).toMatchObject({ madeBy: "reader", type: null, strength: "strong", explanation: "", dismissedAt: expect.any(String) });
 });
 
 test("Sign out ends the session, and the library then asks the Reader to sign in", async ({ page, context }) => {
@@ -52,6 +62,10 @@ test("Sign out ends the session, and the library then asks the Reader to sign in
 
 test("Delete your account, once delete is typed, signs the Reader out everywhere; signing up again starts an empty library", async ({ page, browser }) => {
   await inviteEmail(READER_A.email);
+  await connectByHand(await bookIdOf("Stoner"), await bookIdOf("Candide"), "Read the same winter.");
+  await connectByHand(await bookIdOf("Stoner"), await bookIdOf("Beloved"), "Given by my sister.");
+  await deleteByHand("Stoner", "Beloved");
+  expect(await connectionCount(READER_A)).toBe(7);
   // A's phone, signed in on its own session.
   const phone = { ...READER_A, token: "e2e-reader-a-phone" };
   await addSession(phone);
@@ -76,6 +90,8 @@ test("Delete your account, once delete is typed, signs the Reader out everywhere
   await expect(page).toHaveURL(/\/sign-in$/);
   await expect(page.getByText("Your account has been deleted.")).toBeVisible();
   expect(await isInvited(READER_A.email)).toBe(false);
+  // Every connection went with it: the judge's, the one by hand, and the one deleted.
+  expect(await connectionCount(READER_A)).toBe(0);
   await other.goto("/");
   await expect(other).toHaveURL(/\/sign-in$/);
 

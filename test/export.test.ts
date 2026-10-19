@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addBook, addManualBook } from "../src/domain/add-book";
-import { dismissConnection } from "../src/domain/connections";
+import { createManualConnection, deleteManualConnection, dismissConnection } from "../src/domain/connections";
 import { editBook } from "../src/domain/edit-book";
 import { exportReaderData } from "../src/domain/export";
 import { changeStatus } from "../src/domain/library-entry";
@@ -68,7 +68,7 @@ describe("Export", () => {
     });
     // Each pair in the order it is stored (by id), so match either way round; a dismissed one is kept, marked.
     const pair = (x: object, y: object) => expect.toBeOneOf([{ bookA: x, bookB: y }, { bookA: y, bookB: x }]);
-    const fields = { type: "contrast", strength: "moderate", explanation: `${a} sees why.`, createdAt: date };
+    const fields = { madeBy: "judge", type: "contrast", strength: "moderate", explanation: `${a} sees why.`, createdAt: date };
     expect(data.connections.map(({ bookA, bookB, ...rest }) => [{ bookA, bookB }, rest])).toEqual(
       expect.arrayContaining([
         [pair(stonerBook, diaryBook), { ...fields, dismissedAt: null }],
@@ -78,6 +78,30 @@ describe("Export", () => {
     expect(data.connections).toHaveLength(2);
     // Every date is an ISO string, so the file reads the same anywhere.
     expect(JSON.parse(JSON.stringify(data))).toEqual(data);
+  });
+
+  it("marks who made each Connection; the Reader's own are strong, typed or not, and a deleted one keeps no reason or type", async () => {
+    const a = ctx.userId;
+    const finished = async (title: string) => (await addBook(ctx.db, ctx.pipeline, a, work({ workKey: `/works/${title}`, title }), "read")).bookId;
+    const [stonerId, gileadId, belovedId, candideId] = [await finished("Stoner"), await finished("Gilead"), await finished("Beloved"), await finished("Candide")];
+    await connect(a, stonerId, gileadId);
+    const byHand = (otherBookId: string, rest: { type?: "thematic" | null; reason: string }) =>
+      createManualConnection(ctx.db, ctx.pipeline, a, { bookId: stonerId, otherBookId, ...rest });
+    await byHand(belovedId, { type: "thematic", reason: "Both about a life's work." });
+    await byHand(candideId, { reason: "Read the same winter." });
+    await deleteManualConnection(ctx.db, ctx.pipeline, a, (await byHand(gileadId, { reason: "Given by my sister." })).id);
+
+    const data = await exportReaderData(ctx.db, a);
+
+    const date = expect.any(String);
+    // Each by the Book Stoner is connected to.
+    const byOther = Object.fromEntries(data.connections.map(({ bookA, bookB, ...rest }) => [(bookA.id === stonerId ? bookB : bookA).title, rest]));
+    expect(byOther).toEqual({
+      // The judge's Connection of the pair was replaced by the Reader's, then deleted: kept as a dismissal is.
+      Gilead: { madeBy: "reader", type: null, strength: "strong", explanation: "", createdAt: date, dismissedAt: date },
+      Beloved: { madeBy: "reader", type: "thematic", strength: "strong", explanation: "Both about a life's work.", createdAt: date, dismissedAt: null },
+      Candide: { madeBy: "reader", type: null, strength: "strong", explanation: "Read the same winter.", createdAt: date, dismissedAt: null },
+    });
   });
 
   it("gives Reader B none of Reader A's Books, Notes or Connections, even on a Book they share", async () => {

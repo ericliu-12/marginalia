@@ -5,7 +5,9 @@ import { book, connection, libraryEntry, note, readThrough } from "@/db/schema";
 // The account page's export (#67): everything the Reader wrote or chose, as one JSON file. Books are
 // named by what identifies them (no covers, descriptions or Enrichment), with their id so Connections
 // point to them unambiguously; a Manual Book's description is in, since the Reader wrote it. Dates are
-// ISO strings. Dismissed Connections are kept, marked with when.
+// ISO strings. Dismissed Connections are kept, marked with when. Each Connection says who made it: the
+// judge, or the Reader by hand (a Manual Connection, always strong); a Manual Connection the Reader
+// deleted is kept as a dismissal is, with its reason emptied and its type cleared.
 
 type Entry = typeof libraryEntry.$inferSelect;
 type Connection = typeof connection.$inferSelect;
@@ -28,6 +30,7 @@ export type ReaderExport = {
   connections: {
     bookA: ExportBook;
     bookB: ExportBook;
+    madeBy: Connection["madeBy"];
     type: Connection["type"];
     strength: Connection["strength"];
     explanation: string;
@@ -88,6 +91,7 @@ export async function exportReaderData(db: Db, userId: string, now = new Date())
     connections: connections.map((c) => ({
       bookA: books.get(c.bookAId)!,
       bookB: books.get(c.bookBId)!,
+      madeBy: c.madeBy,
       type: c.type,
       strength: c.strength,
       explanation: c.explanation,
