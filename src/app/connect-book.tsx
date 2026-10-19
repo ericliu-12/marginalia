@@ -167,7 +167,9 @@ export function ConnectBookForm({
     <form
       ref={formRef}
       aria-label={editing ? "Edit the connection" : "Connect a book"}
-      className="mt-3 border-t border-rule-3 pt-3"
+      // Opened under the cards it is ruled off from them; in place of a card, or under the graph panel's
+      // heading, it is not.
+      className={editing ? "mt-1" : "mt-3 border-t border-rule-3 pt-3"}
       onSubmit={(e) => {
         e.preventDefault();
         submit();

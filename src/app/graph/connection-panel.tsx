@@ -81,23 +81,27 @@ export function ConnectionPanel({ id, onBack, onOpenBook }: { id: string; onBack
             </h2>
             {editing ? (
               // The heading names both Books, so the form needn't.
-              <ConnectBookForm
-                bookId={c.a.bookId}
-                editing={{ connectionId: c.id, type: c.type, reason: c.explanation }}
-                onCancel={() => {
-                  flushSync(() => setEditing(false));
-                  editRef.current?.focus();
-                }}
-                onDone={async () => {
-                  const res = await getConnectionAction(id);
-                  flushSync(() => {
-                    if (res) setState({ id, connection: res.connection });
-                    setEditing(false);
-                  });
-                  setSaid("Connection saved.");
-                  editRef.current?.focus();
-                }}
-              />
+              <div className="mt-5">
+                <ConnectBookForm
+                  bookId={c.a.bookId}
+                  editing={{ connectionId: c.id, type: c.type, reason: c.explanation }}
+                  onCancel={() => {
+                    flushSync(() => setEditing(false));
+                    editRef.current?.focus();
+                  }}
+                  onDone={async () => {
+                    const res = await getConnectionAction(id);
+                    flushSync(() => {
+                      // Saved, but not read back: it is read again.
+                      if (res) setState({ id, connection: res.connection });
+                      else setRetry((n) => n + 1);
+                      setEditing(false);
+                    });
+                    setSaid("Connection saved.");
+                    editRef.current?.focus();
+                  }}
+                />
+              </div>
             ) : (
               <p className="mt-5 max-w-[60ch] text-[1.0625rem] leading-relaxed">{c.explanation}</p>
             )}
