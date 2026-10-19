@@ -63,7 +63,7 @@ export function ConnectionPanel({ id, onBack, onOpenBook }: { id: string; onBack
         {c && (
           <article>
             {/* The reader's own is labelled in its type's hue. */}
-            <p className={`flex items-center gap-2.5 text-[0.8rem] font-medium ${c.madeBy === "reader" ? typeText(c.type) : "text-ink-2"}`}>
+            <p className={`caps flex items-center gap-2.5 text-[12px] tracking-[1.2px] ${c.madeBy === "reader" ? typeText(c.type) : "text-ink-2"}`}>
               <span aria-hidden className="inline-block w-6 rounded-[2px]" style={{ height: Math.max(2, EDGE_WIDTH[c.strength]), background: typeColor(c.type) }} />
               {typeLabel(c)}
             </p>
