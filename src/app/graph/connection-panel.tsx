@@ -1,9 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import type { ConnectionDetail } from "@/domain/connections";
 import { getConnectionAction } from "../client-actions";
-import { DismissConnection, titleLink } from "../connections";
+import { ConnectBookForm } from "../connect-book";
+import { DeleteConnection, DismissConnection, titleLink } from "../connections";
+import { quietLink } from "../quiet-link";
 import { EDGE_WIDTH, typeColor, typeLabel, typeText } from "./graph-style";
 
 // One Connection, chosen on the graph: its two Books, its Connection Type and Strength, and why. Either title opens
@@ -13,6 +16,10 @@ export function ConnectionPanel({ id, onBack, onOpenBook }: { id: string; onBack
   const [retry, setRetry] = useState(0);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const goneRef = useRef<HTMLParagraphElement>(null);
+  const editRef = useRef<HTMLButtonElement>(null);
+  // The reader's own, being edited in place of its reason.
+  const [editing, setEditing] = useState(false);
+  const [said, setSaid] = useState("");
 
   useEffect(() => {
     let live = true;
@@ -72,14 +79,53 @@ export function ConnectionPanel({ id, onBack, onOpenBook }: { id: string; onBack
               <span className="mx-2 font-normal text-ink-3 italic">and</span>
               <BookLink title={c.b.title} onOpen={() => onOpenBook(c.b.bookId)} />
             </h2>
-            <p className="mt-5 max-w-[60ch] text-[1.0625rem] leading-relaxed">{c.explanation}</p>
+            {editing ? (
+              // The heading names both Books, so the form needn't.
+              <ConnectBookForm
+                bookId={c.a.bookId}
+                editing={{ connectionId: c.id, type: c.type, reason: c.explanation }}
+                onCancel={() => {
+                  flushSync(() => setEditing(false));
+                  editRef.current?.focus();
+                }}
+                onDone={async () => {
+                  const res = await getConnectionAction(id);
+                  flushSync(() => {
+                    if (res) setState({ id, connection: res.connection });
+                    setEditing(false);
+                  });
+                  setSaid("Connection saved.");
+                  editRef.current?.focus();
+                }}
+              />
+            ) : (
+              <p className="mt-5 max-w-[60ch] text-[1.0625rem] leading-relaxed">{c.explanation}</p>
+            )}
             {c.grounding === "enrichment" && <p className="mt-3 text-[0.8rem] text-ink-2">Not drawn from your notes</p>}
             {/* The reader's own is never dismissed: it is theirs to edit or delete. */}
+            {c.madeBy === "reader" && !editing && (
+              <DeleteConnection
+                connectionId={c.id}
+                className="mt-8 border-t border-rule pt-4"
+                before={
+                  <button ref={editRef} type="button" onClick={() => setEditing(true)} className={quietLink}>
+                    Edit
+                  </button>
+                }
+                onDeleted={() => {
+                  setSaid(`Connection between ${c.a.title} and ${c.b.title} deleted.`);
+                  setState({ id, connection: null });
+                }}
+              />
+            )}
             {c.madeBy === "judge" && (
               <DismissConnection connectionId={c.id} className="mt-8 border-t border-rule pt-4" onDismissed={() => setState({ id, connection: null })} />
             )}
           </article>
         )}
+        <p role="status" className="sr-only">
+          {said}
+        </p>
       </div>
     </aside>
   );

@@ -10,13 +10,16 @@ import { readEntryEnrichment, tryAgain, type EnrichmentView } from "@/domain/enr
 import {
   countFindingConnections,
   createManualConnection,
+  deleteManualConnection,
   dismissConnection,
+  editManualConnection,
   readConnectCandidates,
   readConnection,
   readConnections,
   type ConnectCandidate,
   type ConnectionDetail,
   type ConnectionsView,
+  type ManualConnectionEdit,
   type ManualConnectionInput,
 } from "@/domain/connections";
 import { readGraphStatus, type GraphStatus } from "@/domain/graph-job";
@@ -293,6 +296,34 @@ export async function connectBooksAction(input: ManualConnectionInput): Promise<
     const { id } = await createManualConnection(db, directPipeline(db), userId, input);
     revalidate("connectBooksAction");
     return { ok: true, id };
+  } catch (err) {
+    console.error(err);
+    return { ok: false };
+  }
+}
+
+// The reader changes the reason or type of a Connection they made. A new type re-settles the graph.
+export async function editConnectionAction(connectionId: string, edit: ManualConnectionEdit): Promise<{ ok: boolean }> {
+  try {
+    const userId = await requireReader();
+    const db = appDb();
+    await editManualConnection(db, directPipeline(db), userId, connectionId, edit);
+    revalidate("editConnectionAction");
+    return { ok: true };
+  } catch (err) {
+    console.error(err);
+    return { ok: false };
+  }
+}
+
+// The reader deletes a Connection they made. The graph loses it once the worker settles.
+export async function deleteConnectionAction(connectionId: string): Promise<{ ok: boolean }> {
+  try {
+    const userId = await requireReader();
+    const db = appDb();
+    await deleteManualConnection(db, directPipeline(db), userId, connectionId);
+    revalidate("deleteConnectionAction");
+    return { ok: true };
   } catch (err) {
     console.error(err);
     return { ok: false };

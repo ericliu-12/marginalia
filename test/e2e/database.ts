@@ -1,8 +1,10 @@
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { Pool } from "pg";
 import { createDb } from "../../src/db/client";
 import { runMigrations } from "../../src/db/migrate";
-import { createManualConnection, type ConnectionType } from "../../src/domain/connections";
+import { createManualConnection, generateConnections, startConnections, type ConnectionType } from "../../src/domain/connections";
+import { embedEnrichment } from "../../src/domain/embeddings";
+import { fakeEmbedder, fakeJudge } from "../fakes";
 import { layoutGraph } from "../../src/domain/graph";
 import type { Pipeline } from "../../src/domain/pipeline";
 import { runGraphJob } from "../../src/domain/graph-job";
@@ -364,4 +366,32 @@ export async function bookIdOf(title: string) {
   const [row] = await db.select({ id: book.id }).from(book).where(eq(book.title, title));
   await pool.end();
   return row.id;
+}
+
+// The stored Connection of the two Books, whoever made it, dismissed or deleted ones too.
+export async function connectionBetween(title: string, otherTitle: string) {
+  const [a, b] = [await bookIdOf(title), await bookIdOf(otherTitle)].sort();
+  const { db, pool } = createDb(e2eDatabaseUrl());
+  const [row] = await db
+    .select()
+    .from(connection)
+    .where(and(eq(connection.bookAId, a), eq(connection.bookBId, b)));
+  await pool.end();
+  return row;
+}
+
+// A Refresh of the Book, run as the worker would with a judge that connects it to every Book it is
+// shown, all of them near each other. Returns the titles the judge was shown.
+export async function refreshWithJudge(title: Title) {
+  const bookId = await bookIdOf(title);
+  const { db, pool } = createDb(e2eDatabaseUrl());
+  const embedder = fakeEmbedder(["memory"]);
+  for (const { id } of await db.select({ id: book.id }).from(book)) await embedEnrichment(db, embedder, id);
+  await startConnections(db, READER_A.id, bookId, true);
+  const judge = fakeJudge((input) => ({
+    connections: input.candidates.map((c) => ({ candidateId: c.id, type: "thematic", strength: "moderate", explanation: "The judge's reason.", quotedNoteIds: [] })),
+  }));
+  await generateConnections(db, { judge, embedder }, { userId: READER_A.id, bookId });
+  await pool.end();
+  return judge.inputs.flatMap((i) => i.candidates.map((c) => c.title));
 }

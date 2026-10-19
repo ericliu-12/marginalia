@@ -68,3 +68,5 @@ export const dismissConnectionAction = client("dismissConnectionAction");
 export const refreshConnectionsAction = client("refreshConnectionsAction");
 export const getConnectCandidatesAction = client("getConnectCandidatesAction");
 export const connectBooksAction = client("connectBooksAction");
+export const editConnectionAction = client("editConnectionAction");
+export const deleteConnectionAction = client("deleteConnectionAction");

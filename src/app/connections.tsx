@@ -5,7 +5,7 @@ import { flushSync } from "react-dom";
 import type { ConnectionCard, ConnectionsView } from "@/domain/connections";
 import type { Pause } from "@/domain/spend";
 import { ConnectBookForm } from "./connect-book";
-import { backgroundStatusAction, dismissConnectionAction, getConnectionsAction, refreshConnectionsAction } from "./client-actions";
+import { backgroundStatusAction, deleteConnectionAction, dismissConnectionAction, getConnectionsAction, refreshConnectionsAction } from "./client-actions";
 import { dangerLink, quietLink } from "./quiet-link";
 import { useInlineConfirm } from "./use-inline-confirm";
 import { POLL_MS, usePoll } from "./use-poll";
@@ -61,7 +61,10 @@ export function ConnectionsSection({ bookId, onOpenBook, withheld }: { bookId: s
   const [connecting, setConnecting] = useState(false);
   // The Connection the reader just made, drawn in as it appears.
   const [made, setMade] = useState<string | null>(null);
+  // The reader's own Connection being edited in place of its card.
+  const [editing, setEditing] = useState<string | null>(null);
   const connectRef = useRef<HTMLButtonElement>(null);
+  const cardsRef = useRef<HTMLUListElement>(null);
 
   const load = useCallback(
     () =>
@@ -71,6 +74,7 @@ export function ConnectionsSection({ bookId, onOpenBook, withheld }: { bookId: s
       }),
     [bookId],
   );
+  const editButton = (id: string) => cardsRef.current?.querySelector<HTMLButtonElement>(`[data-edit="${id}"]`);
   // With nothing to show, a failed load stops the polling until "Try again".
   usePoll(load, POLL_MS, !(loadFailed && !view) && (view === undefined || view.status === "running"));
   // Not while the graph still holds them back: said as the first one appears.
@@ -111,39 +115,86 @@ export function ConnectionsSection({ bookId, onOpenBook, withheld }: { bookId: s
         </p>
       )}
       {cards.length > 0 && (
-        <ul className="mt-1.5 flex flex-col gap-3">
-          {shown.map((c) => (
-            <li key={c.id} className={withheld || c.id === made ? "motion-safe:animate-draw-in" : undefined}>
-              {/* The type in its hue, then the other Book in italic and why. */}
-              <div className="flex flex-wrap items-baseline gap-x-2">
-                <p className={`caps text-[12px] tracking-[1.2px] ${c.type ? TYPE[c.type].hue : "text-ink-2"}`}>
-                  {c.type ? `${TYPE[c.type].label} · ${c.madeBy === "reader" ? "yours" : STRENGTH_LABEL[c.strength]}` : "yours"}
-                  {c.grounding === "enrichment" && <span className="text-ink-3"> · Not drawn from your notes</span>}
-                  {/* While its Book arrives in the graph, each of the judge's Connections is marked new. */}
-                  {withheld && c.madeBy === "judge" && <span className="text-accent"> · New</span>}
+        <ul ref={cardsRef} className="mt-1.5 flex flex-col gap-3">
+          {shown.map((c) =>
+            c.id === editing ? (
+              <li key={c.id}>
+                <ConnectBookForm
+                  bookId={bookId}
+                  editing={{ connectionId: c.id, otherTitle: c.otherTitle, type: c.type, reason: c.explanation }}
+                  onCancel={() => {
+                    flushSync(() => setEditing(null));
+                    editButton(c.id)?.focus({ preventScroll: true });
+                  }}
+                  onDone={async () => {
+                    await load();
+                    flushSync(() => setEditing(null));
+                    setSaid(`Connection to ${c.otherTitle} saved.`);
+                    // The form took focus with it; Edit on the saved card is where the reader left off.
+                    editButton(c.id)?.focus({ preventScroll: true });
+                  }}
+                />
+              </li>
+            ) : (
+              <li key={c.id} className={withheld || c.id === made ? "motion-safe:animate-draw-in" : undefined}>
+                {/* The type in its hue, then the other Book in italic and why. */}
+                <div className="flex flex-wrap items-baseline gap-x-2">
+                  <p className={`caps text-[12px] tracking-[1.2px] ${c.type ? TYPE[c.type].hue : "text-ink-2"}`}>
+                    {c.type ? `${TYPE[c.type].label} · ${c.madeBy === "reader" ? "yours" : STRENGTH_LABEL[c.strength]}` : "yours"}
+                    {c.grounding === "enrichment" && <span className="text-ink-3"> · Not drawn from your notes</span>}
+                    {/* While its Book arrives in the graph, each of the judge's Connections is marked new. */}
+                    {withheld && c.madeBy === "judge" && <span className="text-accent"> · New</span>}
+                  </p>
+                  {c.madeBy === "reader" && (
+                    <DeleteConnection
+                      connectionId={c.id}
+                      label={`Delete the connection to ${c.otherTitle}`}
+                      className="ml-auto"
+                      before={
+                        <button
+                          type="button"
+                          data-edit={c.id}
+                          onClick={() => {
+                            setConnecting(false);
+                            setEditing(c.id);
+                          }}
+                          aria-label={`Edit the connection to ${c.otherTitle}`}
+                          className={quietLink}
+                        >
+                          Edit
+                        </button>
+                      }
+                      onDeleted={() => {
+                        setSaid(`Connection to ${c.otherTitle} deleted.`);
+                        setView((v) => v && { ...v, cards: v.cards.filter((x) => x.id !== c.id) });
+                        // As a dismissal: the deleted card took focus with it.
+                        headingRef.current?.focus();
+                      }}
+                    />
+                  )}
+                  {c.madeBy === "judge" && (
+                    <DismissConnection
+                      connectionId={c.id}
+                      label={`Dismiss the connection to ${c.otherTitle}`}
+                      className="ml-auto"
+                      onDismissed={() => {
+                        setSaid(`Connection to ${c.otherTitle} dismissed`);
+                        setView((v) => v && { ...v, cards: v.cards.filter((x) => x.id !== c.id) });
+                        // The dismissed card took focus with it; the heading is the nearest stable place.
+                        headingRef.current?.focus();
+                      }}
+                    />
+                  )}
+                </div>
+                <p className="max-w-[60ch] text-[16px] leading-normal">
+                  <button type="button" onClick={() => onOpenBook(c.otherBookId)} className={`${titleLink} -my-2.5 py-2.5 italic lg:my-0 lg:py-0`}>
+                    {c.otherTitle}
+                  </button>
+                  : {c.explanation}
                 </p>
-                {c.madeBy === "judge" && (
-                  <DismissConnection
-                    connectionId={c.id}
-                    label={`Dismiss the connection to ${c.otherTitle}`}
-                    className="ml-auto"
-                    onDismissed={() => {
-                      setSaid(`Connection to ${c.otherTitle} dismissed`);
-                      setView((v) => v && { ...v, cards: v.cards.filter((x) => x.id !== c.id) });
-                      // The dismissed card took focus with it; the heading is the nearest stable place.
-                      headingRef.current?.focus();
-                    }}
-                  />
-                )}
-              </div>
-              <p className="max-w-[60ch] text-[16px] leading-normal">
-                <button type="button" onClick={() => onOpenBook(c.otherBookId)} className={`${titleLink} -my-2.5 py-2.5 italic lg:my-0 lg:py-0`}>
-                  {c.otherTitle}
-                </button>
-                : {c.explanation}
-              </p>
-            </li>
-          ))}
+              </li>
+            ),
+          )}
         </ul>
       )}
       <p role="status" className="sr-only">
@@ -157,7 +208,7 @@ export function ConnectionsSection({ bookId, onOpenBook, withheld }: { bookId: s
             flushSync(() => setConnecting(false));
             connectRef.current?.focus();
           }}
-          onConnected={async (id, otherTitle) => {
+          onDone={async (id, otherTitle) => {
             await load();
             setMade(id);
             setConnecting(false);
@@ -172,7 +223,15 @@ export function ConnectionsSection({ bookId, onOpenBook, withheld }: { bookId: s
         <div className="flex flex-wrap items-center gap-x-5 pt-3">
           <RefreshConnections bookId={bookId} onRequested={load} />
           {canConnect && (
-            <button ref={connectRef} type="button" onClick={() => setConnecting(true)} className={quietLink}>
+            <button
+              ref={connectRef}
+              type="button"
+              onClick={() => {
+                setEditing(null);
+                setConnecting(true);
+              }}
+              className={quietLink}
+            >
               Connect a book
             </button>
           )}
@@ -223,49 +282,87 @@ function RefreshConnections({ bookId, onRequested }: { bookId: string; onRequest
 // A quiet "Dismiss", then an inline confirmation, as in deleting a Note: focus lands on Keep, and returns
 // to Dismiss when the reader keeps the Connection. Used on a Book's Connection cards and in the graph's
 // Connection panel. While confirming it takes a line of its own.
-export function DismissConnection({
-  connectionId,
-  label,
-  className,
-  onDismissed,
-}: {
+export function DismissConnection({ connectionId, label, className, onDismissed }: RemoveProps & { onDismissed: () => void }) {
+  return (
+    <RemoveConnection
+      connectionId={connectionId}
+      label={label}
+      className={className}
+      act={() => dismissConnectionAction(connectionId)}
+      onDone={onDismissed}
+      words={{ action: "Dismiss", ask: "Dismiss this connection? It won’t come back.", confirm: "Yes, dismiss", pending: "Dismissing…", failed: "Couldn’t dismiss this connection. Try again." }}
+    />
+  );
+}
+
+// The reader's own Connection deletes the same way, with `before` (its Edit) beside Delete until it asks.
+export function DeleteConnection({ connectionId, label, className, before, onDeleted }: RemoveProps & { before?: React.ReactNode; onDeleted: () => void }) {
+  return (
+    <RemoveConnection
+      connectionId={connectionId}
+      label={label}
+      className={className}
+      before={before}
+      act={() => deleteConnectionAction(connectionId)}
+      onDone={onDeleted}
+      words={{ action: "Delete", ask: "Delete this connection? Your reason goes with it.", confirm: "Yes, delete", pending: "Deleting…", failed: "Couldn’t delete this connection. Try again." }}
+    />
+  );
+}
+
+type RemoveProps = {
   connectionId: string;
   // Names which Connection, where several sit side by side.
   label?: string;
   className?: string;
-  onDismissed: () => void;
+};
+
+function RemoveConnection({
+  connectionId,
+  label,
+  className,
+  before,
+  act,
+  onDone,
+  words,
+}: RemoveProps & {
+  before?: React.ReactNode;
+  act: () => Promise<{ ok: boolean }>;
+  onDone: () => void;
+  words: { action: string; ask: string; confirm: string; pending: string; failed: string };
 }) {
-  const { confirming, pending, error, keepRef, triggerRef, ask, keep, confirm, onKeyDown } = useInlineConfirm(
-    () => dismissConnectionAction(connectionId),
-    onDismissed,
-  );
+  const { confirming, pending, error, keepRef, triggerRef, ask, keep, confirm, onKeyDown } = useInlineConfirm(act, onDone);
+  const askId = `remove-${connectionId}`;
 
   return (
     <div
       aria-busy={pending}
       onKeyDown={onKeyDown}
-      className={`${className ?? ""} ${confirming ? "flex w-full flex-wrap items-center gap-x-5 gap-y-1 pt-1" : ""}`}
+      className={`${className ?? ""} ${confirming ? "flex w-full flex-wrap items-center gap-x-5 gap-y-1 pt-1" : before ? "flex items-baseline gap-x-4" : ""}`}
     >
       {confirming ? (
         <>
-          <span id={`dismiss-${connectionId}`} className="w-full text-[0.8rem] text-ink-2">
-            Dismiss this connection? It won’t come back.
+          <span id={askId} className="w-full text-[0.8rem] text-ink-2">
+            {words.ask}
           </span>
-          <button type="button" onClick={confirm} disabled={pending} aria-describedby={`dismiss-${connectionId}`} className={dangerLink}>
-            {pending ? "Dismissing…" : "Yes, dismiss"}
+          <button type="button" onClick={confirm} disabled={pending} aria-describedby={askId} className={dangerLink}>
+            {pending ? words.pending : words.confirm}
           </button>
           <button ref={keepRef} type="button" onClick={keep} disabled={pending} className={quietLink}>
             Keep
           </button>
         </>
       ) : (
-        <button ref={triggerRef} type="button" onClick={ask} aria-label={label} className={quietLink}>
-          Dismiss
-        </button>
+        <>
+          {before}
+          <button ref={triggerRef} type="button" onClick={ask} aria-label={label} className={quietLink}>
+            {words.action}
+          </button>
+        </>
       )}
       {error && (
         <p role="alert" className="mt-1 w-full text-sm text-contrast">
-          Couldn’t dismiss this connection. Try again.
+          {words.failed}
         </p>
       )}
     </div>
