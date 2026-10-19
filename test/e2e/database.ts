@@ -2,7 +2,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { Pool } from "pg";
 import { createDb } from "../../src/db/client";
 import { runMigrations } from "../../src/db/migrate";
-import { createManualConnection, generateConnections, startConnections, type ConnectionType } from "../../src/domain/connections";
+import { createManualConnection, deleteManualConnection, generateConnections, startConnections, type ConnectionType } from "../../src/domain/connections";
 import { embedEnrichment } from "../../src/domain/embeddings";
 import { fakeEmbedder, fakeJudge } from "../fakes";
 import { layoutGraph } from "../../src/domain/graph";
@@ -350,6 +350,24 @@ export async function connectByHand(bookId: string, otherBookId: string, reason:
   const pipeline = { connectionsChanged: async () => {} } as unknown as Pipeline;
   await createManualConnection(db, pipeline, READER_A.id, { bookId, otherBookId, reason, type });
   await pool.end();
+}
+
+// The Reader deletes the Manual Connection of the two Books by hand, as the Book panel does, without asking
+// for the graph job.
+export async function deleteByHand(title: string, otherTitle: string) {
+  const { id } = await connectionBetween(title, otherTitle);
+  const { db, pool } = createDb(e2eDatabaseUrl());
+  const pipeline = { connectionsChanged: async () => {} } as unknown as Pipeline;
+  await deleteManualConnection(db, pipeline, READER_A.id, id);
+  await pool.end();
+}
+
+// How many Connections the Reader has stored, whoever made them, dismissed or deleted ones too.
+export async function connectionCount(reader: Reader) {
+  const { db, pool } = createDb(e2eDatabaseUrl());
+  const rows = await db.select({ id: connection.id }).from(connection).where(eq(connection.userId, reader.id));
+  await pool.end();
+  return rows.length;
 }
 
 // The title of the Book with this id.

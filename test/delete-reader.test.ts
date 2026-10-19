@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { addBook, addManualBook } from "../src/domain/add-book";
 import { invite } from "../src/domain/allowlist";
 import { recomputeClusters } from "../src/domain/clusters";
+import { createManualConnection, deleteManualConnection } from "../src/domain/connections";
 import { layoutGraph } from "../src/domain/graph";
 import { addNote } from "../src/domain/notes";
 import {
@@ -53,15 +54,16 @@ describe("Deleting a Reader", () => {
   }
 
   // The Reader reads the two shared Books and a Manual Book of their own, with a Note on each, and
-  // Connections binding the three into a Cluster, laid out; signed in, with a graph job queued and paid calls made.
+  // Connections binding the three into a Cluster (the judge's, one by hand, and one by hand deleted), laid out; signed in, with a graph job queued and paid calls made.
   async function populate(userId: string, name: string) {
     const shared = [(await addBook(ctx.db, ctx.pipeline, userId, stoner, "read")).bookId, (await addBook(ctx.db, ctx.pipeline, userId, beloved, "read")).bookId];
     manual[userId] = (await addManualBook(ctx.db, ctx.pipeline, userId, { title: `${name}'s Diary`, author: name }, "read")).bookId;
     const books = [...shared, manual[userId]];
     for (const id of books) await addNote(ctx.db, ctx.pipeline, userId, id, { body: `${name} on ${id}.` });
     await connect(userId, books[0], books[1]);
-    await connect(userId, books[1], books[2]);
-    await connect(userId, books[0], books[2]);
+    await createManualConnection(ctx.db, ctx.pipeline, userId, { bookId: books[1], otherBookId: books[2], reason: `${name} read them together.` });
+    const deleted = await createManualConnection(ctx.db, ctx.pipeline, userId, { bookId: books[0], otherBookId: books[2], reason: "Gone." });
+    await deleteManualConnection(ctx.db, ctx.pipeline, userId, deleted.id);
     await recomputeClusters(ctx.db, userId);
     await layoutGraph(ctx.db, userId);
     const [entry] = await ctx.db.select().from(libraryEntry).where(eq(libraryEntry.bookId, manual[userId]));
@@ -124,6 +126,11 @@ describe("Deleting a Reader", () => {
     // Seeding gave A a row in each table, so the check below proves something.
     const all = await snapshot();
     for (const name of Object.keys(TABLES)) expect(all[name].length, name).toBeGreaterThan(withoutA[name].length);
+    const madeBy = async (userId: string) =>
+      (await ctx.db.select({ madeBy: connection.madeBy, dismissed: connection.dismissedAt }).from(connection).where(eq(connection.userId, userId)))
+        .map((r) => `${r.madeBy}${r.dismissed ? " deleted" : ""}`)
+        .sort();
+    expect(await madeBy(a)).toEqual(["judge", "reader", "reader deleted"]);
 
     const res = await deleteAccount(cookie, "delete");
     expect(res.status).toBe(200);
@@ -135,6 +142,9 @@ describe("Deleting a Reader", () => {
       expect(rows[0].n, `${table}.${column}`).toBe(0);
     }
     expect(await snapshot()).toEqual(withoutA);
+    // Their Manual Connections, live and deleted, went with the judge's; the other Reader's stay.
+    expect(await madeBy(a)).toEqual([]);
+    expect(await madeBy(b)).toEqual(["judge", "reader", "reader deleted"]);
     expect((await ctx.db.select({ title: book.title }).from(book)).map((r) => r.title).sort()).toEqual(["B's Diary", "Beloved", "Stoner"]);
     expect((await ctx.db.select({ userId: paidCall.userId }).from(paidCall)).map((r) => r.userId).sort()).toEqual([b, null].sort());
     // Off the allowlist: signing up again takes a fresh invitation.
