@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ConnectionDetail } from "@/domain/connections";
 import { getConnectionAction } from "../client-actions";
 import { DismissConnection, titleLink } from "../connections";
-import { EDGE_WIDTH, typeColor, typeLabel } from "./graph-style";
+import { EDGE_WIDTH, typeColor, typeLabel, typeText } from "./graph-style";
 
 // One Connection, chosen on the graph: its two Books, its Connection Type and Strength, and why. Either title opens
 // that Book. Lives in the same floating panel as the Book panel, with the same way out.
@@ -62,9 +62,10 @@ export function ConnectionPanel({ id, onBack, onOpenBook }: { id: string; onBack
         )}
         {c && (
           <article>
-            <p className="flex items-center gap-2.5 text-[0.8rem] font-medium text-ink-2">
+            {/* The reader's own is labelled in its type's hue. */}
+            <p className={`flex items-center gap-2.5 text-[0.8rem] font-medium ${c.madeBy === "reader" ? typeText(c.type) : "text-ink-2"}`}>
               <span aria-hidden className="inline-block w-6 rounded-[2px]" style={{ height: Math.max(2, EDGE_WIDTH[c.strength]), background: typeColor(c.type) }} />
-              {typeLabel(c.type, c.strength)}
+              {typeLabel(c)}
             </p>
             <h2 ref={headingRef} tabIndex={-1} className="mt-4 text-[1.35rem] leading-tight font-medium text-balance outline-none">
               <BookLink title={c.a.title} onOpen={() => onOpenBook(c.a.bookId)} />
@@ -73,7 +74,10 @@ export function ConnectionPanel({ id, onBack, onOpenBook }: { id: string; onBack
             </h2>
             <p className="mt-5 max-w-[60ch] text-[1.0625rem] leading-relaxed">{c.explanation}</p>
             {c.grounding === "enrichment" && <p className="mt-3 text-[0.8rem] text-ink-2">Not drawn from your notes</p>}
-            <DismissConnection connectionId={c.id} className="mt-8 border-t border-rule pt-4" onDismissed={() => setState({ id, connection: null })} />
+            {/* The reader's own is never dismissed: it is theirs to edit or delete. */}
+            {c.madeBy === "judge" && (
+              <DismissConnection connectionId={c.id} className="mt-8 border-t border-rule pt-4" onDismissed={() => setState({ id, connection: null })} />
+            )}
           </article>
         )}
       </div>

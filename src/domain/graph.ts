@@ -22,7 +22,7 @@ import { fitDrawn, labelSides, nameBox, readDrawn, textWidth, type Clash, type D
 import { similarities } from "./embeddings";
 import { readGraphStatus } from "./graph-job";
 import { byStrength, otherBook, touches, type Pair } from "./connection-pair";
-import { CLUSTER_WEIGHT, readLiveConnections, type ConnectionType, type Strength } from "./connections";
+import { CLUSTER_WEIGHT, readLiveConnections, type ConnectionType, type MadeBy, type Strength } from "./connections";
 import { displayed } from "./library";
 import { readFinished } from "./library-entry";
 
@@ -127,6 +127,8 @@ export type GraphConnection = {
   // Null for a Manual Connection the reader left untyped.
   type: ConnectionType | null;
   strength: Strength;
+  // A Manual Connection is the reader's.
+  madeBy: MadeBy;
   // Shown at rest: strong enough, and one of the strongest DISPLAY_CAP of either Book.
   featured: boolean;
 };
@@ -228,7 +230,7 @@ export async function readGraph(db: Db, userId: string): Promise<GraphView> {
         latestPass: finished.get(r.entry.id)!.latestPass,
       };
     }),
-    connections: connections.map((c) => ({ id: c.id, a: c.a, b: c.b, type: c.type, strength: c.strength, featured: featured.has(c.id) })),
+    connections: connections.map((c) => ({ id: c.id, a: c.a, b: c.b, type: c.type, strength: c.strength, madeBy: c.madeBy, featured: featured.has(c.id) })),
     clusters: await readClusters(db, userId, new Set(books.map((r) => r.book.id))),
     ...(await readGraphStatus(db, userId)),
   };

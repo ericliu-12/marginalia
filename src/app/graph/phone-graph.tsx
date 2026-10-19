@@ -13,7 +13,7 @@ import { FindingIndicator } from "../connections";
 import { openedFromGraph, PhoneSwitch, useArrivedBySwitch } from "../view-switch";
 import { GraphCanvas, type Phone, type Selection } from "./graph-canvas";
 import { GraphLists } from "./graph-lists";
-import { TYPE_COLOR, TYPE_LABEL, typeLabel } from "./graph-style";
+import { TYPE_COLOR, TYPE_LABEL, typeLabel, typeText } from "./graph-style";
 import { CLOSED, panelState } from "./panel-state";
 
 // How many of a Book's Connections the sheet shows before "Show N more".
@@ -217,8 +217,6 @@ export function PhoneGraph({ graph, finding, paused, loneThemes }: { graph: Grap
 }
 
 const NO_TRAIL: string[] = [];
-// A type label's text in its hue: context's a hair darker than its line, to hold 4.5:1.
-const HUE = { thematic: "text-thematic", contrast: "text-contrast", context: "text-context" } as const;
 const NONE = new Set<string>();
 
 // The sheet's heading, focused as it opens so a screen reader starts there.
@@ -277,8 +275,8 @@ function BookSheet({ book, onSelect }: { book: GraphBook; onSelect: (bookId: str
         <ul aria-label="Connections" className="mt-4 flex flex-col gap-3 border-t border-rule-2 pt-3">
           {shown.map((c) => (
             <li key={c.id} className="flex flex-col gap-0.5">
-              <p className={`caps text-[12px] tracking-[1.2px] ${c.type ? HUE[c.type] : "text-ink-2"}`}>
-                {typeLabel(c.type, c.strength)}
+              <p className={`caps text-[12px] tracking-[1.2px] ${typeText(c.type)}`}>
+                {typeLabel(c)}
               </p>
               <p className="text-[16px] leading-normal">
                 <button

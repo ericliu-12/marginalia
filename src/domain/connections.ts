@@ -444,6 +444,7 @@ export type ConnectionDetail = {
   strength: Strength;
   explanation: string;
   grounding: "notes" | "enrichment" | null;
+  madeBy: MadeBy;
 };
 
 // Domain seam: one Connection, as the graph shows it when the reader chooses it; its Books titled as the
@@ -463,7 +464,7 @@ export async function readConnection(db: Db, userId: string, connectionId: strin
     const b = books.find((x) => x.book.id === id)!;
     return { bookId: id, title: displayed(b.book, b.entry).title };
   };
-  return { id: c.id, a: side(c.bookAId), b: side(c.bookBId), type: c.type, strength: c.strength, explanation: c.explanation, grounding: c.grounding };
+  return { id: c.id, a: side(c.bookAId), b: side(c.bookBId), type: c.type, strength: c.strength, explanation: c.explanation, grounding: c.grounding, madeBy: c.madeBy };
 }
 
 // Domain seam: the reader dismisses a Connection. It leaves the graph and the Book panel, is never
