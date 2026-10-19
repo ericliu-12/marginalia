@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
+import { TYPE_COLOR } from "../../src/app/graph/graph-style";
 import { seedLibrary, type Title } from "./database";
+import { clickLine } from "./line-click";
 
 // The Follow trail in the graph view, on the seeded chain Stoner → The Remains of the Day → Never Let
 // Me Go → Beloved → The Plague → Candide.
@@ -81,26 +83,8 @@ test("a long trail folds its middle until opened", async ({ page }) => {
 });
 
 test("following from a Connection starts the trail at its other Book", async ({ page }) => {
-  // The Plague–Candide Connection is the only one drawn in the Contrast colour: click the middle of it.
-  const at = await page.evaluate(() => {
-    const canvas = document.querySelector("canvas")!;
-    const { data, width, height } = canvas.getContext("2d")!.getImageData(0, 0, canvas.width, canvas.height);
-    const hits: { x: number; y: number }[] = [];
-    for (let y = 0; y < height; y++)
-      for (let x = 0; x < width; x++) {
-        const i = (y * width + x) * 4;
-        if (Math.abs(data[i] - 0xa8) < 16 && Math.abs(data[i + 1] - 0x43) < 16 && Math.abs(data[i + 2] - 0x2f) < 16) hits.push({ x, y });
-      }
-    const [first, last] = [hits.reduce((p, q) => (q.x < p.x ? q : p)), hits.reduce((p, q) => (q.x > p.x ? q : p))];
-    const box = canvas.getBoundingClientRect();
-    const scale = canvas.width / box.width;
-    return { x: box.left + (first.x + last.x) / 2 / scale, y: box.top + (first.y + last.y) / 2 / scale };
-  });
-  // The canvas works out what is under the pointer a moment after it is drawn: hover until the cursor
-  // says the Connection is there, then click.
-  await page.mouse.move(at.x, at.y);
-  await expect.poll(() => page.evaluate(() => document.querySelector<HTMLElement>("canvas")!.closest<HTMLElement>("[aria-hidden]")!.style.cursor)).toBe("pointer");
-  await page.mouse.click(at.x, at.y);
+  // The Plague–Candide Connection is the only one drawn in the Contrast colour.
+  await clickLine(page, TYPE_COLOR.contrast);
 
   const panel = page.getByRole("complementary", { name: "Connection" });
   await expect(panel.getByRole("heading", { level: 2 })).toHaveText(/^(The Plague\s*and\s*Candide|Candide\s*and\s*The Plague)$/);
