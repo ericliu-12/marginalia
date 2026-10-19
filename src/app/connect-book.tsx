@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import type { ConnectCandidate, ConnectionType } from "@/domain/connections";
 import { field } from "./book-panel";
-import { connectBooksAction, getConnectCandidatesAction } from "./client-actions";
+import { connectBooksAction, editConnectionAction, getConnectCandidatesAction } from "./client-actions";
 import { quietLink } from "./quiet-link";
 import { resultMeta, resultTitle, searchInput, searchLabel } from "./search-pane";
 
@@ -36,40 +36,54 @@ function matches(candidates: ConnectCandidate[], query: string) {
   });
 }
 
+// A Manual Connection being edited: its Books stay; its type and reason can change. `otherTitle` names
+// the other Book where nothing around the form does.
+export type Editing = { connectionId: string; otherTitle?: string; type: ConnectionType | null; reason: string };
+
 // The Book panel's "Connect a book", open in place under the connections: search the reader's other
 // Finished Books, choose one, perhaps a type, and say why. Escape or Cancel closes it; connecting hands
-// the new Connection to the section.
+// the new Connection to the section. Given `editing`, the same form edits one of the reader's own in place
+// of its card, the other Book fixed, and saves it.
 export function ConnectBookForm({
   bookId,
-  onConnected,
+  editing,
+  onDone,
   onCancel,
 }: {
   bookId: string;
-  onConnected: (connectionId: string, otherTitle: string) => void;
+  editing?: Editing;
+  onDone: (connectionId: string, otherTitle: string) => void;
   onCancel: () => void;
 }) {
   const [candidates, setCandidates] = useState<ConnectCandidate[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [query, setQuery] = useState("");
-  const [chosen, setChosen] = useState<ConnectCandidate | null>(null);
-  const [type, setType] = useState<ConnectionType | null>(null);
-  const [reason, setReason] = useState("");
+  const [chosen, setChosen] = useState<ConnectCandidate | null>(
+    editing ? { bookId: "", title: editing.otherTitle ?? "", authors: [], replaces: null } : null,
+  );
+  const [type, setType] = useState<ConnectionType | null>(editing?.type ?? null);
+  const [reason, setReason] = useState(editing?.reason ?? "");
   const [error, setError] = useState<"reason" | "failed" | null>(null);
   const [pending, setPending] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const reasonRef = useRef<HTMLTextAreaElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const resultsRef = useRef<HTMLUListElement>(null);
-  const id = `connect-${bookId}`;
-
+  const isEditing = !!editing;
+  const id = editing ? `edit-${editing.connectionId}` : `connect-${bookId}`;
 
   useEffect(() => {
-    searchRef.current?.focus({ preventScroll: true });
+    const reasonField = reasonRef.current;
+    // Editing starts at the end of what the reader wrote.
+    if (reasonField) {
+      reasonField.focus({ preventScroll: true });
+      reasonField.setSelectionRange(reasonField.value.length, reasonField.value.length);
+    } else searchRef.current?.focus({ preventScroll: true });
   }, []);
 
   useEffect(() => {
     let live = true;
-    if (!loadFailed)
+    if (!isEditing && !loadFailed)
       getConnectCandidatesAction(bookId)
         .catch(() => null)
         .then((res) => {
@@ -80,7 +94,7 @@ export function ConnectBookForm({
     return () => {
       live = false;
     };
-  }, [bookId, loadFailed]);
+  }, [bookId, loadFailed, isEditing]);
 
   const found = candidates ? matches(candidates, query) : [];
 
@@ -122,11 +136,14 @@ export function ConnectBookForm({
     }
     setError(null);
     setPending(true);
-    connectBooksAction({ bookId, otherBookId: chosen.bookId, type, reason })
+    const saved = editing
+      ? editConnectionAction(editing.connectionId, { type, reason }).then((res) => (res.ok ? { ok: true as const, id: editing.connectionId } : { ok: false as const }))
+      : connectBooksAction({ bookId, otherBookId: chosen.bookId, type, reason });
+    saved
       .catch(() => ({ ok: false as const }))
       .then((res) => {
         setPending(false);
-        if (res.ok) onConnected(res.id, chosen.title);
+        if (res.ok) onDone(res.id, chosen.title);
         else setError("failed");
       });
   }
@@ -149,8 +166,10 @@ export function ConnectBookForm({
   return (
     <form
       ref={formRef}
-      aria-label="Connect a book"
-      className="mt-3 border-t border-rule-3 pt-3"
+      aria-label={editing ? "Edit the connection" : "Connect a book"}
+      // Opened under the cards it is ruled off from them; in place of a card, or under the graph panel's
+      // heading, it is not.
+      className={editing ? "mt-1" : "mt-3 border-t border-rule-3 pt-3"}
       onSubmit={(e) => {
         e.preventDefault();
         submit();
@@ -159,20 +178,27 @@ export function ConnectBookForm({
         if (e.key !== "Escape") return;
         e.stopPropagation();
         // As in Add, Escape clears a search before it closes.
-        if (!chosen && query) setQuery("");
+        if (!chosen && query && !editing) setQuery("");
         else onCancel();
       }}
     >
       {chosen ? (
         <div>
-          <p className={label}>connect with</p>
-          <div className="flex flex-wrap items-baseline gap-x-4">
-            <p className="text-[18px] leading-tight italic">{chosen.title}</p>
-            {chosen.authors.length > 0 && <p className={`order-last w-full ${resultMeta}`}>{chosen.authors.join(", ")}</p>}
-            <button type="button" onClick={change} disabled={pending} aria-label="Change the book" className={quietLink}>
-              Change
-            </button>
-          </div>
+          {/* Editing, the other Book is fixed: to connect a different one, the reader deletes this and makes a new one. */}
+          {chosen.title && (
+            <>
+              <p className={label}>connect with</p>
+              <div className="flex flex-wrap items-baseline gap-x-4">
+                <p className="text-[18px] leading-tight italic">{chosen.title}</p>
+                {chosen.authors.length > 0 && <p className={`order-last w-full ${resultMeta}`}>{chosen.authors.join(", ")}</p>}
+                {!editing && (
+                  <button type="button" onClick={change} disabled={pending} aria-label="Change the book" className={quietLink}>
+                    Change
+                  </button>
+                )}
+              </div>
+            </>
+          )}
           {chosen.replaces && (
             // The judge's reason is on its card just above, so only which one is named here.
             <p className="mt-2 text-[15px] leading-snug text-ink-2">
@@ -184,7 +210,7 @@ export function ConnectBookForm({
             </p>
           )}
 
-          <fieldset className="mt-4">
+          <fieldset className={chosen.title ? "mt-4" : undefined}>
             <legend className={label}>type, if you like</legend>
             <div className="mt-1 flex gap-2">
               {TYPES.map((t) => (
@@ -290,13 +316,17 @@ export function ConnectBookForm({
 
       {error && (
         <p id={`${id}-error`} role="alert" className="mt-2 text-sm text-contrast">
-          {error === "reason" ? "Write why they belong together." : "Couldn’t connect them. Your words are kept here."}
+          {error === "reason"
+            ? "Write why they belong together."
+            : editing
+              ? "Couldn’t save. Your words are kept here."
+              : "Couldn’t connect them. Your words are kept here."}
         </p>
       )}
       <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1">
         {chosen && (
           <button type="submit" disabled={pending} className="min-h-11 bg-ink px-[18px] text-[16px] text-paper italic transition-colors hover:bg-ink-2 disabled:bg-ink-3">
-            {pending ? "Connecting…" : "Connect"}
+            {editing ? (pending ? "Saving…" : "Save") : pending ? "Connecting…" : "Connect"}
           </button>
         )}
         <button type="button" onClick={onCancel} disabled={pending} className={quietLink}>

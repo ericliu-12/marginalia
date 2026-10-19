@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { readingBook, seedLibrary, wantBook } from "./database";
+import { bookIdOf, connectByHand, readingBook, seedLibrary, wantBook } from "./database";
 import { catalog } from "./open-library";
 
 // The library at phone width: the three numbered shelves, and the Book screen with its
@@ -659,6 +659,42 @@ test("saving a note from the sheet keeps the shelf's scroll", async ({ page }) =
   await expect(sheet(page)).toHaveCount(0);
   await expect(page.getByRole("status").filter({ hasText: "Note saved on Middlemarch" })).toBeVisible();
   await expect(pen(page, "Middlemarch")).toBeFocused();
+  await page.waitForLoadState("networkidle");
+  expect(await page.evaluate(() => window.scrollY)).toBe(scrolled);
+});
+
+test("editing your connection keeps the Book screen's scroll", async ({ page }) => {
+  await connectByHand(await bookIdOf("Beloved"), await bookIdOf("Stoner"), "Ghosts, both.");
+  await shelf(page).getByRole("button", { name: /^Beloved/ }).click();
+  await connections(page).getByRole("button", { name: "Edit the connection to Stoner" }).click();
+  const form = page.getByRole("form", { name: "Edit the connection" });
+  await form.getByRole("textbox", { name: "why they belong together" }).fill("Ghosts, both, in the end.");
+  const call = await holdNextCall(page);
+  await form.getByRole("button", { name: "Save" }).click();
+  await call.held();
+  const scrolled = await scrollToConnections(page);
+  expect(scrolled).toBeGreaterThan(0);
+  await call.release();
+
+  await expect(connections(page).getByRole("status").filter({ hasText: "Connection to Stoner saved." })).toBeAttached();
+  await expect(connections(page).getByRole("button", { name: "Edit the connection to Stoner" })).toBeFocused();
+  await page.waitForLoadState("networkidle");
+  expect(await page.evaluate(() => window.scrollY)).toBe(scrolled);
+});
+
+test("deleting your connection keeps the Book screen's scroll", async ({ page }) => {
+  await connectByHand(await bookIdOf("Beloved"), await bookIdOf("Stoner"), "Ghosts, both.");
+  await shelf(page).getByRole("button", { name: /^Beloved/ }).click();
+  await connections(page).getByRole("button", { name: "Delete the connection to Stoner" }).click();
+  const call = await holdNextCall(page);
+  await connections(page).getByRole("button", { name: "Yes, delete" }).click();
+  await call.held();
+  const scrolled = await scrollToConnections(page);
+  expect(scrolled).toBeGreaterThan(0);
+  await call.release();
+
+  await expect(connections(page).getByRole("status").filter({ hasText: "Connection to Stoner deleted." })).toBeAttached();
+  await expect(connections(page).getByRole("heading", { name: "Connections" })).toBeFocused();
   await page.waitForLoadState("networkidle");
   expect(await page.evaluate(() => window.scrollY)).toBe(scrolled);
 });
