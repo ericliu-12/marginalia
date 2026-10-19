@@ -643,3 +643,22 @@ test("dismissing a connection keeps the Book screen's scroll", async ({ page }) 
   await page.waitForLoadState("networkidle");
   expect(await page.evaluate(() => window.scrollY)).toBe(scrolled);
 });
+
+test("saving a note from the sheet keeps the shelf's scroll", async ({ page }) => {
+  // Short enough that the shelves scroll, with Middlemarch's pen still on screen once scrolled.
+  await page.setViewportSize({ width: 412, height: 600 });
+  const scrolled = await pen(page, "Middlemarch").evaluate((p) => {
+    window.scrollTo(0, Math.round(p.getBoundingClientRect().top + window.scrollY - 40));
+    return window.scrollY;
+  });
+  expect(scrolled).toBeGreaterThan(0);
+  await pen(page, "Middlemarch").click();
+  await page.keyboard.type("Dorothea, again");
+  await sheet(page).getByRole("button", { name: "Save note" }).click();
+
+  await expect(sheet(page)).toHaveCount(0);
+  await expect(page.getByRole("status").filter({ hasText: "Note saved on Middlemarch" })).toBeVisible();
+  await expect(pen(page, "Middlemarch")).toBeFocused();
+  await page.waitForLoadState("networkidle");
+  expect(await page.evaluate(() => window.scrollY)).toBe(scrolled);
+});

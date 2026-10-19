@@ -4,6 +4,10 @@ import { useEffect, useLayoutEffect, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { setRefreshRouter } from "./client-actions";
 
+// Why this exists: the phone's screens are shallow URL changes, which leave Next's router holding the
+// page as rendered for the old URL, so a refresh is taken for a navigation and resets the window's
+// scroll. router.push would keep the router in step, but at a server round trip on every open (#181).
+//
 // Lends the router to the client actions, so a save can fetch the page again once it lands.
 //
 // The refresh keeps the window's scroll. A screen opened by history.pushState (the phone's Book screen,
