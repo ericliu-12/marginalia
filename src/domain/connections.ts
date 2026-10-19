@@ -550,6 +550,45 @@ export async function createManualConnection(db: Db, pipeline: Pipeline, userId:
   return created;
 }
 
+export type ManualConnectionEdit = { type?: ConnectionType | null; reason: string };
+
+// Domain seam: the reader changes the reason and type of a Manual Connection of theirs; its Books stay.
+// Validated as when it was made. A changed type moves Clusters, so they are recomputed; a changed reason
+// alone moves nothing and asks for no job. Refused for a judge's Connection, a deleted one, or one that
+// is not the reader's.
+export async function editManualConnection(db: Db, pipeline: Pipeline, userId: string, connectionId: string, edit: ManualConnectionEdit): Promise<void> {
+  const explanation = cleanReason(edit.reason);
+  const type = edit.type ?? null;
+  const retyped = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .select({ type: connection.type })
+      .from(connection)
+      .where(yours(userId, connectionId))
+      .for("update");
+    if (!row) throw new InvalidConnectionError("Only the reader's own live Manual Connection can be edited");
+    await tx.update(connection).set({ type, explanation }).where(eq(connection.id, connectionId));
+    return row.type !== type;
+  });
+  if (retyped) await pipeline.connectionsChanged(userId);
+}
+
+// Domain seam: the reader deletes a Manual Connection of theirs. Like a dismissal, the row stays as the
+// pair's "don't judge again" marker, but keeps none of the reader's words: its reason is emptied and its
+// type cleared. The reader may connect the pair again by hand. The reader's Clusters are recomputed. One
+// already deleted, a judge's, or not the reader's is left alone.
+export async function deleteManualConnection(db: Db, pipeline: Pipeline, userId: string, connectionId: string): Promise<void> {
+  const deleted = await db
+    .update(connection)
+    .set({ dismissedAt: new Date(), explanation: "", type: null })
+    .where(yours(userId, connectionId))
+    .returning({ id: connection.id });
+  if (deleted.length) await pipeline.connectionsChanged(userId);
+}
+
+// The reader's own live Manual Connection by that id.
+const yours = (userId: string, connectionId: string) =>
+  and(eq(connection.id, connectionId), eq(connection.userId, userId), eq(connection.madeBy, "reader"), isNull(connection.dismissedAt));
+
 export type ConnectCandidate = {
   bookId: string;
   title: string;

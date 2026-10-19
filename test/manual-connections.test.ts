@@ -5,7 +5,9 @@ import { pairOf } from "../src/domain/connection-pair";
 import {
   AlreadyConnectedError,
   createManualConnection,
+  deleteManualConnection,
   dropNotesOnlyBreaches,
+  editManualConnection,
   generateConnections,
   InvalidConnectionError,
   notesOnlyBreaches,
@@ -307,6 +309,92 @@ describe("Manual Connections", () => {
     expect(await readConnection(ctx.db, ctx.userId, id)).toMatchObject({ madeBy: "reader", explanation: "Mine.", type: null });
   });
 
+  describe("editing and deleting", () => {
+    const edit = (id: string, change: { type?: "thematic" | "contrast" | "context" | null; reason: string }, userId = ctx.userId) =>
+      editManualConnection(ctx.db, ctx.pipeline, userId, id, change);
+    const del = (id: string, userId = ctx.userId) => deleteManualConnection(ctx.db, ctx.pipeline, userId, id);
+
+    it("changes the reason, validated as when made, and asks for no graph job when only the reason changes", async () => {
+      const a = await finished("Stoner");
+      const b = await finished("Lonely");
+      const { id } = await connect(a, b, { type: "context" });
+      ctx.jobs.sent.length = 0;
+      await expect(edit(id, { type: "context", reason: " \n " })).rejects.toThrow(InvalidConnectionError);
+      await expect(edit(id, { type: "context", reason: "x".repeat(REASON_MAX + 1) })).rejects.toThrow(InvalidConnectionError);
+      await edit(id, { type: "context", reason: "  Both,\n  in the end.\n" });
+      expect(await pairRow(a, b)).toMatchObject({ id, madeBy: "reader", type: "context", strength: "strong", explanation: "Both, in the end.", dismissedAt: null });
+      expect(ctx.jobs.sent).toEqual([]);
+    });
+
+    it("changes the type, or clears it, and the reader's Clusters are recomputed", async () => {
+      const a = await finished("Stoner");
+      const b = await finished("Lonely");
+      const { id } = await connect(a, b);
+      ctx.jobs.sent.length = 0;
+      await edit(id, { type: "thematic", reason: "Read the same winter." });
+      expect(await pairRow(a, b)).toMatchObject({ type: "thematic", explanation: "Read the same winter." });
+      expect(ctx.jobs.sent).toEqual([{ kind: "graph", userId: ctx.userId }]);
+      await edit(id, { reason: "Read the same winter." });
+      expect(await pairRow(a, b)).toMatchObject({ type: null });
+    });
+
+    it("can't touch a judge's Connection, a deleted one, or another reader's", async () => {
+      const a = await finished("Stoner");
+      const b = await finished("Lonely");
+      const c = await finished("Warlike");
+      await connect(a, b);
+      await judgeRun(fakeJudge(linkAll), a);
+      const judged = await pairRow(a, c);
+      await expect(edit(judged.id, { reason: "Mine now." })).rejects.toThrow(InvalidConnectionError);
+      await del(judged.id);
+      expect(await pairRow(a, c)).toEqual(judged);
+
+      const mine = await pairRow(a, b);
+      const second = (await addReader(ctx.db, "second@marginalia.local")).id;
+      await expect(edit(mine.id, { reason: "Theirs." }, second)).rejects.toThrow(InvalidConnectionError);
+      await del(mine.id, second);
+      expect(await pairRow(a, b)).toEqual(mine);
+
+      await del(mine.id);
+      await expect(edit(mine.id, { reason: "Back." })).rejects.toThrow(InvalidConnectionError);
+    });
+
+    it("deletes it as a dismissal that keeps none of the reader's words, and the graph job is asked for", async () => {
+      const a = await finished("Stoner");
+      const b = await finished("Lonely");
+      const { id } = await connect(a, b, { type: "contrast" });
+      ctx.jobs.sent.length = 0;
+      await del(id);
+      expect(await stored()).toEqual([
+        expect.objectContaining({ id, madeBy: "reader", type: null, explanation: "", dismissedAt: expect.any(Date) }),
+      ]);
+      expect(ctx.jobs.sent).toEqual([{ kind: "graph", userId: ctx.userId }]);
+      expect((await readConnections(ctx.db, ctx.userId, a)).cards).toEqual([]);
+      expect(await readConnection(ctx.db, ctx.userId, id)).toBeNull();
+      // Deleting it again changes nothing.
+      ctx.jobs.sent.length = 0;
+      await del(id);
+      expect(ctx.jobs.sent).toEqual([]);
+    });
+
+    it("leaves the pair unjudged on the first run and every Refresh, and lets the reader connect it again", async () => {
+      const a = await finished("Stoner");
+      const b = await finished("Lonely");
+      await finished("Warlike");
+      const { id } = await connect(a, b);
+      await del(id);
+      const judge = fakeJudge(linkAll);
+      await judgeRun(judge, b);
+      await refresh(judge, a);
+      expect(judge.inputs.map((i) => i.candidates.map((x) => x.title))).toEqual([["Warlike"], ["Warlike"]]);
+      expect(await pairRow(a, b)).toMatchObject({ id, madeBy: "reader", explanation: "", dismissedAt: expect.any(Date) });
+
+      expect((await readConnectCandidates(ctx.db, ctx.userId, a)).map((x) => x.title)).toContain("Lonely");
+      await connect(b, a, { reason: "Again." });
+      expect(await pairRow(a, b)).toMatchObject({ id, madeBy: "reader", explanation: "Again.", dismissedAt: null });
+    });
+  });
+
   describe("in Clusters", () => {
     // Background work whose judge finds nothing: only the Manual Connections count.
     const deps = (namer = fakeNamer()): JobDeps => ({
@@ -331,6 +419,21 @@ describe("Manual Connections", () => {
       expect((await readGraph(ctx.db, ctx.userId)).connections).toEqual(
         expect.arrayContaining([expect.objectContaining({ strength: "strong", type: null, featured: true })]),
       );
+    });
+
+    it("dissolves the Cluster it held together on the next graph job once deleted", async () => {
+      const [a, b, c] = [await finished("A"), await finished("B"), await finished("C")];
+      await ctx.jobs.drain(deps());
+      await connect(a, b);
+      const { id } = await connect(b, c);
+      await ctx.jobs.drain(deps());
+      expect((await readGraph(ctx.db, ctx.userId)).clusters).toHaveLength(1);
+
+      await deleteManualConnection(ctx.db, ctx.pipeline, ctx.userId, id);
+      await ctx.jobs.drain(deps());
+      const graph = await readGraph(ctx.db, ctx.userId);
+      expect(graph.clusters).toEqual([]);
+      expect(graph.connections.map((x) => x.id)).not.toContain(id);
     });
 
     it("goes with either Book when it leaves the library", async () => {
