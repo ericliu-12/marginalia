@@ -608,6 +608,12 @@ export function GraphCanvas({
           const clear = 1 - mist(o.x + ((p.x! + q.x!) / 2) * k, o.y + ((p.y! + q.y!) / 2) * k, lens);
           lineShown[l.index] = keep + (1 - keep) * lineDetail(l.connection.strength, look.spacing) * clear;
         }
+        // How much of each Manual Connection on show is drawn, for the browser tests.
+        const yours = links
+          .filter((l) => l.connection.madeBy === "reader" && focus.visible.has(l.id))
+          .map((l) => lineShown[l.index].toFixed(2))
+          .join();
+        if (host.dataset.yours !== yours) host.dataset.yours = yours;
       };
       const dotLeft = (n: Node) => (look.on ? (dotShown[n.index] ?? 1) : 1);
       const lineLeft = (l: Link) => (look.on ? (lineShown[l.index] ?? 1) : 1);
@@ -905,8 +911,9 @@ export function GraphCanvas({
         // Screen pixels: force-graph keeps link widths constant across zoom.
         .linkWidth(widthOf)
         .linkHoverPrecision(6)
-        // A Connection drawing in replaces its line with one growing out from the arriving Book; the
-        // trail's ink casing goes under the Connection's own line.
+        // A Connection drawing in replaces its line with one growing out from the arriving Book (or the
+        // chosen one, for a Manual Connection just made); the trail's ink casing goes under the
+        // Connection's own line.
         .linkCanvasObjectMode((l) =>
           progress(drawing.current.get(l.id), DRAW_MS) < 1 ? "replace" : focusRef.current.trailLinks.has(l.id) ? "before" : undefined,
         )
@@ -915,7 +922,8 @@ export function GraphCanvas({
           const t = l.target as Node;
           const grown = progress(drawing.current.get(l.id), DRAW_MS);
           if (grown < 1) {
-            const [from, to] = landed.current.has(t.id) && !landed.current.has(s.id) ? [t, s] : [s, t];
+            const fromT = landed.current.has(t.id) ? !landed.current.has(s.id) : focusRef.current.chosenBookId === t.id;
+            const [from, to] = fromT ? [t, s] : [s, t];
             const p = easeOut(grown);
             ctx.beginPath();
             ctx.moveTo(from.x!, from.y!);
@@ -1133,6 +1141,13 @@ export function GraphCanvas({
     const now = performance.now();
     const fresh = first || reducedMotion() ? [] : prepared.clusters.filter((c) => !shown.current!.has(c.cluster.id));
     for (const c of fresh) appeared.current.set(c.cluster.id, now);
+    // A Manual Connection made since, between Books already shown, draws in as an arriving one does.
+    const was = dataRef.current;
+    const yours = new Set(was.links.filter((l) => l.connection.madeBy === "reader").map((l) => l.id));
+    const made = reducedMotion()
+      ? []
+      : prepared.links.filter((l) => l.connection.madeBy === "reader" && !yours.has(l.id) && was.byId.has(l.connection.a) && was.byId.has(l.connection.b));
+    for (const l of made) drawing.current.set(l.id, now);
     // A Cluster that forms or takes a new name writes it in.
     // Kept, not replaced, so a graph fetched mid-write doesn't cut it short; a name writes in once, as it mounts.
     if (!first) {
@@ -1146,6 +1161,7 @@ export function GraphCanvas({
     // Redrawn every frame while a Cluster fades in or a wash changes shape, since nothing else is moving.
     if (fresh.length) animateFor.current(WASH_FADE_MS);
     else if (!first && !reducedMotion()) animateFor.current(WASH_SHAPE_MS);
+    if (made.length) animateFor.current(DRAW_MS);
     // Once the canvas has its size, fit the first graph.
     let frame = requestAnimationFrame(function fit() {
       if (first && !fitFirst(f)) frame = requestAnimationFrame(fit);

@@ -119,8 +119,8 @@ export function ConnectionsSection({ bookId, onOpenBook, withheld }: { bookId: s
                 <p className={`caps text-[12px] tracking-[1.2px] ${c.type ? TYPE[c.type].hue : "text-ink-2"}`}>
                   {c.type ? `${TYPE[c.type].label} · ${c.madeBy === "reader" ? "yours" : STRENGTH_LABEL[c.strength]}` : "yours"}
                   {c.grounding === "enrichment" && <span className="text-ink-3"> · Not drawn from your notes</span>}
-                  {/* While its Book arrives in the graph, each Connection is marked new. */}
-                  {withheld && <span className="text-accent"> · New</span>}
+                  {/* While its Book arrives in the graph, each of the judge's Connections is marked new. */}
+                  {withheld && c.madeBy === "judge" && <span className="text-accent"> · New</span>}
                 </p>
                 {c.madeBy === "judge" && (
                   <DismissConnection

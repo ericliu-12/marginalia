@@ -2,7 +2,9 @@ import { eq, inArray, sql } from "drizzle-orm";
 import { Pool } from "pg";
 import { createDb } from "../../src/db/client";
 import { runMigrations } from "../../src/db/migrate";
+import { createManualConnection, type ConnectionType } from "../../src/domain/connections";
 import { layoutGraph } from "../../src/domain/graph";
+import type { Pipeline } from "../../src/domain/pipeline";
 import { runGraphJob } from "../../src/domain/graph-job";
 import { invite, normaliseEmail } from "../../src/domain/allowlist";
 import { allowedEmail, book, bookPosition, clusterLabel, connection, enrichment, libraryEntry, note, paidCall, readThrough, session, user } from "../../src/db/schema";
@@ -337,6 +339,23 @@ export async function atFirstMonthLimit(reader: Reader, joined: Date) {
   await db.update(user).set({ createdAt: joined }).where(eq(user.id, reader.id));
   await db.insert(paidCall).values({ userId: reader.id, provider: "anthropic", model: "e2e", purpose: "judge", inputTokens: 0, outputTokens: 0, costUsd: 1 });
   await pool.end();
+}
+
+// The Reader connects two of their Books by hand, as the Book panel does, without asking for the graph
+// job: the graph stays where it is. Each one made is newer than the last.
+export async function connectByHand(bookId: string, otherBookId: string, reason: string, type: ConnectionType | null = null) {
+  const { db, pool } = createDb(e2eDatabaseUrl());
+  const pipeline = { connectionsChanged: async () => {} } as unknown as Pipeline;
+  await createManualConnection(db, pipeline, READER_A.id, { bookId, otherBookId, reason, type });
+  await pool.end();
+}
+
+// The title of the Book with this id.
+export async function titleOf(bookId: string) {
+  const { db, pool } = createDb(e2eDatabaseUrl());
+  const [row] = await db.select({ title: book.title }).from(book).where(eq(book.id, bookId));
+  await pool.end();
+  return row.title;
 }
 
 // The Book with this title.

@@ -89,7 +89,7 @@ describe("Laying graphs out again", () => {
     const book = (bookId: string, x: number, y: number) => ({
       bookId, title: bookId, authors: [], x, y, label: bookId, degree: 1, finishedAt: 0, latestPass: { startedAt: null, finishedAt: null },
     });
-    const link = (id: string, a: string, b: string) => ({ id, a, b, type: "thematic" as const, strength: "strong" as const, featured: true });
+    const link = (id: string, a: string, b: string) => ({ id, a, b, type: "thematic" as const, strength: "strong" as const, madeBy: "judge" as const, featured: true });
     const graph: GraphView = {
       // Two Connections crossing in an X, and a fifth Book right on top of the first.
       books: [book("A", 0, 0), book("B", 10, 10), book("C", 0, 10), book("D", 10, 0), book("E", 0.1, 0)],

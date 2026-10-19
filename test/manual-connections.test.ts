@@ -10,6 +10,7 @@ import {
   InvalidConnectionError,
   notesOnlyBreaches,
   readConnectCandidates,
+  readConnection,
   readConnections,
   REASON_MAX,
   type ConnectionDeps,
@@ -18,7 +19,7 @@ import {
 } from "../src/domain/connections";
 import { embedEnrichment } from "../src/domain/embeddings";
 import { enrichBook } from "../src/domain/enrichment";
-import { readGraph } from "../src/domain/graph";
+import { DISPLAY_CAP, readGraph } from "../src/domain/graph";
 import { changeStatus, NotInLibraryError, removeFromLibrary } from "../src/domain/library-entry";
 import type { JobDeps } from "../src/domain/pipeline";
 import { connection, paidCall } from "../src/db/schema";
@@ -289,6 +290,21 @@ describe("Manual Connections", () => {
     const cards = (await readConnections(ctx.db, ctx.userId, a)).cards;
     expect(cards.map((c) => c.explanation)).toEqual(["Newer.", "Older.", "Judged."]);
     expect(cards[0]).toMatchObject({ otherBookId: newer, type: null, strength: "strong", grounding: null });
+  });
+
+  it("is the reader's on the graph, shown at rest ahead of a Book's strongest judge Connections, and when chosen", async () => {
+    const hub = await finished("Hub");
+    for (let i = 0; i < DISPLAY_CAP; i++) await finished(`Judged ${i}`);
+    const linkStrong: FakeJudgeReply = (input) => ({
+      connections: input.candidates.map((c) => ({ candidateId: c.id, type: "thematic", strength: "strong", explanation: "Judged.", quotedNoteIds: [] })),
+    });
+    await judgeRun(fakeJudge(linkStrong), hub);
+    const { id } = await connect(hub, await finished("Mine"), { reason: "Mine." });
+
+    const shown = (await readGraph(ctx.db, ctx.userId)).connections;
+    expect(shown.find((c) => c.id === id)).toMatchObject({ madeBy: "reader", strength: "strong", type: null, featured: true });
+    expect(shown.filter((c) => c.id !== id).every((c) => c.madeBy === "judge")).toBe(true);
+    expect(await readConnection(ctx.db, ctx.userId, id)).toMatchObject({ madeBy: "reader", explanation: "Mine.", type: null });
   });
 
   describe("in Clusters", () => {

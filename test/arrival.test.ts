@@ -3,7 +3,7 @@ import { arriving, drawOrder, justFinished } from "@/app/graph/arrival";
 import type { GraphConnection } from "@/domain/graph";
 
 const book = (bookId: string, finishedAt: number) => ({ bookId, finishedAt });
-const connection = (id: string, a: string, b: string, strength: GraphConnection["strength"]): GraphConnection => ({ id, a, b, strength, type: "thematic", featured: true });
+const connection = (id: string, a: string, b: string, strength: GraphConnection["strength"]): GraphConnection => ({ id, a, b, strength, type: "thematic", madeBy: "judge", featured: true });
 
 describe("which Books arrive", () => {
   it("is every Book the graph has not shown before, the most recently finished first", () => {
