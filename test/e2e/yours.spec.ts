@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { UNTYPED_COLOR } from "../../src/app/graph/graph-style";
+import { clickLine } from "./line-click";
 import { bookIdOf, connectByHand, finishBook, seedLargeLibrary, seedLibrary, titleOf } from "./database";
 
 // Manual Connections on the graph and the phone sheet (#175): labelled "yours", first, never "New", and
@@ -15,27 +16,6 @@ async function openGraph(page: Page) {
   await page.waitForTimeout(600);
 }
 
-// The canvas's pixels in the untyped line's edge, in CSS pixels on the page, each with how much of it
-// shows (0 to 1).
-function edgePixels(page: Page) {
-  const edge = [1, 3, 5].map((i) => parseInt(UNTYPED_COLOR.slice(i, i + 2), 16));
-  return page.locator("canvas").evaluate((canvas: HTMLCanvasElement, edge) => {
-    const { data, width } = canvas.getContext("2d")!.getImageData(0, 0, canvas.width, canvas.height);
-    const box = canvas.getBoundingClientRect();
-    const scale = canvas.width / box.width;
-    const hits: { x: number; y: number; a: number }[] = [];
-    for (let i = 0; i < data.length; i += 4) {
-      const a = data[i + 3] / 255;
-      if (a < 0.1) continue;
-      if ([0, 1, 2].every((k) => Math.abs(data[i + k] - edge[k]) <= 8)) {
-        const p = i / 4;
-        hits.push({ x: box.left + (p % width) / scale, y: box.top + Math.floor(p / width) / scale, a });
-      }
-    }
-    return hits;
-  }, edge);
-}
-
 test.describe("on the desktop graph", () => {
   test.beforeEach(async () => {
     await seedLibrary();
@@ -44,14 +24,7 @@ test.describe("on the desktop graph", () => {
   test("clicking a Manual Connection's line shows its card: yours, the reason, no Dismiss", async ({ page }) => {
     await connectByHand(await bookIdOf("Stoner"), await bookIdOf("Candide"), "Both read the winter my father was ill.");
     await openGraph(page);
-    const hits = await edgePixels(page);
-    expect(hits.length).toBeGreaterThan(100);
-    // The middle of the line, between its two ends.
-    const [left, right] = [hits.reduce((p, q) => (q.x < p.x ? q : p)), hits.reduce((p, q) => (q.x > p.x ? q : p))];
-    const at = { x: (left.x + right.x) / 2, y: (left.y + right.y) / 2 };
-    await page.mouse.move(at.x, at.y);
-    await expect.poll(() => page.evaluate(() => document.querySelector<HTMLElement>("canvas")!.closest<HTMLElement>("[aria-hidden]")!.style.cursor)).toBe("pointer");
-    await page.mouse.click(at.x, at.y);
+    await clickLine(page, UNTYPED_COLOR);
 
     const panel = page.getByRole("complementary", { name: "Connection" });
     await expect(panel.getByRole("heading", { level: 2 })).toContainText("Stoner");

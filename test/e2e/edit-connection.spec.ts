@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { UNTYPED_COLOR } from "../../src/app/graph/graph-style";
+import { clickLine } from "./line-click";
 import { bookIdOf, connectByHand, connectionBetween, refreshWithJudge, seedLibrary, settleGraph } from "./database";
 
 // Editing and deleting the reader's own Connections (#176), on the seeded chain with one made by hand:
@@ -130,37 +131,10 @@ test("deleting asks first, keeps none of the reader's words, the judge never con
   expect(await connectionBetween("Stoner", "Candide")).toMatchObject({ madeBy: "reader", explanation: "Again, after all.", dismissedAt: null });
 });
 
-// The canvas's pixels in the untyped line's edge, in CSS pixels on the page (as in yours.spec.ts).
-function edgePixels(page: Page) {
-  const edge = [1, 3, 5].map((i) => parseInt(UNTYPED_COLOR.slice(i, i + 2), 16));
-  return page.locator("canvas").evaluate((canvas: HTMLCanvasElement, edge) => {
-    const { data, width } = canvas.getContext("2d")!.getImageData(0, 0, canvas.width, canvas.height);
-    const box = canvas.getBoundingClientRect();
-    const scale = canvas.width / box.width;
-    const hits: { x: number; y: number }[] = [];
-    for (let i = 0; i < data.length; i += 4) {
-      if (data[i + 3] / 255 < 0.1) continue;
-      if ([0, 1, 2].every((k) => Math.abs(data[i + k] - edge[k]) <= 8)) {
-        const p = i / 4;
-        hits.push({ x: box.left + (p % width) / scale, y: box.top + Math.floor(p / width) / scale });
-      }
-    }
-    return hits;
-  }, edge);
-}
-
 test("the graph's connection panel edits and deletes your own, and its line leaves once the graph re-settles", async ({ page }) => {
   await page.goto("/graph");
   await expect(page.locator("canvas")).toBeVisible();
-  await page.waitForTimeout(600);
-  const hits = await edgePixels(page);
-  expect(hits.length).toBeGreaterThan(100);
-  const [left, right] = [hits.reduce((p, q) => (q.x < p.x ? q : p)), hits.reduce((p, q) => (q.x > p.x ? q : p))];
-  // Near Stoner's end: the middle of the line crosses the chain's.
-  const at = { x: left.x + (right.x - left.x) * 0.15, y: left.y + (right.y - left.y) * 0.15 };
-  await page.mouse.move(at.x, at.y);
-  await expect.poll(() => page.evaluate(() => document.querySelector<HTMLElement>("canvas")!.closest<HTMLElement>("[aria-hidden]")!.style.cursor)).toBe("pointer");
-  await page.mouse.click(at.x, at.y);
+  await clickLine(page, UNTYPED_COLOR);
 
   const panel = page.getByRole("complementary", { name: "Connection" });
   await expect(panel.getByRole("heading", { level: 2 })).toContainText("Candide");
